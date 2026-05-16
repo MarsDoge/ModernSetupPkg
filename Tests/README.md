@@ -21,6 +21,8 @@ Tests
 - ArmVirtQemu AARCH64 build validation through `Scripts/build-armvirt.sh`.
 - Manual QEMU graphics validation through `Scripts/run-armvirt.sh`.
 - Manual keyboard navigation validation for tab focus and content focus.
+- Manual HII bridge validation using edk2 DriverSampleDxe in the ArmVirt
+  overlay.
 
 ## Planned Coverage
 

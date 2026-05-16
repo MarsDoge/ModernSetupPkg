@@ -9,6 +9,7 @@
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
+#include <Library/HiiLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/PrintLib.h>
 #include <Library/UefiBootManagerLib.h>
@@ -17,6 +18,7 @@
 #include <Library/UefiRuntimeServicesTableLib.h>
 #include <Protocol/LoadedImage.h>
 
+#include <ModernUi/ModernUiHiiBridge.h>
 #include <ModernUi/ModernUiInput.h>
 #include <ModernUi/ModernUiRenderer.h>
 #include <ModernUi/ModernUiString.h>
@@ -29,15 +31,18 @@
 #define FOOTER_HEIGHT      36
 #define SCREEN_MARGIN      24
 #define MAX_BOOT_ROWS      9
+#define MAX_HII_ROWS       9
 
 STATIC CONST EFI_GUID  mUiAppGuid = { 0x462CAA21, 0x7614, 0x4503, { 0x83, 0x6E, 0x8A, 0xB6, 0xF4, 0x66, 0x23, 0x31 } };
 STATIC EFI_HANDLE      mImageHandle;
+STATIC MODERN_UI_HII_MODEL  mHiiModel;
 
 typedef enum {
   PageDashboard = 0,
   PageBoot,
   PageDevices,
   PageSecurity,
+  PageHii,
   PageExit,
   PageMax
 } SETUP_PAGE;
@@ -47,19 +52,35 @@ typedef enum {
   SetupFocusContent
 } SETUP_FOCUS;
 
+typedef enum {
+  HiiViewFormSets = 0,
+  HiiViewForms,
+  HiiViewItems
+} HII_VIEW_LEVEL;
+
 typedef struct {
   SETUP_PAGE           Page;
   MODERN_UI_STRING_ID  Title;
   MODERN_UI_STRING_ID  Hint;
 } PAGE_DESCRIPTOR;
 
+typedef struct {
+  HII_VIEW_LEVEL  Level;
+  UINTN           FormSetIndex;
+  UINTN           FormIndex;
+  UINTN           Selection;
+} HII_VIEW_STATE;
+
 STATIC CONST PAGE_DESCRIPTOR  mPages[] = {
   { PageDashboard, ModernUiStringPageDashboard, ModernUiStringPageDashboardHint },
   { PageBoot,      ModernUiStringPageBoot,      ModernUiStringPageBootHint      },
   { PageDevices,   ModernUiStringPageDevices,   ModernUiStringPageDevicesHint   },
   { PageSecurity,  ModernUiStringPageSecurity,  ModernUiStringPageSecurityHint  },
+  { PageHii,       ModernUiStringPageHii,       ModernUiStringPageHiiHint       },
   { PageExit,      ModernUiStringPageExit,      ModernUiStringPageExitHint      }
 };
+
+STATIC HII_VIEW_STATE  mHiiView = { HiiViewFormSets, 0, 0, 0 };
 
 /**
   Blend two colors by percentage weight.
@@ -111,6 +132,8 @@ GetPageSelection (
       return BootSelection;
     case PageDevices:
       return DeviceSelection;
+    case PageHii:
+      return mHiiView.Selection;
     case PageExit:
       return ExitSelection;
     default:
@@ -143,6 +166,9 @@ SetPageSelection (
       break;
     case PageDevices:
       *DeviceSelection = Selection;
+      break;
+    case PageHii:
+      mHiiView.Selection = Selection;
       break;
     case PageExit:
       *ExitSelection = Selection;
@@ -419,6 +445,36 @@ GetVisibleDeviceCount (
 }
 
 /**
+  Return the selectable row count for the current HII bridge view.
+
+  @return Number of selectable HII rows available for the current view.
+**/
+STATIC
+UINTN
+GetHiiSelectableCount (
+  VOID
+  )
+{
+  if (mHiiView.Level == HiiViewFormSets) {
+    return MIN (mHiiModel.FormSetCount, MAX_HII_ROWS);
+  }
+
+  if (mHiiView.FormSetIndex >= mHiiModel.FormSetCount) {
+    return 0;
+  }
+
+  if (mHiiView.Level == HiiViewForms) {
+    return MIN (mHiiModel.FormSets[mHiiView.FormSetIndex].FormCount, MAX_HII_ROWS);
+  }
+
+  if (mHiiView.FormIndex >= mHiiModel.FormSets[mHiiView.FormSetIndex].FormCount) {
+    return 0;
+  }
+
+  return MIN (mHiiModel.FormSets[mHiiView.FormSetIndex].Forms[mHiiView.FormIndex].ItemCount, MAX_HII_ROWS);
+}
+
+/**
   Return the selectable row count for one page.
 
   @param[in] Page  Page whose selectable count is requested.
@@ -436,6 +492,8 @@ GetPageSelectableCount (
       return MIN (GetBootCount (), MAX_BOOT_ROWS);
     case PageDevices:
       return GetVisibleDeviceCount ();
+    case PageHii:
+      return GetHiiSelectableCount ();
     case PageExit:
       return 3;
     default:
@@ -931,6 +989,265 @@ DrawDevices (
 }
 
 /**
+  Return an allocated HII string for the active ModernSetup language.
+
+  DriverSample ships English strings, while ModernSetup defaults to zh-Hans.
+  The lookup therefore falls back to en-US before returning Fallback.
+
+  @param[in] HiiHandle  HII package-list handle. Must not be NULL.
+  @param[in] StringId   String token to resolve.
+  @param[in] Fallback   Fallback string when HII lookup fails. Must not be NULL.
+
+  @return Allocated HII string owned by the caller, or Fallback when lookup
+          fails. The caller must only free the return value when it differs
+          from Fallback.
+**/
+STATIC
+CONST CHAR16 *
+GetHiiDisplayString (
+  IN EFI_HII_HANDLE  HiiHandle,
+  IN EFI_STRING_ID   StringId,
+  IN CONST CHAR16    *Fallback
+  )
+{
+  CHAR16  *Text;
+
+  if ((HiiHandle == NULL) || (StringId == 0)) {
+    return Fallback;
+  }
+
+  Text = HiiGetString (HiiHandle, StringId, ModernUiGetLanguage ());
+  if (Text == NULL) {
+    Text = HiiGetString (HiiHandle, StringId, "en-US");
+  }
+
+  if (Text == NULL) {
+    Text = HiiGetString (HiiHandle, StringId, "en");
+  }
+
+  return (Text == NULL) ? Fallback : Text;
+}
+
+/**
+  Free a HII display string when it was allocated by HiiGetString().
+
+  @param[in] Text      String returned by GetHiiDisplayString(). May be NULL.
+  @param[in] Fallback  Fallback pointer passed to GetHiiDisplayString().
+**/
+STATIC
+VOID
+FreeHiiDisplayString (
+  IN CONST CHAR16  *Text,
+  IN CONST CHAR16  *Fallback
+  )
+{
+  if ((Text != NULL) && (Text != Fallback)) {
+    FreePool ((VOID *)Text);
+  }
+}
+
+/**
+  Return a display string for one HII item value.
+
+  @param[in] FormSet  Formset that owns Item. Must not be NULL.
+  @param[in] Item     Item to describe. Must not be NULL.
+  @param[out] Buffer  Output text buffer. Must not be NULL.
+  @param[in] Size     Size of Buffer in bytes.
+**/
+STATIC
+VOID
+FormatHiiItemValue (
+  IN  MODERN_UI_HII_FORMSET  *FormSet,
+  IN  MODERN_UI_HII_ITEM     *Item,
+  OUT CHAR16                 *Buffer,
+  IN  UINTN                  Size
+  )
+{
+  UINTN         Index;
+  CONST CHAR16  *OptionText;
+  CONST CHAR16  *Fallback;
+
+  if ((FormSet == NULL) || (Item == NULL) || (Buffer == NULL) || (Size < sizeof (CHAR16))) {
+    return;
+  }
+
+  Buffer[0] = L'\0';
+  if (Item->Unsupported) {
+    StrCpyS (Buffer, Size / sizeof (CHAR16), ModernUiGetString (ModernUiStringHiiUnsupported));
+    return;
+  }
+
+  if (Item->ReadOnly || ((Item->QuestionFlags & EFI_IFR_FLAG_CALLBACK) != 0)) {
+    StrCpyS (Buffer, Size / sizeof (CHAR16), ModernUiGetString (ModernUiStringHiiReadOnly));
+    return;
+  }
+
+  switch (Item->Type) {
+    case ModernUiHiiItemCheckbox:
+      StrCpyS (Buffer, Size / sizeof (CHAR16), (Item->CurrentValue != 0) ? ModernUiGetString (ModernUiStringEnabled) : ModernUiGetString (ModernUiStringDisabled));
+      break;
+    case ModernUiHiiItemOneOf:
+      for (Index = 0; Index < Item->OptionCount; Index++) {
+        if (Item->Options[Index].Value == Item->CurrentValue) {
+          Fallback   = L"(option)";
+          OptionText = GetHiiDisplayString (FormSet->HiiHandle, Item->Options[Index].PromptId, Fallback);
+          StrnCpyS (Buffer, Size / sizeof (CHAR16), OptionText, (Size / sizeof (CHAR16)) - 1);
+          FreeHiiDisplayString (OptionText, Fallback);
+          return;
+        }
+      }
+
+      UnicodeSPrint (Buffer, Size, L"0x%lx", Item->CurrentValue);
+      break;
+    case ModernUiHiiItemNumeric:
+      if ((Item->NumericFlags & EFI_IFR_DISPLAY) == EFI_IFR_DISPLAY_UINT_HEX) {
+        UnicodeSPrint (Buffer, Size, L"0x%lx", Item->CurrentValue);
+      } else {
+        UnicodeSPrint (Buffer, Size, L"%lu", Item->CurrentValue);
+      }
+      break;
+    case ModernUiHiiItemString:
+      StrCpyS (Buffer, Size / sizeof (CHAR16), ModernUiGetString (ModernUiStringHiiReadOnly));
+      break;
+    case ModernUiHiiItemRef:
+      StrCpyS (Buffer, Size / sizeof (CHAR16), L">");
+      break;
+    default:
+      break;
+  }
+}
+
+/**
+  Draw one selectable HII bridge row.
+
+  @param[in] Ui          Initialized render context. Must not be NULL.
+  @param[in] Theme       Theme token table. Must not be NULL.
+  @param[in] Panel       Content panel rectangle.
+  @param[in] Row         Zero-based visible row index.
+  @param[in] Selected    TRUE when the row is selected.
+  @param[in] Primary     Primary row text. Must not be NULL.
+  @param[in] Secondary   Optional secondary text. May be NULL.
+**/
+STATIC
+VOID
+DrawHiiRow (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN MODERN_UI_RECT            Panel,
+  IN UINTN                     Row,
+  IN BOOLEAN                   Selected,
+  IN CONST CHAR16              *Primary,
+  IN CONST CHAR16              *Secondary
+  )
+{
+  UINTN       RowX;
+  UINTN       RowWidth;
+  UINTN       Y;
+  CHAR16      Line[192];
+
+  RowX     = Panel.X + 20;
+  RowWidth = Panel.Width - 40;
+  Y        = Panel.Y + 62 + Row * 36;
+
+  if ((Secondary != NULL) && (Secondary[0] != L'\0')) {
+    UnicodeSPrint (Line, sizeof (Line), L"%s  -  %s", Primary, Secondary);
+  } else {
+    StrnCpyS (Line, ARRAY_SIZE (Line), Primary, ARRAY_SIZE (Line) - 1);
+  }
+
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Y - 8, RowWidth, 30 }, Selected ? Theme->AccentSoft : Theme->Surface);
+  if (Selected) {
+    ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Y - 8, 4, 30 }, Theme->Accent);
+  }
+
+  DrawTextFit (Ui, RowX + 16, Y, RowWidth - 32, Line, Selected ? Theme->Text : Theme->MutedText, Selected ? Theme->AccentSoft : Theme->Surface);
+}
+
+/**
+  Draw DriverSample HII bridge content.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] Focus  Current focus area.
+**/
+STATIC
+VOID
+DrawHiiBridge (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus
+  )
+{
+  MODERN_UI_RECT          Panel;
+  UINTN                   Index;
+  BOOLEAN                 IsSelected;
+  MODERN_UI_HII_FORMSET   *FormSet;
+  MODERN_UI_HII_FORM      *Form;
+  MODERN_UI_HII_ITEM      *Item;
+  CONST CHAR16            *Title;
+  CONST CHAR16            *Fallback;
+  CHAR16                  Value[96];
+
+  Panel = ContentRect (Ui);
+  ModernUiDrawPanel (Ui, Panel, Theme);
+  DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, ModernUiGetString (ModernUiStringHiiEnterForm), Theme->MutedText, Theme->Surface);
+
+  if (mHiiModel.FormSetCount == 0) {
+    ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 66, ModernUiGetString (ModernUiStringHiiNoFormsets), Theme->Warning, Theme->Surface);
+    return;
+  }
+
+  if (mHiiView.Level == HiiViewFormSets) {
+    for (Index = 0; (Index < mHiiModel.FormSetCount) && (Index < MAX_HII_ROWS); Index++) {
+      FormSet    = &mHiiModel.FormSets[Index];
+      IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Index == mHiiView.Selection));
+      Fallback   = ModernUiGetString (ModernUiStringHiiFormsets);
+      Title      = GetHiiDisplayString (FormSet->HiiHandle, FormSet->TitleId, Fallback);
+      UnicodeSPrint (Value, sizeof (Value), L"%u forms", FormSet->FormCount);
+      DrawHiiRow (Ui, Theme, Panel, Index, IsSelected, Title, Value);
+      FreeHiiDisplayString (Title, Fallback);
+    }
+
+    return;
+  }
+
+  if (mHiiView.FormSetIndex >= mHiiModel.FormSetCount) {
+    return;
+  }
+
+  FormSet = &mHiiModel.FormSets[mHiiView.FormSetIndex];
+  if (mHiiView.Level == HiiViewForms) {
+    for (Index = 0; (Index < FormSet->FormCount) && (Index < MAX_HII_ROWS); Index++) {
+      Form       = &FormSet->Forms[Index];
+      IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Index == mHiiView.Selection));
+      Fallback   = ModernUiGetString (ModernUiStringHiiForms);
+      Title      = GetHiiDisplayString (FormSet->HiiHandle, Form->TitleId, Fallback);
+      UnicodeSPrint (Value, sizeof (Value), L"%u items", Form->ItemCount);
+      DrawHiiRow (Ui, Theme, Panel, Index, IsSelected, Title, Value);
+      FreeHiiDisplayString (Title, Fallback);
+    }
+
+    return;
+  }
+
+  if (mHiiView.FormIndex >= FormSet->FormCount) {
+    return;
+  }
+
+  Form = &FormSet->Forms[mHiiView.FormIndex];
+  for (Index = 0; (Index < Form->ItemCount) && (Index < MAX_HII_ROWS); Index++) {
+    Item       = &Form->Items[Index];
+    IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Index == mHiiView.Selection));
+    Fallback   = ModernUiGetString (ModernUiStringHiiItems);
+    Title      = GetHiiDisplayString (FormSet->HiiHandle, Item->PromptId, Fallback);
+    FormatHiiItemValue (FormSet, Item, Value, sizeof (Value));
+    DrawHiiRow (Ui, Theme, Panel, Index, IsSelected, Title, Value);
+    FreeHiiDisplayString (Title, Fallback);
+  }
+}
+
+/**
   Draw the Security page with read-only Secure Boot state.
 
   @param[in] Ui     Initialized render context. Must not be NULL.
@@ -1006,6 +1323,139 @@ DrawExit (
     }
 
     ModernUiDrawText (Ui, RowX + 20, Y, (CHAR16 *)Items[Index], IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
+  }
+}
+
+/**
+  Navigate one level back in the HII bridge view.
+
+  @retval TRUE   The HII view consumed the back action.
+  @retval FALSE  The HII view was already at the top level.
+**/
+STATIC
+BOOLEAN
+HiiViewBack (
+  VOID
+  )
+{
+  if (mHiiView.Level == HiiViewItems) {
+    mHiiView.Level     = HiiViewForms;
+    mHiiView.Selection = mHiiView.FormIndex;
+    return TRUE;
+  }
+
+  if (mHiiView.Level == HiiViewForms) {
+    mHiiView.Level     = HiiViewFormSets;
+    mHiiView.Selection = mHiiView.FormSetIndex;
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+/**
+  Find a form by form ID in the current HII formset.
+
+  @param[in]  FormSet       Formset to search. Must not be NULL.
+  @param[in]  FormId        Form ID to locate.
+  @param[out] FormIndex     Receives the form index. Must not be NULL.
+
+  @retval TRUE   Matching form was found.
+  @retval FALSE  No matching form exists.
+**/
+STATIC
+BOOLEAN
+FindHiiFormIndex (
+  IN  MODERN_UI_HII_FORMSET  *FormSet,
+  IN  EFI_FORM_ID            FormId,
+  OUT UINTN                  *FormIndex
+  )
+{
+  UINTN  Index;
+
+  if ((FormSet == NULL) || (FormIndex == NULL)) {
+    return FALSE;
+  }
+
+  for (Index = 0; Index < FormSet->FormCount; Index++) {
+    if (FormSet->Forms[Index].FormId == FormId) {
+      *FormIndex = Index;
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+  Execute Enter on the current HII bridge selection.
+
+  @param[out] StatusMessage  Status buffer for user-visible feedback. Must not
+                             be NULL.
+  @param[in]  StatusSize     Size of StatusMessage in bytes.
+**/
+STATIC
+VOID
+HiiViewEnter (
+  OUT CHAR16  *StatusMessage,
+  IN  UINTN   StatusSize
+  )
+{
+  MODERN_UI_HII_FORMSET  *FormSet;
+  MODERN_UI_HII_FORM     *Form;
+  MODERN_UI_HII_ITEM     *Item;
+  EFI_STATUS             Status;
+  UINTN                  TargetFormIndex;
+
+  if ((StatusMessage == NULL) || (StatusSize < sizeof (CHAR16))) {
+    return;
+  }
+
+  StatusMessage[0] = L'\0';
+  if (mHiiView.Level == HiiViewFormSets) {
+    if (mHiiView.Selection < mHiiModel.FormSetCount) {
+      mHiiView.FormSetIndex = mHiiView.Selection;
+      mHiiView.Level        = HiiViewForms;
+      mHiiView.Selection    = 0;
+    }
+
+    return;
+  }
+
+  if (mHiiView.FormSetIndex >= mHiiModel.FormSetCount) {
+    return;
+  }
+
+  FormSet = &mHiiModel.FormSets[mHiiView.FormSetIndex];
+  if (mHiiView.Level == HiiViewForms) {
+    if (mHiiView.Selection < FormSet->FormCount) {
+      mHiiView.FormIndex = mHiiView.Selection;
+      mHiiView.Level     = HiiViewItems;
+      mHiiView.Selection = 0;
+    }
+
+    return;
+  }
+
+  if (mHiiView.FormIndex >= FormSet->FormCount) {
+    return;
+  }
+
+  Form = &FormSet->Forms[mHiiView.FormIndex];
+  if (mHiiView.Selection >= Form->ItemCount) {
+    return;
+  }
+
+  Item = &Form->Items[mHiiView.Selection];
+  if ((Item->Type == ModernUiHiiItemRef) && FindHiiFormIndex (FormSet, Item->TargetFormId, &TargetFormIndex)) {
+    mHiiView.FormIndex = TargetFormIndex;
+    mHiiView.Selection = 0;
+    return;
+  }
+
+  Status = ModernUiHiiBridgeApplyNextValue (&mHiiModel, mHiiView.FormSetIndex, mHiiView.FormIndex, mHiiView.Selection);
+  if (EFI_ERROR (Status)) {
+    UnicodeSPrint (StatusMessage, StatusSize, ModernUiGetString (ModernUiStringHiiRouteReturnedFormat), Status);
   }
 }
 
@@ -1106,6 +1556,9 @@ DrawPage (
     case PageSecurity:
       DrawSecurity (Ui, Theme, Focus);
       break;
+    case PageHii:
+      DrawHiiBridge (Ui, Theme, Focus);
+      break;
     case PageExit:
       DrawExit (Ui, Theme, Focus, ExitSelection);
       break;
@@ -1158,6 +1611,7 @@ UefiMain (
 
   EfiBootManagerConnectAll ();
   EfiBootManagerRefreshAllBootOption ();
+  ModernUiHiiBridgeLoad (&mHiiModel);
   ModernUiInputInit (&Input);
   Theme         = ModernUiGetTheme ();
   Page          = PageDashboard;
@@ -1230,7 +1684,10 @@ UefiMain (
         Redraw = TRUE;
         break;
       case ModernUiInputEscape:
-        if (Focus == SetupFocusContent) {
+        if ((Focus == SetupFocusContent) && (Page == PageHii) && HiiViewBack ()) {
+          StatusMessage[0] = L'\0';
+          Redraw = TRUE;
+        } else if (Focus == SetupFocusContent) {
           Focus  = SetupFocusNav;
           Redraw = TRUE;
         } else {
@@ -1246,6 +1703,9 @@ UefiMain (
         } else if (Page == PageBoot) {
           Status = LaunchSelectedBootOption (BootSelection);
           UnicodeSPrint (StatusMessage, sizeof (StatusMessage), ModernUiGetString (ModernUiStringBootReturnedFormat), Status);
+          Redraw = TRUE;
+        } else if (Page == PageHii) {
+          HiiViewEnter (StatusMessage, sizeof (StatusMessage));
           Redraw = TRUE;
         } else if (Page == PageExit) {
           if (ExitSelection == 0) {

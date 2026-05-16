@@ -1,19 +1,19 @@
 ## @file
-# Modern graphical setup application.
+# HII/IFR bridge library for ModernSetupPkg.
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 ##
 
 [Defines]
   INF_VERSION                    = 0x00010005
-  BASE_NAME                      = ModernSetupApp
-  FILE_GUID                      = 26C98B3A-29DD-4F73-A07A-4A4E0E1D9C4C
+  BASE_NAME                      = ModernUiHiiBridgeLib
+  FILE_GUID                      = 8C3F144B-C1B4-4D3E-AF8C-B63FA6D49E8F
   MODULE_TYPE                    = UEFI_APPLICATION
   VERSION_STRING                 = 0.1
-  ENTRY_POINT                    = UefiMain
+  LIBRARY_CLASS                  = ModernUiHiiBridgeLib|UEFI_APPLICATION
 
 [Sources]
-  ModernSetupApp.c
+  ModernUiHiiBridgeLib.c
 
 [Packages]
   MdePkg/MdePkg.dec
@@ -24,23 +24,18 @@
   BaseLib
   BaseMemoryLib
   DebugLib
-  DevicePathLib
   HiiLib
   MemoryAllocationLib
-  ModernUiHiiBridgeLib
-  ModernUiInputLib
-  ModernUiRendererLib
-  ModernUiStringLib
-  ModernUiThemeLib
   PrintLib
-  UefiApplicationEntryPoint
-  UefiBootManagerLib
   UefiBootServicesTableLib
+  UefiHiiServicesLib
   UefiLib
-  UefiRuntimeServicesTableLib
 
 [Protocols]
-  gEfiLoadedImageProtocolGuid
+  gEfiHiiConfigAccessProtocolGuid
+  gEfiHiiConfigRoutingProtocolGuid
+  gEfiHiiDatabaseProtocolGuid
 
 [Guids]
-  gEfiGlobalVariableGuid
+  gDriverSampleFormSetGuid
+  gDriverSampleInventoryGuid

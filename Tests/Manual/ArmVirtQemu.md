@@ -13,11 +13,19 @@ For English fallback verification:
 MODERN_SETUP_LANGUAGE=en-US ModernSetupPkg/Scripts/build-armvirt.sh
 ```
 
+For overlay verification without the DriverSample HII demo:
+
+```sh
+MODERN_SETUP_DEMO_DRIVER_SAMPLE=0 ModernSetupPkg/Scripts/build-armvirt.sh
+```
+
 Expected result:
 
 - Build exits successfully.
 - `Build/ArmVirtQemu-AArch64/DEBUG_CLANGDWARF/FV/QEMU_EFI.fd` exists.
 - `Build/ArmVirtQemu-AArch64/DEBUG_CLANGDWARF/FV/QEMU_VARS.fd` exists.
+- The default build firmware image contains both `ModernSetupApp` and
+  `DriverSample`.
 
 ## Run
 
@@ -43,7 +51,8 @@ Expected result:
 - Header shows firmware utility name, mode, architecture, and resolution.
 - Default build shows Simplified Chinese UI strings for the header, tabs,
   page titles, footer hints, and status text.
-- English fallback build shows Dashboard, Boot, Devices, Security, and Exit.
+- English fallback build shows Dashboard, Boot, Devices, Security, HII, and
+  Exit.
 - `Left` and `Right` move between tabs while tab focus is active.
 - `Down` or `Enter` moves focus into the page content area.
 - `Left` or `Esc` moves focus back to the top tab bar.
@@ -58,3 +67,20 @@ Expected result:
   content panel rather than spilling past the right edge.
 - Chinese, ASCII, numbers, `Boot####`, and device paths can appear on the same
   screen without missing-glyph boxes for built-in UI text.
+
+## HII Bridge Checks
+
+- Open the HII or `高级设置` tab.
+- The formset list shows DriverSample main setup and Inventory formsets when
+  `MODERN_SETUP_DEMO_DRIVER_SAMPLE` is enabled.
+- `Enter` opens a formset, then opens a form, then selects a row.
+- DriverSample form rows render text, goto/ref, checkbox, one-of, numeric, and
+  string questions without crashing or spilling past the content panel.
+- Supported checkbox, one-of, and numeric rows that are buffer-varstore backed,
+  not read-only, and not callback-driven can be advanced with `Enter`.
+- Returning to the same form after a successful write shows the refreshed value.
+- String rows and complex opcodes such as ordered list, date, time, action,
+  reset button, GUID op, security, match2, and refresh remain read-only or show
+  an unsupported status.
+- Exit page fallback to classic UiApp still works, and DriverSample remains
+  available there for comparison with the native FormBrowser.

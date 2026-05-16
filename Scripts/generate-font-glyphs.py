@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a minimal built-in bitmap glyph table for ModernUiRendererLib."""
+"""Generate a minimal anti-aliased glyph table for ModernUiRendererLib."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 
-def collect_chars(source: Path) -> list[str]:
-    """Return sorted non-ASCII characters used by UCS-2 string literals."""
+def collect_c_chars(source: Path) -> set[str]:
+    """Return non-ASCII characters used by UCS-2 string literals."""
 
     text = source.read_text(encoding="utf-8")
     chars: set[str] = set()
@@ -19,11 +19,35 @@ def collect_chars(source: Path) -> list[str]:
         for char in match.group(1):
             if ord(char) > 0x7F:
                 chars.add(char)
+    return chars
+
+
+def collect_uni_chars(source: Path) -> set[str]:
+    """Return non-ASCII characters used by edk2 UNI string lines."""
+
+    text = source.read_text(encoding="utf-8", errors="ignore")
+    chars: set[str] = set()
+    for match in re.finditer(r'"([^"]*)"', text):
+        for char in match.group(1):
+            if ord(char) > 0x7F:
+                chars.add(char)
+    return chars
+
+
+def collect_chars(sources: list[Path]) -> list[str]:
+    """Return sorted non-ASCII characters from C and UNI source files."""
+
+    chars: set[str] = set()
+    for source in sources:
+        if source.suffix.lower() == ".uni":
+            chars.update(collect_uni_chars(source))
+        else:
+            chars.update(collect_c_chars(source))
     return sorted(chars, key=ord)
 
 
-def render_rows(font: ImageFont.FreeTypeFont, char: str, size: int) -> list[int]:
-    """Render one character into fixed-size monochrome bitmap rows."""
+def render_bitmap(font: ImageFont.FreeTypeFont, char: str, size: int) -> list[int]:
+    """Render one character into fixed-size 8-bit alpha bitmap pixels."""
 
     image = Image.new("L", (size, size), 0)
     draw = ImageDraw.Draw(image)
@@ -34,22 +58,19 @@ def render_rows(font: ImageFont.FreeTypeFont, char: str, size: int) -> list[int]
     y = (size - height) // 2 - bbox[1]
     draw.text((x, y), char, fill=255, font=font)
 
-    rows: list[int] = []
+    pixels: list[int] = []
     for y_pos in range(size):
-        value = 0
         for x_pos in range(size):
-            if image.getpixel((x_pos, y_pos)) > 96:
-                value |= 1 << (size - 1 - x_pos)
-        rows.append(value)
-    return rows
+            pixels.append(image.getpixel((x_pos, y_pos)))
+    return pixels
 
 
-def write_c_file(output: Path, chars: list[str], rows_by_char: dict[str, list[int]]) -> None:
+def write_c_file(output: Path, chars: list[str], pixels_by_char: dict[str, list[int]], size: int) -> None:
     """Write the renderer's generated C glyph table to the output path."""
 
     lines: list[str] = [
         "/** @file",
-        "  Generated minimal bitmap glyph table for ModernUiRendererLib.",
+        "  Generated minimal anti-aliased glyph table for ModernUiRendererLib.",
         "",
         "  Source font: Noto Sans CJK SC Regular, SIL Open Font License 1.1.",
         "  Regenerate with Scripts/generate-font-glyphs.py.",
@@ -62,8 +83,8 @@ def write_c_file(output: Path, chars: list[str], rows_by_char: dict[str, list[in
         "STATIC CONST MODERN_UI_BUILTIN_GLYPH  mModernUiBuiltinGlyphs[] = {",
     ]
     for char in chars:
-        rows = ", ".join(f"0x{row:04X}" for row in rows_by_char[char])
-        lines.append(f"  {{ 0x{ord(char):04X}, 16, 16, {{ {rows} }} }},  // {char}")
+        pixels = ", ".join(f"{pixel:3d}" for pixel in pixels_by_char[char])
+        lines.append(f"  {{ 0x{ord(char):04X}, {size}, {size}, {size}, {{ {pixels} }} }},  // {char}")
     lines.extend(
         [
             "};",
@@ -102,10 +123,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--font", required=True, type=Path, help="Path to NotoSansCJKsc-Regular.otf")
     parser.add_argument(
-        "--strings",
-        default=Path("Library/ModernUiStringLib/ModernUiStringLib.c"),
+        "--source",
+        action="append",
+        default=[Path("Library/ModernUiStringLib/ModernUiStringLib.c")],
         type=Path,
-        help="Source file containing localized CHAR16 strings.",
+        help="Source file containing localized CHAR16 or UNI strings. May be repeated.",
     )
     parser.add_argument(
         "--output",
@@ -113,13 +135,14 @@ def main() -> None:
         type=Path,
         help="Generated C output path.",
     )
-    parser.add_argument("--font-size", default=15, type=int, help="FreeType font size used for 16x16 glyphs.")
+    parser.add_argument("--glyph-size", default=18, type=int, help="Fixed glyph bitmap size in pixels.")
+    parser.add_argument("--font-size", default=17, type=int, help="FreeType font size used for glyph rendering.")
     args = parser.parse_args()
 
-    chars = collect_chars(args.strings)
+    chars = collect_chars(args.source)
     font = ImageFont.truetype(str(args.font), args.font_size)
-    rows_by_char = {char: render_rows(font, char, 16) for char in chars}
-    write_c_file(args.output, chars, rows_by_char)
+    pixels_by_char = {char: render_bitmap(font, char, args.glyph_size) for char in chars}
+    write_c_file(args.output, chars, pixels_by_char, args.glyph_size)
     print(f"Wrote {args.output} with {len(chars)} glyphs")
 
 

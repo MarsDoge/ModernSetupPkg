@@ -12,16 +12,21 @@ interaction references.
 
 - GOP-based rendering through `ModernUiRendererLib`
 - Simplified Chinese UI strings by default, with English fallback strings
-- Minimal built-in 16x16 bitmap glyphs generated from Noto Sans CJK SC Regular
+- Minimal built-in 18px anti-aliased glyphs generated from Noto Sans CJK SC
+  Regular
 - Keyboard navigation through `EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL`
 - Optional pointer polling through `EFI_ABSOLUTE_POINTER_PROTOCOL`
-- A standalone `ModernSetupApp` with Dashboard, Boot, Devices, Security, and Exit pages
+- A standalone `ModernSetupApp` with Dashboard, Boot, Devices, Security, HII,
+  and Exit pages
+- A first-stage HII/IFR bridge demo that renders edk2 DriverSample VFR pages as
+  ModernSetup subpages
 - ArmVirtQemu overlay scripts that keep upstream `ArmVirtPkg` files unchanged
 - Development rules for function contracts, multi-architecture extension points,
   and IBV-friendly adaptation
 
 This is not a full HII/FormBrowser replacement. The v1 goal is a usable modern
-setup shell that can be launched from the firmware boot manager path.
+setup shell that can launch from the firmware boot manager path and prove that
+existing HII/VFR content can be bridged incrementally.
 
 ## Architecture
 
@@ -47,6 +52,7 @@ edk2 workspace
     |       +-- Boot page       (read-only v1)
     |       +-- Devices page    (read-only v1)
     |       +-- Security page   (read-only v1)
+    |       +-- HII page        (DriverSample bridge demo)
     |       +-- Exit page       (continue, reset, UiApp fallback)
     |
     +-- Public interfaces
@@ -55,6 +61,7 @@ edk2 workspace
     |   +-- Include/ModernUi/ModernUiInput.h
     |   +-- Include/ModernUi/ModernUiTheme.h
     |   +-- Include/ModernUi/ModernUiString.h
+    |   +-- Include/ModernUi/ModernUiHiiBridge.h
     |
     +-- Implemented framework libraries
     |   |
@@ -74,8 +81,13 @@ edk2 workspace
     |   |   +-- Dark theme token table
     |   |
     |   +-- ModernUiStringLib
+    |   |   |
+    |   |   +-- zh-Hans / en-US setup strings
+    |   |
+    |   +-- ModernUiHiiBridgeLib
     |       |
-    |       +-- zh-Hans / en-US setup strings
+    |       +-- DriverSample HII handle enumeration
+    |       +-- IFR subset parsing and ConfigAccess routing
     |
     +-- Planned framework libraries
     |   |
@@ -94,11 +106,7 @@ edk2 workspace
     |   |   +-- handle and device-path provider
     |   |
     |   +-- ModernUiSecurityDataLib  (planned)
-    |   |   +-- Secure Boot and security state provider
-    |   |
-    |   +-- ModernUiHiiBridgeLib     (planned)
-    |       |
-    |       +-- existing HII strings and setup data bridge
+    |       +-- Secure Boot and security state provider
     |
     +-- Platform integration
     |   |
@@ -168,6 +176,13 @@ Build ArmVirtQemu:
 ModernSetupPkg/Scripts/build-armvirt.sh
 ```
 
+The ArmVirt overlay includes edk2 `DriverSampleDxe` by default so the HII bridge
+demo has VFR content to render. To build without that demo driver:
+
+```sh
+MODERN_SETUP_DEMO_DRIVER_SAMPLE=0 ModernSetupPkg/Scripts/build-armvirt.sh
+```
+
 The default UI language is Simplified Chinese. To build the ArmVirt overlay with
 English strings:
 
@@ -192,6 +207,21 @@ which defaults to `zh-Hans`.
 
 Chinese glyphs do not depend on platform firmware fonts. A minimal bitmap table
 is generated from Noto Sans CJK SC Regular and compiled into
-`ModernUiRendererLib`; ASCII and English text still use edk2 HII Font rendering.
-The full font file is not committed. See `Assets/Fonts/README.md` for source,
-license, and regeneration details.
+`ModernUiRendererLib`; the current table uses 18px anti-aliased glyphs for the
+ModernSetup UI strings and selected DriverSample `.uni` strings. ASCII-only text
+can still use edk2 HII Font rendering. The full font file is not committed. See
+`Assets/Fonts/README.md` for source, license, and regeneration details.
+
+## HII Bridge Demo
+
+`ModernUiHiiBridgeLib` is intentionally scoped to `DriverSampleDxe` in this
+first demo. The ArmVirt overlay builds the driver without modifying its `.vfr`,
+`.uni`, or C source, then ModernSetup enumerates the runtime HII database and
+renders the DriverSample formsets under the HII tab.
+
+The v1 bridge parses a practical IFR subset: formset, form, subtitle, text,
+goto/ref, checkbox, one-of, one-of option, numeric, and string. Checkbox,
+one-of, and numeric questions backed by buffer varstores can be advanced through
+the driver's `EFI_HII_CONFIG_ACCESS_PROTOCOL.RouteConfig()` when they are not
+read-only and not callback-driven. String and complex controls are displayed as
+read-only until ModernSetup grows a text editor and fuller FormBrowser behavior.

@@ -21,6 +21,7 @@
   ModernUiInputLib|Include/ModernUi/ModernUiInput.h
   ModernUiThemeLib|Include/ModernUi/ModernUiTheme.h
   ModernUiStringLib|Include/ModernUi/ModernUiString.h
+  ModernUiHiiBridgeLib|Include/ModernUi/ModernUiHiiBridge.h
 
 [PcdsFixedAtBuild]
   gModernSetupPkgTokenSpaceGuid.PcdModernSetupDefaultLanguage|"zh-Hans"|VOID*|0x00000001

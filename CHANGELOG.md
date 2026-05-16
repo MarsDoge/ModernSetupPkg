@@ -31,6 +31,14 @@ this file as both a release log and a lightweight development progress record.
   strings selected by `PcdModernSetupDefaultLanguage`.
 - Minimal built-in CJK bitmap glyph fallback generated from Noto Sans CJK SC
   Regular, plus font source/license documentation and a regeneration script.
+- `ModernUiHiiBridgeLib` first-stage DriverSample HII/IFR bridge demo.
+- ArmVirt overlay switch `MODERN_SETUP_DEMO_DRIVER_SAMPLE`, enabled by default,
+  to include edk2 `DriverSampleDxe` without modifying upstream ArmVirt files.
+- HII page in `ModernSetupApp` that lists DriverSample formsets, forms, and IFR
+  rows, with limited ConfigAccess write-back for safe checkbox, one-of, and
+  numeric buffer-varstore questions.
+- 18px anti-aliased built-in glyph generation from Noto Sans CJK SC, including
+  ModernSetup strings and selected DriverSample `.uni` strings.
 
 ### Fixed
 
@@ -58,8 +66,11 @@ this file as both a release log and a lightweight development progress record.
   the first prototype.
 - Simplified Chinese is the default UI language; English can be selected at
   build time through `MODERN_SETUP_LANGUAGE=en-US` for the ArmVirt overlay.
-- The UI framework is still early: platform data providers, layout library, HII
-  bridge, and write-capable setup flows are planned but not implemented.
+- The HII bridge is a DriverSample-focused demo, not a complete FormBrowser
+  replacement. Unsupported opcodes, callback questions, EFI varstores, and
+  string editing remain read-only/fallback work.
+- The UI framework is still early: platform data providers, layout library, and
+  full write-capable setup flows are planned but not implemented.
 
 ### Planned
 
@@ -67,5 +78,6 @@ this file as both a release log and a lightweight development progress record.
 - Split platform data access out of `ModernSetupApp` into provider libraries.
 - Add PCDs for default page, feature visibility, fallback behavior, pointer
   support, and theme selection.
-- Add HII bridge experiments for reading existing setup data and strings.
+- Expand the HII bridge beyond DriverSample and cover more IFR opcodes,
+  expressions, text editing, and safe write policies.
 - Extend validation beyond ArmVirt to OVMF and LoongArch targets.

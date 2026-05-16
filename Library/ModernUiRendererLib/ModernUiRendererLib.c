@@ -283,6 +283,7 @@ DrawBuiltinGlyph (
   UINTN                          Row;
   UINTN                          Column;
   UINTN                          Index;
+  UINTN                          Alpha;
 
   if ((Context == NULL) || (Context->Gop == NULL) || (Glyph == NULL)) {
     return EFI_INVALID_PARAMETER;
@@ -290,8 +291,12 @@ DrawBuiltinGlyph (
 
   for (Row = 0; Row < Glyph->Height; Row++) {
     for (Column = 0; Column < Glyph->Width; Column++) {
-      Index         = Row * Glyph->Width + Column;
-      Buffer[Index] = ((Glyph->Rows[Row] & (1U << (Glyph->Width - 1 - Column))) != 0) ? Color : Background;
+      Index                  = Row * Glyph->Width + Column;
+      Alpha                  = Glyph->Bitmap[Index];
+      Buffer[Index].Red      = (UINT8)(((UINTN)Background.Red * (255 - Alpha) + (UINTN)Color.Red * Alpha) / 255);
+      Buffer[Index].Green    = (UINT8)(((UINTN)Background.Green * (255 - Alpha) + (UINTN)Color.Green * Alpha) / 255);
+      Buffer[Index].Blue     = (UINT8)(((UINTN)Background.Blue * (255 - Alpha) + (UINTN)Color.Blue * Alpha) / 255);
+      Buffer[Index].Reserved = 0;
     }
   }
 
@@ -333,12 +338,12 @@ DrawMissingGlyph (
 {
   EFI_STATUS  Status;
 
-  Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ X, Y, 16, 16 }, Background);
+  Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ X, Y, MODERN_UI_BUILTIN_GLYPH_WIDTH, MODERN_UI_BUILTIN_GLYPH_HEIGHT }, Background);
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
-  return ModernUiStrokeRect (Context, (MODERN_UI_RECT){ X + 2, Y + 2, 12, 12 }, Color);
+  return ModernUiStrokeRect (Context, (MODERN_UI_RECT){ X + 2, Y + 2, MODERN_UI_BUILTIN_GLYPH_WIDTH - 4, MODERN_UI_BUILTIN_GLYPH_HEIGHT - 4 }, Color);
 }
 
 /**
@@ -369,9 +374,9 @@ ModernUiMeasureText (
   for (Index = 0; Text[Index] != L'\0'; Index++) {
     Glyph = ModernUiFindBuiltinGlyph (Text[Index]);
     if (Glyph != NULL) {
-      Width += Glyph->Width;
+      Width += Glyph->Advance;
     } else if (Text[Index] > 0x7F) {
-      Width += 16;
+      Width += MODERN_UI_BUILTIN_GLYPH_WIDTH;
     } else {
       Width += MODERN_UI_ASCII_CELL_WIDTH;
     }
@@ -426,11 +431,11 @@ ModernUiDrawText (
     if ((Glyph != NULL) || (Text[Index] > 0x7F)) {
       if (Glyph != NULL) {
         Status = DrawBuiltinGlyph (Context, CurrentX, Y, Glyph, Color, Background);
-        CurrentX += Glyph->Width;
+        CurrentX += Glyph->Advance;
       } else {
         DEBUG ((DEBUG_WARN, "%a: missing glyph U+%04x\n", __func__, Text[Index]));
         Status = DrawMissingGlyph (Context, CurrentX, Y, Color, Background);
-        CurrentX += 16;
+        CurrentX += MODERN_UI_BUILTIN_GLYPH_WIDTH;
       }
 
       if (EFI_ERROR (Status)) {
