@@ -17,9 +17,13 @@
   gModernSetupPkgTokenSpaceGuid = { 0x6D1B8B66, 0x2C67, 0x4E6B, { 0xA8, 0xB6, 0x43, 0x50, 0x1F, 0xCB, 0x54, 0x6E } }
 
 [LibraryClasses]
+  # DisplayEngine main path.
   ModernUiRendererLib|Include/ModernUi/ModernUiRenderer.h
-  ModernUiInputLib|Include/ModernUi/ModernUiInput.h
   ModernUiThemeLib|Include/ModernUi/ModernUiTheme.h
+
+  # Experimental ModernSetupApp prototype path. These are intentionally not
+  # used by the default ArmVirt overlay or the main package DSC.
+  ModernUiInputLib|Include/ModernUi/ModernUiInput.h
   ModernUiStringLib|Include/ModernUi/ModernUiString.h
   ModernUiHiiBridgeLib|Include/ModernUi/ModernUiHiiBridge.h
   ModernUiPageAdapterLib|Include/ModernUi/ModernUiPageAdapter.h

@@ -71,6 +71,20 @@ this file as both a release log and a lightweight development progress record.
 - ArmVirt overlay now replaces `MdeModulePkg/Universal/DisplayEngineDxe` with
   `ModernDisplayEngineDxe` while keeping the native UiApp/FormBrowser setup
   entry.
+- `Experimental/ModernSetupApp.dsc` for explicitly building the legacy
+  ModernSetupApp/HII bridge prototype outside the default DisplayEngine path.
+
+### Changed
+
+- The main package DSC now builds only the DisplayEngine path:
+  `ModernDisplayEngineDxe`, `ModernUiCustomizedDisplayLib`,
+  `ModernUiRendererLib`, and `ModernUiThemeLib`.
+- The ArmVirt overlay no longer injects prototype-only `ModernUiInputLib`,
+  `ModernUiStringLib`, `ModernUiHiiBridgeLib`, or `ModernUiPageAdapterLib`
+  library mappings.
+- `ModernSetupApp`, the custom HII bridge, and the GUID page adapter registry
+  are now treated as experimental prototype code instead of setup compatibility
+  infrastructure.
 
 ### Fixed
 
@@ -104,15 +118,15 @@ this file as both a release log and a lightweight development progress record.
 - Device Manager, DriverSample, Boot Manager, and Boot Maintenance now use
   native UiApp/FormBrowser behavior in the default firmware image.
 - Simplified Chinese and English switching through `ModernUiStringLib` applies
-  to the prototype `ModernSetupApp`; native UiApp language behavior remains
-  owned by edk2 HII/FormBrowser.
-- The custom HII bridge is retained as a DriverSample-focused prototype/debug
-  path, but it is no longer the default setup compatibility route.
+  only to the experimental `ModernSetupApp`; native UiApp language behavior
+  remains owned by edk2 HII/FormBrowser.
+- The custom HII bridge is retained only as prototype/debug code and is not in
+  the default package DSC or ArmVirt overlay path.
 - Native `SetupBrowserDxe/FormBrowser2` owns HII/IFR/VFR parsing, GUID formset
   handling, ConfigAccess callback flow, condition evaluation, and variable
   write semantics in the default ArmVirt firmware.
-- The page adapter registry is present but ships with no OEM-specific adapters
-  in the default native FormBrowser path.
+- The page adapter registry is experimental and not in the default native
+  FormBrowser path.
 - The latest validated FVMAIN state is 8360320 bytes total, 8360288 bytes used,
   and 32 bytes free in the ArmVirt AARCH64 DEBUG_CLANGDWARF build.
 - `ModernDisplayEngineDxe` currently preserves most edk2 DisplayEngine behavior
@@ -124,13 +138,14 @@ this file as both a release log and a lightweight development progress record.
 
 ### Planned
 
-- Add `ModernUiLayoutLib` for resolution-aware layout and safe-area handling.
-- Decide whether the standalone `ModernSetupApp` remains a showcase/debug tool
-  or gets removed after the DisplayEngine path is stable.
+- Add DisplayEngine/customized display layout helpers for resolution-aware
+  layout and safe-area handling.
+- Decide whether the standalone `ModernSetupApp` remains as an experimental
+  showcase/debug tool or is removed after the DisplayEngine path is stable.
 - Add PCDs for default page, feature visibility, fallback behavior, pointer
   support, and theme selection.
 - Improve `ModernDisplayEngineDxe` visual styling for panels, highlight rows,
   popups, input boxes, and high-density setup pages.
-- Keep `ModernUiHiiBridgeLib` as a debug/demo path or remove it after the
-  DisplayEngine architecture is stable.
+- Keep `ModernUiHiiBridgeLib` experimental or remove it after the DisplayEngine
+  architecture is stable.
 - Extend validation beyond ArmVirt to OVMF and LoongArch targets.

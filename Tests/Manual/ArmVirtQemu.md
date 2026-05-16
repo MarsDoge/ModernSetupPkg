@@ -7,12 +7,6 @@ cd /Users/cy/github/edk2
 ModernSetupPkg/Scripts/build-armvirt.sh
 ```
 
-For English fallback verification:
-
-```sh
-MODERN_SETUP_LANGUAGE=en-US ModernSetupPkg/Scripts/build-armvirt.sh
-```
-
 For overlay verification without the DriverSample HII demo driver:
 
 ```sh
@@ -26,6 +20,8 @@ Expected result:
 - `Build/ArmVirtQemu-AArch64/DEBUG_CLANGDWARF/FV/QEMU_VARS.fd` exists.
 - The default build firmware image contains `ModernDisplayEngineDxe`, native
   `UiApp`, and `DriverSample`.
+- The generated ArmVirt overlay does not reference `ModernSetupApp`,
+  `ModernUiHiiBridgeLib`, `ModernUiPageAdapterLib`, or `ModernUiStringLib`.
 - FVMAIN space is recorded after each architecture-level change. The current
   DisplayEngine build is expected to remain near full capacity.
 
@@ -48,6 +44,8 @@ Expected result:
 - Pressing `Esc` or `F2` during BDS enters native `UiApp`, rendered through
   `ModernDisplayEngineDxe`.
 - No ASSERT, exception, or GOP initialization failure is printed to serial.
+- Serial output does not repeatedly print missing glyph warnings for box
+  drawing, arrows, triangles, or checkbox glyphs.
 
 ## UI Checks
 
@@ -67,6 +65,8 @@ Expected result:
 - Chinese, ASCII, numbers, `Boot####`, and device paths can appear on the same
   screen without missing-glyph boxes for strings covered by the built-in font
   subset or platform HII font.
+- Box drawing frames, arrows, triangles, and checkbox glyphs render as
+  single-cell graphics rather than wide missing-glyph placeholders.
 
 ## Native FormBrowser / DriverSample Checks
 

@@ -13,17 +13,13 @@ interaction references.
 - GOP-based rendering through `ModernUiRendererLib`
 - `ModernDisplayEngineDxe`, an edk2 DisplayEngine-compatible GOP frontend for
   `SetupBrowserDxe/FormBrowser2`
-- Simplified Chinese UI strings by default, with English fallback strings
 - Minimal built-in 18px anti-aliased glyphs generated from Noto Sans CJK SC
   Regular
-- Keyboard navigation through `EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL`
-- Optional pointer polling through `EFI_ABSOLUTE_POINTER_PROTOCOL`
 - Native edk2 HII/IFR/VFR parsing, GUID formset discovery, ConfigAccess,
   callback, condition, and variable write handling through the existing
   FormBrowser stack
-- A standalone `ModernSetupApp` and `ModernUiHiiBridgeLib` retained as prototype
-  and debug code, not as the default setup compatibility path
-- A static GUID page adapter registry for future OEM/IBV formset-specific pages
+- A standalone `ModernSetupApp`, `ModernUiHiiBridgeLib`, and
+  `ModernUiPageAdapterLib` retained only under the experimental prototype path
 - ArmVirtQemu overlay scripts that keep upstream `ArmVirtPkg` files unchanged
 - Development rules for function contracts, multi-architecture extension points,
   and IBV-friendly adaptation
@@ -36,10 +32,10 @@ HII driver pages.
 
 ## Architecture
 
-Current code and planned extension points are separated below. The core engine
-now follows the same separation used by IBV-style setup stacks: FormBrowser
-semantics, DisplayEngine frontend, renderer, theme/input, and optional
-GUID-bound page adaptation.
+Current code and planned extension points are separated below. The default
+engine follows the same separation used by IBV-style setup stacks: FormBrowser
+semantics, DisplayEngine frontend, customized display drawing, renderer, and
+theme.
 
 ```text
 edk2 workspace
@@ -60,20 +56,12 @@ edk2 workspace
     |       +-- edk2 DisplayEngine behavior
     |       +-- GOP-backed customized drawing backend
     |
-    +-- Application
-    |   |
-    |   +-- ModernSetupApp      (legacy prototype, not default ArmVirt entry)
-    |
     +-- Public interfaces
     |   |
     |   +-- Include/ModernUi/ModernUiRenderer.h
-    |   +-- Include/ModernUi/ModernUiInput.h
     |   +-- Include/ModernUi/ModernUiTheme.h
-    |   +-- Include/ModernUi/ModernUiString.h
-    |   +-- Include/ModernUi/ModernUiHiiBridge.h
-    |   +-- Include/ModernUi/ModernUiPageAdapter.h
     |
-    +-- Implemented framework libraries
+    +-- Main framework libraries
     |   |
     |   +-- ModernUiCustomizedDisplayLib
     |   |   |
@@ -94,41 +82,13 @@ edk2 workspace
     |   +-- ModernUiThemeLib
     |   |   |
     |   |   +-- Dark theme token table
-    |   |
-    |   +-- ModernUiStringLib
-    |   |   |
-    |   |   +-- zh-Hans / en-US setup strings
-    |   |
-    |   +-- ModernUiHiiBridgeLib
-    |   |   |
-    |   |   +-- HII handle enumeration
-    |   |   +-- IFR subset parsing and ConfigAccess routing
-    |   |   +-- optional debug/prototype FormSet GUID filtering
-    |   |
-    |   +-- ModernUiPageAdapterLib
-    |       |
-    |       +-- static FormSet GUID adapter registry
-    |       +-- highest-priority adapter selection
-    |       +-- generic HII fallback when no adapter is registered
     |
-    +-- Planned framework libraries
+    +-- Experimental prototype path
     |   |
-    |   +-- ModernUiLayoutLib        (planned)
-    |   |   +-- resolution-aware layout
-    |   |   +-- safe-area and scaling policy
-    |   |
-    |   +-- ModernUiPlatformLib      (planned)
-    |   |   +-- platform identity
-    |   |   +-- architecture and capability reporting
-    |   |
-    |   +-- ModernUiBootDataLib      (planned)
-    |   |   +-- Boot#### / BootOrder provider
-    |   |
-    |   +-- ModernUiDeviceDataLib    (planned)
-    |   |   +-- handle and device-path provider
-    |   |
-    |   +-- ModernUiSecurityDataLib  (planned)
-    |       +-- Secure Boot and security state provider
+    |   +-- Experimental/ModernSetupApp.dsc
+    |   +-- Application/ModernSetupApp
+    |   +-- ModernUiInputLib / ModernUiStringLib
+    |   +-- ModernUiHiiBridgeLib / ModernUiPageAdapterLib
     |
     +-- Platform integration
     |   |
@@ -176,22 +136,27 @@ Driver VFR / UNI / ConfigAccess
                                            +--> EFI_GRAPHICS_OUTPUT_PROTOCOL
 ```
 
-Platform-specific code should enter through provider libraries, PCDs, or overlay
-DSC/FDF files. Page rendering code should remain architecture-neutral.
+Default platform-specific integration should enter through overlay DSC/FDF files
+or future DisplayEngine/customized display PCDs. Page parsing, callback flow, and
+variable routing remain owned by edk2 FormBrowser.
 
-## GUID Page Adapter Engine
+## Experimental Prototype Path
 
-`ModernUiPageAdapterLib` provides the first static registry for IBV/OEM-style
-custom setup pages. A platform can bind a modern renderer to a HII formset by
-matching `FormSetGuid`; the adapter receives a neutral draw/input context and
-can render a richer page while still using the same HII identity and firmware
-protocol data.
+`ModernSetupApp`, `ModernUiHiiBridgeLib`, `ModernUiPageAdapterLib`,
+`ModernUiInputLib`, and `ModernUiStringLib` are retained as experimental code
+from the earlier self-contained setup shell. They are useful for comparison,
+debugging, and prototyping UI ideas, but they are not part of the default
+ArmVirt setup compatibility path.
 
-The adapter registry is not in the default ArmVirt setup path yet. Native edk2
-FormBrowser and `ModernDisplayEngineDxe` remain the compatibility baseline. The
-registry is kept as an experiment for a future layer where selected
-`FormSetGuid` pages can opt into richer modern rendering while unbound pages
-fall back to the standard DisplayEngine model.
+Build the legacy prototype explicitly with:
+
+```sh
+build -a AARCH64 -t CLANGDWARF -p ModernSetupPkg/Experimental/ModernSetupApp.dsc
+```
+
+Do not use the experimental HII bridge as a platform setup compatibility layer.
+Real VFR/IFR pages should continue through native edk2 FormBrowser and
+`ModernDisplayEngineDxe`.
 
 ## Development Documents
 
@@ -224,18 +189,6 @@ that demo driver:
 MODERN_SETUP_DEMO_DRIVER_SAMPLE=0 ModernSetupPkg/Scripts/build-armvirt.sh
 ```
 
-The prototype `ModernSetupApp` default language is Simplified Chinese. To build
-that prototype app with English as its first-boot fallback:
-
-```sh
-MODERN_SETUP_LANGUAGE=en-US ModernSetupPkg/Scripts/build-armvirt.sh
-```
-
-`ModernSetupApp` can still switch language from its Exit page when launched
-manually. The default ArmVirt setup path uses the native UiApp/FormBrowser entry
-and receives strings from the HII packages and language selection handled by
-edk2.
-
 The renderer asks GOP for a larger display mode during initialization. If the
 firmware exposes a suitable mode, it switches away from small 800x600 defaults
 to at least 1024x768.
@@ -249,20 +202,15 @@ GRAPHICS=1 RESET_VARS=1 ModernSetupPkg/Scripts/run-armvirt.sh
 Click the QEMU window and press `Esc` or `F2` during BDS wait to enter the
 native UiApp firmware setup. Rendering is handled by `ModernDisplayEngineDxe`.
 
-## Fonts and Localization
-
-ModernSetupPkg keeps UI strings in `ModernUiStringLib`. The default language is
-controlled by `gModernSetupPkgTokenSpaceGuid.PcdModernSetupDefaultLanguage`,
-which defaults to `zh-Hans`. At runtime, `ModernUiStringLib` first checks the
-non-volatile `ModernSetupLanguage` variable and falls back to the PCD when the
-variable is missing or unsupported.
+## Fonts and Text Graphics
 
 Chinese glyphs do not depend on platform firmware fonts. A minimal bitmap table
 is generated from Noto Sans CJK SC Regular and compiled into
-`ModernUiRendererLib`; the current table uses 18px anti-aliased glyphs for the
-ModernSetup UI strings and selected DriverSample `.uni` strings. ASCII-only text
-can still use edk2 HII Font rendering. The full font file is not committed. See
-`Assets/Fonts/README.md` for source, license, and regeneration details.
+`ModernUiRendererLib`; ASCII-only text can still use edk2 HII Font rendering.
+UEFI box drawing, arrows, triangles, and checkbox glyphs are rendered as narrow
+GOP primitives so native FormBrowser frames do not depend on a large font
+subset. The full font file is not committed. See `Assets/Fonts/README.md` for
+source, license, and regeneration details.
 
 ## DisplayEngine Path
 

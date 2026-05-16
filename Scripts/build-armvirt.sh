@@ -5,7 +5,6 @@ PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE="${WORKSPACE:-$(cd "${PKG_DIR}/.." && pwd)}"
 TARGET="${TARGET:-DEBUG}"
 JOBS="${JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
-MODERN_SETUP_LANGUAGE="${MODERN_SETUP_LANGUAGE:-zh-Hans}"
 MODERN_SETUP_DEMO_DRIVER_SAMPLE="${MODERN_SETUP_DEMO_DRIVER_SAMPLE:-1}"
 OVERLAY_DIR="${WORKSPACE}/Build/ModernSetupPkgOverlay"
 
@@ -26,15 +25,14 @@ fi
 
 mkdir -p "${OVERLAY_DIR}"
 
-python3 - <<'PY' "${WORKSPACE}" "${OVERLAY_DIR}" "${MODERN_SETUP_LANGUAGE}" "${MODERN_SETUP_DEMO_DRIVER_SAMPLE}"
+python3 - <<'PY' "${WORKSPACE}" "${OVERLAY_DIR}" "${MODERN_SETUP_DEMO_DRIVER_SAMPLE}"
 from pathlib import Path
 import re
 import sys
 
 workspace = Path(sys.argv[1])
 overlay = Path(sys.argv[2])
-language = sys.argv[3]
-enable_driver_sample = sys.argv[4] != "0"
+enable_driver_sample = sys.argv[3] != "0"
 
 modern_display_component = "  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
 modern_display_fdf_inf = "  INF ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
@@ -42,11 +40,7 @@ driver_sample_component = "  MdeModulePkg/Universal/DriverSampleDxe/DriverSample
 driver_sample_fdf_inf = "  INF MdeModulePkg/Universal/DriverSampleDxe/DriverSampleDxe.inf"
 ui_app_guid_bytes = "{ 0x21, 0xaa, 0x2c, 0x46, 0x14, 0x76, 0x03, 0x45, 0x83, 0x6e, 0x8a, 0xb6, 0xf4, 0x66, 0x23, 0x31 }"
 library_block = """  ModernUiRendererLib|ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
-  ModernUiInputLib|ModernSetupPkg/Library/ModernUiInputLib/ModernUiInputLib.inf
   ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
-  ModernUiStringLib|ModernSetupPkg/Library/ModernUiStringLib/ModernUiStringLib.inf
-  ModernUiHiiBridgeLib|ModernSetupPkg/Library/ModernUiHiiBridgeLib/ModernUiHiiBridgeLib.inf
-  ModernUiPageAdapterLib|ModernSetupPkg/Library/ModernUiPageAdapterLib/ModernUiPageAdapterLib.inf
 """
 
 dsc = (workspace / "ArmVirtPkg/ArmVirtQemu.dsc").read_text()
@@ -78,8 +72,6 @@ if enable_driver_sample and driver_sample_component not in dsc:
         driver_sample_component + "\n  MdeModulePkg/Application/UiApp/UiApp.inf {",
         1,
     )
-if "gModernSetupPkgTokenSpaceGuid.PcdModernSetupDefaultLanguage" not in dsc:
-    dsc += f'\n[PcdsFixedAtBuild]\n  gModernSetupPkgTokenSpaceGuid.PcdModernSetupDefaultLanguage|"{language}"\n'
 (overlay / "ArmVirtQemuModernSetup.dsc").write_text(dsc)
 
 fdf = (workspace / "ArmVirtPkg/ArmVirtQemu.fdf").read_text()
