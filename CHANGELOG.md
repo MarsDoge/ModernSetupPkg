@@ -26,6 +26,8 @@ this file as both a release log and a lightweight development progress record.
 
 - Fixed rectangle fill rendering by using GOP `EfiBltVideoFill` instead of
   passing a one-line buffer as a multi-line BLT source.
+- Fixed text rendering setup by providing the HII Font output dimensions and
+  clipping flags expected by edk2's direct-to-screen `StringToImage()` path.
 
 ### Current Status
 

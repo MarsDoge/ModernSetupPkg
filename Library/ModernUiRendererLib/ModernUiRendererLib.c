@@ -229,11 +229,15 @@ ModernUiDrawText (
   FontInfo.ForegroundColor = Color;
   FontInfo.BackgroundColor = Background;
 
+  Blt->Width        = (UINT16)Context->Width;
+  Blt->Height       = (UINT16)Context->Height;
   Blt->Image.Screen = Context->Gop;
 
   Status = Context->Font->StringToImage (
                             Context->Font,
-                            EFI_HII_DIRECT_TO_SCREEN | EFI_HII_IGNORE_IF_NO_GLYPH | EFI_HII_IGNORE_LINE_BREAK,
+                            EFI_HII_IGNORE_IF_NO_GLYPH | EFI_HII_OUT_FLAG_CLIP |
+                            EFI_HII_OUT_FLAG_CLIP_CLEAN_X | EFI_HII_OUT_FLAG_CLIP_CLEAN_Y |
+                            EFI_HII_IGNORE_LINE_BREAK | EFI_HII_DIRECT_TO_SCREEN,
                             (EFI_STRING)Text,
                             &FontInfo,
                             &Blt,
