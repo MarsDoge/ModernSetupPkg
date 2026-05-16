@@ -550,14 +550,18 @@ CurrentExpressionScope (
   IN     UINTN                ScopeDepth
   )
 {
+  UINTN  Index;
+
   if ((ScopeStack == NULL) || (ScopeDepth == 0)) {
     return NULL;
   }
 
-  if ((ScopeStack[ScopeDepth - 1].ConditionType != ModernUiHiiConditionNone) &&
-      ScopeStack[ScopeDepth - 1].CollectingExpression)
-  {
-    return &ScopeStack[ScopeDepth - 1];
+  for (Index = ScopeDepth; Index > 0; Index--) {
+    if ((ScopeStack[Index - 1].ConditionType != ModernUiHiiConditionNone) &&
+        ScopeStack[Index - 1].CollectingExpression)
+    {
+      return &ScopeStack[Index - 1];
+    }
   }
 
   return NULL;
@@ -619,7 +623,15 @@ ParseFormsPackage (
         CopyMem (&Popped, &ScopeStack[--ScopeDepth], sizeof (Popped));
         if (Popped.OpCode == EFI_IFR_FORM_OP) {
           Form = NULL;
-        } else if (Popped.QuestionOwner == OptionOwner) {
+        } else if (((Popped.OpCode == EFI_IFR_ONE_OF_OP) ||
+                    (Popped.OpCode == EFI_IFR_ORDERED_LIST_OP)) &&
+                   (Popped.QuestionOwner == OptionOwner))
+        {
+          //
+          // Expression opcodes such as DEFAULT/CONDITIONAL/VALUE/THIS can
+          // also carry scope and close with END_OP.  They keep this stack
+          // balanced, but must not close the active option owner.
+          //
           OptionOwner = NULL;
         }
       }
@@ -630,6 +642,16 @@ ParseFormsPackage (
     ExpressionScope = CurrentExpressionScope (ScopeStack, ScopeDepth);
     if ((ExpressionScope != NULL) && IsExpressionOp (Header->OpCode)) {
       AppendExpressionOp (&ExpressionScope->Condition, Header);
+      if ((Header->Scope != 0) && (ScopeDepth < ARRAY_SIZE (ScopeStack))) {
+        //
+        // Scoped expression opcodes still need a stack entry so their END_OP
+        // does not close the enclosing condition, form, or question scope.
+        //
+        ZeroMem (&ScopeStack[ScopeDepth], sizeof (ScopeStack[ScopeDepth]));
+        ScopeStack[ScopeDepth].OpCode = Header->OpCode;
+        ScopeDepth++;
+      }
+
       continue;
     }
 
