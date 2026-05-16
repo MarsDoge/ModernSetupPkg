@@ -189,11 +189,16 @@ MODERN_SETUP_DEMO_DRIVER_SAMPLE=0 ModernSetupPkg/Scripts/build-armvirt.sh
 ```
 
 The default UI language is Simplified Chinese. To build the ArmVirt overlay with
-English strings:
+English as the first-boot fallback:
 
 ```sh
 MODERN_SETUP_LANGUAGE=en-US ModernSetupPkg/Scripts/build-armvirt.sh
 ```
+
+The running UI can also switch language from the Exit page. Select the
+`Language` row and press `Enter`; ModernSetup updates the screen immediately and
+persists the choice in the `ModernSetupLanguage` UEFI variable. The runtime
+variable takes precedence over the build-time PCD on later boots.
 
 Run with graphics:
 
@@ -208,7 +213,9 @@ ModernSetupApp boot manager menu.
 
 ModernSetupPkg keeps UI strings in `ModernUiStringLib`. The default language is
 controlled by `gModernSetupPkgTokenSpaceGuid.PcdModernSetupDefaultLanguage`,
-which defaults to `zh-Hans`.
+which defaults to `zh-Hans`. At runtime, `ModernUiStringLib` first checks the
+non-volatile `ModernSetupLanguage` variable and falls back to the PCD when the
+variable is missing or unsupported.
 
 Chinese glyphs do not depend on platform firmware fonts. A minimal bitmap table
 is generated from Noto Sans CJK SC Regular and compiled into

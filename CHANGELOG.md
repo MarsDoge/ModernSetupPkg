@@ -41,6 +41,8 @@ this file as both a release log and a lightweight development progress record.
   ModernSetup strings and selected DriverSample `.uni` strings.
 - Compatibility policy for keeping the classic UiApp/FormBrowser path alongside
   ModernSetup until the modern HII bridge can safely cover existing VFR data.
+- Runtime language switching from the Exit page, persisted through the
+  `ModernSetupLanguage` UEFI variable.
 
 ### Fixed
 
@@ -67,7 +69,8 @@ this file as both a release log and a lightweight development progress record.
 - Boot order editing, Devices, and Security pages are intentionally read-only in
   the first prototype.
 - Simplified Chinese is the default UI language; English can be selected at
-  build time through `MODERN_SETUP_LANGUAGE=en-US` for the ArmVirt overlay.
+  build time through `MODERN_SETUP_LANGUAGE=en-US` for the ArmVirt overlay or
+  toggled at runtime from the Exit page.
 - The HII bridge is a DriverSample-focused demo, not a complete FormBrowser
   replacement. Unsupported opcodes, callback questions, EFI varstores, and
   string editing remain read-only/fallback work.

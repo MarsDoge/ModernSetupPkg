@@ -6,9 +6,17 @@
 
 #include <Uefi.h>
 #include <Library/BaseLib.h>
+#include <Library/BaseMemoryLib.h>
 #include <Library/PcdLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
 
 #include <ModernUi/ModernUiString.h>
+
+#define MODERN_SETUP_LANGUAGE_VARIABLE  L"ModernSetupLanguage"
+#define MODERN_SETUP_LANGUAGE_MAX_SIZE  16
+
+STATIC CHAR8    mActiveLanguage[MODERN_SETUP_LANGUAGE_MAX_SIZE];
+STATIC BOOLEAN  mLanguageInitialized;
 
 STATIC CONST CHAR16  *mEnglishStrings[ModernUiStringMax] = {
   L"MODERN UEFI BIOS UTILITY",
@@ -49,6 +57,10 @@ STATIC CONST CHAR16  *mEnglishStrings[ModernUiStringMax] = {
   L"Continue boot",
   L"Launch classic UiApp fallback",
   L"Reset system",
+  L"Language: %s",
+  L"Chinese",
+  L"English",
+  L"Language changed: %s",
   L"No DriverSample HII formsets found.",
   L"DriverSample formsets",
   L"Forms",
@@ -101,6 +113,10 @@ STATIC CONST CHAR16  *mSimplifiedChineseStrings[ModernUiStringMax] = {
   L"继续启动",
   L"启动传统UiApp备用界面",
   L"重启系统",
+  L"语言：%s",
+  L"中文",
+  L"English",
+  L"语言已切换：%s",
   L"未找到DriverSample HII页面。",
   L"DriverSample页面集",
   L"表单",
@@ -117,7 +133,7 @@ STATIC CONST CHAR16  *mSimplifiedChineseStrings[ModernUiStringMax] = {
 /**
   Return TRUE when the active language should use Simplified Chinese strings.
 
-  @retval TRUE   PcdModernSetupDefaultLanguage starts with "zh".
+  @retval TRUE   Active language starts with "zh".
   @retval FALSE  English strings should be used.
 **/
 STATIC
@@ -133,10 +149,105 @@ UseSimplifiedChinese (
 }
 
 /**
+  Normalize a caller-provided language tag into a supported ModernSetup tag.
+
+  @param[in]  Language    Source language tag. Must not be NULL.
+  @param[out] Normalized  Receives a supported language tag pointer.
+                          Must not be NULL.
+
+  @retval EFI_SUCCESS            Language is supported.
+  @retval EFI_INVALID_PARAMETER  Language or Normalized is NULL, or the tag is
+                                 not supported by the built-in string table.
+**/
+STATIC
+EFI_STATUS
+NormalizeLanguage (
+  IN  CONST CHAR8  *Language,
+  OUT CONST CHAR8  **Normalized
+  )
+{
+  if ((Language == NULL) || (Normalized == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if ((Language[0] == 'z') && (Language[1] == 'h')) {
+    *Normalized = "zh-Hans";
+    return EFI_SUCCESS;
+  }
+
+  if ((Language[0] == 'e') && (Language[1] == 'n')) {
+    *Normalized = "en-US";
+    return EFI_SUCCESS;
+  }
+
+  return EFI_INVALID_PARAMETER;
+}
+
+/**
+  Set the active language buffer.
+
+  @param[in] Language  Supported normalized language tag. Must not be NULL.
+**/
+STATIC
+VOID
+SetActiveLanguageBuffer (
+  IN CONST CHAR8  *Language
+  )
+{
+  ZeroMem (mActiveLanguage, sizeof (mActiveLanguage));
+  AsciiStrnCpyS (mActiveLanguage, sizeof (mActiveLanguage), Language, sizeof (mActiveLanguage) - 1);
+  mLanguageInitialized = TRUE;
+}
+
+/**
+  Initialize the active language from NVRAM or the fixed PCD.
+
+  Runtime variable ModernSetupLanguage wins when it contains a supported tag.
+  Unsupported or missing variable data falls back to PCD.
+**/
+STATIC
+VOID
+EnsureLanguageInitialized (
+  VOID
+  )
+{
+  EFI_STATUS   Status;
+  CHAR8        VariableLanguage[MODERN_SETUP_LANGUAGE_MAX_SIZE];
+  UINTN        Size;
+  CONST CHAR8  *Normalized;
+  CONST CHAR8  *PcdLanguage;
+
+  if (mLanguageInitialized) {
+    return;
+  }
+
+  Size = sizeof (VariableLanguage);
+  ZeroMem (VariableLanguage, sizeof (VariableLanguage));
+  Status = gRT->GetVariable (
+                  MODERN_SETUP_LANGUAGE_VARIABLE,
+                  &gModernSetupPkgTokenSpaceGuid,
+                  NULL,
+                  &Size,
+                  VariableLanguage
+                  );
+  if (!EFI_ERROR (Status) && !EFI_ERROR (NormalizeLanguage (VariableLanguage, &Normalized))) {
+    SetActiveLanguageBuffer (Normalized);
+    return;
+  }
+
+  PcdLanguage = (CONST CHAR8 *)FixedPcdGetPtr (PcdModernSetupDefaultLanguage);
+  if ((PcdLanguage == NULL) || EFI_ERROR (NormalizeLanguage (PcdLanguage, &Normalized))) {
+    Normalized = "zh-Hans";
+  }
+
+  SetActiveLanguageBuffer (Normalized);
+}
+
+/**
   Return the active language tag.
 
-  The returned pointer is owned by the platform PCD database and must not be
-  freed or modified by the caller.
+  Runtime variable ModernSetupLanguage is preferred when present. The fixed PCD
+  language is used as the fallback.
 
   @return Non-NULL ASCII language tag. The default is "zh-Hans".
 **/
@@ -146,14 +257,8 @@ ModernUiGetLanguage (
   VOID
   )
 {
-  CONST CHAR8  *Language;
-
-  Language = (CONST CHAR8 *)FixedPcdGetPtr (PcdModernSetupDefaultLanguage);
-  if ((Language == NULL) || (Language[0] == '\0')) {
-    return "zh-Hans";
-  }
-
-  return Language;
+  EnsureLanguageInitialized ();
+  return mActiveLanguage;
 }
 
 /**
@@ -185,4 +290,49 @@ ModernUiGetString (
   }
 
   return L"";
+}
+
+/**
+  Set the active ModernSetup language.
+
+  Supported language families are "zh" and "en". Other language tags are
+  rejected so callers do not persist an unsupported UI state.
+
+  @param[in] Language  ASCII language tag. Must not be NULL.
+  @param[in] Persist   TRUE writes the language to non-volatile variables.
+
+  @retval EFI_SUCCESS            Active language was changed.
+  @retval EFI_INVALID_PARAMETER  Language is NULL or unsupported.
+  @retval others                 Variable write failed after the in-memory
+                                 language was changed.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiSetLanguage (
+  IN CONST CHAR8  *Language,
+  IN BOOLEAN      Persist
+  )
+{
+  EFI_STATUS   Status;
+  CONST CHAR8  *Normalized;
+  UINT32       Attributes;
+
+  Status = NormalizeLanguage (Language, &Normalized);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  SetActiveLanguageBuffer (Normalized);
+  if (!Persist) {
+    return EFI_SUCCESS;
+  }
+
+  Attributes = EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS;
+  return gRT->SetVariable (
+                MODERN_SETUP_LANGUAGE_VARIABLE,
+                &gModernSetupPkgTokenSpaceGuid,
+                Attributes,
+                AsciiStrSize (Normalized),
+                (VOID *)Normalized
+                );
 }

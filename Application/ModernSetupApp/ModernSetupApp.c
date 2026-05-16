@@ -495,7 +495,7 @@ GetPageSelectableCount (
     case PageHii:
       return GetHiiSelectableCount ();
     case PageExit:
-      return 3;
+      return 4;
     default:
       return 0;
   }
@@ -1280,7 +1280,7 @@ DrawSecurity (
   @param[in] Ui        Initialized render context. Must not be NULL.
   @param[in] Theme     Theme token table. Must not be NULL.
   @param[in] Focus     Current focus area.
-  @param[in] Selected  Selected action index. Values 0..2 are expected.
+  @param[in] Selected  Selected action index. Values 0..3 are expected.
 **/
 STATIC
 VOID
@@ -1291,17 +1291,25 @@ DrawExit (
   IN UINTN                     Selected
   )
 {
-  CONST CHAR16  *Items[] = {
-    ModernUiGetString (ModernUiStringExitContinue),
-    ModernUiGetString (ModernUiStringExitClassicUi),
-    ModernUiGetString (ModernUiStringExitReset)
-  };
+  CHAR16        LanguageItem[64];
+  CONST CHAR16  *Items[4];
+  CONST CHAR16  *LanguageName;
   UINTN         Index;
   UINTN         Y;
   BOOLEAN       IsSelected;
   MODERN_UI_RECT  Panel;
   UINTN         RowX;
   UINTN         RowWidth;
+
+  LanguageName = ((ModernUiGetLanguage ()[0] == 'z') && (ModernUiGetLanguage ()[1] == 'h')) ?
+                 ModernUiGetString (ModernUiStringLanguageChinese) :
+                 ModernUiGetString (ModernUiStringLanguageEnglish);
+  UnicodeSPrint (LanguageItem, sizeof (LanguageItem), ModernUiGetString (ModernUiStringExitLanguageFormat), LanguageName);
+
+  Items[0] = ModernUiGetString (ModernUiStringExitContinue);
+  Items[1] = ModernUiGetString (ModernUiStringExitClassicUi);
+  Items[2] = ModernUiGetString (ModernUiStringExitReset);
+  Items[3] = LanguageItem;
 
   Panel = ContentRect (Ui);
   RowX = Panel.X + 20;
@@ -1323,6 +1331,40 @@ DrawExit (
     }
 
     ModernUiDrawText (Ui, RowX + 20, Y, (CHAR16 *)Items[Index], IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
+  }
+}
+
+/**
+  Toggle the active UI language and format a user-visible status message.
+
+  @param[out] StatusMessage  Status buffer to update. Must not be NULL.
+  @param[in]  StatusSize     Size of StatusMessage in bytes.
+**/
+STATIC
+VOID
+ToggleLanguage (
+  OUT CHAR16  *StatusMessage,
+  IN  UINTN   StatusSize
+  )
+{
+  EFI_STATUS    Status;
+  CONST CHAR8   *NextLanguage;
+  CONST CHAR16  *LanguageName;
+
+  if ((StatusMessage == NULL) || (StatusSize < sizeof (CHAR16))) {
+    return;
+  }
+
+  NextLanguage = ((ModernUiGetLanguage ()[0] == 'z') && (ModernUiGetLanguage ()[1] == 'h')) ? "en-US" : "zh-Hans";
+  Status = ModernUiSetLanguage (NextLanguage, TRUE);
+  LanguageName = ((ModernUiGetLanguage ()[0] == 'z') && (ModernUiGetLanguage ()[1] == 'h')) ?
+                 ModernUiGetString (ModernUiStringLanguageChinese) :
+                 ModernUiGetString (ModernUiStringLanguageEnglish);
+
+  if (EFI_ERROR (Status)) {
+    UnicodeSPrint (StatusMessage, StatusSize, L"Set language variable returned: %r", Status);
+  } else {
+    UnicodeSPrint (StatusMessage, StatusSize, ModernUiGetString (ModernUiStringLanguageChangedFormat), LanguageName);
   }
 }
 
@@ -1714,8 +1756,11 @@ UefiMain (
             Status = LaunchUiAppFallback (ImageHandle);
             UnicodeSPrint (StatusMessage, sizeof (StatusMessage), ModernUiGetString (ModernUiStringClassicReturnedFormat), Status);
             Redraw = TRUE;
-          } else {
+          } else if (ExitSelection == 2) {
             gRT->ResetSystem (EfiResetCold, EFI_SUCCESS, 0, NULL);
+          } else {
+            ToggleLanguage (StatusMessage, sizeof (StatusMessage));
+            Redraw = TRUE;
           }
         }
         break;

@@ -61,6 +61,9 @@ Expected result:
   focus.
 - Boot page `Enter` launches the selected `Boot####` option. If the target
   returns, the footer shows the returned EFI status.
+- Exit page includes a language row. Pressing `Enter` toggles between
+  Simplified Chinese and English, redraws the current screen immediately, and
+  keeps the selection after reboot when `RESET_VARS=0`.
 - Dashboard, Boot, Devices, Security, and Exit render without overlapping text
   at 800x600 and 1024x768.
 - Long Boot descriptions and Devices device paths are truncated inside the

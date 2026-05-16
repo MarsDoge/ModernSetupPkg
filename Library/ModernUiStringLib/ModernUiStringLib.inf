@@ -21,7 +21,12 @@
 
 [LibraryClasses]
   BaseLib
+  BaseMemoryLib
   PcdLib
+  UefiRuntimeServicesTableLib
+
+[Guids]
+  gModernSetupPkgTokenSpaceGuid
 
 [FixedPcd]
   gModernSetupPkgTokenSpaceGuid.PcdModernSetupDefaultLanguage

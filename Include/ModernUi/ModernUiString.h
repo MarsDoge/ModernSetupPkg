@@ -48,6 +48,10 @@ typedef enum {
   ModernUiStringExitContinue,
   ModernUiStringExitClassicUi,
   ModernUiStringExitReset,
+  ModernUiStringExitLanguageFormat,
+  ModernUiStringLanguageChinese,
+  ModernUiStringLanguageEnglish,
+  ModernUiStringLanguageChangedFormat,
   ModernUiStringHiiNoFormsets,
   ModernUiStringHiiFormsets,
   ModernUiStringHiiForms,
@@ -65,8 +69,8 @@ typedef enum {
 /**
   Return the active language tag.
 
-  The returned pointer is owned by the platform PCD database and must not be
-  freed or modified by the caller.
+  Runtime variable ModernSetupLanguage is preferred when present. The fixed PCD
+  language is used as the fallback.
 
   @return Non-NULL ASCII language tag. The default is "zh-Hans".
 **/
@@ -90,6 +94,27 @@ CONST CHAR16 *
 EFIAPI
 ModernUiGetString (
   IN MODERN_UI_STRING_ID  Id
+  );
+
+/**
+  Set the active ModernSetup language.
+
+  Supported language families are "zh" and "en". Other language tags are
+  rejected so callers do not persist an unsupported UI state.
+
+  @param[in] Language  ASCII language tag. Must not be NULL.
+  @param[in] Persist   TRUE writes the language to non-volatile variables.
+
+  @retval EFI_SUCCESS            Active language was changed.
+  @retval EFI_INVALID_PARAMETER  Language is NULL or unsupported.
+  @retval others                 Variable write failed after the in-memory
+                                 language was changed.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiSetLanguage (
+  IN CONST CHAR8  *Language,
+  IN BOOLEAN      Persist
   );
 
 #endif
