@@ -20,6 +20,7 @@ interaction references.
   and Exit pages
 - A first-stage HII/IFR bridge demo that renders edk2 DriverSample VFR pages as
   ModernSetup subpages
+- A static GUID page adapter registry for future OEM/IBV formset-specific pages
 - ArmVirtQemu overlay scripts that keep upstream `ArmVirtPkg` files unchanged
 - Development rules for function contracts, multi-architecture extension points,
   and IBV-friendly adaptation
@@ -35,9 +36,9 @@ compatibility.
 
 ## Architecture
 
-Current code and planned extension points are separated below. Boxes marked
-`planned` are the intended direction for multi-architecture and IBV adaptation,
-but are not implemented yet.
+Current code and planned extension points are separated below. The core engine
+now follows the same separation used by IBV-style setup stacks: app shell,
+renderer, theme/input, HII compatibility, and GUID-bound page adaptation.
 
 ```text
 edk2 workspace
@@ -67,6 +68,7 @@ edk2 workspace
     |   +-- Include/ModernUi/ModernUiTheme.h
     |   +-- Include/ModernUi/ModernUiString.h
     |   +-- Include/ModernUi/ModernUiHiiBridge.h
+    |   +-- Include/ModernUi/ModernUiPageAdapter.h
     |
     +-- Implemented framework libraries
     |   |
@@ -90,9 +92,16 @@ edk2 workspace
     |   |   +-- zh-Hans / en-US setup strings
     |   |
     |   +-- ModernUiHiiBridgeLib
+    |   |   |
+    |   |   +-- HII handle enumeration
+    |   |   +-- IFR subset parsing and ConfigAccess routing
+    |   |   +-- optional FormSet GUID filtering from the app shell
+    |   |
+    |   +-- ModernUiPageAdapterLib
     |       |
-    |       +-- DriverSample HII handle enumeration
-    |       +-- IFR subset parsing and ConfigAccess routing
+    |       +-- static FormSet GUID adapter registry
+    |       +-- highest-priority adapter selection
+    |       +-- generic HII fallback when no adapter is registered
     |
     +-- Planned framework libraries
     |   |
@@ -142,21 +151,40 @@ edk2 workspace
 The intended dependency direction is:
 
 ```text
-ModernSetupApp
+edk2 protocols
   |
-  +--> UI framework libraries
-  |      |
-  |      +--> renderer / input / theme / layout
-  |
-  +--> data provider libraries
-         |
-         +--> boot / device / security / platform / HII bridge
-                |
-                +--> edk2 protocols, variables, PCDs, and platform overrides
+  +--> GOP / HII DB / ConfigAccess / UEFI variables
+        |
+        +--> ModernUiHiiBridgeLib
+        |      |
+        |      +--> FormSetGuid + FormId + QuestionId model
+        |
+        +--> ModernSetupApp shell
+               |
+               +--> ModernUiPageAdapterLib
+               |      |
+               |      +--> GUID-bound custom page adapter
+               |      +--> generic HII renderer fallback
+               |
+               +--> ModernUiRendererLib / Theme / Input / String
 ```
 
 Platform-specific code should enter through provider libraries, PCDs, or overlay
 DSC/FDF files. Page rendering code should remain architecture-neutral.
+
+## GUID Page Adapter Engine
+
+`ModernUiPageAdapterLib` provides the first static registry for IBV/OEM-style
+custom setup pages. A platform can bind a modern renderer to a HII formset by
+matching `FormSetGuid`; the adapter receives a neutral draw/input context and
+can render a richer page while still using the same HII identity and firmware
+protocol data.
+
+v0.2.0 intentionally keeps the shipped registry empty. That means DriverSample
+and all loaded HII formsets still render through the generic HII bridge unless a
+platform replaces or extends the library class with custom adapters. This keeps
+the default behavior compatible while establishing the ABI-shaped structure that
+can later become a runtime DXE adapter protocol.
 
 ## Development Documents
 
@@ -231,10 +259,10 @@ can still use edk2 HII Font rendering. The full font file is not committed. See
 
 ## HII Bridge Demo
 
-`ModernUiHiiBridgeLib` is intentionally scoped to `DriverSampleDxe` as the
-first compatibility target. The ArmVirt overlay builds the driver without
-modifying its `.vfr`, `.uni`, or C source, then ModernSetup enumerates the
-runtime HII database and renders the DriverSample formsets under the HII tab.
+`DriverSampleDxe` remains the first compatibility target. The ArmVirt overlay
+builds the driver without modifying its `.vfr`, `.uni`, or C source, then
+ModernSetup asks the generic HII bridge to load the DriverSample formset GUIDs
+under the HII tab. The parser itself is no longer hardwired to DriverSample.
 
 The bridge now treats the forms package as scoped IFR bytecode. It tracks form,
 question, option, and conditional scopes, evaluates a first DriverSample-focused

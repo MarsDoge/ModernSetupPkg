@@ -5,7 +5,6 @@
 **/
 
 #include <Uefi.h>
-#include <Guid/DriverSampleHii.h>
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
@@ -19,9 +18,6 @@
 #include <Uefi/UefiInternalFormRepresentation.h>
 
 #include <ModernUi/ModernUiHiiBridge.h>
-
-STATIC EFI_GUID  mDriverSampleFormSetGuid  = DRIVER_SAMPLE_FORMSET_GUID;
-STATIC EFI_GUID  mDriverSampleInventoryGuid = DRIVER_SAMPLE_INVENTORY_GUID;
 
 typedef enum {
   ModernUiHiiConditionNone = 0,
@@ -46,20 +42,40 @@ typedef struct {
 } MODERN_UI_HII_ACTIVE_CONDITIONS;
 
 /**
-  Return TRUE when a formset GUID belongs to the DriverSample demo.
+  Return TRUE when a formset GUID is allowed by an optional filter list.
 
-  @param[in] Guid  Formset GUID to test. Must not be NULL.
+  @param[in] Guid              Formset GUID to test. Must not be NULL.
+  @param[in] FormSetGuidList   Optional list of allowed formset GUIDs.
+  @param[in] FormSetGuidCount  Number of entries in FormSetGuidList.
 
-  @retval TRUE   GUID is a DriverSample demo formset.
-  @retval FALSE  GUID is another formset.
+  @retval TRUE   The filter is empty or Guid is present in the filter.
+  @retval FALSE  Guid is not present in the filter.
 **/
 STATIC
 BOOLEAN
-IsDriverSampleFormSet (
-  IN CONST EFI_GUID  *Guid
+IsFormSetGuidAllowed (
+  IN CONST EFI_GUID  *Guid,
+  IN CONST EFI_GUID  *FormSetGuidList OPTIONAL,
+  IN UINTN           FormSetGuidCount
   )
 {
-  return (BOOLEAN)(CompareGuid (Guid, &mDriverSampleFormSetGuid) || CompareGuid (Guid, &mDriverSampleInventoryGuid));
+  UINTN  Index;
+
+  if (Guid == NULL) {
+    return FALSE;
+  }
+
+  if ((FormSetGuidList == NULL) || (FormSetGuidCount == 0)) {
+    return TRUE;
+  }
+
+  for (Index = 0; Index < FormSetGuidCount; Index++) {
+    if (CompareGuid (Guid, &FormSetGuidList[Index])) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
 }
 
 /**
@@ -556,6 +572,8 @@ CurrentExpressionScope (
   @param[in]     ConfigAccess  Optional ConfigAccess protocol for routing.
   @param[in]     Package       Forms package bytes. Must not be NULL.
   @param[in]     PackageSize   Forms package size in bytes.
+  @param[in]     FormSetGuidList   Optional list of formset GUIDs to include.
+  @param[in]     FormSetGuidCount  Number of entries in FormSetGuidList.
 **/
 STATIC
 VOID
@@ -565,7 +583,9 @@ ParseFormsPackage (
   IN     EFI_HANDLE                           DriverHandle,
   IN     EFI_HII_CONFIG_ACCESS_PROTOCOL       *ConfigAccess,
   IN     CONST UINT8                          *Package,
-  IN     UINTN                                PackageSize
+  IN     UINTN                                PackageSize,
+  IN     CONST EFI_GUID                       *FormSetGuidList OPTIONAL,
+  IN     UINTN                                FormSetGuidCount
   )
 {
   UINTN                            Offset;
@@ -621,7 +641,7 @@ ParseFormsPackage (
     switch (Header->OpCode) {
       case EFI_IFR_FORM_SET_OP:
         if ((Header->Length >= sizeof (EFI_IFR_FORM_SET)) &&
-            IsDriverSampleFormSet (&((EFI_IFR_FORM_SET *)Header)->Guid) &&
+            IsFormSetGuidAllowed (&((EFI_IFR_FORM_SET *)Header)->Guid, FormSetGuidList, FormSetGuidCount) &&
             (Model->FormSetCount < MODERN_UI_HII_MAX_FORMSETS))
         {
           FormSet = &Model->FormSets[Model->FormSetCount++];
@@ -940,6 +960,8 @@ ParseFormsPackage (
   @param[in,out] Model        Model to append to. Must not be NULL.
   @param[in]     HiiDatabase  HII database protocol. Must not be NULL.
   @param[in]     HiiHandle    HII handle to export.
+  @param[in]     FormSetGuidList   Optional list of formset GUIDs to include.
+  @param[in]     FormSetGuidCount  Number of entries in FormSetGuidList.
 
   @retval EFI_SUCCESS           Package was inspected.
   @retval EFI_OUT_OF_RESOURCES  Export buffer allocation failed.
@@ -950,7 +972,9 @@ EFI_STATUS
 LoadOneHiiHandle (
   IN OUT MODERN_UI_HII_MODEL        *Model,
   IN     EFI_HII_DATABASE_PROTOCOL  *HiiDatabase,
-  IN     EFI_HII_HANDLE             HiiHandle
+  IN     EFI_HII_HANDLE             HiiHandle,
+  IN     CONST EFI_GUID             *FormSetGuidList OPTIONAL,
+  IN     UINTN                      FormSetGuidCount
   )
 {
   EFI_STATUS                      Status;
@@ -1006,7 +1030,9 @@ LoadOneHiiHandle (
         DriverHandle,
         ConfigAccess,
         (UINT8 *)PackageList + Offset,
-        PackageHeader.Length
+        PackageHeader.Length,
+        FormSetGuidList,
+        FormSetGuidCount
         );
     }
 
@@ -1584,12 +1610,39 @@ ModernUiHiiBridgeLoad (
   OUT MODERN_UI_HII_MODEL  *Model
   )
 {
+  return ModernUiHiiBridgeLoadFiltered (Model, NULL, 0);
+}
+
+/**
+  Enumerate the HII database and build a compact IFR model for selected formsets.
+
+  @param[out] Model            Model storage to clear and populate. Must not be NULL.
+  @param[in]  FormSetGuidList  Optional list of formset GUIDs to include.
+  @param[in]  FormSetGuidCount Number of entries in FormSetGuidList.
+
+  @retval EFI_SUCCESS            HII data was loaded. An empty model is valid.
+  @retval EFI_INVALID_PARAMETER  Model is NULL, or count is nonzero with NULL list.
+  @retval EFI_NOT_FOUND          HII database protocol is unavailable.
+  @retval EFI_OUT_OF_RESOURCES   A temporary package buffer allocation failed.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiHiiBridgeLoadFiltered (
+  OUT MODERN_UI_HII_MODEL  *Model,
+  IN  CONST EFI_GUID       *FormSetGuidList OPTIONAL,
+  IN  UINTN                FormSetGuidCount
+  )
+{
   EFI_STATUS                 Status;
   EFI_HII_DATABASE_PROTOCOL  *HiiDatabase;
   EFI_HII_HANDLE             *HiiHandles;
   UINTN                      Index;
 
   if (Model == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if ((FormSetGuidList == NULL) && (FormSetGuidCount != 0)) {
     return EFI_INVALID_PARAMETER;
   }
 
@@ -1606,7 +1659,7 @@ ModernUiHiiBridgeLoad (
   }
 
   for (Index = 0; (HiiHandles[Index] != NULL) && (Model->FormSetCount < MODERN_UI_HII_MAX_FORMSETS); Index++) {
-    Status = LoadOneHiiHandle (Model, HiiDatabase, HiiHandles[Index]);
+    Status = LoadOneHiiHandle (Model, HiiDatabase, HiiHandles[Index], FormSetGuidList, FormSetGuidCount);
     if (EFI_ERROR (Status)) {
       FreePool (HiiHandles);
       return Status;

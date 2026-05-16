@@ -57,6 +57,13 @@ this file as both a release log and a lightweight development progress record.
 - HII rows now carry runtime visible/disabled/callback/read-only state, show
   clearer control types, support scrolling through longer forms, and run
   ConfigAccess callbacks for form open/close and callback actions.
+- `ModernUiPageAdapterLib` static GUID adapter registry, establishing the
+  `FormSetGuid -> page adapter -> generic HII fallback` engine layer used by
+  IBV-style setup stacks.
+- `ModernUiHiiBridgeLib` can now load an optional caller-provided formset GUID
+  filter, moving the DriverSample demo selection out of the parser internals.
+- ArmVirt overlay build now wires `ModernUiPageAdapterLib` alongside renderer,
+  theme, input, string, and HII bridge libraries.
 
 ### Fixed
 
@@ -88,6 +95,11 @@ this file as both a release log and a lightweight development progress record.
 - The HII bridge is a DriverSample-focused demo, not a complete FormBrowser
   replacement. Unsupported opcodes, callback questions, EFI varstores, and
   string editing remain read-only/fallback work.
+- The page adapter registry is present but ships with no OEM-specific adapters
+  in the default package; loaded HII formsets therefore continue to use the
+  generic HII renderer unless a platform extends the library.
+- The latest validated FVMAIN state is 9499072 bytes total, 9499032 bytes used,
+  and 40 bytes free in the ArmVirt AARCH64 DEBUG_CLANGDWARF build.
 - The HII bridge intentionally keeps conservative writes: callback-driven
   questions, EFI varstores, name/value varstores, strings, ordered lists,
   date/time, and password controls are not force-written by ModernSetup.

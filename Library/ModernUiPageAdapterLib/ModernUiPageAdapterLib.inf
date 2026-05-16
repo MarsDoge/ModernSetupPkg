@@ -1,0 +1,25 @@
+## @file
+# Static GUID page adapter registry.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = ModernUiPageAdapterLib
+  FILE_GUID                      = 5C934515-691C-4A58-A5D2-4872BB07D1C7
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 0.1
+  LIBRARY_CLASS                  = ModernUiPageAdapterLib|UEFI_APPLICATION
+
+[Sources]
+  ModernUiPageAdapterLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  ModernSetupPkg/ModernSetupPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+

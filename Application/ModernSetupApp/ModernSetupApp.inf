@@ -29,6 +29,7 @@
   MemoryAllocationLib
   ModernUiHiiBridgeLib
   ModernUiInputLib
+  ModernUiPageAdapterLib
   ModernUiRendererLib
   ModernUiStringLib
   ModernUiThemeLib
@@ -43,4 +44,6 @@
   gEfiLoadedImageProtocolGuid
 
 [Guids]
+  gDriverSampleFormSetGuid
+  gDriverSampleInventoryGuid
   gEfiGlobalVariableGuid

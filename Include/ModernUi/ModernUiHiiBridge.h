@@ -163,6 +163,26 @@ ModernUiHiiBridgeLoad (
   );
 
 /**
+  Enumerate the HII database and build a compact IFR model for selected formsets.
+
+  @param[out] Model            Model storage to clear and populate. Must not be NULL.
+  @param[in]  FormSetGuidList  Optional list of formset GUIDs to include.
+  @param[in]  FormSetGuidCount Number of entries in FormSetGuidList.
+
+  @retval EFI_SUCCESS            HII data was loaded. An empty model is valid.
+  @retval EFI_INVALID_PARAMETER  Model is NULL, or count is nonzero with NULL list.
+  @retval EFI_NOT_FOUND          HII database protocol is unavailable.
+  @retval EFI_OUT_OF_RESOURCES   A temporary package buffer allocation failed.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiHiiBridgeLoadFiltered (
+  OUT MODERN_UI_HII_MODEL  *Model,
+  IN  CONST EFI_GUID       *FormSetGuidList OPTIONAL,
+  IN  UINTN                FormSetGuidCount
+  );
+
+/**
   Refresh readable question values through ConfigAccess.
 
   @param[in,out] Model  Populated HII model. Must not be NULL.

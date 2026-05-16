@@ -34,6 +34,7 @@
   ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
   ModernUiStringLib|ModernSetupPkg/Library/ModernUiStringLib/ModernUiStringLib.inf
   ModernUiHiiBridgeLib|ModernSetupPkg/Library/ModernUiHiiBridgeLib/ModernUiHiiBridgeLib.inf
+  ModernUiPageAdapterLib|ModernSetupPkg/Library/ModernUiPageAdapterLib/ModernUiPageAdapterLib.inf
 
 [PcdsFixedAtBuild]
   gModernSetupPkgTokenSpaceGuid.PcdModernSetupDefaultLanguage|"zh-Hans"
@@ -44,4 +45,5 @@
   ModernSetupPkg/Library/ModernUiInputLib/ModernUiInputLib.inf
   ModernSetupPkg/Library/ModernUiStringLib/ModernUiStringLib.inf
   ModernSetupPkg/Library/ModernUiHiiBridgeLib/ModernUiHiiBridgeLib.inf
+  ModernSetupPkg/Library/ModernUiPageAdapterLib/ModernUiPageAdapterLib.inf
   ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf

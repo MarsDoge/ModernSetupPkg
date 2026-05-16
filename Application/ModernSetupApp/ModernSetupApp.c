@@ -5,6 +5,7 @@
 **/
 
 #include <Uefi.h>
+#include <Guid/DriverSampleHii.h>
 #include <Guid/GlobalVariable.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
@@ -20,6 +21,7 @@
 
 #include <ModernUi/ModernUiHiiBridge.h>
 #include <ModernUi/ModernUiInput.h>
+#include <ModernUi/ModernUiPageAdapter.h>
 #include <ModernUi/ModernUiRenderer.h>
 #include <ModernUi/ModernUiString.h>
 #include <ModernUi/ModernUiTheme.h>
@@ -34,6 +36,10 @@
 #define MAX_HII_ROWS       9
 
 STATIC CONST EFI_GUID  mUiAppGuid = { 0x462CAA21, 0x7614, 0x4503, { 0x83, 0x6E, 0x8A, 0xB6, 0xF4, 0x66, 0x23, 0x31 } };
+STATIC CONST EFI_GUID  mDemoHiiFormSetGuids[] = {
+  DRIVER_SAMPLE_FORMSET_GUID,
+  DRIVER_SAMPLE_INVENTORY_GUID
+};
 STATIC EFI_HANDLE      mImageHandle;
 STATIC MODERN_UI_HII_MODEL  mHiiModel;
 
@@ -90,6 +96,26 @@ VOID
 UpdateHiiScroll (
   VOID
   );
+
+/**
+  Load the HII model used by the current ArmVirt demo.
+
+  DriverSample remains the default compatibility target, but the bridge parser
+  itself is generic and accepts this GUID filter from the app shell.
+
+  @retval EFI_SUCCESS            HII model was loaded or no matching formset exists.
+  @retval EFI_INVALID_PARAMETER  Demo filter arguments are invalid.
+  @retval EFI_NOT_FOUND          HII database protocol is unavailable.
+  @retval EFI_OUT_OF_RESOURCES   A temporary package allocation failed.
+**/
+STATIC
+EFI_STATUS
+LoadHiiModel (
+  VOID
+  )
+{
+  return ModernUiHiiBridgeLoadFiltered (&mHiiModel, mDemoHiiFormSetGuids, ARRAY_SIZE (mDemoHiiFormSetGuids));
+}
 
 /**
   Return TRUE when the active UI language is Simplified Chinese.
@@ -1425,6 +1451,8 @@ DrawHiiBridge (
   CHAR16                  Value[96];
   CHAR16                  Breadcrumb[192];
   UINTN                   Row;
+  CONST MODERN_UI_PAGE_ADAPTER  *Adapter;
+  MODERN_UI_PAGE_CONTEXT        AdapterContext;
 
   Panel = ContentRect (Ui);
   ModernUiDrawPanel (Ui, Panel, Theme);
@@ -1474,6 +1502,24 @@ DrawHiiBridge (
   }
 
   Form = &FormSet->Forms[mHiiView.FormIndex];
+  Adapter = ModernUiFindPageAdapterByGuid (&FormSet->Guid, FormSet);
+  if ((Adapter != NULL) && (Adapter->Draw != NULL)) {
+    ZeroMem (&AdapterContext, sizeof (AdapterContext));
+    AdapterContext.Version           = MODERN_UI_PAGE_ADAPTER_VERSION;
+    AdapterContext.Ui                = Ui;
+    AdapterContext.Theme             = Theme;
+    AdapterContext.HiiModel          = &mHiiModel;
+    AdapterContext.FormSet           = FormSet;
+    AdapterContext.Form              = Form;
+    AdapterContext.FormId            = Form->FormId;
+    AdapterContext.Selection         = mHiiView.Selection;
+    AdapterContext.Scroll            = mHiiView.Scroll;
+    AdapterContext.HasFocus          = (BOOLEAN)(Focus == SetupFocusContent);
+    if (!EFI_ERROR (Adapter->Draw (Adapter, &AdapterContext))) {
+      return;
+    }
+  }
+
   Fallback = ModernUiGetString (ModernUiStringHiiForms);
   Title    = GetHiiDisplayString (FormSet->HiiHandle, Form->TitleId, Fallback);
   UnicodeSPrint (Breadcrumb, sizeof (Breadcrumb), L"%s / %s", ModernUiGetString (ModernUiStringHiiForms), Title);
@@ -1870,7 +1916,7 @@ HiiViewEnter (
         HandleHiiActionRequest (Request, StatusMessage, StatusSize);
       }
 
-      ModernUiHiiBridgeLoad (&mHiiModel);
+      LoadHiiModel ();
     }
 
     return;
@@ -1903,11 +1949,11 @@ HiiViewEnter (
     }
 
     if (HandleHiiActionRequest (Request, StatusMessage, StatusSize)) {
-      ModernUiHiiBridgeLoad (&mHiiModel);
+      LoadHiiModel ();
       return;
     }
 
-    ModernUiHiiBridgeLoad (&mHiiModel);
+    LoadHiiModel ();
     FormSet = &mHiiModel.FormSets[mHiiView.FormSetIndex];
     if (mHiiView.FormIndex >= FormSet->FormCount) {
       return;
@@ -1936,7 +1982,7 @@ HiiViewEnter (
       HandleHiiActionRequest (Request, StatusMessage, StatusSize);
     }
 
-    ModernUiHiiBridgeLoad (&mHiiModel);
+    LoadHiiModel ();
     return;
   }
 
@@ -2102,7 +2148,7 @@ UefiMain (
 
   EfiBootManagerConnectAll ();
   EfiBootManagerRefreshAllBootOption ();
-  ModernUiHiiBridgeLoad (&mHiiModel);
+  LoadHiiModel ();
   ModernUiInputInit (&Input);
   Theme         = ModernUiGetTheme ();
   Page          = PageDashboard;

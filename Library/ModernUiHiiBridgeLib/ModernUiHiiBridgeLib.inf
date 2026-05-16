@@ -35,7 +35,3 @@
   gEfiHiiConfigAccessProtocolGuid
   gEfiHiiConfigRoutingProtocolGuid
   gEfiHiiDatabaseProtocolGuid
-
-[Guids]
-  gDriverSampleFormSetGuid
-  gDriverSampleInventoryGuid

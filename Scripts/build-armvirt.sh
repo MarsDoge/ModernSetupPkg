@@ -46,6 +46,7 @@ library_block = """  ModernUiRendererLib|ModernSetupPkg/Library/ModernUiRenderer
   ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
   ModernUiStringLib|ModernSetupPkg/Library/ModernUiStringLib/ModernUiStringLib.inf
   ModernUiHiiBridgeLib|ModernSetupPkg/Library/ModernUiHiiBridgeLib/ModernUiHiiBridgeLib.inf
+  ModernUiPageAdapterLib|ModernSetupPkg/Library/ModernUiPageAdapterLib/ModernUiPageAdapterLib.inf
 """
 
 dsc = (workspace / "ArmVirtPkg/ArmVirtQemu.dsc").read_text()

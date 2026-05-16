@@ -26,6 +26,8 @@ Expected result:
 - `Build/ArmVirtQemu-AArch64/DEBUG_CLANGDWARF/FV/QEMU_VARS.fd` exists.
 - The default build firmware image contains both `ModernSetupApp` and
   `DriverSample`.
+- FVMAIN space is recorded after each architecture-level change. The current
+  adapter-engine build is expected to remain near full capacity.
 
 ## Run
 
@@ -80,6 +82,10 @@ Expected result:
 - Open the HII or `高级设置` tab.
 - The formset list shows DriverSample main setup and Inventory formsets when
   `MODERN_SETUP_DEMO_DRIVER_SAMPLE` is enabled.
+- DriverSample is loaded through the app-provided formset GUID filter; the HII
+  parser must not depend on DriverSample GUIDs internally.
+- With the default package registry, DriverSample has no custom page adapter and
+  therefore uses the generic HII renderer fallback.
 - `Enter` opens a formset, then opens a form, then selects a row.
 - DriverSample form rows render text, goto/ref, checkbox, one-of, numeric, and
   string questions without crashing or spilling past the content panel.
