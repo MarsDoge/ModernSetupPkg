@@ -12,6 +12,10 @@
 #include <Protocol/HiiFont.h>
 
 #include <ModernUi/ModernUiRenderer.h>
+#include "ModernUiGlyphs.h"
+
+#define MODERN_UI_ASCII_CELL_WIDTH  8
+#define MODERN_UI_TEXT_SEGMENT_MAX  96
 
 /**
   Initialize a render context from firmware graphics services.
@@ -183,7 +187,7 @@ ModernUiStrokeRect (
 }
 
 /**
-  Draw UCS-2 text using the active firmware font service.
+  Draw one UCS-2 text run through HII Font.
 
   @param[in] Context     Initialized render context. Must not be NULL.
   @param[in] X           Left coordinate in pixels.
@@ -197,9 +201,9 @@ ModernUiStrokeRect (
   @retval EFI_UNSUPPORTED        HII Font protocol is unavailable.
   @retval EFI_OUT_OF_RESOURCES   Temporary rendering allocation failed.
 **/
+STATIC
 EFI_STATUS
-EFIAPI
-ModernUiDrawText (
+DrawHiiText (
   IN MODERN_UI_RENDER_CONTEXT       *Context,
   IN UINTN                          X,
   IN UINTN                          Y,
@@ -249,6 +253,209 @@ ModernUiDrawText (
                             );
   FreePool (Blt);
   return Status;
+}
+
+/**
+  Draw one built-in bitmap glyph.
+
+  @param[in] Context     Initialized render context. Must not be NULL.
+  @param[in] X           Left coordinate in pixels.
+  @param[in] Y           Top coordinate in pixels.
+  @param[in] Glyph       Built-in glyph data. Must not be NULL.
+  @param[in] Color       Foreground color.
+  @param[in] Background  Background color.
+
+  @retval EFI_SUCCESS            Glyph was rendered.
+  @retval EFI_INVALID_PARAMETER  Context, GOP, or Glyph is NULL.
+**/
+STATIC
+EFI_STATUS
+DrawBuiltinGlyph (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN UINTN                             X,
+  IN UINTN                             Y,
+  IN CONST MODERN_UI_BUILTIN_GLYPH     *Glyph,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL     Color,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL     Background
+  )
+{
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Buffer[MODERN_UI_BUILTIN_GLYPH_HEIGHT * MODERN_UI_BUILTIN_GLYPH_HEIGHT];
+  UINTN                          Row;
+  UINTN                          Column;
+  UINTN                          Index;
+
+  if ((Context == NULL) || (Context->Gop == NULL) || (Glyph == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  for (Row = 0; Row < Glyph->Height; Row++) {
+    for (Column = 0; Column < Glyph->Width; Column++) {
+      Index         = Row * Glyph->Width + Column;
+      Buffer[Index] = ((Glyph->Rows[Row] & (1U << (Glyph->Width - 1 - Column))) != 0) ? Color : Background;
+    }
+  }
+
+  return Context->Gop->Blt (
+                         Context->Gop,
+                         Buffer,
+                         EfiBltBufferToVideo,
+                         0,
+                         0,
+                         X,
+                         Y,
+                         Glyph->Width,
+                         Glyph->Height,
+                         Glyph->Width * sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)
+                         );
+}
+
+/**
+  Draw a visible placeholder for a missing non-ASCII glyph.
+
+  @param[in] Context     Initialized render context. Must not be NULL.
+  @param[in] X           Left coordinate in pixels.
+  @param[in] Y           Top coordinate in pixels.
+  @param[in] Color       Placeholder stroke color.
+  @param[in] Background  Placeholder fill color.
+
+  @retval EFI_SUCCESS            Placeholder was rendered.
+  @retval others                 Status from fill or stroke primitives.
+**/
+STATIC
+EFI_STATUS
+DrawMissingGlyph (
+  IN MODERN_UI_RENDER_CONTEXT       *Context,
+  IN UINTN                          X,
+  IN UINTN                          Y,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Color,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background
+  )
+{
+  EFI_STATUS  Status;
+
+  Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ X, Y, 16, 16 }, Background);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  return ModernUiStrokeRect (Context, (MODERN_UI_RECT){ X + 2, Y + 2, 12, 12 }, Color);
+}
+
+/**
+  Return the expected pixel width for a UCS-2 string.
+
+  Built-in CJK glyphs are measured at their bitmap width. Other characters use
+  the renderer's current ASCII cell width.
+
+  @param[in] Text  Null-terminated UCS-2 string. Must not be NULL.
+
+  @return Pixel width. NULL input returns 0.
+**/
+UINTN
+EFIAPI
+ModernUiMeasureText (
+  IN CONST CHAR16  *Text
+  )
+{
+  UINTN                         Index;
+  UINTN                         Width;
+  CONST MODERN_UI_BUILTIN_GLYPH *Glyph;
+
+  if (Text == NULL) {
+    return 0;
+  }
+
+  Width = 0;
+  for (Index = 0; Text[Index] != L'\0'; Index++) {
+    Glyph = ModernUiFindBuiltinGlyph (Text[Index]);
+    if (Glyph != NULL) {
+      Width += Glyph->Width;
+    } else if (Text[Index] > 0x7F) {
+      Width += 16;
+    } else {
+      Width += MODERN_UI_ASCII_CELL_WIDTH;
+    }
+  }
+
+  return Width;
+}
+
+/**
+  Draw UCS-2 text using HII Font and built-in bitmap glyph fallback.
+
+  @param[in] Context     Initialized render context. Must not be NULL.
+  @param[in] X           Left coordinate in pixels.
+  @param[in] Y           Top coordinate in pixels.
+  @param[in] Text        Null-terminated UCS-2 string. Must not be NULL.
+  @param[in] Color       Text foreground color.
+  @param[in] Background  Background color passed to the font renderer.
+
+  @retval EFI_SUCCESS            Text was rendered.
+  @retval EFI_INVALID_PARAMETER  Context or Text is NULL.
+  @retval EFI_UNSUPPORTED        HII Font protocol is unavailable for a
+                                  non-built-in character run.
+  @retval EFI_OUT_OF_RESOURCES   Temporary rendering allocation failed.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiDrawText (
+  IN MODERN_UI_RENDER_CONTEXT       *Context,
+  IN UINTN                          X,
+  IN UINTN                          Y,
+  IN CONST CHAR16                   *Text,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Color,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background
+  )
+{
+  CHAR16                         Segment[MODERN_UI_TEXT_SEGMENT_MAX + 1];
+  UINTN                          Index;
+  UINTN                          SegmentIndex;
+  UINTN                          CurrentX;
+  EFI_STATUS                     Status;
+  EFI_STATUS                     ReturnStatus;
+  CONST MODERN_UI_BUILTIN_GLYPH  *Glyph;
+
+  if ((Context == NULL) || (Context->Gop == NULL) || (Text == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  CurrentX     = X;
+  ReturnStatus = EFI_SUCCESS;
+  for (Index = 0; Text[Index] != L'\0'; ) {
+    Glyph = ModernUiFindBuiltinGlyph (Text[Index]);
+    if ((Glyph != NULL) || (Text[Index] > 0x7F)) {
+      if (Glyph != NULL) {
+        Status = DrawBuiltinGlyph (Context, CurrentX, Y, Glyph, Color, Background);
+        CurrentX += Glyph->Width;
+      } else {
+        DEBUG ((DEBUG_WARN, "%a: missing glyph U+%04x\n", __func__, Text[Index]));
+        Status = DrawMissingGlyph (Context, CurrentX, Y, Color, Background);
+        CurrentX += 16;
+      }
+
+      if (EFI_ERROR (Status)) {
+        ReturnStatus = Status;
+      }
+
+      Index++;
+      continue;
+    }
+
+    SegmentIndex = 0;
+    while ((Text[Index] != L'\0') && (Text[Index] <= 0x7F) && (SegmentIndex < MODERN_UI_TEXT_SEGMENT_MAX)) {
+      Segment[SegmentIndex++] = Text[Index++];
+    }
+
+    Segment[SegmentIndex] = L'\0';
+    Status                = DrawHiiText (Context, CurrentX, Y, Segment, Color, Background);
+    if (EFI_ERROR (Status)) {
+      ReturnStatus = Status;
+    }
+
+    CurrentX += ModernUiMeasureText (Segment);
+  }
+
+  return ReturnStatus;
 }
 
 /**

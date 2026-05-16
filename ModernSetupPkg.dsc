@@ -23,15 +23,21 @@
   PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
   PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
   UefiApplicationEntryPoint|MdePkg/Library/UefiApplicationEntryPoint/UefiApplicationEntryPoint.inf
+  UefiBootManagerLib|MdeModulePkg/Library/UefiBootManagerLib/UefiBootManagerLib.inf
   UefiBootServicesTableLib|MdePkg/Library/UefiBootServicesTableLib/UefiBootServicesTableLib.inf
   UefiLib|MdePkg/Library/UefiLib/UefiLib.inf
   UefiRuntimeServicesTableLib|MdePkg/Library/UefiRuntimeServicesTableLib/UefiRuntimeServicesTableLib.inf
   ModernUiRendererLib|ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
   ModernUiInputLib|ModernSetupPkg/Library/ModernUiInputLib/ModernUiInputLib.inf
   ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
+  ModernUiStringLib|ModernSetupPkg/Library/ModernUiStringLib/ModernUiStringLib.inf
+
+[PcdsFixedAtBuild]
+  gModernSetupPkgTokenSpaceGuid.PcdModernSetupDefaultLanguage|"zh-Hans"
 
 [Components]
   ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
   ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
   ModernSetupPkg/Library/ModernUiInputLib/ModernUiInputLib.inf
+  ModernSetupPkg/Library/ModernUiStringLib/ModernUiStringLib.inf
   ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf

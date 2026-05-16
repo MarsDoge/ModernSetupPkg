@@ -27,6 +27,10 @@ this file as both a release log and a lightweight development progress record.
   strip, moving away from the original left-rail prototype.
 - Boot page launch support through `UefiBootManagerLib`, including a footer
   status message when a selected `Boot####` option returns.
+- `ModernUiStringLib` with Simplified Chinese defaults and English fallback
+  strings selected by `PcdModernSetupDefaultLanguage`.
+- Minimal built-in CJK bitmap glyph fallback generated from Noto Sans CJK SC
+  Regular, plus font source/license documentation and a regeneration script.
 
 ### Fixed
 
@@ -43,6 +47,8 @@ this file as both a release log and a lightweight development progress record.
   entries are available when firmware exposes them.
 - Truncate long Boot and Devices rows before rendering so device paths do not
   spill outside their panels at 800x600.
+- Use measured mixed-width text truncation so Chinese, ASCII, and device-path
+  rows stay inside the content panels.
 
 ### Current Status
 
@@ -50,6 +56,8 @@ this file as both a release log and a lightweight development progress record.
 - QEMU smoke test reaches `ModernSetupApp` as the boot manager menu app.
 - Boot order editing, Devices, and Security pages are intentionally read-only in
   the first prototype.
+- Simplified Chinese is the default UI language; English can be selected at
+  build time through `MODERN_SETUP_LANGUAGE=en-US` for the ArmVirt overlay.
 - The UI framework is still early: platform data providers, layout library, HII
   bridge, and write-capable setup flows are planned but not implemented.
 

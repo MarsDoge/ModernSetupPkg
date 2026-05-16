@@ -19,6 +19,7 @@
 
 #include <ModernUi/ModernUiInput.h>
 #include <ModernUi/ModernUiRenderer.h>
+#include <ModernUi/ModernUiString.h>
 #include <ModernUi/ModernUiTheme.h>
 
 #define CARD_GAP           16
@@ -28,7 +29,6 @@
 #define FOOTER_HEIGHT      36
 #define SCREEN_MARGIN      24
 #define MAX_BOOT_ROWS      9
-#define TEXT_GLYPH_WIDTH   8
 
 STATIC CONST EFI_GUID  mUiAppGuid = { 0x462CAA21, 0x7614, 0x4503, { 0x83, 0x6E, 0x8A, 0xB6, 0xF4, 0x66, 0x23, 0x31 } };
 STATIC EFI_HANDLE      mImageHandle;
@@ -48,17 +48,17 @@ typedef enum {
 } SETUP_FOCUS;
 
 typedef struct {
-  SETUP_PAGE    Page;
-  CONST CHAR16  *Title;
-  CONST CHAR16  *Hint;
+  SETUP_PAGE           Page;
+  MODERN_UI_STRING_ID  Title;
+  MODERN_UI_STRING_ID  Hint;
 } PAGE_DESCRIPTOR;
 
 STATIC CONST PAGE_DESCRIPTOR  mPages[] = {
-  { PageDashboard, L"Dashboard", L"Platform overview" },
-  { PageBoot,      L"Boot",      L"Boot order and entries" },
-  { PageDevices,   L"Devices",   L"Firmware-visible handles" },
-  { PageSecurity,  L"Security",  L"Secure Boot state" },
-  { PageExit,      L"Exit",      L"Leave setup or reset" }
+  { PageDashboard, ModernUiStringPageDashboard, ModernUiStringPageDashboardHint },
+  { PageBoot,      ModernUiStringPageBoot,      ModernUiStringPageBootHint      },
+  { PageDevices,   ModernUiStringPageDevices,   ModernUiStringPageDevicesHint   },
+  { PageSecurity,  ModernUiStringPageSecurity,  ModernUiStringPageSecurityHint  },
+  { PageExit,      ModernUiStringPageExit,      ModernUiStringPageExitHint      }
 };
 
 /**
@@ -230,33 +230,40 @@ DrawTextFit (
   )
 {
   CHAR16  Buffer[176];
-  UINTN   MaxChars;
-  UINTN   Length;
+  CHAR16  Character[2];
+  UINTN   Index;
   UINTN   CopyChars;
+  UINTN   CurrentWidth;
+  UINTN   CharacterWidth;
+  UINTN   EllipsisWidth;
+  UINTN   TargetWidth;
 
-  if ((Ui == NULL) || (Text == NULL) || (Width < TEXT_GLYPH_WIDTH)) {
+  if ((Ui == NULL) || (Text == NULL) || (Width == 0)) {
     return;
   }
 
-  MaxChars = MIN (Width / TEXT_GLYPH_WIDTH, ARRAY_SIZE (Buffer) - 1);
-  if (MaxChars == 0) {
-    return;
-  }
-
-  Length = StrLen (Text);
-  if (Length <= MaxChars) {
+  if (ModernUiMeasureText (Text) <= Width) {
     ModernUiDrawText (Ui, X, Y, Text, Color, Background);
     return;
   }
 
-  if (MaxChars <= 3) {
-    CopyChars = MaxChars;
-  } else {
-    CopyChars = MaxChars - 3;
+  EllipsisWidth = ModernUiMeasureText (L"...");
+  TargetWidth   = (Width > EllipsisWidth) ? (Width - EllipsisWidth) : Width;
+  CopyChars     = 0;
+  CurrentWidth  = 0;
+  Character[1]  = L'\0';
+  for (Index = 0; (Text[Index] != L'\0') && (CopyChars < ARRAY_SIZE (Buffer) - 4); Index++) {
+    Character[0]  = Text[Index];
+    CharacterWidth = ModernUiMeasureText (Character);
+    if ((CurrentWidth + CharacterWidth) > TargetWidth) {
+      break;
+    }
+
+    Buffer[CopyChars++] = Text[Index];
+    CurrentWidth       += CharacterWidth;
   }
 
-  CopyMem (Buffer, Text, CopyChars * sizeof (CHAR16));
-  if (MaxChars > 3) {
+  if ((Width >= EllipsisWidth) && (CopyChars < ARRAY_SIZE (Buffer) - 3)) {
     Buffer[CopyChars++] = L'.';
     Buffer[CopyChars++] = L'.';
     Buffer[CopyChars++] = L'.';
@@ -560,8 +567,8 @@ DrawHeader (
   Header = BlendAccent (Theme->Surface, Theme->AccentSoft, 35);
   ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, 0, Ui->Width, TOP_BAR_HEIGHT }, Header);
   ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, TOP_BAR_HEIGHT - 1, Ui->Width, 1 }, Theme->Accent);
-  ModernUiDrawText (Ui, SCREEN_MARGIN, 15, L"MODERN UEFI BIOS UTILITY", Theme->Text, Header);
-  ModernUiDrawText (Ui, Ui->Width / 2 - 72, 15, L"ADVANCED MODE", Theme->Accent, Header);
+  ModernUiDrawText (Ui, SCREEN_MARGIN, 15, ModernUiGetString (ModernUiStringHeaderTitle), Theme->Text, Header);
+  ModernUiDrawText (Ui, Ui->Width / 2 - 72, 15, ModernUiGetString (ModernUiStringHeaderMode), Theme->Accent, Header);
   DrawTextF (Ui, Ui->Width - 244, 15, Theme->MutedText, Header, L"AARCH64  %ux%u", Ui->Width, Ui->Height);
 }
 
@@ -606,7 +613,7 @@ DrawTabs (
         );
     }
 
-    ModernUiDrawText (Ui, X + 12, TOP_BAR_HEIGHT + 20, (CHAR16 *)mPages[Index].Title, TextColor, TabColor);
+    ModernUiDrawText (Ui, X + 12, TOP_BAR_HEIGHT + 20, ModernUiGetString (mPages[Index].Title), TextColor, TabColor);
   }
 }
 
@@ -635,9 +642,9 @@ DrawFooter (
   if ((StatusMessage != NULL) && (StatusMessage[0] != L'\0')) {
     ModernUiDrawText (Ui, SCREEN_MARGIN, Y + 10, StatusMessage, Theme->Warning, Theme->Surface);
   } else if (Focus == SetupFocusNav) {
-    ModernUiDrawText (Ui, SCREEN_MARGIN, Y + 10, L"Left/Right: tab    Down/Enter: page    Esc: continue boot", Theme->MutedText, Theme->Surface);
+    ModernUiDrawText (Ui, SCREEN_MARGIN, Y + 10, ModernUiGetString (ModernUiStringFooterNav), Theme->MutedText, Theme->Surface);
   } else {
-    ModernUiDrawText (Ui, SCREEN_MARGIN, Y + 10, L"Up/Down: select    Left/Esc: tabs    Enter: action    Tab: switch focus", Theme->MutedText, Theme->Surface);
+    ModernUiDrawText (Ui, SCREEN_MARGIN, Y + 10, ModernUiGetString (ModernUiStringFooterContent), Theme->MutedText, Theme->Surface);
   }
 }
 
@@ -699,8 +706,8 @@ DrawPageTitle (
   IN SETUP_PAGE                Page
   )
 {
-  ModernUiDrawText (Ui, SCREEN_MARGIN, TOP_BAR_HEIGHT + TAB_BAR_HEIGHT + 16, (CHAR16 *)mPages[Page].Title, Theme->Text, Theme->Background);
-  ModernUiDrawText (Ui, SCREEN_MARGIN, TOP_BAR_HEIGHT + TAB_BAR_HEIGHT + 40, (CHAR16 *)mPages[Page].Hint, Theme->MutedText, Theme->Background);
+  ModernUiDrawText (Ui, SCREEN_MARGIN, TOP_BAR_HEIGHT + TAB_BAR_HEIGHT + 16, ModernUiGetString (mPages[Page].Title), Theme->Text, Theme->Background);
+  ModernUiDrawText (Ui, SCREEN_MARGIN, TOP_BAR_HEIGHT + TAB_BAR_HEIGHT + 40, ModernUiGetString (mPages[Page].Hint), Theme->MutedText, Theme->Background);
 }
 
 /**
@@ -756,17 +763,17 @@ DrawDashboard (
   CardWidth = (Content.Width - CARD_GAP) / 2;
   StatusRect = (MODERN_UI_RECT){ Content.X, Content.Y + 216, Content.Width, 112 };
   UnicodeSPrint (Resolution, sizeof (Resolution), L"%u x %u", Ui->Width, Ui->Height);
-  UnicodeSPrint (BootCount, sizeof (BootCount), L"%u entries", GetBootCount ());
+  UnicodeSPrint (BootCount, sizeof (BootCount), ModernUiGetString (ModernUiStringBootCountFormat), GetBootCount ());
 
-  DrawInfoCard (Ui, Theme, Content.X, Content.Y, CardWidth, L"Firmware Vendor", gST->FirmwareVendor);
-  DrawInfoCard (Ui, Theme, Content.X + CardWidth + CARD_GAP, Content.Y, CardWidth, L"Firmware Revision", L"edk2 / ArmVirt");
-  DrawInfoCard (Ui, Theme, Content.X, Content.Y + 108, CardWidth, L"Display", Resolution);
-  DrawInfoCard (Ui, Theme, Content.X + CardWidth + CARD_GAP, Content.Y + 108, CardWidth, L"Boot Options", BootCount);
+  DrawInfoCard (Ui, Theme, Content.X, Content.Y, CardWidth, ModernUiGetString (ModernUiStringFirmwareVendor), gST->FirmwareVendor);
+  DrawInfoCard (Ui, Theme, Content.X + CardWidth + CARD_GAP, Content.Y, CardWidth, ModernUiGetString (ModernUiStringFirmwareRevision), L"edk2 / ArmVirt");
+  DrawInfoCard (Ui, Theme, Content.X, Content.Y + 108, CardWidth, ModernUiGetString (ModernUiStringDisplay), Resolution);
+  DrawInfoCard (Ui, Theme, Content.X + CardWidth + CARD_GAP, Content.Y + 108, CardWidth, ModernUiGetString (ModernUiStringBootOptions), BootCount);
 
   ModernUiDrawPanel (Ui, StatusRect, Theme);
   DrawContentFocus (Ui, Theme, StatusRect, (BOOLEAN)(Focus == SetupFocusContent));
-  ModernUiDrawText (Ui, StatusRect.X + 20, StatusRect.Y + 18, L"Prototype Status", Theme->MutedText, Theme->Surface);
-  ModernUiDrawText (Ui, StatusRect.X + 20, StatusRect.Y + 48, L"GOP renderer online. Keyboard navigation is active.", Theme->Text, Theme->Surface);
+  ModernUiDrawText (Ui, StatusRect.X + 20, StatusRect.Y + 18, ModernUiGetString (ModernUiStringPrototypeStatus), Theme->MutedText, Theme->Surface);
+  ModernUiDrawText (Ui, StatusRect.X + 20, StatusRect.Y + 48, ModernUiGetString (ModernUiStringPrototypeStatusValue), Theme->Text, Theme->Surface);
   ModernUiDrawProgress (Ui, (MODERN_UI_RECT){ StatusRect.X + 20, StatusRect.Y + 82, StatusRect.Width - 40, 12 }, 68, Theme->Border, Theme->Accent);
 }
 
@@ -805,11 +812,11 @@ DrawBoot (
   RowWidth = Panel.Width - 40;
   ModernUiDrawPanel (Ui, Panel, Theme);
   DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
-  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, L"Enter launches the selected boot option. Boot order editing is not implemented yet.", Theme->MutedText, Theme->Surface);
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, ModernUiGetString (ModernUiStringBootInstruction), Theme->MutedText, Theme->Surface);
 
   BootOptions = EfiBootManagerGetLoadOptions (&BootOptionCount, LoadOptionTypeBoot);
   if (BootOptions == NULL) {
-    ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 66, L"No visible boot options found.", Theme->Warning, Theme->Surface);
+    ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 66, ModernUiGetString (ModernUiStringNoBootOptions), Theme->Warning, Theme->Surface);
     return;
   }
 
@@ -820,8 +827,8 @@ DrawBoot (
     }
 
     Y           = Panel.Y + 62 + VisibleIndex * 38;
-    Description = (BootOptions[Index].Description != NULL) ? BootOptions[Index].Description : L"(no description)";
-    State       = ((BootOptions[Index].Attributes & LOAD_OPTION_ACTIVE) != 0) ? L"Active" : L"Inactive";
+    Description = (BootOptions[Index].Description != NULL) ? BootOptions[Index].Description : ModernUiGetString (ModernUiStringNoDescription);
+    State       = ((BootOptions[Index].Attributes & LOAD_OPTION_ACTIVE) != 0) ? ModernUiGetString (ModernUiStringActive) : ModernUiGetString (ModernUiStringInactive);
     IsSelected  = (BOOLEAN)((Focus == SetupFocusContent) && (VisibleIndex == Selected));
     UnicodeSPrint (
       Line,
@@ -842,7 +849,7 @@ DrawBoot (
   }
 
   if (VisibleIndex == 0) {
-    ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 66, L"No visible boot options found.", Theme->Warning, Theme->Surface);
+    ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 66, ModernUiGetString (ModernUiStringNoBootOptions), Theme->Warning, Theme->Surface);
   }
 
   EfiBootManagerFreeLoadOptions (BootOptions, BootOptionCount);
@@ -886,11 +893,11 @@ DrawDevices (
 
   Status = gBS->LocateHandleBuffer (AllHandles, NULL, NULL, &HandleCount, &Handles);
   if (EFI_ERROR (Status)) {
-    ModernUiDrawText (Ui, 280, 150, L"Unable to enumerate handles.", Theme->Warning, Theme->Surface);
+    ModernUiDrawText (Ui, 280, 150, ModernUiGetString (ModernUiStringUnableEnumerateHandles), Theme->Warning, Theme->Surface);
     return;
   }
 
-  DrawTextF (Ui, Panel.X + 20, Panel.Y + 20, Theme->MutedText, Theme->Surface, L"%u handles visible to DXE", HandleCount);
+  DrawTextF (Ui, Panel.X + 20, Panel.Y + 20, Theme->MutedText, Theme->Surface, ModernUiGetString (ModernUiStringHandleCountFormat), HandleCount);
 
   Shown = 0;
   for (Index = 0; (Index < HandleCount) && (Shown < 8); Index++) {
@@ -945,9 +952,9 @@ DrawSecurity (
   Panel = ContentRect (Ui);
   ModernUiDrawPanel (Ui, Panel, Theme);
   DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
-  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 24, L"Secure Boot", Theme->MutedText, Theme->Surface);
-  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 64, SecureBoot ? L"Enabled" : L"Disabled", SecureBoot ? Theme->Success : Theme->Warning, Theme->Surface);
-  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 116, L"Key management is intentionally read-only in v1.", Theme->MutedText, Theme->Surface);
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 24, ModernUiGetString (ModernUiStringSecureBoot), Theme->MutedText, Theme->Surface);
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 64, SecureBoot ? ModernUiGetString (ModernUiStringEnabled) : ModernUiGetString (ModernUiStringDisabled), SecureBoot ? Theme->Success : Theme->Warning, Theme->Surface);
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 116, ModernUiGetString (ModernUiStringSecurityReadOnly), Theme->MutedText, Theme->Surface);
 }
 
 /**
@@ -968,9 +975,9 @@ DrawExit (
   )
 {
   CONST CHAR16  *Items[] = {
-    L"Continue boot",
-    L"Launch classic UiApp fallback",
-    L"Reset system"
+    ModernUiGetString (ModernUiStringExitContinue),
+    ModernUiGetString (ModernUiStringExitClassicUi),
+    ModernUiGetString (ModernUiStringExitReset)
   };
   UINTN         Index;
   UINTN         Y;
@@ -984,7 +991,7 @@ DrawExit (
   RowWidth = Panel.Width - 40;
   ModernUiDrawPanel (Ui, Panel, Theme);
   DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
-  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, L"Use Up/Down to select an action, Enter to run it.", Theme->MutedText, Theme->Surface);
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, ModernUiGetString (ModernUiStringExitInstruction), Theme->MutedText, Theme->Surface);
 
   for (Index = 0; Index < ARRAY_SIZE (Items); Index++) {
     Y = Panel.Y + 76 + Index * 56;
@@ -1145,7 +1152,7 @@ UefiMain (
 
   Status = ModernUiRendererInit (&Ui);
   if (EFI_ERROR (Status)) {
-    Print (L"ModernSetupApp: graphics initialization failed: %r\n", Status);
+    Print (ModernUiGetString (ModernUiStringGraphicsInitFailedFormat), Status);
     return Status;
   }
 
@@ -1238,14 +1245,14 @@ UefiMain (
           Redraw = TRUE;
         } else if (Page == PageBoot) {
           Status = LaunchSelectedBootOption (BootSelection);
-          UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"Boot option returned: %r", Status);
+          UnicodeSPrint (StatusMessage, sizeof (StatusMessage), ModernUiGetString (ModernUiStringBootReturnedFormat), Status);
           Redraw = TRUE;
         } else if (Page == PageExit) {
           if (ExitSelection == 0) {
             return EFI_SUCCESS;
           } else if (ExitSelection == 1) {
             Status = LaunchUiAppFallback (ImageHandle);
-            UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"Classic UiApp returned: %r", Status);
+            UnicodeSPrint (StatusMessage, sizeof (StatusMessage), ModernUiGetString (ModernUiStringClassicReturnedFormat), Status);
             Redraw = TRUE;
           } else {
             gRT->ResetSystem (EfiResetCold, EFI_SUCCESS, 0, NULL);

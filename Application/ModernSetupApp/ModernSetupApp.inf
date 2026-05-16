@@ -28,6 +28,7 @@
   MemoryAllocationLib
   ModernUiInputLib
   ModernUiRendererLib
+  ModernUiStringLib
   ModernUiThemeLib
   PrintLib
   UefiApplicationEntryPoint

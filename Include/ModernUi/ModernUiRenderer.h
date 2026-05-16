@@ -100,7 +100,23 @@ ModernUiStrokeRect (
   );
 
 /**
-  Draw UCS-2 text using the active firmware font service.
+  Return the expected pixel width for a UCS-2 string.
+
+  Built-in CJK glyphs are measured at their bitmap width. Other characters use
+  the renderer's current ASCII cell width.
+
+  @param[in] Text  Null-terminated UCS-2 string. Must not be NULL.
+
+  @return Pixel width. NULL input returns 0.
+**/
+UINTN
+EFIAPI
+ModernUiMeasureText (
+  IN CONST CHAR16  *Text
+  );
+
+/**
+  Draw UCS-2 text using HII Font and built-in bitmap glyph fallback.
 
   @param[in] Context     Initialized render context. Must not be NULL.
   @param[in] X           Left coordinate in pixels.
@@ -111,7 +127,8 @@ ModernUiStrokeRect (
 
   @retval EFI_SUCCESS            Text was rendered.
   @retval EFI_INVALID_PARAMETER  Context or Text is NULL.
-  @retval EFI_UNSUPPORTED        HII Font protocol is unavailable.
+  @retval EFI_UNSUPPORTED        HII Font protocol is unavailable for a
+                                  non-built-in character run.
   @retval EFI_OUT_OF_RESOURCES   Temporary rendering allocation failed.
 **/
 EFI_STATUS

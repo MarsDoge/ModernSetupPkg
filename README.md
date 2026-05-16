@@ -11,6 +11,8 @@ interaction references.
 ## Current Scope
 
 - GOP-based rendering through `ModernUiRendererLib`
+- Simplified Chinese UI strings by default, with English fallback strings
+- Minimal built-in 16x16 bitmap glyphs generated from Noto Sans CJK SC Regular
 - Keyboard navigation through `EFI_SIMPLE_TEXT_INPUT_EX_PROTOCOL`
 - Optional pointer polling through `EFI_ABSOLUTE_POINTER_PROTOCOL`
 - A standalone `ModernSetupApp` with Dashboard, Boot, Devices, Security, and Exit pages
@@ -52,6 +54,7 @@ edk2 workspace
     |   +-- Include/ModernUi/ModernUiRenderer.h
     |   +-- Include/ModernUi/ModernUiInput.h
     |   +-- Include/ModernUi/ModernUiTheme.h
+    |   +-- Include/ModernUi/ModernUiString.h
     |
     +-- Implemented framework libraries
     |   |
@@ -59,6 +62,7 @@ edk2 workspace
     |   |   |
     |   |   +-- GOP framebuffer primitives
     |   |   +-- HII Font text rendering
+    |   |   +-- built-in minimal CJK glyph fallback
     |   |
     |   +-- ModernUiInputLib
     |   |   |
@@ -66,8 +70,12 @@ edk2 workspace
     |   |   +-- AbsolutePointer optional pointer events
     |   |
     |   +-- ModernUiThemeLib
+    |   |   |
+    |   |   +-- Dark theme token table
+    |   |
+    |   +-- ModernUiStringLib
     |       |
-    |       +-- Dark theme token table
+    |       +-- zh-Hans / en-US setup strings
     |
     +-- Planned framework libraries
     |   |
@@ -105,6 +113,8 @@ edk2 workspace
     |
     +-- Project records
     |   |
+    |   +-- Assets/Fonts
+    |   +-- Scripts/generate-font-glyphs.py
     |   +-- Docs/DEVELOPMENT.md
     |   +-- CHANGELOG.md
     |   +-- LICENSE
@@ -158,6 +168,13 @@ Build ArmVirtQemu:
 ModernSetupPkg/Scripts/build-armvirt.sh
 ```
 
+The default UI language is Simplified Chinese. To build the ArmVirt overlay with
+English strings:
+
+```sh
+MODERN_SETUP_LANGUAGE=en-US ModernSetupPkg/Scripts/build-armvirt.sh
+```
+
 Run with graphics:
 
 ```sh
@@ -166,3 +183,15 @@ GRAPHICS=1 RESET_VARS=1 ModernSetupPkg/Scripts/run-armvirt.sh
 
 Click the QEMU window and press `Esc` or `F2` during BDS wait to enter the
 ModernSetupApp boot manager menu.
+
+## Fonts and Localization
+
+ModernSetupPkg keeps UI strings in `ModernUiStringLib`. The default language is
+controlled by `gModernSetupPkgTokenSpaceGuid.PcdModernSetupDefaultLanguage`,
+which defaults to `zh-Hans`.
+
+Chinese glyphs do not depend on platform firmware fonts. A minimal bitmap table
+is generated from Noto Sans CJK SC Regular and compiled into
+`ModernUiRendererLib`; ASCII and English text still use edk2 HII Font rendering.
+The full font file is not committed. See `Assets/Fonts/README.md` for source,
+license, and regeneration details.

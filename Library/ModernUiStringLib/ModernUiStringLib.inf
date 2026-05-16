@@ -1,0 +1,27 @@
+## @file
+# Localized string library for ModernSetupPkg.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = ModernUiStringLib
+  FILE_GUID                      = 08F6E245-48C6-4A5F-A8E2-9B4A42D870E0
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 0.1
+  LIBRARY_CLASS                  = ModernUiStringLib|UEFI_APPLICATION
+
+[Sources]
+  ModernUiStringLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  ModernSetupPkg/ModernSetupPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  PcdLib
+
+[FixedPcd]
+  gModernSetupPkgTokenSpaceGuid.PcdModernSetupDefaultLanguage

@@ -7,6 +7,12 @@ cd /Users/cy/github/edk2
 ModernSetupPkg/Scripts/build-armvirt.sh
 ```
 
+For English fallback verification:
+
+```sh
+MODERN_SETUP_LANGUAGE=en-US ModernSetupPkg/Scripts/build-armvirt.sh
+```
+
 Expected result:
 
 - Build exits successfully.
@@ -35,7 +41,9 @@ Expected result:
 ## UI Checks
 
 - Header shows firmware utility name, mode, architecture, and resolution.
-- Top tab bar shows Dashboard, Boot, Devices, Security, and Exit.
+- Default build shows Simplified Chinese UI strings for the header, tabs,
+  page titles, footer hints, and status text.
+- English fallback build shows Dashboard, Boot, Devices, Security, and Exit.
 - `Left` and `Right` move between tabs while tab focus is active.
 - `Down` or `Enter` moves focus into the page content area.
 - `Left` or `Esc` moves focus back to the top tab bar.
@@ -48,3 +56,5 @@ Expected result:
   at 800x600 and 1024x768.
 - Long Boot descriptions and Devices device paths are truncated inside the
   content panel rather than spilling past the right edge.
+- Chinese, ASCII, numbers, `Boot####`, and device paths can appear on the same
+  screen without missing-glyph boxes for built-in UI text.

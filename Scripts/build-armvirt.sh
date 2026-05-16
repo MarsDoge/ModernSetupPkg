@@ -5,6 +5,7 @@ PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE="${WORKSPACE:-$(cd "${PKG_DIR}/.." && pwd)}"
 TARGET="${TARGET:-DEBUG}"
 JOBS="${JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
+MODERN_SETUP_LANGUAGE="${MODERN_SETUP_LANGUAGE:-zh-Hans}"
 OVERLAY_DIR="${WORKSPACE}/Build/ModernSetupPkgOverlay"
 
 export PATH="/opt/homebrew/bin:/opt/homebrew/opt/llvm/bin:/opt/homebrew/opt/lld/bin:${PATH}"
@@ -24,13 +25,14 @@ fi
 
 mkdir -p "${OVERLAY_DIR}"
 
-python3 - <<'PY' "${WORKSPACE}" "${OVERLAY_DIR}"
+python3 - <<'PY' "${WORKSPACE}" "${OVERLAY_DIR}" "${MODERN_SETUP_LANGUAGE}"
 from pathlib import Path
 import re
 import sys
 
 workspace = Path(sys.argv[1])
 overlay = Path(sys.argv[2])
+language = sys.argv[3]
 
 app_component = "  ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf"
 app_fdf_inf = "  INF ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf"
@@ -38,6 +40,7 @@ guid_bytes = "{ 0x3a, 0x8b, 0xc9, 0x26, 0xdd, 0x29, 0x73, 0x4f, 0xa0, 0x7a, 0x4a
 library_block = """  ModernUiRendererLib|ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
   ModernUiInputLib|ModernSetupPkg/Library/ModernUiInputLib/ModernUiInputLib.inf
   ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
+  ModernUiStringLib|ModernSetupPkg/Library/ModernUiStringLib/ModernUiStringLib.inf
 """
 
 dsc = (workspace / "ArmVirtPkg/ArmVirtQemu.dsc").read_text()
@@ -59,6 +62,8 @@ if app_component not in dsc:
         app_component + "\n  MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf",
         1,
     )
+if "gModernSetupPkgTokenSpaceGuid.PcdModernSetupDefaultLanguage" not in dsc:
+    dsc += f'\n[PcdsFixedAtBuild]\n  gModernSetupPkgTokenSpaceGuid.PcdModernSetupDefaultLanguage|"{language}"\n'
 (overlay / "ArmVirtQemuModernSetup.dsc").write_text(dsc)
 
 fdf = (workspace / "ArmVirtPkg/ArmVirtQemu.fdf").read_text()
