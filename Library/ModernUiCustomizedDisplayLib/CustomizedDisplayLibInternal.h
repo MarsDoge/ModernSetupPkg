@@ -53,6 +53,9 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #define NONE_FRONT_PAGE_HEADER_HEIGHT  3
 #define FOOTER_HEIGHT                  4
 #define STATUS_BAR_HEIGHT              1
+#define MODERN_SETUP_HORIZONTAL_MARGIN 3
+#define MODERN_SETUP_CONTENT_TOP_GAP   1
+#define MODERN_SETUP_CONTENT_BOTTOM_GAP 1
 
 //
 // Screen definitions

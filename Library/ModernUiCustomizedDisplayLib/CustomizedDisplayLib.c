@@ -76,15 +76,20 @@ DisplayPageFrame (
   //
   // Calculate the ScreenForStatement.
   //
-  ScreenForStatement->BottomRow = gScreenDimensions.BottomRow - STATUS_BAR_HEIGHT - gFooterHeight;
+  ScreenForStatement->BottomRow = gScreenDimensions.BottomRow - STATUS_BAR_HEIGHT - gFooterHeight - MODERN_SETUP_CONTENT_BOTTOM_GAP;
   if (gClassOfVfr == FORMSET_CLASS_FRONT_PAGE) {
     ScreenForStatement->TopRow = gScreenDimensions.TopRow + FRONT_PAGE_HEADER_HEIGHT;
   } else {
-    ScreenForStatement->TopRow = gScreenDimensions.TopRow + NONE_FRONT_PAGE_HEADER_HEIGHT;
+    ScreenForStatement->TopRow = gScreenDimensions.TopRow + NONE_FRONT_PAGE_HEADER_HEIGHT + MODERN_SETUP_CONTENT_TOP_GAP;
   }
 
-  ScreenForStatement->LeftColumn  = gScreenDimensions.LeftColumn;
-  ScreenForStatement->RightColumn = gScreenDimensions.RightColumn;
+  if ((gScreenDimensions.RightColumn - gScreenDimensions.LeftColumn) > (2 * MODERN_SETUP_HORIZONTAL_MARGIN + 40)) {
+    ScreenForStatement->LeftColumn  = gScreenDimensions.LeftColumn + MODERN_SETUP_HORIZONTAL_MARGIN;
+    ScreenForStatement->RightColumn = gScreenDimensions.RightColumn - MODERN_SETUP_HORIZONTAL_MARGIN;
+  } else {
+    ScreenForStatement->LeftColumn  = gScreenDimensions.LeftColumn;
+    ScreenForStatement->RightColumn = gScreenDimensions.RightColumn;
+  }
 
   if ((gLibIsFirstForm) || ((FormData->Attribute & HII_DISPLAY_MODAL) != 0)) {
     //

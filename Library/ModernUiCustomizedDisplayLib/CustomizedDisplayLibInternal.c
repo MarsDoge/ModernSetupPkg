@@ -20,6 +20,42 @@ STATIC BOOLEAN                   mModernRenderReady;
 STATIC UINTN                     mModernCursorColumn;
 STATIC UINTN                     mModernCursorRow;
 
+STATIC
+UINTN
+ModernDisplayColumns (
+  VOID
+  );
+
+STATIC
+UINTN
+ModernDisplayRows (
+  VOID
+  );
+
+/**
+  Return GOP cell metrics that match the active text-mode grid.
+
+  @param[out] CellWidth   Width in pixels for one text column. Must not be NULL.
+  @param[out] CellHeight  Height in pixels for one text row. Must not be NULL.
+**/
+STATIC
+VOID
+ModernDisplayGetCellMetrics (
+  OUT UINTN  *CellWidth,
+  OUT UINTN  *CellHeight
+  )
+{
+  UINTN  Columns;
+  UINTN  Rows;
+
+  ASSERT ((CellWidth != NULL) && (CellHeight != NULL));
+
+  Columns     = ModernDisplayColumns ();
+  Rows        = ModernDisplayRows ();
+  *CellWidth  = MAX (1, mModernRenderContext.Width / Columns);
+  *CellHeight = MAX (18, mModernRenderContext.Height / Rows);
+}
+
 /**
   Initialize the GOP-backed drawing context on first use.
 
@@ -173,7 +209,7 @@ ModernDisplayBackground (
     case EFI_LIGHTBLUE:
       return Theme->AccentSoft;
     case EFI_LIGHTGRAY:
-      return Theme->SurfaceRaised;
+      return Theme->Surface;
     default:
       return Theme->Background;
   }
@@ -214,6 +250,84 @@ ModernDisplayCopyPrintable (
 
   Output[OutIndex] = CHAR_NULL;
   return OutIndex;
+}
+
+/**
+  Draw the modern DisplayEngine shell behind the native FormBrowser content.
+
+  This function does not parse HII or own any FormBrowser semantics. It only
+  paints the GOP chrome used by the customized display backend.
+
+  @param[in] FormData  Form currently being displayed. Must not be NULL.
+**/
+STATIC
+VOID
+ModernDisplayDrawPageChrome (
+  IN FORM_DISPLAY_ENGINE_FORM  *FormData
+  )
+{
+  CONST MODERN_UI_THEME  *Theme;
+  CHAR16                 *Title;
+  CHAR16                 *PrintableTitle;
+  UINTN                  CellWidth;
+  UINTN                  CellHeight;
+  UINTN                  HeaderHeight;
+  UINTN                  FooterTop;
+  UINTN                  ContentX;
+  UINTN                  ContentY;
+  UINTN                  ContentWidth;
+  UINTN                  ContentHeight;
+  UINTN                  HorizontalMargin;
+  UINTN                  ScreenColumns;
+  MODERN_UI_RECT         ContentRect;
+
+  ASSERT (FormData != NULL);
+  if ((FormData == NULL) || EFI_ERROR (ModernDisplayEnsureRenderer ())) {
+    return;
+  }
+
+  Theme = ModernUiGetTheme ();
+  ModernDisplayGetCellMetrics (&CellWidth, &CellHeight);
+
+  HeaderHeight = (gClassOfVfr == FORMSET_CLASS_FRONT_PAGE) ? (FRONT_PAGE_HEADER_HEIGHT * CellHeight) :
+                 (NONE_FRONT_PAGE_HEADER_HEIGHT * CellHeight);
+  FooterTop = (gScreenDimensions.BottomRow - STATUS_BAR_HEIGHT - gFooterHeight) * CellHeight;
+  ScreenColumns = gScreenDimensions.RightColumn - gScreenDimensions.LeftColumn;
+  HorizontalMargin = (ScreenColumns > (2 * MODERN_SETUP_HORIZONTAL_MARGIN + 4)) ? MODERN_SETUP_HORIZONTAL_MARGIN : 0;
+
+  ModernUiClear (&mModernRenderContext, Theme->Background);
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, 0, mModernRenderContext.Width, HeaderHeight }, Theme->SurfaceRaised);
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, HeaderHeight - 2, mModernRenderContext.Width, 2 }, Theme->Accent);
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, FooterTop, mModernRenderContext.Width, mModernRenderContext.Height - FooterTop }, Theme->SurfaceRaised);
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, FooterTop, mModernRenderContext.Width, 1 }, Theme->Border);
+
+  ContentX      = (gScreenDimensions.LeftColumn + HorizontalMargin) * CellWidth;
+  ContentY      = (gScreenDimensions.TopRow + NONE_FRONT_PAGE_HEADER_HEIGHT) * CellHeight;
+  ContentWidth  = MAX (1, ScreenColumns - (2 * HorizontalMargin)) * CellWidth;
+  ContentHeight = (FooterTop > ContentY + CellHeight) ? (FooterTop - ContentY - CellHeight) : CellHeight;
+  ContentRect   = (MODERN_UI_RECT){ ContentX, ContentY, ContentWidth, ContentHeight };
+
+  ModernUiFillRect (&mModernRenderContext, ContentRect, Theme->Surface);
+  ModernUiStrokeRect (&mModernRenderContext, ContentRect, Theme->Border);
+
+  Title = LibGetToken (FormData->FormTitle, FormData->HiiHandle);
+  if (Title != NULL) {
+    PrintableTitle = AllocateZeroPool ((StrLen (Title) + 1) * sizeof (CHAR16));
+    if (PrintableTitle != NULL) {
+      ModernDisplayCopyPrintable (PrintableTitle, StrLen (Title) + 1, Title);
+      ModernUiDrawText (
+        &mModernRenderContext,
+        (gScreenDimensions.LeftColumn + HorizontalMargin + 1) * CellWidth,
+        gScreenDimensions.TopRow * CellHeight + ((CellHeight > 18) ? ((CellHeight - 18) / 2) : 0),
+        PrintableTitle,
+        Theme->Text,
+        Theme->SurfaceRaised
+        );
+      FreePool (PrintableTitle);
+    }
+
+    FreePool (Title);
+  }
 }
 
 //
@@ -336,12 +450,13 @@ PrintFramework (
   IN FORM_DISPLAY_ENGINE_FORM  *FormData
   )
 {
-  UINTN   Index;
-  CHAR16  Character;
-  CHAR16  *Buffer;
-  UINTN   Row;
   CHAR16  *TitleStr;
   UINTN   TitleColumn;
+  UINTN   TitleWidth;
+  UINTN   HeaderLeft;
+  UINTN   HeaderWidth;
+  UINTN   HorizontalMargin;
+  UINTN   ScreenColumns;
 
   if (gClassOfVfr != FORMSET_CLASS_PLATFORM_SETUP) {
     //
@@ -357,88 +472,55 @@ PrintFramework (
     return;
   }
 
-  Buffer = AllocateZeroPool (0x10000);
-  ASSERT (Buffer != NULL);
-  Character = BOXDRAW_HORIZONTAL;
-  for (Index = 0; Index + 2 < (gScreenDimensions.RightColumn - gScreenDimensions.LeftColumn); Index++) {
-    Buffer[Index] = Character;
-  }
+  ScreenColumns = gScreenDimensions.RightColumn - gScreenDimensions.LeftColumn;
+  HorizontalMargin = (ScreenColumns > (2 * MODERN_SETUP_HORIZONTAL_MARGIN + 4)) ? MODERN_SETUP_HORIZONTAL_MARGIN : 0;
+  HeaderLeft       = gScreenDimensions.LeftColumn + HorizontalMargin + 1;
+  HeaderWidth      = MAX (1, ScreenColumns - (2 * HorizontalMargin) - 1);
+
+  ClearLines (
+    gScreenDimensions.LeftColumn,
+    gScreenDimensions.RightColumn,
+    gScreenDimensions.TopRow,
+    gScreenDimensions.TopRow + NONE_FRONT_PAGE_HEADER_HEIGHT - 1,
+    TITLE_TEXT | TITLE_BACKGROUND
+    );
+
+  ClearLines (
+    gScreenDimensions.LeftColumn,
+    gScreenDimensions.RightColumn,
+    gScreenDimensions.TopRow + NONE_FRONT_PAGE_HEADER_HEIGHT,
+    gScreenDimensions.BottomRow - STATUS_BAR_HEIGHT - gFooterHeight - 1,
+    PcdGet8 (PcdBrowserFieldTextColor) | FIELD_BACKGROUND
+    );
+
+  ClearLines (
+    gScreenDimensions.LeftColumn,
+    gScreenDimensions.RightColumn,
+    gScreenDimensions.BottomRow - STATUS_BAR_HEIGHT - gFooterHeight,
+    gScreenDimensions.BottomRow - STATUS_BAR_HEIGHT - 1,
+    KEYHELP_TEXT | KEYHELP_BACKGROUND
+    );
+
+  ModernDisplayDrawPageChrome (FormData);
 
   //
-  // Print Top border line
-  // +------------------------------------------------------------------------------+
-  // ?                                                                             ?
-  // +------------------------------------------------------------------------------+
-  //
-  gST->ConOut->SetAttribute (gST->ConOut, TITLE_TEXT | TITLE_BACKGROUND);
-  Character = BOXDRAW_DOWN_RIGHT;
-
-  PrintCharAt (gScreenDimensions.LeftColumn, gScreenDimensions.TopRow, Character);
-  PrintStringAt ((UINTN)-1, (UINTN)-1, Buffer);
-
-  Character = BOXDRAW_DOWN_LEFT;
-  PrintCharAt ((UINTN)-1, (UINTN)-1, Character);
-
-  Character = BOXDRAW_VERTICAL;
-  for (Row = gScreenDimensions.TopRow + 1; Row <= gScreenDimensions.TopRow + NONE_FRONT_PAGE_HEADER_HEIGHT - 2; Row++) {
-    PrintCharAt (gScreenDimensions.LeftColumn, Row, Character);
-    PrintCharAt (gScreenDimensions.RightColumn - 1, Row, Character);
-  }
-
-  //
-  // Print Form Title
+  // Print the form title through the text-grid path so the browser cursor and
+  // width accounting stay consistent with the rest of DisplayEngine.
   //
   TitleStr = LibGetToken (FormData->FormTitle, FormData->HiiHandle);
-  ASSERT (TitleStr != NULL);
-  TitleColumn = (gScreenDimensions.RightColumn + gScreenDimensions.LeftColumn - LibGetStringWidth (TitleStr) / 2) / 2;
-  PrintStringAtWithWidth (gScreenDimensions.LeftColumn + 1, gScreenDimensions.TopRow + 1, gLibEmptyString, TitleColumn - gScreenDimensions.LeftColumn - 1);
-  PrintStringAtWithWidth (
-    TitleColumn,
-    gScreenDimensions.TopRow + 1,
-    TitleStr,
-    gScreenDimensions.RightColumn - 1 - TitleColumn
-    );
-  FreePool (TitleStr);
-
-  Character = BOXDRAW_UP_RIGHT;
-  PrintCharAt (gScreenDimensions.LeftColumn, gScreenDimensions.TopRow + NONE_FRONT_PAGE_HEADER_HEIGHT - 1, Character);
-  PrintStringAt ((UINTN)-1, (UINTN)-1, Buffer);
-
-  Character = BOXDRAW_UP_LEFT;
-  PrintCharAt ((UINTN)-1, (UINTN)-1, Character);
-
-  //
-  // Print Bottom border line
-  // +------------------------------------------------------------------------------+
-  // ?                                                                             ?
-  // +------------------------------------------------------------------------------+
-  //
-  Character = BOXDRAW_DOWN_RIGHT;
-  PrintCharAt (gScreenDimensions.LeftColumn, gScreenDimensions.BottomRow - STATUS_BAR_HEIGHT - gFooterHeight, Character);
-
-  PrintStringAt ((UINTN)-1, (UINTN)-1, Buffer);
-
-  Character = BOXDRAW_DOWN_LEFT;
-  PrintCharAt ((UINTN)-1, (UINTN)-1, Character);
-  Character = BOXDRAW_VERTICAL;
-  for (Row = gScreenDimensions.BottomRow - STATUS_BAR_HEIGHT - gFooterHeight + 1;
-       Row <= gScreenDimensions.BottomRow - STATUS_BAR_HEIGHT - 2;
-       Row++
-       )
-  {
-    PrintCharAt (gScreenDimensions.LeftColumn, Row, Character);
-    PrintCharAt (gScreenDimensions.RightColumn - 1, Row, Character);
+  if (TitleStr != NULL) {
+    TitleWidth  = LibGetStringWidth (TitleStr);
+    TitleWidth  = (TitleWidth > 2) ? ((TitleWidth - 2) / 2) : 0;
+    TitleColumn = HeaderLeft;
+    gST->ConOut->SetAttribute (gST->ConOut, TITLE_TEXT | TITLE_BACKGROUND);
+    PrintStringAtWithWidth (
+      TitleColumn,
+      gScreenDimensions.TopRow + 1,
+      TitleStr,
+      (TitleWidth > HeaderWidth) ? HeaderWidth : TitleWidth
+      );
+    FreePool (TitleStr);
   }
-
-  Character = BOXDRAW_UP_RIGHT;
-  PrintCharAt (gScreenDimensions.LeftColumn, gScreenDimensions.BottomRow - STATUS_BAR_HEIGHT - 1, Character);
-
-  PrintStringAt ((UINTN)-1, (UINTN)-1, Buffer);
-
-  Character = BOXDRAW_UP_LEFT;
-  PrintCharAt ((UINTN)-1, (UINTN)-1, Character);
-
-  FreePool (Buffer);
 }
 
 /**
@@ -1066,8 +1148,6 @@ PrintInternal (
   UINTN   PrintWidth;
   UINTN   CharWidth;
   UINTN   Attribute;
-  UINTN   Columns;
-  UINTN   Rows;
   UINTN   CellWidth;
   UINTN   CellHeight;
   UINTN   DrawColumn;
@@ -1129,10 +1209,7 @@ PrintInternal (
   }
 
   if (!EFI_ERROR (ModernDisplayEnsureRenderer ())) {
-    Columns    = ModernDisplayColumns ();
-    Rows       = ModernDisplayRows ();
-    CellWidth  = MAX (1, mModernRenderContext.Width / Columns);
-    CellHeight = MAX (18, mModernRenderContext.Height / Rows);
+    ModernDisplayGetCellMetrics (&CellWidth, &CellHeight);
     DrawColumn = (Column == (UINTN)-1) ? mModernCursorColumn : Column;
     DrawRow    = (Row == (UINTN)-1) ? mModernCursorRow : Row;
     DrawWidth  = (Width == 0) ? MAX (1, PrintWidth) : Width;
