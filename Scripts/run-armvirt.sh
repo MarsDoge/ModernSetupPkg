@@ -7,11 +7,13 @@ TARGET="${TARGET:-DEBUG}"
 ACCEL="${ACCEL:-tcg}"
 GRAPHICS="${GRAPHICS:-1}"
 MEMORY="${MEMORY:-1024}"
+APP="${APP:-0}"
 FV_DIR="${WORKSPACE}/Build/ArmVirtQemu-AArch64/${TARGET}_CLANGDWARF/FV"
 CODE_FD="${FV_DIR}/QEMU_EFI.fd"
 VARS_FD="${FV_DIR}/QEMU_VARS.fd"
 PFLASH_CODE="${FV_DIR}/QEMU_EFI.modern.pflash.fd"
 PFLASH_VARS="${FV_DIR}/QEMU_VARS.modern.work.fd"
+APP_ESP="${WORKSPACE}/Build/ModernSetupAppEsp"
 
 export PATH="/opt/homebrew/bin:${PATH}"
 
@@ -60,6 +62,19 @@ QEMU_ARGS=(
   -netdev user,id=net0
 )
 
+if [[ "${APP}" == "1" ]]; then
+  if [[ ! -f "${APP_ESP}/EFI/BOOT/BOOTAA64.EFI" ]]; then
+    echo "Missing ModernSetupApp boot file." >&2
+    echo "Build it first with: ${PKG_DIR}/Scripts/build-modern-app.sh" >&2
+    exit 1
+  fi
+
+  QEMU_ARGS+=(
+    -drive "if=none,file=fat:rw:${APP_ESP},format=raw,id=modernsetupapp"
+    -device "virtio-blk-pci,drive=modernsetupapp"
+  )
+fi
+
 if [[ "${GRAPHICS}" == "1" ]]; then
   QEMU_ARGS+=(
     -display cocoa
@@ -76,5 +91,9 @@ else
   )
 fi
 
-echo "Press Esc or F2 during BDS wait to enter native UiApp rendered by ModernDisplayEngineDxe."
+if [[ "${APP}" == "1" ]]; then
+  echo "Booting ModernSetupApp from ${APP_ESP}/EFI/BOOT/BOOTAA64.EFI."
+else
+  echo "Press Esc or F2 during BDS wait to enter native UiApp rendered by ModernDisplayEngineDxe."
+fi
 exec qemu-system-aarch64 "${QEMU_ARGS[@]}"

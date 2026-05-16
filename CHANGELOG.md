@@ -89,6 +89,10 @@ this file as both a release log and a lightweight development progress record.
   `ModernUiRendererLib`, so both `ModernDisplayEngineDxe` and the legacy app use
   the same public renderer interfaces for color blending, measured text
   truncation, and selectable row surfaces.
+- `Scripts/build-modern-app.sh` now builds the experimental `ModernSetupApp`
+  and prepares a bootable ArmVirt ESP at `Build/ModernSetupAppEsp`.
+- `Scripts/run-armvirt.sh` now supports `APP=1` to boot the experimental app
+  from `\EFI\BOOT\BOOTAA64.EFI` instead of entering the native UiApp path.
 
 ### Fixed
 
