@@ -673,13 +673,24 @@ DrawHeader (
   )
 {
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Header;
+  UINTN                          ModeX;
+  UINTN                          InfoX;
 
-  Header = BlendAccent (Theme->Surface, Theme->AccentSoft, 35);
+  Header = BlendAccent (Theme->Surface, Theme->AccentSoft, 18);
   ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, 0, Ui->Width, TOP_BAR_HEIGHT }, Header);
-  ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, TOP_BAR_HEIGHT - 1, Ui->Width, 1 }, Theme->Accent);
-  ModernUiDrawText (Ui, SCREEN_MARGIN, 15, ModernUiGetString (ModernUiStringHeaderTitle), Theme->Text, Header);
-  ModernUiDrawText (Ui, Ui->Width / 2 - 72, 15, ModernUiGetString (ModernUiStringHeaderMode), Theme->Accent, Header);
-  DrawTextF (Ui, Ui->Width - 244, 15, Theme->MutedText, Header, L"AARCH64  %ux%u", Ui->Width, Ui->Height);
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, TOP_BAR_HEIGHT - 3, Ui->Width, 2 }, Theme->Accent);
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ SCREEN_MARGIN, 13, 3, 22 }, Theme->Accent);
+  ModernUiDrawText (Ui, SCREEN_MARGIN + 16, 15, ModernUiGetString (ModernUiStringHeaderTitle), Theme->Text, Header);
+
+  ModeX = Ui->Width / 2 - 96;
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ ModeX, 10, 192, 32 }, BlendAccent (Header, Theme->AccentSoft, 42));
+  ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ ModeX, 10, 192, 32 }, BlendAccent (Theme->Border, Theme->Accent, 35));
+  ModernUiDrawText (Ui, ModeX + 28, 18, ModernUiGetString (ModernUiStringHeaderMode), Theme->Accent, BlendAccent (Header, Theme->AccentSoft, 42));
+
+  InfoX = Ui->Width - 276;
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ InfoX, 10, 220, 32 }, Theme->Surface);
+  ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ InfoX, 10, 220, 32 }, Theme->Border);
+  DrawTextF (Ui, InfoX + 18, 18, Theme->MutedText, Theme->Surface, L"AARCH64  %ux%u", Ui->Width, Ui->Height);
 }
 
 /**
@@ -705,17 +716,18 @@ DrawTabs (
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  TabColor;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  TextColor;
 
-  ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, TOP_BAR_HEIGHT, Ui->Width, TAB_BAR_HEIGHT }, Theme->Surface);
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, TOP_BAR_HEIGHT, Ui->Width, TAB_BAR_HEIGHT }, BlendAccent (Theme->Surface, Theme->SurfaceRaised, 35));
   ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, TOP_BAR_HEIGHT + TAB_BAR_HEIGHT - 1, Ui->Width, 1 }, Theme->Border);
 
   TabWidth = (Ui->Width - (SCREEN_MARGIN * 2)) / ARRAY_SIZE (mPages);
   for (Index = 0; Index < ARRAY_SIZE (mPages); Index++) {
     X        = SCREEN_MARGIN + (Index * TabWidth);
-    TabColor = (mPages[Index].Page == Page) ? Theme->AccentSoft : Theme->Surface;
+    TabColor = (mPages[Index].Page == Page) ? Theme->AccentSoft : BlendAccent (Theme->Surface, Theme->SurfaceRaised, 35);
     TextColor = (mPages[Index].Page == Page) ? Theme->Text : Theme->MutedText;
 
     if (mPages[Index].Page == Page) {
       ModernUiFillRect (Ui, (MODERN_UI_RECT){ X, TOP_BAR_HEIGHT + 9, TabWidth - 8, 36 }, TabColor);
+      ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ X, TOP_BAR_HEIGHT + 9, TabWidth - 8, 36 }, BlendAccent (Theme->Border, Theme->Accent, 25));
       ModernUiFillRect (
         Ui,
         (MODERN_UI_RECT){ X, TOP_BAR_HEIGHT + 43, TabWidth - 8, 3 },
@@ -723,7 +735,7 @@ DrawTabs (
         );
     }
 
-    ModernUiDrawText (Ui, X + 12, TOP_BAR_HEIGHT + 20, ModernUiGetString (mPages[Index].Title), TextColor, TabColor);
+    ModernUiDrawText (Ui, X + 18, TOP_BAR_HEIGHT + 20, ModernUiGetString (mPages[Index].Title), TextColor, TabColor);
   }
 }
 
@@ -1343,65 +1355,77 @@ DrawExit (
   IN UINTN                     Selected
   )
 {
-  CHAR16        LanguageItem[64];
   CONST CHAR16  *Items[4];
   CONST CHAR16  *LanguageName;
   UINTN         Index;
   UINTN         Y;
+  UINTN         ValueWidth;
   BOOLEAN       IsSelected;
   MODERN_UI_RECT  Panel;
   UINTN         RowX;
   UINTN         RowWidth;
 
   LanguageName = GetLanguageOptionName (GetActiveLanguageSelection ());
-  UnicodeSPrint (LanguageItem, sizeof (LanguageItem), ModernUiGetString (ModernUiStringExitLanguageFormat), LanguageName);
 
   Items[0] = ModernUiGetString (ModernUiStringExitContinue);
   Items[1] = ModernUiGetString (ModernUiStringExitClassicUi);
   Items[2] = ModernUiGetString (ModernUiStringExitReset);
-  Items[3] = LanguageItem;
+  Items[3] = ModernUiGetString (ModernUiStringLanguageLabel);
 
   Panel = ContentRect (Ui);
-  RowX = Panel.X + 20;
-  RowWidth = Panel.Width - 40;
+  RowX = Panel.X + 26;
+  RowWidth = Panel.Width - 52;
+  ValueWidth = 220;
   ModernUiDrawPanel (Ui, Panel, Theme);
   DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
   ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, ModernUiGetString (ModernUiStringExitInstruction), Theme->MutedText, Theme->Surface);
 
   for (Index = 0; Index < ARRAY_SIZE (Items); Index++) {
-    Y = Panel.Y + 76 + Index * 56;
+    Y = Panel.Y + 72 + Index * 54;
     IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
     ModernUiFillRect (
       Ui,
-      (MODERN_UI_RECT){ RowX, Y - 12, RowWidth, 42 },
-      IsSelected ? Theme->AccentSoft : Theme->Surface
+      (MODERN_UI_RECT){ RowX, Y - 10, RowWidth, 40 },
+      IsSelected ? BlendAccent (Theme->AccentSoft, Theme->SurfaceRaised, 16) : Theme->SurfaceRaised
       );
+    ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ RowX, Y - 10, RowWidth, 40 }, IsSelected ? BlendAccent (Theme->Accent, Theme->Border, 30) : Theme->Border);
     if (IsSelected) {
-      ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Y - 12, 4, 42 }, Theme->Accent);
+      ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Y - 10, 4, 40 }, Theme->Accent);
     }
 
-    ModernUiDrawText (Ui, RowX + 20, Y, (CHAR16 *)Items[Index], IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
+    if (Index == 3) {
+      ModernUiDrawText (Ui, RowX + 20, Y, Items[Index], IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? BlendAccent (Theme->AccentSoft, Theme->SurfaceRaised, 16) : Theme->SurfaceRaised);
+      ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX + RowWidth - ValueWidth - 12, Y - 4, ValueWidth, 28 }, Theme->Surface);
+      ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ RowX + RowWidth - ValueWidth - 12, Y - 4, ValueWidth, 28 }, IsSelected ? Theme->Accent : Theme->Border);
+      ModernUiDrawText (Ui, RowX + RowWidth - ValueWidth + 4, Y + 3, LanguageName, Theme->Text, Theme->Surface);
+      ModernUiDrawText (Ui, RowX + RowWidth - 38, Y + 3, L"v", Theme->Accent, Theme->Surface);
+    } else {
+      ModernUiDrawText (Ui, RowX + 20, Y, (CHAR16 *)Items[Index], IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? BlendAccent (Theme->AccentSoft, Theme->SurfaceRaised, 16) : Theme->SurfaceRaised);
+    }
   }
 
   if (mLanguageDropdownOpen) {
     UINTN  DropdownY;
+    UINTN  DropdownX;
     UINTN  Option;
 
-    DropdownY = Panel.Y + 76 + 4 * 56 - 10;
-    ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX + 20, DropdownY, 240, 78 }, Theme->Surface);
-    ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ RowX + 20, DropdownY, 240, 78 }, Theme->Accent);
+    DropdownX = RowX + RowWidth - ValueWidth - 12;
+    DropdownY = Panel.Y + 72 + 4 * 54 - 8;
+    ModernUiFillRect (Ui, (MODERN_UI_RECT){ DropdownX, DropdownY, ValueWidth, 80 }, Theme->Surface);
+    ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ DropdownX, DropdownY, ValueWidth, 80 }, Theme->Accent);
+    ModernUiFillRect (Ui, (MODERN_UI_RECT){ DropdownX + 1, DropdownY + 1, ValueWidth - 2, 1 }, Theme->Accent);
 
     for (Option = 0; Option < 2; Option++) {
       IsSelected = (BOOLEAN)(Option == mLanguageDropdownSelection);
       ModernUiFillRect (
         Ui,
-        (MODERN_UI_RECT){ RowX + 24, DropdownY + 6 + Option * 34, 232, 30 },
+        (MODERN_UI_RECT){ DropdownX + 6, DropdownY + 7 + Option * 34, ValueWidth - 12, 30 },
         IsSelected ? Theme->AccentSoft : Theme->Surface
         );
       ModernUiDrawText (
         Ui,
-        RowX + 40,
-        DropdownY + 13 + Option * 34,
+        DropdownX + 20,
+        DropdownY + 14 + Option * 34,
         GetLanguageOptionName (Option),
         IsSelected ? Theme->Text : Theme->MutedText,
         IsSelected ? Theme->AccentSoft : Theme->Surface

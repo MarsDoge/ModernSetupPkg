@@ -47,6 +47,11 @@ this file as both a release log and a lightweight development progress record.
   English options.
 - Renderer initialization prefers a GOP mode of at least 1024x768 when the
   firmware exposes one, avoiding the cramped 800x600 default where possible.
+- GitHub-facing visual showcase guidance for ArmVirt captures under
+  `Assets/Screenshots/`.
+- More premium firmware chrome styling: richer dark theme tokens, accent mode
+  pill, bordered resolution status, raised tabs, setting rows, and an aligned
+  language selector.
 
 ### Fixed
 

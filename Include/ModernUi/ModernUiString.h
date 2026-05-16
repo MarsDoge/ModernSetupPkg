@@ -49,6 +49,7 @@ typedef enum {
   ModernUiStringExitClassicUi,
   ModernUiStringExitReset,
   ModernUiStringExitLanguageFormat,
+  ModernUiStringLanguageLabel,
   ModernUiStringLanguageChinese,
   ModernUiStringLanguageEnglish,
   ModernUiStringLanguageChangedFormat,

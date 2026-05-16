@@ -559,6 +559,13 @@ ModernUiDrawPanel (
     return Status;
   }
 
+  if ((Rect.Width > 2) && (Rect.Height > 2)) {
+    Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ Rect.X + 1, Rect.Y + 1, Rect.Width - 2, 1 }, Theme->SurfaceRaised);
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+  }
+
   return ModernUiStrokeRect (Context, Rect, Theme->Border);
 }
 

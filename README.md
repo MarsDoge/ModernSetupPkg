@@ -247,3 +247,26 @@ The compatibility policy is two-track: keep the classic FormBrowser available
 while ModernSetup learns enough VFR/HII semantics, then reduce the legacy path
 only when the modern engine can cover real platform forms without data loss,
 incorrect writes, missing validation, or broken callbacks.
+
+## Visual Showcase
+
+The current ArmVirt prototype uses a dense firmware-setup layout: a dark canvas,
+a top status bar, horizontal page tabs, raised content panels, setting rows, and
+keyboard-first interaction. The style is original, but it intentionally follows
+the interaction direction common in high-end UEFI utilities: clear mode/status
+signals, strong active-page affordance, and compact settings lists rather than a
+legacy text-only form browser.
+
+Screenshots for GitHub presentation belong under `Assets/Screenshots/`. Keep
+captures focused on ModernSetup itself, not vendor firmware screens or copied
+assets. Recommended first captures:
+
+- `armvirt-dashboard.png` - first screen after entering ModernSetup.
+- `armvirt-hii-driver-sample.png` - DriverSample VFR bridge rendered as a
+  ModernSetup subpage.
+- `armvirt-exit-language-dropdown.png` - runtime Chinese/English language
+  selector.
+
+Run the ArmVirt graphics command in the Build and Run section, switch QEMU to
+the target page, then capture the window at 1024x768 or larger for README and
+GitHub repository presentation.
