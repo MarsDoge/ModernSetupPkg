@@ -10,7 +10,7 @@
   FILE_GUID                      = 4422A402-A767-48DF-A252-F63B5C168B75
   MODULE_TYPE                    = UEFI_APPLICATION
   VERSION_STRING                 = 0.1
-  LIBRARY_CLASS                  = ModernUiInputLib|UEFI_APPLICATION
+  LIBRARY_CLASS                  = ModernUiInputLib|UEFI_APPLICATION DXE_DRIVER
 
 [Sources]
   ModernUiInputLib.c

@@ -10,7 +10,7 @@
   FILE_GUID                      = D3D33C67-43C2-45F0-A9FB-D83F631BA5FE
   MODULE_TYPE                    = UEFI_APPLICATION
   VERSION_STRING                 = 0.1
-  LIBRARY_CLASS                  = ModernUiRendererLib|UEFI_APPLICATION
+  LIBRARY_CLASS                  = ModernUiRendererLib|UEFI_APPLICATION DXE_DRIVER
 
 [Sources]
   ModernUiRendererLib.c

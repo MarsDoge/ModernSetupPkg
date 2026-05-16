@@ -76,5 +76,5 @@ else
   )
 fi
 
-echo "Press Esc or F2 during BDS wait to enter ModernSetupApp."
+echo "Press Esc or F2 during BDS wait to enter native UiApp rendered by ModernDisplayEngineDxe."
 exec qemu-system-aarch64 "${QEMU_ARGS[@]}"

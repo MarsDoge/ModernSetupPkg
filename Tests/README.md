@@ -20,13 +20,15 @@ Tests
 
 - ArmVirtQemu AARCH64 build validation through `Scripts/build-armvirt.sh`.
 - Manual QEMU graphics validation through `Scripts/run-armvirt.sh`.
-- Manual keyboard navigation validation for tab focus and content focus.
-- Manual HII bridge validation using edk2 DriverSampleDxe in the ArmVirt
-  overlay.
+- Manual native UiApp/FormBrowser navigation validation through
+  `ModernDisplayEngineDxe`.
+- Manual DriverSample validation through edk2 Device Manager/FormBrowser in the
+  ArmVirt overlay.
 
 ## Planned Coverage
 
-- Scripted QEMU serial-log smoke checks for `ModernSetupApp` launch.
+- Scripted QEMU serial-log smoke checks for native `UiApp` launch with
+  `ModernDisplayEngineDxe` installed.
 - Layout geometry tests once `ModernUiLayoutLib` exists.
-- Mock provider tests for boot, device, security, platform, and HII data
-  libraries once those libraries are split from `ModernSetupApp`.
+- Host-side tests for renderer, theme, font measurement, and any provider
+  libraries that remain outside the native FormBrowser path.

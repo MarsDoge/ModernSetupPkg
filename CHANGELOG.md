@@ -64,6 +64,13 @@ this file as both a release log and a lightweight development progress record.
   filter, moving the DriverSample demo selection out of the parser internals.
 - ArmVirt overlay build now wires `ModernUiPageAdapterLib` alongside renderer,
   theme, input, string, and HII bridge libraries.
+- `ModernDisplayEngineDxe`, an edk2 DisplayEngine-compatible DXE driver that
+  produces `EDKII_FORM_DISPLAY_ENGINE_PROTOCOL` and `EFI_HII_POPUP_PROTOCOL`.
+- `ModernUiCustomizedDisplayLib`, a GOP-backed replacement for edk2
+  `CustomizedDisplayLib` used by `ModernDisplayEngineDxe`.
+- ArmVirt overlay now replaces `MdeModulePkg/Universal/DisplayEngineDxe` with
+  `ModernDisplayEngineDxe` while keeping the native UiApp/FormBrowser setup
+  entry.
 
 ### Fixed
 
@@ -82,39 +89,45 @@ this file as both a release log and a lightweight development progress record.
   spill outside their panels at 800x600.
 - Use measured mixed-width text truncation so Chinese, ASCII, and device-path
   rows stay inside the content panels.
+- Clear the GOP surface when the DisplayEngine path clears the logical setup
+  page, preventing stale graphics from surviving a native FormBrowser redraw.
 
 ### Current Status
 
 - ArmVirt AARCH64 DEBUG_CLANGDWARF build has been validated locally.
-- QEMU smoke test reaches `ModernSetupApp` as the boot manager menu app.
-- Boot order editing, Devices, and Security pages are intentionally read-only in
-  the first prototype.
-- Simplified Chinese is the default UI language; English can be selected at
-  build time through `MODERN_SETUP_LANGUAGE=en-US` for the ArmVirt overlay or
-  toggled at runtime from the Exit page.
-- The HII bridge is a DriverSample-focused demo, not a complete FormBrowser
-  replacement. Unsupported opcodes, callback questions, EFI varstores, and
-  string editing remain read-only/fallback work.
+- The default ArmVirt setup path enters native `UiApp`; setup rendering is
+  handled by `ModernDisplayEngineDxe` through edk2's
+  `EDKII_FORM_DISPLAY_ENGINE_PROTOCOL`.
+- Device Manager, DriverSample, Boot Manager, and Boot Maintenance now use
+  native UiApp/FormBrowser behavior in the default firmware image.
+- Simplified Chinese and English switching through `ModernUiStringLib` applies
+  to the prototype `ModernSetupApp`; native UiApp language behavior remains
+  owned by edk2 HII/FormBrowser.
+- The custom HII bridge is retained as a DriverSample-focused prototype/debug
+  path, but it is no longer the default setup compatibility route.
+- Native `SetupBrowserDxe/FormBrowser2` owns HII/IFR/VFR parsing, GUID formset
+  handling, ConfigAccess callback flow, condition evaluation, and variable
+  write semantics in the default ArmVirt firmware.
 - The page adapter registry is present but ships with no OEM-specific adapters
-  in the default package; loaded HII formsets therefore continue to use the
-  generic HII renderer unless a platform extends the library.
-- The latest validated FVMAIN state is 9499072 bytes total, 9499032 bytes used,
-  and 40 bytes free in the ArmVirt AARCH64 DEBUG_CLANGDWARF build.
-- The HII bridge intentionally keeps conservative writes: callback-driven
-  questions, EFI varstores, name/value varstores, strings, ordered lists,
-  date/time, and password controls are not force-written by ModernSetup.
-- The legacy FormBrowser path remains part of the supported early architecture
-  for EFI app and platform compatibility. Removing it is explicitly blocked on
-  full modern HII/VFR compatibility.
-- The UI framework is still early: platform data providers, layout library, and
-  full write-capable setup flows are planned but not implemented.
+  in the default native FormBrowser path.
+- The latest validated FVMAIN state is 8360320 bytes total, 8360288 bytes used,
+  and 32 bytes free in the ArmVirt AARCH64 DEBUG_CLANGDWARF build.
+- `ModernDisplayEngineDxe` currently preserves most edk2 DisplayEngine behavior
+  and routes its low-level text-cell drawing through GOP. Further visual polish
+  should happen in the DisplayEngine/customized display layer, not in a separate
+  IFR parser.
+- The UI framework is still early: the DisplayEngine path is compatibility-first
+  and still needs substantial visual polish.
 
 ### Planned
 
 - Add `ModernUiLayoutLib` for resolution-aware layout and safe-area handling.
-- Split platform data access out of `ModernSetupApp` into provider libraries.
+- Decide whether the standalone `ModernSetupApp` remains a showcase/debug tool
+  or gets removed after the DisplayEngine path is stable.
 - Add PCDs for default page, feature visibility, fallback behavior, pointer
   support, and theme selection.
-- Expand the HII bridge beyond DriverSample and cover more IFR opcodes,
-  expressions, text editing, and safe write policies.
+- Improve `ModernDisplayEngineDxe` visual styling for panels, highlight rows,
+  popups, input boxes, and high-density setup pages.
+- Keep `ModernUiHiiBridgeLib` as a debug/demo path or remove it after the
+  DisplayEngine architecture is stable.
 - Extend validation beyond ArmVirt to OVMF and LoongArch targets.

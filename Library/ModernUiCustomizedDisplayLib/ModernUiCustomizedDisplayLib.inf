@@ -1,0 +1,57 @@
+## @file
+# GOP-backed CustomizedDisplayLib implementation for ModernDisplayEngineDxe.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = ModernUiCustomizedDisplayLib
+  MODULE_UNI_FILE                = CustomizedDisplayLibModStrs.uni
+  FILE_GUID                      = 61AFA782-5120-45A6-B149-E3A733329AF8
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 0.3
+  LIBRARY_CLASS                  = CustomizedDisplayLib|DXE_DRIVER UEFI_APPLICATION
+  CONSTRUCTOR                    = CustomizedDisplayLibConstructor
+  DESTRUCTOR                     = CustomizedDisplayLibDestructor
+
+[Sources]
+  CustomizedDisplayLib.c
+  Colors.h
+  CustomizedDisplayLibInternal.h
+  CustomizedDisplayLibInternal.c
+  CustomizedDisplayLib.uni
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  ModernSetupPkg/ModernSetupPkg.dec
+
+[LibraryClasses]
+  MemoryAllocationLib
+  BaseLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiRuntimeServicesTableLib
+  BaseMemoryLib
+  DebugLib
+  PrintLib
+  HiiLib
+  DevicePathLib
+  PcdLib
+  ModernUiRendererLib
+  ModernUiThemeLib
+
+[Guids]
+  gEfiIfrTianoGuid  ## SOMETIMES_CONSUMES   ## UNDEFINED
+
+[Protocols]
+  gEfiGraphicsOutputProtocolGuid       ## CONSUMES
+  gEfiHiiFontProtocolGuid              ## SOMETIMES_CONSUMES
+
+[Pcd]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdBrowserSubtitleTextColor               ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdBrowserFieldTextColor                  ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdBrowserFieldTextHighlightColor         ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdBrowserFieldBackgroundHighlightColor   ## CONSUMES
+  gEfiMdeModulePkgTokenSpaceGuid.PcdFrontPageFormSetGuid                   ## CONSUMES

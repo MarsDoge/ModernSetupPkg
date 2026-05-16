@@ -36,11 +36,11 @@ overlay = Path(sys.argv[2])
 language = sys.argv[3]
 enable_driver_sample = sys.argv[4] != "0"
 
-app_component = "  ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf"
-app_fdf_inf = "  INF ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf"
+modern_display_component = "  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
+modern_display_fdf_inf = "  INF ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
 driver_sample_component = "  MdeModulePkg/Universal/DriverSampleDxe/DriverSampleDxe.inf"
 driver_sample_fdf_inf = "  INF MdeModulePkg/Universal/DriverSampleDxe/DriverSampleDxe.inf"
-guid_bytes = "{ 0x3a, 0x8b, 0xc9, 0x26, 0xdd, 0x29, 0x73, 0x4f, 0xa0, 0x7a, 0x4a, 0x4e, 0x0e, 0x1d, 0x9c, 0x4c }"
+ui_app_guid_bytes = "{ 0x21, 0xaa, 0x2c, 0x46, 0x14, 0x76, 0x03, 0x45, 0x83, 0x6e, 0x8a, 0xb6, 0xf4, 0x66, 0x23, 0x31 }"
 library_block = """  ModernUiRendererLib|ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
   ModernUiInputLib|ModernSetupPkg/Library/ModernUiInputLib/ModernUiInputLib.inf
   ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
@@ -52,7 +52,7 @@ library_block = """  ModernUiRendererLib|ModernSetupPkg/Library/ModernUiRenderer
 dsc = (workspace / "ArmVirtPkg/ArmVirtQemu.dsc").read_text()
 dsc = re.sub(
     r"gEfiMdeModulePkgTokenSpaceGuid\.PcdBootManagerMenuFile\|\{[^}]+\}",
-    f"gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile|{guid_bytes}",
+    f"gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile|{ui_app_guid_bytes}",
     dsc,
     count=1,
 )
@@ -62,16 +62,20 @@ dsc = dsc.replace(
 )
 if "ModernUiRendererLib|ModernSetupPkg" not in dsc:
     dsc = dsc.replace("[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + library_block, 1)
-if app_component not in dsc:
-    dsc = dsc.replace(
-        "  MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf",
-        app_component + "\n  MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf",
-        1,
-    )
+dsc = dsc.replace(
+    "  CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf",
+    "  CustomizedDisplayLib|ModernSetupPkg/Library/ModernUiCustomizedDisplayLib/ModernUiCustomizedDisplayLib.inf",
+    1,
+)
+dsc = dsc.replace(
+    "  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf",
+    modern_display_component,
+    1,
+)
 if enable_driver_sample and driver_sample_component not in dsc:
     dsc = dsc.replace(
-        app_component,
-        app_component + "\n" + driver_sample_component,
+        "  MdeModulePkg/Application/UiApp/UiApp.inf {",
+        driver_sample_component + "\n  MdeModulePkg/Application/UiApp/UiApp.inf {",
         1,
     )
 if "gModernSetupPkgTokenSpaceGuid.PcdModernSetupDefaultLanguage" not in dsc:
@@ -89,16 +93,15 @@ fdf = fdf.replace(
 
 fv = (workspace / "ArmVirtPkg/ArmVirtQemuFvMain.fdf.inc").read_text()
 fv = fv.replace("!include ArmVirtRules.fdf.inc", "!include ArmVirtPkg/ArmVirtRules.fdf.inc")
-if app_fdf_inf not in fv:
-    fv = fv.replace(
-        "  INF MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf",
-        app_fdf_inf + "\n  INF MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf",
-        1,
-    )
+fv = fv.replace(
+    "  INF MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf",
+    modern_display_fdf_inf,
+    1,
+)
 if enable_driver_sample and driver_sample_fdf_inf not in fv:
     fv = fv.replace(
-        app_fdf_inf,
-        app_fdf_inf + "\n" + driver_sample_fdf_inf,
+        "  INF MdeModulePkg/Application/UiApp/UiApp.inf",
+        driver_sample_fdf_inf + "\n  INF MdeModulePkg/Application/UiApp/UiApp.inf",
         1,
     )
 (overlay / "ArmVirtQemuModernSetupFvMain.fdf.inc").write_text(fv)

@@ -13,7 +13,7 @@ For English fallback verification:
 MODERN_SETUP_LANGUAGE=en-US ModernSetupPkg/Scripts/build-armvirt.sh
 ```
 
-For overlay verification without the DriverSample HII demo:
+For overlay verification without the DriverSample HII demo driver:
 
 ```sh
 MODERN_SETUP_DEMO_DRIVER_SAMPLE=0 ModernSetupPkg/Scripts/build-armvirt.sh
@@ -24,10 +24,10 @@ Expected result:
 - Build exits successfully.
 - `Build/ArmVirtQemu-AArch64/DEBUG_CLANGDWARF/FV/QEMU_EFI.fd` exists.
 - `Build/ArmVirtQemu-AArch64/DEBUG_CLANGDWARF/FV/QEMU_VARS.fd` exists.
-- The default build firmware image contains both `ModernSetupApp` and
-  `DriverSample`.
+- The default build firmware image contains `ModernDisplayEngineDxe`, native
+  `UiApp`, and `DriverSample`.
 - FVMAIN space is recorded after each architecture-level change. The current
-  adapter-engine build is expected to remain near full capacity.
+  DisplayEngine build is expected to remain near full capacity.
 
 ## Run
 
@@ -45,66 +45,50 @@ GRAPHICS=1 RESET_VARS=1 ACCEL=tcg ModernSetupPkg/Scripts/run-armvirt.sh
 Expected result:
 
 - QEMU opens a graphical window.
-- Pressing `Esc` or `F2` during BDS enters `ModernSetupApp`.
+- Pressing `Esc` or `F2` during BDS enters native `UiApp`, rendered through
+  `ModernDisplayEngineDxe`.
 - No ASSERT, exception, or GOP initialization failure is printed to serial.
 
 ## UI Checks
 
-- Header shows firmware utility name, mode, architecture, and resolution.
-- Default build shows Simplified Chinese UI strings for the header, tabs,
-  page titles, footer hints, and status text.
-- English fallback build shows Dashboard, Boot, Devices, Security, HII, and
-  Exit.
-- `Left` and `Right` move between tabs while tab focus is active.
-- `Down` or `Enter` moves focus into the page content area.
-- `Left` or `Esc` moves focus back to the top tab bar.
-- `Tab` toggles between tab focus and content focus.
-- Boot, Devices, and Exit pages show visible row/action selection in content
-  focus.
-- Boot page `Enter` launches the selected `Boot####` option. If the target
-  returns, the footer shows the returned EFI status.
-- Exit page includes a language row. Pressing `Enter` opens a language
-  drop-down, `Up/Down` selects Simplified Chinese or English, and `Enter`
-  applies the highlighted language.
-- Language changes redraw the current screen immediately and keep the selection
-  after reboot when `RESET_VARS=0`.
+- UiApp front page, Device Manager, Boot Manager, Boot Maintenance Manager, and
+  Driver Health Manager render without falling back to the old text-only
+  DisplayEngine path.
+- Header, footer help, page title, selectable rows, highlighted rows, disabled
+  rows, and popups are drawn through the GOP-backed display layer.
+- `Up/Down`, `Left/Right`, `Enter`, `Esc`, `F9`, and `F10` keep native
+  FormBrowser behavior.
+- Boot Manager can launch a selected `Boot####` option. If the target returns,
+  UiApp remains responsive.
 - Header resolution should prefer at least 1024x768 when the platform GOP
-  exposes that mode; if only 800x600 is exposed, the UI remains usable there.
-- Dashboard, Boot, Devices, Security, and Exit render without overlapping text
-  at 800x600 and 1024x768.
-- Long Boot descriptions and Devices device paths are truncated inside the
-  content panel rather than spilling past the right edge.
+  exposes that mode; if only 800x600 is exposed, native setup remains usable.
+- UiApp, Device Manager, and DriverSample render without overlapping text at
+  800x600 and 1024x768.
 - Chinese, ASCII, numbers, `Boot####`, and device paths can appear on the same
-  screen without missing-glyph boxes for built-in UI text.
+  screen without missing-glyph boxes for strings covered by the built-in font
+  subset or platform HII font.
 
-## HII Bridge Checks
+## Native FormBrowser / DriverSample Checks
 
-- Open the HII or `高级设置` tab.
-- The formset list shows DriverSample main setup and Inventory formsets when
-  `MODERN_SETUP_DEMO_DRIVER_SAMPLE` is enabled.
-- DriverSample is loaded through the app-provided formset GUID filter; the HII
-  parser must not depend on DriverSample GUIDs internally.
-- With the default package registry, DriverSample has no custom page adapter and
-  therefore uses the generic HII renderer fallback.
-- `Enter` opens a formset, then opens a form, then selects a row.
-- DriverSample form rows render text, goto/ref, checkbox, one-of, numeric, and
-  string questions without crashing or spilling past the content panel.
-- Long DriverSample forms can be scrolled with `Up/Down`; selection is not
-  limited to the first visible nine rows.
+- Open `Device Manager`.
+- DriverSample main setup and Inventory formsets appear automatically when
+  `MODERN_SETUP_DEMO_DRIVER_SAMPLE` is enabled. ModernSetup must not maintain a
+  separate DriverSample GUID filter in the default setup path.
+- `Enter` opens a DriverSample formset, then opens forms and rows using native
+  FormBrowser navigation.
+- DriverSample form rows render text, goto/ref, checkbox, one-of, numeric,
+  string/password, ordered list, date, time, action, and reset button controls
+  without crashing or spilling past the content panel.
+- Long DriverSample forms scroll with the same behavior as native
+  `DisplayEngineDxe`.
 - On the first DriverSample setup page, changing the suppress/grayout selector
-  updates dependent rows: suppressed rows disappear, grayed rows stay visible
-  but cannot be edited, and unsupported conditions are marked disabled.
+  updates dependent rows through native FormBrowser condition evaluation.
 - Text rows show both prompt and secondary text when DriverSample provides both
   HII strings.
 - Goto/ref rows navigate to local target forms. Callback-driven refs/actions
-  invoke ConfigAccess callback flow and refresh the HII model afterward.
-- Supported checkbox, one-of, and numeric rows that are buffer-varstore backed,
-  not read-only, and not callback-driven can be advanced with `Enter`.
-- Returning to the same form after a successful write shows the refreshed value.
-- Callback, EFI varstore, name/value varstore, string, password, ordered list,
-  date, and time rows remain read-only or disabled rather than being force
-  written by ModernSetup.
-- Action rows show a callback/action status instead of a generic unsupported
-  row, and callback action requests are shown in the footer status line.
-- Exit page fallback to classic UiApp still works, and DriverSample remains
-  available there for comparison with the native FormBrowser.
+  invoke DriverSample ConfigAccess callback flow.
+- Checkbox, one-of, numeric, string/password, date/time, ordered list, action,
+  reset, default, submit, discard, and confirm popups behave the same as edk2
+  `DisplayEngineDxe`.
+- F9/F10 default/save flows and Esc discard/exit confirmation work without
+  ASSERTs or stale graphics.
