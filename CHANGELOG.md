@@ -25,6 +25,8 @@ this file as both a release log and a lightweight development progress record.
   test locations.
 - A top-tab firmware UI layout with central content focus and bottom hotkey
   strip, moving away from the original left-rail prototype.
+- Boot page launch support through `UefiBootManagerLib`, including a footer
+  status message when a selected `Boot####` option returns.
 
 ### Fixed
 
@@ -35,13 +37,19 @@ this file as both a release log and a lightweight development progress record.
 - Added an explicit navigation/content focus model so Right/Enter moves into the
   current page content area, Left/Esc returns to navigation, and content rows or
   actions have visible selection.
+- Aligned top-tab navigation with horizontal firmware UI behavior: Left/Right
+  switch tabs, Down/Enter enters page content, and Up no longer changes tabs.
+- Refresh boot options before drawing setup pages so shell and device boot
+  entries are available when firmware exposes them.
+- Truncate long Boot and Devices rows before rendering so device paths do not
+  spill outside their panels at 800x600.
 
 ### Current Status
 
 - ArmVirt AARCH64 DEBUG_CLANGDWARF build has been validated locally.
 - QEMU smoke test reaches `ModernSetupApp` as the boot manager menu app.
-- Boot, Devices, and Security pages are intentionally read-only in the first
-  prototype.
+- Boot order editing, Devices, and Security pages are intentionally read-only in
+  the first prototype.
 - The UI framework is still early: platform data providers, layout library, HII
   bridge, and write-capable setup flows are planned but not implemented.
 

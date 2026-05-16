@@ -36,11 +36,15 @@ Expected result:
 
 - Header shows firmware utility name, mode, architecture, and resolution.
 - Top tab bar shows Dashboard, Boot, Devices, Security, and Exit.
-- `Up` and `Down` move between tabs while tab focus is active.
-- `Right` or `Enter` moves focus into the page content area.
+- `Left` and `Right` move between tabs while tab focus is active.
+- `Down` or `Enter` moves focus into the page content area.
 - `Left` or `Esc` moves focus back to the top tab bar.
 - `Tab` toggles between tab focus and content focus.
 - Boot, Devices, and Exit pages show visible row/action selection in content
   focus.
+- Boot page `Enter` launches the selected `Boot####` option. If the target
+  returns, the footer shows the returned EFI status.
 - Dashboard, Boot, Devices, Security, and Exit render without overlapping text
   at 800x600 and 1024x768.
+- Long Boot descriptions and Devices device paths are truncated inside the
+  content panel rather than spilling past the right edge.

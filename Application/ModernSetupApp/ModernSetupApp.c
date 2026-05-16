@@ -11,6 +11,7 @@
 #include <Library/DevicePathLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/PrintLib.h>
+#include <Library/UefiBootManagerLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
@@ -26,8 +27,11 @@
 #define PAGE_TITLE_HEIGHT  64
 #define FOOTER_HEIGHT      36
 #define SCREEN_MARGIN      24
+#define MAX_BOOT_ROWS      9
+#define TEXT_GLYPH_WIDTH   8
 
 STATIC CONST EFI_GUID  mUiAppGuid = { 0x462CAA21, 0x7614, 0x4503, { 0x83, 0x6E, 0x8A, 0xB6, 0xF4, 0x66, 0x23, 0x31 } };
+STATIC EFI_HANDLE      mImageHandle;
 
 typedef enum {
   PageDashboard = 0,
@@ -203,10 +207,146 @@ ReadGlobalVariable (
 }
 
 /**
-  Count entries in the BootOrder variable.
+  Draw text after truncating it to a caller-provided pixel width.
 
-  @return Number of Boot#### entries in BootOrder, or 0 when BootOrder is absent
-          or unreadable.
+  @param[in] Ui          Initialized render context. Must not be NULL.
+  @param[in] X           Left coordinate in pixels.
+  @param[in] Y           Top coordinate in pixels.
+  @param[in] Width       Maximum text width in pixels.
+  @param[in] Text        Null-terminated UCS-2 string. Must not be NULL.
+  @param[in] Color       Text foreground color.
+  @param[in] Background  Text background color.
+**/
+STATIC
+VOID
+DrawTextFit (
+  IN MODERN_UI_RENDER_CONTEXT       *Ui,
+  IN UINTN                          X,
+  IN UINTN                          Y,
+  IN UINTN                          Width,
+  IN CONST CHAR16                   *Text,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Color,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background
+  )
+{
+  CHAR16  Buffer[176];
+  UINTN   MaxChars;
+  UINTN   Length;
+  UINTN   CopyChars;
+
+  if ((Ui == NULL) || (Text == NULL) || (Width < TEXT_GLYPH_WIDTH)) {
+    return;
+  }
+
+  MaxChars = MIN (Width / TEXT_GLYPH_WIDTH, ARRAY_SIZE (Buffer) - 1);
+  if (MaxChars == 0) {
+    return;
+  }
+
+  Length = StrLen (Text);
+  if (Length <= MaxChars) {
+    ModernUiDrawText (Ui, X, Y, Text, Color, Background);
+    return;
+  }
+
+  if (MaxChars <= 3) {
+    CopyChars = MaxChars;
+  } else {
+    CopyChars = MaxChars - 3;
+  }
+
+  CopyMem (Buffer, Text, CopyChars * sizeof (CHAR16));
+  if (MaxChars > 3) {
+    Buffer[CopyChars++] = L'.';
+    Buffer[CopyChars++] = L'.';
+    Buffer[CopyChars++] = L'.';
+  }
+
+  Buffer[CopyChars] = L'\0';
+  ModernUiDrawText (Ui, X, Y, Buffer, Color, Background);
+}
+
+/**
+  Return whether a boot option points at this setup application image.
+
+  @param[in] FilePath  Boot option device path. May be NULL.
+
+  @retval TRUE   FilePath matches the loaded ModernSetupApp image path.
+  @retval FALSE  FilePath is NULL, the current image path cannot be found, or it
+                 points at a different image.
+**/
+STATIC
+BOOLEAN
+IsCurrentApplicationBootOption (
+  IN EFI_DEVICE_PATH_PROTOCOL  *FilePath
+  )
+{
+  EFI_STATUS                Status;
+  EFI_LOADED_IMAGE_PROTOCOL *LoadedImage;
+  EFI_DEVICE_PATH_PROTOCOL  *DevicePath;
+  EFI_DEVICE_PATH_PROTOCOL  *ApplicationPath;
+  UINTN                     FilePathSize;
+  UINTN                     ApplicationPathSize;
+  BOOLEAN                   Match;
+
+  if ((mImageHandle == NULL) || (FilePath == NULL)) {
+    return FALSE;
+  }
+
+  Status = gBS->HandleProtocol (
+                  mImageHandle,
+                  &gEfiLoadedImageProtocolGuid,
+                  (VOID **)&LoadedImage
+                  );
+  if (EFI_ERROR (Status) || (LoadedImage == NULL)) {
+    return FALSE;
+  }
+
+  DevicePath = DevicePathFromHandle (LoadedImage->DeviceHandle);
+  if ((DevicePath == NULL) || (LoadedImage->FilePath == NULL)) {
+    return FALSE;
+  }
+
+  ApplicationPath = AppendDevicePathNode (DevicePath, LoadedImage->FilePath);
+  if (ApplicationPath == NULL) {
+    return FALSE;
+  }
+
+  FilePathSize        = GetDevicePathSize (FilePath);
+  ApplicationPathSize = GetDevicePathSize (ApplicationPath);
+  Match               = (BOOLEAN)(
+                                  (FilePathSize == ApplicationPathSize) &&
+                                  (CompareMem (FilePath, ApplicationPath, FilePathSize) == 0)
+                                  );
+  FreePool (ApplicationPath);
+  return Match;
+}
+
+/**
+  Return whether a Boot Manager load option should be shown in the Boot page.
+
+  @param[in] BootOption  Boot option to inspect. Must not be NULL.
+
+  @retval TRUE   The option is visible to users.
+  @retval FALSE  The option is hidden or points at this setup app.
+**/
+STATIC
+BOOLEAN
+IsVisibleBootOption (
+  IN CONST EFI_BOOT_MANAGER_LOAD_OPTION  *BootOption
+  )
+{
+  if ((BootOption == NULL) || ((BootOption->Attributes & LOAD_OPTION_HIDDEN) != 0)) {
+    return FALSE;
+  }
+
+  return (BOOLEAN)!IsCurrentApplicationBootOption (BootOption->FilePath);
+}
+
+/**
+  Count visible boot options from UefiBootManagerLib.
+
+  @return Number of visible Boot#### entries, or 0 when none are available.
 **/
 STATIC
 UINTN
@@ -214,19 +354,25 @@ GetBootCount (
   VOID
   )
 {
-  EFI_STATUS  Status;
-  UINTN       Size;
-  UINT16      *BootOrder;
-  UINTN       Count;
+  EFI_BOOT_MANAGER_LOAD_OPTION  *BootOptions;
+  UINTN                         BootOptionCount;
+  UINTN                         Index;
+  UINTN                         VisibleCount;
 
-  Status = ReadGlobalVariable (EFI_BOOT_ORDER_VARIABLE_NAME, (VOID **)&BootOrder, &Size);
-  if (EFI_ERROR (Status)) {
+  BootOptions = EfiBootManagerGetLoadOptions (&BootOptionCount, LoadOptionTypeBoot);
+  if (BootOptions == NULL) {
     return 0;
   }
 
-  Count = Size / sizeof (UINT16);
-  FreePool (BootOrder);
-  return Count;
+  VisibleCount = 0;
+  for (Index = 0; Index < BootOptionCount; Index++) {
+    if (IsVisibleBootOption (&BootOptions[Index])) {
+      VisibleCount++;
+    }
+  }
+
+  EfiBootManagerFreeLoadOptions (BootOptions, BootOptionCount);
+  return VisibleCount;
 }
 
 /**
@@ -280,7 +426,7 @@ GetPageSelectableCount (
 {
   switch (Page) {
     case PageBoot:
-      return MIN (GetBootCount (), 9);
+      return MIN (GetBootCount (), MAX_BOOT_ROWS);
     case PageDevices:
       return GetVisibleDeviceCount ();
     case PageExit:
@@ -288,6 +434,52 @@ GetPageSelectableCount (
     default:
       return 0;
   }
+}
+
+/**
+  Boot one visible Boot page row through UefiBootManagerLib.
+
+  @param[in] Selection  Zero-based visible Boot page row index.
+
+  @retval EFI_SUCCESS            Boot option was launched and returned.
+  @retval EFI_NOT_FOUND          The selected Boot#### option could not be found.
+  @retval others                 Status from boot option decoding or launch.
+**/
+STATIC
+EFI_STATUS
+LaunchSelectedBootOption (
+  IN UINTN  Selection
+  )
+{
+  EFI_BOOT_MANAGER_LOAD_OPTION  *BootOptions;
+  UINTN                         BootOptionCount;
+  UINTN                         Index;
+  UINTN                         VisibleIndex;
+  EFI_STATUS                    Status;
+
+  BootOptions = EfiBootManagerGetLoadOptions (&BootOptionCount, LoadOptionTypeBoot);
+  if (BootOptions == NULL) {
+    return EFI_NOT_FOUND;
+  }
+
+  Status       = EFI_NOT_FOUND;
+  VisibleIndex = 0;
+  for (Index = 0; Index < BootOptionCount; Index++) {
+    if (!IsVisibleBootOption (&BootOptions[Index])) {
+      continue;
+    }
+
+    if (VisibleIndex == Selection) {
+      EfiBootManagerBoot (&BootOptions[Index]);
+      Status = BootOptions[Index].Status;
+      break;
+    }
+
+    VisibleIndex++;
+  }
+
+  EfiBootManagerFreeLoadOptions (BootOptions, BootOptionCount);
+  return Status;
 }
 
 /**
@@ -424,13 +616,15 @@ DrawTabs (
   @param[in] Ui     Initialized render context. Must not be NULL.
   @param[in] Theme  Theme token table. Must not be NULL.
   @param[in] Focus  Current focus area.
+  @param[in] StatusMessage Optional status text. May be NULL.
 **/
 STATIC
 VOID
 DrawFooter (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
-  IN SETUP_FOCUS               Focus
+  IN SETUP_FOCUS               Focus,
+  IN CONST CHAR16              *StatusMessage
   )
 {
   UINTN  Y;
@@ -438,8 +632,10 @@ DrawFooter (
   Y = Ui->Height - FOOTER_HEIGHT;
   ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, Y, Ui->Width, FOOTER_HEIGHT }, Theme->Surface);
   ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, Y, Ui->Width, 1 }, Theme->Border);
-  if (Focus == SetupFocusNav) {
-    ModernUiDrawText (Ui, SCREEN_MARGIN, Y + 10, L"Up/Down: tab    Right/Enter: page    Esc: continue boot", Theme->MutedText, Theme->Surface);
+  if ((StatusMessage != NULL) && (StatusMessage[0] != L'\0')) {
+    ModernUiDrawText (Ui, SCREEN_MARGIN, Y + 10, StatusMessage, Theme->Warning, Theme->Surface);
+  } else if (Focus == SetupFocusNav) {
+    ModernUiDrawText (Ui, SCREEN_MARGIN, Y + 10, L"Left/Right: tab    Down/Enter: page    Esc: continue boot", Theme->MutedText, Theme->Surface);
   } else {
     ModernUiDrawText (Ui, SCREEN_MARGIN, Y + 10, L"Up/Down: select    Left/Esc: tabs    Enter: action    Tab: switch focus", Theme->MutedText, Theme->Surface);
   }
@@ -575,47 +771,7 @@ DrawDashboard (
 }
 
 /**
-  Read the description string from one Boot#### option.
-
-  @param[in] BootId  Numeric Boot#### identifier.
-
-  @return Allocated description string owned by the caller, or NULL when the
-          option is absent, malformed, or allocation fails.
-**/
-STATIC
-CHAR16 *
-BootDescription (
-  IN UINT16  BootId
-  )
-{
-  EFI_STATUS  Status;
-  CHAR16      Name[12];
-  UINTN       Size;
-  UINT8       *Data;
-  CHAR16      *Description;
-  UINTN       Offset;
-  UINTN       DescriptionSize;
-
-  UnicodeSPrint (Name, sizeof (Name), L"Boot%04x", BootId);
-  Status = ReadGlobalVariable (Name, (VOID **)&Data, &Size);
-  if (EFI_ERROR (Status) || (Size < sizeof (UINT32) + sizeof (UINT16) + sizeof (CHAR16))) {
-    return NULL;
-  }
-
-  Offset          = sizeof (UINT32) + sizeof (UINT16);
-  DescriptionSize = StrSize ((CHAR16 *)(Data + Offset));
-  if ((Offset + DescriptionSize) > Size) {
-    FreePool (Data);
-    return NULL;
-  }
-
-  Description = AllocateCopyPool (DescriptionSize, Data + Offset);
-  FreePool (Data);
-  return Description;
-}
-
-/**
-  Draw the Boot page with read-only BootOrder entries.
+  Draw the Boot page with launchable BootOrder entries.
 
   @param[in] Ui        Initialized render context. Must not be NULL.
   @param[in] Theme     Theme token table. Must not be NULL.
@@ -631,57 +787,65 @@ DrawBoot (
   IN UINTN                     Selected
   )
 {
-  EFI_STATUS  Status;
-  UINTN       Size;
-  UINT16      *BootOrder;
-  UINTN       Count;
-  UINTN       Index;
-  UINTN       Y;
-  CHAR16      Line[160];
-  CHAR16      *Description;
-  BOOLEAN     IsSelected;
-  MODERN_UI_RECT  Panel;
-  UINTN       RowX;
-  UINTN       RowWidth;
+  EFI_BOOT_MANAGER_LOAD_OPTION  *BootOptions;
+  UINTN                         BootOptionCount;
+  UINTN                         Index;
+  UINTN                         VisibleIndex;
+  UINTN                         Y;
+  CHAR16                        Line[160];
+  CONST CHAR16                  *Description;
+  CONST CHAR16                  *State;
+  BOOLEAN                       IsSelected;
+  MODERN_UI_RECT                Panel;
+  UINTN                         RowX;
+  UINTN                         RowWidth;
 
   Panel = ContentRect (Ui);
   RowX = Panel.X + 20;
   RowWidth = Panel.Width - 40;
   ModernUiDrawPanel (Ui, Panel, Theme);
   DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
-  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, L"Boot order is read-only in this prototype.", Theme->MutedText, Theme->Surface);
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, L"Enter launches the selected boot option. Boot order editing is not implemented yet.", Theme->MutedText, Theme->Surface);
 
-  Status = ReadGlobalVariable (EFI_BOOT_ORDER_VARIABLE_NAME, (VOID **)&BootOrder, &Size);
-  if (EFI_ERROR (Status)) {
-    ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 66, L"No BootOrder variable found.", Theme->Warning, Theme->Surface);
+  BootOptions = EfiBootManagerGetLoadOptions (&BootOptionCount, LoadOptionTypeBoot);
+  if (BootOptions == NULL) {
+    ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 66, L"No visible boot options found.", Theme->Warning, Theme->Surface);
     return;
   }
 
-  Count = Size / sizeof (UINT16);
-  for (Index = 0; (Index < Count) && (Index < 9); Index++) {
-    Y           = Panel.Y + 62 + Index * 38;
-    Description = BootDescription (BootOrder[Index]);
-    IsSelected  = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
+  VisibleIndex = 0;
+  for (Index = 0; (Index < BootOptionCount) && (VisibleIndex < MAX_BOOT_ROWS); Index++) {
+    if (!IsVisibleBootOption (&BootOptions[Index])) {
+      continue;
+    }
+
+    Y           = Panel.Y + 62 + VisibleIndex * 38;
+    Description = (BootOptions[Index].Description != NULL) ? BootOptions[Index].Description : L"(no description)";
+    State       = ((BootOptions[Index].Attributes & LOAD_OPTION_ACTIVE) != 0) ? L"Active" : L"Inactive";
+    IsSelected  = (BOOLEAN)((Focus == SetupFocusContent) && (VisibleIndex == Selected));
     UnicodeSPrint (
       Line,
       sizeof (Line),
-      L"%02u   Boot%04x   %s",
-      Index + 1,
-      BootOrder[Index],
-      (Description != NULL) ? Description : L"(no description)"
+      L"%02u  Boot%04x  %s  %s",
+      VisibleIndex + 1,
+      BootOptions[Index].OptionNumber,
+      State,
+      Description
       );
     ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Y - 8, RowWidth, 32 }, IsSelected ? Theme->AccentSoft : Theme->Surface);
     if (IsSelected) {
       ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Y - 8, 4, 32 }, Theme->Accent);
     }
 
-    ModernUiDrawText (Ui, RowX + 16, Y, Line, IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
-    if (Description != NULL) {
-      FreePool (Description);
-    }
+    DrawTextFit (Ui, RowX + 16, Y, RowWidth - 32, Line, IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
+    VisibleIndex++;
   }
 
-  FreePool (BootOrder);
+  if (VisibleIndex == 0) {
+    ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 66, L"No visible boot options found.", Theme->Warning, Theme->Surface);
+  }
+
+  EfiBootManagerFreeLoadOptions (BootOptions, BootOptionCount);
 }
 
 /**
@@ -751,7 +915,7 @@ DrawDevices (
       ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Panel.Y + 54 + Shown * 36, 4, 30 }, Theme->Accent);
     }
 
-    ModernUiDrawText (Ui, RowX + 16, Panel.Y + 62 + Shown * 36, Line, IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
+    DrawTextFit (Ui, RowX + 16, Panel.Y + 62 + Shown * 36, RowWidth - 32, Line, IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
     FreePool (Text);
     Shown++;
   }
@@ -902,6 +1066,7 @@ LaunchUiAppFallback (
   @param[in] BootSelection  Selected Boot page row.
   @param[in] DeviceSelection Selected Devices page row.
   @param[in] ExitSelection  Selected Exit page action.
+  @param[in] StatusMessage  Optional status text. May be NULL.
 **/
 STATIC
 VOID
@@ -912,7 +1077,8 @@ DrawPage (
   IN SETUP_FOCUS               Focus,
   IN UINTN                     BootSelection,
   IN UINTN                     DeviceSelection,
-  IN UINTN                     ExitSelection
+  IN UINTN                     ExitSelection,
+  IN CONST CHAR16              *StatusMessage
   )
 {
   ModernUiClear (Ui, Theme->Background);
@@ -940,7 +1106,7 @@ DrawPage (
       break;
   }
 
-  DrawFooter (Ui, Theme, Focus);
+  DrawFooter (Ui, Theme, Focus, StatusMessage);
 }
 
 /**
@@ -971,9 +1137,11 @@ UefiMain (
   UINTN                     ExitSelection;
   UINTN                     Selection;
   UINTN                     SelectableCount;
+  CHAR16                    StatusMessage[96];
   BOOLEAN                   Redraw;
 
   gBS->SetWatchdogTimer (0, 0, 0, NULL);
+  mImageHandle = ImageHandle;
 
   Status = ModernUiRendererInit (&Ui);
   if (EFI_ERROR (Status)) {
@@ -981,6 +1149,8 @@ UefiMain (
     return Status;
   }
 
+  EfiBootManagerConnectAll ();
+  EfiBootManagerRefreshAllBootOption ();
   ModernUiInputInit (&Input);
   Theme         = ModernUiGetTheme ();
   Page          = PageDashboard;
@@ -988,11 +1158,12 @@ UefiMain (
   BootSelection = 0;
   DeviceSelection = 0;
   ExitSelection = 0;
+  StatusMessage[0] = L'\0';
   Redraw        = TRUE;
 
   for (;;) {
     if (Redraw) {
-      DrawPage (&Ui, Theme, Page, Focus, BootSelection, DeviceSelection, ExitSelection);
+      DrawPage (&Ui, Theme, Page, Focus, BootSelection, DeviceSelection, ExitSelection, StatusMessage);
       Redraw = FALSE;
     }
 
@@ -1003,9 +1174,7 @@ UefiMain (
 
     switch (Event.Type) {
       case ModernUiInputUp:
-        if (Focus == SetupFocusNav) {
-          Page = (Page == 0) ? (PageMax - 1) : (Page - 1);
-        } else {
+        if (Focus == SetupFocusContent) {
           SelectableCount = GetPageSelectableCount (Page);
           if (SelectableCount > 0) {
             Selection = GetPageSelection (Page, BootSelection, DeviceSelection, ExitSelection);
@@ -1018,7 +1187,7 @@ UefiMain (
         break;
       case ModernUiInputDown:
         if (Focus == SetupFocusNav) {
-          Page = (Page + 1) % PageMax;
+          Focus = SetupFocusContent;
         } else {
           SelectableCount = GetPageSelectableCount (Page);
           if (SelectableCount > 0) {
@@ -1035,11 +1204,22 @@ UefiMain (
         Redraw = TRUE;
         break;
       case ModernUiInputLeft:
-        Focus  = SetupFocusNav;
+        if (Focus == SetupFocusNav) {
+          Page = (Page == 0) ? (PageMax - 1) : (Page - 1);
+        } else {
+          Focus = SetupFocusNav;
+        }
+
+        StatusMessage[0] = L'\0';
         Redraw = TRUE;
         break;
       case ModernUiInputRight:
-        Focus  = SetupFocusContent;
+        if (Focus == SetupFocusNav) {
+          Page = (Page + 1) % PageMax;
+        } else {
+          StatusMessage[0] = L'\0';
+        }
+
         Redraw = TRUE;
         break;
       case ModernUiInputEscape:
@@ -1054,12 +1234,18 @@ UefiMain (
       case ModernUiInputEnter:
         if (Focus == SetupFocusNav) {
           Focus  = SetupFocusContent;
+          StatusMessage[0] = L'\0';
+          Redraw = TRUE;
+        } else if (Page == PageBoot) {
+          Status = LaunchSelectedBootOption (BootSelection);
+          UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"Boot option returned: %r", Status);
           Redraw = TRUE;
         } else if (Page == PageExit) {
           if (ExitSelection == 0) {
             return EFI_SUCCESS;
           } else if (ExitSelection == 1) {
-            LaunchUiAppFallback (ImageHandle);
+            Status = LaunchUiAppFallback (ImageHandle);
+            UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"Classic UiApp returned: %r", Status);
             Redraw = TRUE;
           } else {
             gRT->ResetSystem (EfiResetCold, EFI_SUCCESS, 0, NULL);

@@ -17,6 +17,7 @@
 
 [Packages]
   MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
   ModernSetupPkg/ModernSetupPkg.dec
 
 [LibraryClasses]
@@ -30,6 +31,7 @@
   ModernUiThemeLib
   PrintLib
   UefiApplicationEntryPoint
+  UefiBootManagerLib
   UefiBootServicesTableLib
   UefiLib
   UefiRuntimeServicesTableLib
