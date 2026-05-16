@@ -22,6 +22,11 @@ this file as both a release log and a lightweight development progress record.
 - Development guide covering function comments, multi-architecture boundaries,
   IBV-friendly extension points, and change discipline.
 
+### Fixed
+
+- Fixed rectangle fill rendering by using GOP `EfiBltVideoFill` instead of
+  passing a one-line buffer as a multi-line BLT source.
+
 ### Current Status
 
 - ArmVirt AARCH64 DEBUG_CLANGDWARF build has been validated locally.

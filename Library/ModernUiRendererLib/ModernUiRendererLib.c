@@ -89,10 +89,6 @@ ModernUiFillRect (
   IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Color
   )
 {
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  *Line;
-  UINTN                          Index;
-  EFI_STATUS                     Status;
-
   if ((Context == NULL) || (Context->Gop == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
     return EFI_INVALID_PARAMETER;
   }
@@ -109,29 +105,18 @@ ModernUiFillRect (
     Rect.Height = Context->Height - Rect.Y;
   }
 
-  Line = AllocatePool (Rect.Width * sizeof (*Line));
-  if (Line == NULL) {
-    return EFI_OUT_OF_RESOURCES;
-  }
-
-  for (Index = 0; Index < Rect.Width; Index++) {
-    Line[Index] = Color;
-  }
-
-  Status = Context->Gop->Blt (
-                           Context->Gop,
-                           Line,
-                           EfiBltBufferToVideo,
-                           0,
-                           0,
-                           Rect.X,
-                           Rect.Y,
-                           Rect.Width,
-                           Rect.Height,
-                           0
-                           );
-  FreePool (Line);
-  return Status;
+  return Context->Gop->Blt (
+                         Context->Gop,
+                         &Color,
+                         EfiBltVideoFill,
+                         0,
+                         0,
+                         Rect.X,
+                         Rect.Y,
+                         Rect.Width,
+                         Rect.Height,
+                         0
+                         );
 }
 
 /**
