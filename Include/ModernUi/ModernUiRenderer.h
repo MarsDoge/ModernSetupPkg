@@ -28,6 +28,23 @@ typedef struct {
 } MODERN_UI_RENDER_CONTEXT;
 
 /**
+  Blend two GOP colors by percentage weight.
+
+  @param[in] Base    Base color used when Weight is zero.
+  @param[in] Accent  Accent color used when Weight is one hundred.
+  @param[in] Weight  Accent weight in percent. Values above 100 are clamped.
+
+  @return Blended color with Reserved cleared.
+**/
+EFI_GRAPHICS_OUTPUT_BLT_PIXEL
+EFIAPI
+ModernUiBlendColor (
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Base,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Accent,
+  IN UINT8                          Weight
+  );
+
+/**
   Initialize a render context from firmware graphics services.
 
   @param[out] Context  Render context to initialize. Must not be NULL. On
@@ -146,6 +163,37 @@ ModernUiDrawText (
   );
 
 /**
+  Draw UCS-2 text constrained to a pixel width.
+
+  The renderer measures mixed ASCII, built-in CJK, and text-mode graphic glyphs
+  and appends "..." when the string must be truncated.
+
+  @param[in] Context     Initialized render context. Must not be NULL.
+  @param[in] X           Left coordinate in pixels.
+  @param[in] Y           Top coordinate in pixels.
+  @param[in] MaxWidth    Maximum text width in pixels.
+  @param[in] Text        Null-terminated UCS-2 string. Must not be NULL.
+  @param[in] Color       Text foreground color.
+  @param[in] Background  Text background color.
+
+  @retval EFI_SUCCESS            Text was rendered or empty width was ignored.
+  @retval EFI_INVALID_PARAMETER  Context or Text is NULL.
+  @retval EFI_OUT_OF_RESOURCES   Temporary truncation buffer allocation failed.
+  @retval others                 Status returned by ModernUiDrawText().
+**/
+EFI_STATUS
+EFIAPI
+ModernUiDrawTextFit (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN UINTN                             X,
+  IN UINTN                             Y,
+  IN UINTN                             MaxWidth,
+  IN CONST CHAR16                      *Text,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL     Color,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL     Background
+  );
+
+/**
   Draw a themed panel surface and border.
 
   @param[in] Context  Initialized render context. Must not be NULL.
@@ -161,6 +209,36 @@ EFIAPI
 ModernUiDrawPanel (
   IN MODERN_UI_RENDER_CONTEXT          *Context,
   IN MODERN_UI_RECT                    Rect,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
+  Draw a themed selectable row surface.
+
+  This is a shared visual primitive for DisplayEngine statement rows and
+  experimental app list rows. It does not own FormBrowser or HII semantics.
+
+  @param[in] Context   Initialized render context. Must not be NULL.
+  @param[in] Rect      Pixel rectangle for the row surface.
+  @param[in] Selected  TRUE when the row is selected.
+  @param[in] Disabled  TRUE when the row is visible but disabled or grayed.
+  @param[in] Action    TRUE when the row represents an action-like command.
+  @param[in] Subtitle  TRUE when the row is a section subtitle.
+  @param[in] Theme     Theme token table. Must not be NULL.
+
+  @retval EFI_SUCCESS            Row was drawn.
+  @retval EFI_INVALID_PARAMETER  Context or Theme is NULL, or Rect is empty.
+  @retval EFI_OUT_OF_RESOURCES   Temporary BLT allocation failed.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiDrawSelectableRow (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN BOOLEAN                           Selected,
+  IN BOOLEAN                           Disabled,
+  IN BOOLEAN                           Action,
+  IN BOOLEAN                           Subtitle,
   IN CONST MODERN_UI_THEME             *Theme
   );
 

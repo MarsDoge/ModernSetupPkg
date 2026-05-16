@@ -168,32 +168,6 @@ GetActiveLanguageSelection (
 }
 
 /**
-  Blend two colors by percentage weight.
-
-  @param[in] Base    Base color used when Weight is 0.
-  @param[in] Accent  Accent color used when Weight is 100.
-  @param[in] Weight  Accent weight in percent. Values above 100 are not expected.
-
-  @return Blended color with Reserved cleared to zero.
-**/
-STATIC
-EFI_GRAPHICS_OUTPUT_BLT_PIXEL
-BlendAccent (
-  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Base,
-  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Accent,
-  IN UINT8                          Weight
-  )
-{
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Result;
-
-  Result.Red      = (UINT8)(((UINTN)Base.Red * (100 - Weight) + (UINTN)Accent.Red * Weight) / 100);
-  Result.Green    = (UINT8)(((UINTN)Base.Green * (100 - Weight) + (UINTN)Accent.Green * Weight) / 100);
-  Result.Blue     = (UINT8)(((UINTN)Base.Blue * (100 - Weight) + (UINTN)Accent.Blue * Weight) / 100);
-  Result.Reserved = 0;
-  return Result;
-}
-
-/**
   Get the selected item value for a page.
 
   @param[in] Page             Page whose selected item is requested.
@@ -334,73 +308,6 @@ ReadGlobalVariable (
   *Buffer     = Data;
   *BufferSize = Size;
   return EFI_SUCCESS;
-}
-
-/**
-  Draw text after truncating it to a caller-provided pixel width.
-
-  @param[in] Ui          Initialized render context. Must not be NULL.
-  @param[in] X           Left coordinate in pixels.
-  @param[in] Y           Top coordinate in pixels.
-  @param[in] Width       Maximum text width in pixels.
-  @param[in] Text        Null-terminated UCS-2 string. Must not be NULL.
-  @param[in] Color       Text foreground color.
-  @param[in] Background  Text background color.
-**/
-STATIC
-VOID
-DrawTextFit (
-  IN MODERN_UI_RENDER_CONTEXT       *Ui,
-  IN UINTN                          X,
-  IN UINTN                          Y,
-  IN UINTN                          Width,
-  IN CONST CHAR16                   *Text,
-  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Color,
-  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background
-  )
-{
-  CHAR16  Buffer[176];
-  CHAR16  Character[2];
-  UINTN   Index;
-  UINTN   CopyChars;
-  UINTN   CurrentWidth;
-  UINTN   CharacterWidth;
-  UINTN   EllipsisWidth;
-  UINTN   TargetWidth;
-
-  if ((Ui == NULL) || (Text == NULL) || (Width == 0)) {
-    return;
-  }
-
-  if (ModernUiMeasureText (Text) <= Width) {
-    ModernUiDrawText (Ui, X, Y, Text, Color, Background);
-    return;
-  }
-
-  EllipsisWidth = ModernUiMeasureText (L"...");
-  TargetWidth   = (Width > EllipsisWidth) ? (Width - EllipsisWidth) : Width;
-  CopyChars     = 0;
-  CurrentWidth  = 0;
-  Character[1]  = L'\0';
-  for (Index = 0; (Text[Index] != L'\0') && (CopyChars < ARRAY_SIZE (Buffer) - 4); Index++) {
-    Character[0]  = Text[Index];
-    CharacterWidth = ModernUiMeasureText (Character);
-    if ((CurrentWidth + CharacterWidth) > TargetWidth) {
-      break;
-    }
-
-    Buffer[CopyChars++] = Text[Index];
-    CurrentWidth       += CharacterWidth;
-  }
-
-  if ((Width >= EllipsisWidth) && (CopyChars < ARRAY_SIZE (Buffer) - 3)) {
-    Buffer[CopyChars++] = L'.';
-    Buffer[CopyChars++] = L'.';
-    Buffer[CopyChars++] = L'.';
-  }
-
-  Buffer[CopyChars] = L'\0';
-  ModernUiDrawText (Ui, X, Y, Buffer, Color, Background);
 }
 
 /**
@@ -838,16 +745,16 @@ DrawHeader (
   UINTN                          ModeX;
   UINTN                          InfoX;
 
-  Header = BlendAccent (Theme->Surface, Theme->AccentSoft, 18);
+  Header = ModernUiBlendColor (Theme->Surface, Theme->AccentSoft, 18);
   ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, 0, Ui->Width, TOP_BAR_HEIGHT }, Header);
   ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, TOP_BAR_HEIGHT - 3, Ui->Width, 2 }, Theme->Accent);
   ModernUiFillRect (Ui, (MODERN_UI_RECT){ SCREEN_MARGIN, 13, 3, 22 }, Theme->Accent);
   ModernUiDrawText (Ui, SCREEN_MARGIN + 16, 15, ModernUiGetString (ModernUiStringHeaderTitle), Theme->Text, Header);
 
   ModeX = Ui->Width / 2 - 96;
-  ModernUiFillRect (Ui, (MODERN_UI_RECT){ ModeX, 10, 192, 32 }, BlendAccent (Header, Theme->AccentSoft, 42));
-  ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ ModeX, 10, 192, 32 }, BlendAccent (Theme->Border, Theme->Accent, 35));
-  ModernUiDrawText (Ui, ModeX + 28, 18, ModernUiGetString (ModernUiStringHeaderMode), Theme->Accent, BlendAccent (Header, Theme->AccentSoft, 42));
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ ModeX, 10, 192, 32 }, ModernUiBlendColor (Header, Theme->AccentSoft, 42));
+  ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ ModeX, 10, 192, 32 }, ModernUiBlendColor (Theme->Border, Theme->Accent, 35));
+  ModernUiDrawText (Ui, ModeX + 28, 18, ModernUiGetString (ModernUiStringHeaderMode), Theme->Accent, ModernUiBlendColor (Header, Theme->AccentSoft, 42));
 
   InfoX = Ui->Width - 276;
   ModernUiFillRect (Ui, (MODERN_UI_RECT){ InfoX, 10, 220, 32 }, Theme->Surface);
@@ -878,18 +785,18 @@ DrawTabs (
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  TabColor;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  TextColor;
 
-  ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, TOP_BAR_HEIGHT, Ui->Width, TAB_BAR_HEIGHT }, BlendAccent (Theme->Surface, Theme->SurfaceRaised, 35));
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, TOP_BAR_HEIGHT, Ui->Width, TAB_BAR_HEIGHT }, ModernUiBlendColor (Theme->Surface, Theme->SurfaceRaised, 35));
   ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, TOP_BAR_HEIGHT + TAB_BAR_HEIGHT - 1, Ui->Width, 1 }, Theme->Border);
 
   TabWidth = (Ui->Width - (SCREEN_MARGIN * 2)) / ARRAY_SIZE (mPages);
   for (Index = 0; Index < ARRAY_SIZE (mPages); Index++) {
     X        = SCREEN_MARGIN + (Index * TabWidth);
-    TabColor = (mPages[Index].Page == Page) ? Theme->AccentSoft : BlendAccent (Theme->Surface, Theme->SurfaceRaised, 35);
+    TabColor = (mPages[Index].Page == Page) ? Theme->AccentSoft : ModernUiBlendColor (Theme->Surface, Theme->SurfaceRaised, 35);
     TextColor = (mPages[Index].Page == Page) ? Theme->Text : Theme->MutedText;
 
     if (mPages[Index].Page == Page) {
       ModernUiFillRect (Ui, (MODERN_UI_RECT){ X, TOP_BAR_HEIGHT + 9, TabWidth - 8, 36 }, TabColor);
-      ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ X, TOP_BAR_HEIGHT + 9, TabWidth - 8, 36 }, BlendAccent (Theme->Border, Theme->Accent, 25));
+      ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ X, TOP_BAR_HEIGHT + 9, TabWidth - 8, 36 }, ModernUiBlendColor (Theme->Border, Theme->Accent, 25));
       ModernUiFillRect (
         Ui,
         (MODERN_UI_RECT){ X, TOP_BAR_HEIGHT + 43, TabWidth - 8, 3 },
@@ -1090,6 +997,7 @@ DrawBoot (
   MODERN_UI_RECT                Panel;
   UINTN                         RowX;
   UINTN                         RowWidth;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL RowBackground;
 
   Panel = ContentRect (Ui);
   RowX = Panel.X + 20;
@@ -1114,6 +1022,9 @@ DrawBoot (
     Description = (BootOptions[Index].Description != NULL) ? BootOptions[Index].Description : ModernUiGetString (ModernUiStringNoDescription);
     State       = ((BootOptions[Index].Attributes & LOAD_OPTION_ACTIVE) != 0) ? ModernUiGetString (ModernUiStringActive) : ModernUiGetString (ModernUiStringInactive);
     IsSelected  = (BOOLEAN)((Focus == SetupFocusContent) && (VisibleIndex == Selected));
+    RowBackground = IsSelected ?
+                    ModernUiBlendColor (Theme->AccentSoft, Theme->SurfaceRaised, 16) :
+                    Theme->Surface;
     UnicodeSPrint (
       Line,
       sizeof (Line),
@@ -1123,12 +1034,25 @@ DrawBoot (
       State,
       Description
       );
-    ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Y - 8, RowWidth, 32 }, IsSelected ? Theme->AccentSoft : Theme->Surface);
-    if (IsSelected) {
-      ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Y - 8, 4, 32 }, Theme->Accent);
-    }
+    ModernUiDrawSelectableRow (
+      Ui,
+      (MODERN_UI_RECT){ RowX, Y - 8, RowWidth, 32 },
+      IsSelected,
+      FALSE,
+      FALSE,
+      FALSE,
+      Theme
+      );
 
-    DrawTextFit (Ui, RowX + 16, Y, RowWidth - 32, Line, IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
+    ModernUiDrawTextFit (
+      Ui,
+      RowX + 16,
+      Y,
+      RowWidth - 32,
+      Line,
+      IsSelected ? Theme->Text : Theme->MutedText,
+      RowBackground
+      );
     VisibleIndex++;
   }
 
@@ -1168,6 +1092,7 @@ DrawDevices (
   MODERN_UI_RECT            Panel;
   UINTN                     RowX;
   UINTN                     RowWidth;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL RowBackground;
 
   Panel = ContentRect (Ui);
   RowX = Panel.X + 20;
@@ -1197,16 +1122,28 @@ DrawDevices (
 
     UnicodeSPrint (Line, sizeof (Line), L"%02u  %s", Shown + 1, Text);
     IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Shown == Selected));
-    ModernUiFillRect (
+    RowBackground = IsSelected ?
+                    ModernUiBlendColor (Theme->AccentSoft, Theme->SurfaceRaised, 16) :
+                    Theme->Surface;
+    ModernUiDrawSelectableRow (
       Ui,
       (MODERN_UI_RECT){ RowX, Panel.Y + 54 + Shown * 36, RowWidth, 30 },
-      IsSelected ? Theme->AccentSoft : Theme->Surface
+      IsSelected,
+      FALSE,
+      FALSE,
+      FALSE,
+      Theme
       );
-    if (IsSelected) {
-      ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Panel.Y + 54 + Shown * 36, 4, 30 }, Theme->Accent);
-    }
 
-    DrawTextFit (Ui, RowX + 16, Panel.Y + 62 + Shown * 36, RowWidth - 32, Line, IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
+    ModernUiDrawTextFit (
+      Ui,
+      RowX + 16,
+      Panel.Y + 62 + Shown * 36,
+      RowWidth - 32,
+      Line,
+      IsSelected ? Theme->Text : Theme->MutedText,
+      RowBackground
+      );
     FreePool (Text);
     Shown++;
   }
@@ -1402,7 +1339,7 @@ DrawHiiRow (
   UINTN       RowWidth;
   UINTN       Y;
   CHAR16      Line[192];
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  RowColor;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  TextColor;
 
   RowX     = Panel.X + 20;
@@ -1415,14 +1352,25 @@ DrawHiiRow (
     StrnCpyS (Line, ARRAY_SIZE (Line), Primary, ARRAY_SIZE (Line) - 1);
   }
 
-  RowColor  = Selected ? Theme->AccentSoft : (Action ? Theme->SurfaceRaised : Theme->Surface);
-  TextColor = Disabled ? Theme->Border : (Selected ? Theme->Text : (Action ? Theme->Text : Theme->MutedText));
-  ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Y - 8, RowWidth, 30 }, RowColor);
-  if (Selected) {
-    ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Y - 8, 4, 30 }, Theme->Accent);
+  Background = Selected ?
+               ModernUiBlendColor (Theme->AccentSoft, Theme->SurfaceRaised, 16) :
+               (Action ? Theme->SurfaceRaised : Theme->Surface);
+  if (Disabled && !Selected) {
+    Background = ModernUiBlendColor (Theme->Surface, Theme->Background, 35);
   }
 
-  DrawTextFit (Ui, RowX + 16, Y, RowWidth - 32, Line, TextColor, RowColor);
+  TextColor  = Disabled ? Theme->Border : (Selected ? Theme->Text : (Action ? Theme->Text : Theme->MutedText));
+  ModernUiDrawSelectableRow (
+    Ui,
+    (MODERN_UI_RECT){ RowX, Y - 8, RowWidth, 30 },
+    Selected,
+    Disabled,
+    Action,
+    FALSE,
+    Theme
+    );
+
+  ModernUiDrawTextFit (Ui, RowX + 16, Y, RowWidth - 32, Line, TextColor, Background);
 }
 
 /**
@@ -1523,7 +1471,7 @@ DrawHiiBridge (
   Fallback = ModernUiGetString (ModernUiStringHiiForms);
   Title    = GetHiiDisplayString (FormSet->HiiHandle, Form->TitleId, Fallback);
   UnicodeSPrint (Breadcrumb, sizeof (Breadcrumb), L"%s / %s", ModernUiGetString (ModernUiStringHiiForms), Title);
-  DrawTextFit (Ui, Panel.X + 20, Panel.Y + 42, Panel.Width - 40, Breadcrumb, Theme->MutedText, Theme->Surface);
+  ModernUiDrawTextFit (Ui, Panel.X + 20, Panel.Y + 42, Panel.Width - 40, Breadcrumb, Theme->MutedText, Theme->Surface);
   FreeHiiDisplayString (Title, Fallback);
 
   for (Row = 0, Index = mHiiView.Scroll; Row < MAX_HII_ROWS; Index++) {
@@ -1605,6 +1553,7 @@ DrawExit (
   MODERN_UI_RECT  Panel;
   UINTN         RowX;
   UINTN         RowWidth;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  RowBackground;
 
   LanguageName = GetLanguageOptionName (GetActiveLanguageSelection ());
 
@@ -1624,24 +1573,28 @@ DrawExit (
   for (Index = 0; Index < ARRAY_SIZE (Items); Index++) {
     Y = Panel.Y + 72 + Index * 54;
     IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
-    ModernUiFillRect (
+    RowBackground = IsSelected ?
+                    ModernUiBlendColor (Theme->AccentSoft, Theme->SurfaceRaised, 16) :
+                    Theme->SurfaceRaised;
+    ModernUiDrawSelectableRow (
       Ui,
       (MODERN_UI_RECT){ RowX, Y - 10, RowWidth, 40 },
-      IsSelected ? BlendAccent (Theme->AccentSoft, Theme->SurfaceRaised, 16) : Theme->SurfaceRaised
+      IsSelected,
+      FALSE,
+      TRUE,
+      FALSE,
+      Theme
       );
-    ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ RowX, Y - 10, RowWidth, 40 }, IsSelected ? BlendAccent (Theme->Accent, Theme->Border, 30) : Theme->Border);
-    if (IsSelected) {
-      ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Y - 10, 4, 40 }, Theme->Accent);
-    }
+    ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ RowX, Y - 10, RowWidth, 40 }, IsSelected ? ModernUiBlendColor (Theme->Accent, Theme->Border, 30) : Theme->Border);
 
     if (Index == 3) {
-      ModernUiDrawText (Ui, RowX + 20, Y, Items[Index], IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? BlendAccent (Theme->AccentSoft, Theme->SurfaceRaised, 16) : Theme->SurfaceRaised);
+      ModernUiDrawText (Ui, RowX + 20, Y, Items[Index], IsSelected ? Theme->Text : Theme->MutedText, RowBackground);
       ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX + RowWidth - ValueWidth - 12, Y - 4, ValueWidth, 28 }, Theme->Surface);
       ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ RowX + RowWidth - ValueWidth - 12, Y - 4, ValueWidth, 28 }, IsSelected ? Theme->Accent : Theme->Border);
       ModernUiDrawText (Ui, RowX + RowWidth - ValueWidth + 4, Y + 3, LanguageName, Theme->Text, Theme->Surface);
       ModernUiDrawText (Ui, RowX + RowWidth - 38, Y + 3, L"v", Theme->Accent, Theme->Surface);
     } else {
-      ModernUiDrawText (Ui, RowX + 20, Y, (CHAR16 *)Items[Index], IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? BlendAccent (Theme->AccentSoft, Theme->SurfaceRaised, 16) : Theme->SurfaceRaised);
+      ModernUiDrawText (Ui, RowX + 20, Y, (CHAR16 *)Items[Index], IsSelected ? Theme->Text : Theme->MutedText, RowBackground);
     }
   }
 
@@ -1658,10 +1611,17 @@ DrawExit (
 
     for (Option = 0; Option < 2; Option++) {
       IsSelected = (BOOLEAN)(Option == mLanguageDropdownSelection);
-      ModernUiFillRect (
+      RowBackground = IsSelected ?
+                      ModernUiBlendColor (Theme->AccentSoft, Theme->SurfaceRaised, 16) :
+                      Theme->Surface;
+      ModernUiDrawSelectableRow (
         Ui,
         (MODERN_UI_RECT){ DropdownX + 6, DropdownY + 7 + Option * 34, ValueWidth - 12, 30 },
-        IsSelected ? Theme->AccentSoft : Theme->Surface
+        IsSelected,
+        FALSE,
+        FALSE,
+        FALSE,
+        Theme
         );
       ModernUiDrawText (
         Ui,
@@ -1669,7 +1629,7 @@ DrawExit (
         DropdownY + 14 + Option * 34,
         GetLanguageOptionName (Option),
         IsSelected ? Theme->Text : Theme->MutedText,
-        IsSelected ? Theme->AccentSoft : Theme->Surface
+        RowBackground
         );
     }
   }

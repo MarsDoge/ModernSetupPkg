@@ -85,6 +85,10 @@ this file as both a release log and a lightweight development progress record.
 - `ModernSetupApp`, the custom HII bridge, and the GUID page adapter registry
   are now treated as experimental prototype code instead of setup compatibility
   infrastructure.
+- Shared visual primitives from the experimental app are now promoted into
+  `ModernUiRendererLib`, so both `ModernDisplayEngineDxe` and the legacy app use
+  the same public renderer interfaces for color blending, measured text
+  truncation, and selectable row surfaces.
 
 ### Fixed
 
