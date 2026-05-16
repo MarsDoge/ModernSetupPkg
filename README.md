@@ -196,9 +196,14 @@ MODERN_SETUP_LANGUAGE=en-US ModernSetupPkg/Scripts/build-armvirt.sh
 ```
 
 The running UI can also switch language from the Exit page. Select the
-`Language` row and press `Enter`; ModernSetup updates the screen immediately and
-persists the choice in the `ModernSetupLanguage` UEFI variable. The runtime
-variable takes precedence over the build-time PCD on later boots.
+`Language` row and press `Enter` to open the language drop-down, choose
+`Chinese` or `English`, then press `Enter` again. ModernSetup updates the screen
+immediately and persists the choice in the `ModernSetupLanguage` UEFI variable.
+The runtime variable takes precedence over the build-time PCD on later boots.
+
+ModernSetup asks GOP for a larger display mode during renderer initialization.
+If the firmware exposes a suitable mode, it switches away from small 800x600
+defaults to at least 1024x768.
 
 Run with graphics:
 

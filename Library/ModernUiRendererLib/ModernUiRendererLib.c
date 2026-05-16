@@ -16,6 +16,71 @@
 
 #define MODERN_UI_ASCII_CELL_WIDTH  8
 #define MODERN_UI_TEXT_SEGMENT_MAX  96
+#define MODERN_UI_TARGET_WIDTH      1024
+#define MODERN_UI_TARGET_HEIGHT     768
+
+/**
+  Select a preferred GOP mode when the active mode is smaller than the target.
+
+  @param[in] Gop  Graphics output protocol to inspect. Must not be NULL.
+
+  @retval EFI_SUCCESS            Current mode is acceptable or a better mode
+                                 was selected.
+  @retval EFI_INVALID_PARAMETER  Gop or mode data is NULL.
+**/
+STATIC
+EFI_STATUS
+SelectPreferredGopMode (
+  IN EFI_GRAPHICS_OUTPUT_PROTOCOL  *Gop
+  )
+{
+  EFI_STATUS                            Status;
+  EFI_GRAPHICS_OUTPUT_MODE_INFORMATION  *Info;
+  UINTN                                 InfoSize;
+  UINT32                                Mode;
+  UINT32                                BestMode;
+  UINTN                                 BestArea;
+  UINTN                                 Area;
+
+  if ((Gop == NULL) || (Gop->Mode == NULL) || (Gop->Mode->Info == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if ((Gop->Mode->Info->HorizontalResolution >= MODERN_UI_TARGET_WIDTH) &&
+      (Gop->Mode->Info->VerticalResolution >= MODERN_UI_TARGET_HEIGHT))
+  {
+    return EFI_SUCCESS;
+  }
+
+  BestMode = Gop->Mode->MaxMode;
+  BestArea = MAX_UINTN;
+  for (Mode = 0; Mode < Gop->Mode->MaxMode; Mode++) {
+    Info     = NULL;
+    InfoSize = 0;
+    Status = Gop->QueryMode (Gop, Mode, &InfoSize, &Info);
+    if (EFI_ERROR (Status) || (Info == NULL)) {
+      continue;
+    }
+
+    if ((Info->HorizontalResolution >= MODERN_UI_TARGET_WIDTH) &&
+        (Info->VerticalResolution >= MODERN_UI_TARGET_HEIGHT))
+    {
+      Area = (UINTN)Info->HorizontalResolution * (UINTN)Info->VerticalResolution;
+      if (Area < BestArea) {
+        BestArea = Area;
+        BestMode = Mode;
+      }
+    }
+
+    FreePool (Info);
+  }
+
+  if ((BestMode < Gop->Mode->MaxMode) && (BestMode != Gop->Mode->Mode)) {
+    Gop->SetMode (Gop, BestMode);
+  }
+
+  return EFI_SUCCESS;
+}
 
 /**
   Initialize a render context from firmware graphics services.
@@ -59,6 +124,7 @@ ModernUiRendererInit (
     return EFI_NOT_FOUND;
   }
 
+  SelectPreferredGopMode (Context->Gop);
   Context->Width  = Context->Gop->Mode->Info->HorizontalResolution;
   Context->Height = Context->Gop->Mode->Info->VerticalResolution;
 

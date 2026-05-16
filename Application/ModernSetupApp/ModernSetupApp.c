@@ -81,6 +81,58 @@ STATIC CONST PAGE_DESCRIPTOR  mPages[] = {
 };
 
 STATIC HII_VIEW_STATE  mHiiView = { HiiViewFormSets, 0, 0, 0 };
+STATIC BOOLEAN         mLanguageDropdownOpen;
+STATIC UINTN           mLanguageDropdownSelection;
+
+/**
+  Return TRUE when the active UI language is Simplified Chinese.
+
+  @retval TRUE   Active language starts with "zh".
+  @retval FALSE  Active language is another supported language.
+**/
+STATIC
+BOOLEAN
+IsChineseLanguage (
+  VOID
+  )
+{
+  CONST CHAR8  *Language;
+
+  Language = ModernUiGetLanguage ();
+  return (BOOLEAN)((Language[0] == 'z') && (Language[1] == 'h'));
+}
+
+/**
+  Return the display name for one language selector option.
+
+  @param[in] Selection  Language selector index. Zero is Chinese, one is English.
+
+  @return Non-NULL localized language display name.
+**/
+STATIC
+CONST CHAR16 *
+GetLanguageOptionName (
+  IN UINTN  Selection
+  )
+{
+  return (Selection == 0) ?
+         ModernUiGetString (ModernUiStringLanguageChinese) :
+         ModernUiGetString (ModernUiStringLanguageEnglish);
+}
+
+/**
+  Return the selector index for the active language.
+
+  @return Zero for Chinese, one for English.
+**/
+STATIC
+UINTN
+GetActiveLanguageSelection (
+  VOID
+  )
+{
+  return IsChineseLanguage () ? 0 : 1;
+}
 
 /**
   Blend two colors by percentage weight.
@@ -1301,9 +1353,7 @@ DrawExit (
   UINTN         RowX;
   UINTN         RowWidth;
 
-  LanguageName = ((ModernUiGetLanguage ()[0] == 'z') && (ModernUiGetLanguage ()[1] == 'h')) ?
-                 ModernUiGetString (ModernUiStringLanguageChinese) :
-                 ModernUiGetString (ModernUiStringLanguageEnglish);
+  LanguageName = GetLanguageOptionName (GetActiveLanguageSelection ());
   UnicodeSPrint (LanguageItem, sizeof (LanguageItem), ModernUiGetString (ModernUiStringExitLanguageFormat), LanguageName);
 
   Items[0] = ModernUiGetString (ModernUiStringExitContinue);
@@ -1332,40 +1382,95 @@ DrawExit (
 
     ModernUiDrawText (Ui, RowX + 20, Y, (CHAR16 *)Items[Index], IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
   }
+
+  if (mLanguageDropdownOpen) {
+    UINTN  DropdownY;
+    UINTN  Option;
+
+    DropdownY = Panel.Y + 76 + 4 * 56 - 10;
+    ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX + 20, DropdownY, 240, 78 }, Theme->Surface);
+    ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ RowX + 20, DropdownY, 240, 78 }, Theme->Accent);
+
+    for (Option = 0; Option < 2; Option++) {
+      IsSelected = (BOOLEAN)(Option == mLanguageDropdownSelection);
+      ModernUiFillRect (
+        Ui,
+        (MODERN_UI_RECT){ RowX + 24, DropdownY + 6 + Option * 34, 232, 30 },
+        IsSelected ? Theme->AccentSoft : Theme->Surface
+        );
+      ModernUiDrawText (
+        Ui,
+        RowX + 40,
+        DropdownY + 13 + Option * 34,
+        GetLanguageOptionName (Option),
+        IsSelected ? Theme->Text : Theme->MutedText,
+        IsSelected ? Theme->AccentSoft : Theme->Surface
+        );
+    }
+  }
 }
 
 /**
-  Toggle the active UI language and format a user-visible status message.
+  Apply one selected UI language and format a user-visible status message.
 
+  @param[in]  Selection      Language selector index. Zero is Chinese, one is
+                             English.
   @param[out] StatusMessage  Status buffer to update. Must not be NULL.
   @param[in]  StatusSize     Size of StatusMessage in bytes.
 **/
 STATIC
 VOID
-ToggleLanguage (
+ApplyLanguageSelection (
+  IN  UINTN   Selection,
   OUT CHAR16  *StatusMessage,
   IN  UINTN   StatusSize
   )
 {
   EFI_STATUS    Status;
-  CONST CHAR8   *NextLanguage;
+  CONST CHAR8   *Language;
   CONST CHAR16  *LanguageName;
 
   if ((StatusMessage == NULL) || (StatusSize < sizeof (CHAR16))) {
     return;
   }
 
-  NextLanguage = ((ModernUiGetLanguage ()[0] == 'z') && (ModernUiGetLanguage ()[1] == 'h')) ? "en-US" : "zh-Hans";
-  Status = ModernUiSetLanguage (NextLanguage, TRUE);
-  LanguageName = ((ModernUiGetLanguage ()[0] == 'z') && (ModernUiGetLanguage ()[1] == 'h')) ?
-                 ModernUiGetString (ModernUiStringLanguageChinese) :
-                 ModernUiGetString (ModernUiStringLanguageEnglish);
+  Language     = (Selection == 0) ? "zh-Hans" : "en-US";
+  Status       = ModernUiSetLanguage (Language, TRUE);
+  LanguageName = GetLanguageOptionName (GetActiveLanguageSelection ());
 
   if (EFI_ERROR (Status)) {
     UnicodeSPrint (StatusMessage, StatusSize, L"Set language variable returned: %r", Status);
   } else {
     UnicodeSPrint (StatusMessage, StatusSize, ModernUiGetString (ModernUiStringLanguageChangedFormat), LanguageName);
   }
+}
+
+/**
+  Open the language drop-down or apply the highlighted language.
+
+  @param[out] StatusMessage  Status buffer to update. Must not be NULL.
+  @param[in]  StatusSize     Size of StatusMessage in bytes.
+**/
+STATIC
+VOID
+HandleLanguageSelectorEnter (
+  OUT CHAR16  *StatusMessage,
+  IN  UINTN   StatusSize
+  )
+{
+  if ((StatusMessage == NULL) || (StatusSize < sizeof (CHAR16))) {
+    return;
+  }
+
+  StatusMessage[0] = L'\0';
+  if (!mLanguageDropdownOpen) {
+    mLanguageDropdownSelection = GetActiveLanguageSelection ();
+    mLanguageDropdownOpen      = TRUE;
+    return;
+  }
+
+  ApplyLanguageSelection (mLanguageDropdownSelection, StatusMessage, StatusSize);
+  mLanguageDropdownOpen = FALSE;
 }
 
 /**
@@ -1677,7 +1782,9 @@ UefiMain (
 
     switch (Event.Type) {
       case ModernUiInputUp:
-        if (Focus == SetupFocusContent) {
+        if ((Focus == SetupFocusContent) && (Page == PageExit) && mLanguageDropdownOpen) {
+          mLanguageDropdownSelection = (mLanguageDropdownSelection == 0) ? 1 : 0;
+        } else if (Focus == SetupFocusContent) {
           SelectableCount = GetPageSelectableCount (Page);
           if (SelectableCount > 0) {
             Selection = GetPageSelection (Page, BootSelection, DeviceSelection, ExitSelection);
@@ -1689,7 +1796,9 @@ UefiMain (
         Redraw = TRUE;
         break;
       case ModernUiInputDown:
-        if (Focus == SetupFocusNav) {
+        if ((Focus == SetupFocusContent) && (Page == PageExit) && mLanguageDropdownOpen) {
+          mLanguageDropdownSelection = (mLanguageDropdownSelection + 1) % 2;
+        } else if (Focus == SetupFocusNav) {
           Focus = SetupFocusContent;
         } else {
           SelectableCount = GetPageSelectableCount (Page);
@@ -1703,12 +1812,16 @@ UefiMain (
         Redraw = TRUE;
         break;
       case ModernUiInputTab:
+        mLanguageDropdownOpen = FALSE;
         Focus  = (Focus == SetupFocusNav) ? SetupFocusContent : SetupFocusNav;
         Redraw = TRUE;
         break;
       case ModernUiInputLeft:
-        if (Focus == SetupFocusNav) {
+        if ((Focus == SetupFocusContent) && (Page == PageExit) && mLanguageDropdownOpen) {
+          mLanguageDropdownOpen = FALSE;
+        } else if (Focus == SetupFocusNav) {
           Page = (Page == 0) ? (PageMax - 1) : (Page - 1);
+          mLanguageDropdownOpen = FALSE;
         } else {
           Focus = SetupFocusNav;
         }
@@ -1719,14 +1832,20 @@ UefiMain (
       case ModernUiInputRight:
         if (Focus == SetupFocusNav) {
           Page = (Page + 1) % PageMax;
+          mLanguageDropdownOpen = FALSE;
         } else {
+          mLanguageDropdownOpen = FALSE;
           StatusMessage[0] = L'\0';
         }
 
         Redraw = TRUE;
         break;
       case ModernUiInputEscape:
-        if ((Focus == SetupFocusContent) && (Page == PageHii) && HiiViewBack ()) {
+        if ((Focus == SetupFocusContent) && (Page == PageExit) && mLanguageDropdownOpen) {
+          mLanguageDropdownOpen = FALSE;
+          StatusMessage[0] = L'\0';
+          Redraw = TRUE;
+        } else if ((Focus == SetupFocusContent) && (Page == PageHii) && HiiViewBack ()) {
           StatusMessage[0] = L'\0';
           Redraw = TRUE;
         } else if (Focus == SetupFocusContent) {
@@ -1759,7 +1878,7 @@ UefiMain (
           } else if (ExitSelection == 2) {
             gRT->ResetSystem (EfiResetCold, EFI_SUCCESS, 0, NULL);
           } else {
-            ToggleLanguage (StatusMessage, sizeof (StatusMessage));
+            HandleLanguageSelectorEnter (StatusMessage, sizeof (StatusMessage));
             Redraw = TRUE;
           }
         }

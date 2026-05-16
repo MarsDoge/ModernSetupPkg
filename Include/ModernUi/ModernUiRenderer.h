@@ -32,6 +32,9 @@ typedef struct {
 
   @param[out] Context  Render context to initialize. Must not be NULL. On
                        success, Width and Height describe the active GOP mode.
+                       The renderer may switch from a small default mode to a
+                       preferred mode of at least 1024x768 when firmware offers
+                       one.
 
   @retval EFI_SUCCESS            Context was initialized.
   @retval EFI_INVALID_PARAMETER  Context is NULL.

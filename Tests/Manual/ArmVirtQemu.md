@@ -61,9 +61,13 @@ Expected result:
   focus.
 - Boot page `Enter` launches the selected `Boot####` option. If the target
   returns, the footer shows the returned EFI status.
-- Exit page includes a language row. Pressing `Enter` toggles between
-  Simplified Chinese and English, redraws the current screen immediately, and
-  keeps the selection after reboot when `RESET_VARS=0`.
+- Exit page includes a language row. Pressing `Enter` opens a language
+  drop-down, `Up/Down` selects Simplified Chinese or English, and `Enter`
+  applies the highlighted language.
+- Language changes redraw the current screen immediately and keep the selection
+  after reboot when `RESET_VARS=0`.
+- Header resolution should prefer at least 1024x768 when the platform GOP
+  exposes that mode; if only 800x600 is exposed, the UI remains usable there.
 - Dashboard, Boot, Devices, Security, and Exit render without overlapping text
   at 800x600 and 1024x768.
 - Long Boot descriptions and Devices device paths are truncated inside the

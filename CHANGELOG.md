@@ -43,6 +43,10 @@ this file as both a release log and a lightweight development progress record.
   ModernSetup until the modern HII bridge can safely cover existing VFR data.
 - Runtime language switching from the Exit page, persisted through the
   `ModernSetupLanguage` UEFI variable.
+- Language switching now uses a drop-down selector with explicit Chinese and
+  English options.
+- Renderer initialization prefers a GOP mode of at least 1024x768 when the
+  firmware exposes one, avoiding the cramped 800x600 default where possible.
 
 ### Fixed
 
