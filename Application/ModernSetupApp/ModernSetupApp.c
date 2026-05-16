@@ -20,7 +20,6 @@
 #include <ModernUi/ModernUiRenderer.h>
 #include <ModernUi/ModernUiTheme.h>
 
-#define ARRAY_SIZE(a)  (sizeof (a) / sizeof ((a)[0]))
 #define CARD_GAP       16
 
 STATIC CONST EFI_GUID  mUiAppGuid = { 0x462CAA21, 0x7614, 0x4503, { 0x83, 0x6E, 0x8A, 0xB6, 0xF4, 0x66, 0x23, 0x31 } };
@@ -278,7 +277,7 @@ DrawDashboard (
   ModernUiDrawPanel (Ui, (MODERN_UI_RECT){ 256, 374, Ui->Width - 304, 132 }, Theme);
   ModernUiDrawText (Ui, 276, 396, L"Prototype Status", Theme->MutedText, Theme->Surface);
   ModernUiDrawText (Ui, 276, 430, L"GOP renderer online. Keyboard navigation is active.", Theme->Text, Theme->Surface);
-  ModernUiDrawProgress (Ui, (MODERN_UI_RECT){ 276, 470, Ui->Width - 344, 12 }, Theme->Border, Theme->Accent);
+  ModernUiDrawProgress (Ui, (MODERN_UI_RECT){ 276, 470, Ui->Width - 344, 12 }, 68, Theme->Border, Theme->Accent);
 }
 
 STATIC

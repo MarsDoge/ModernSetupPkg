@@ -9,6 +9,7 @@ OVERLAY_DIR="${WORKSPACE}/Build/ModernSetupPkgOverlay"
 
 export PATH="/opt/homebrew/bin:/opt/homebrew/opt/llvm/bin:/opt/homebrew/opt/lld/bin:${PATH}"
 export CLANGDWARF_BIN="${CLANGDWARF_BIN:-/opt/homebrew/opt/llvm/bin/}"
+export WORKSPACE
 
 if [[ ! -d "${WORKSPACE}/MdePkg" || ! -d "${WORKSPACE}/ArmVirtPkg" ]]; then
   echo "WORKSPACE does not look like an edk2 checkout: ${WORKSPACE}" >&2
@@ -31,7 +32,8 @@ import sys
 workspace = Path(sys.argv[1])
 overlay = Path(sys.argv[2])
 
-app_inf = "  ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf"
+app_component = "  ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf"
+app_fdf_inf = "  INF ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf"
 guid_bytes = "{ 0x3a, 0x8b, 0xc9, 0x26, 0xdd, 0x29, 0x73, 0x4f, 0xa0, 0x7a, 0x4a, 0x4e, 0x0e, 0x1d, 0x9c, 0x4c }"
 library_block = """  ModernUiRendererLib|ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
   ModernUiInputLib|ModernSetupPkg/Library/ModernUiInputLib/ModernUiInputLib.inf
@@ -50,16 +52,18 @@ dsc = dsc.replace(
     "  FLASH_DEFINITION               = Build/ModernSetupPkgOverlay/ArmVirtQemuModernSetup.fdf",
 )
 if "ModernUiRendererLib|ModernSetupPkg" not in dsc:
-    dsc = dsc.replace("[LibraryClasses]\n", "[LibraryClasses]\n" + library_block, 1)
-if app_inf not in dsc:
+    dsc = dsc.replace("[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + library_block, 1)
+if app_component not in dsc:
     dsc = dsc.replace(
         "  MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf",
-        app_inf + "\n  MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf",
+        app_component + "\n  MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf",
         1,
     )
 (overlay / "ArmVirtQemuModernSetup.dsc").write_text(dsc)
 
 fdf = (workspace / "ArmVirtPkg/ArmVirtQemu.fdf").read_text()
+fdf = fdf.replace("!include VarStore.fdf.inc", "!include ArmVirtPkg/VarStore.fdf.inc")
+fdf = fdf.replace("!include ArmVirtRules.fdf.inc", "!include ArmVirtPkg/ArmVirtRules.fdf.inc")
 fdf = fdf.replace(
     "!include ArmVirtQemuFvMain.fdf.inc",
     "!include Build/ModernSetupPkgOverlay/ArmVirtQemuModernSetupFvMain.fdf.inc",
@@ -67,10 +71,11 @@ fdf = fdf.replace(
 (overlay / "ArmVirtQemuModernSetup.fdf").write_text(fdf)
 
 fv = (workspace / "ArmVirtPkg/ArmVirtQemuFvMain.fdf.inc").read_text()
-if app_inf not in fv:
+fv = fv.replace("!include ArmVirtRules.fdf.inc", "!include ArmVirtPkg/ArmVirtRules.fdf.inc")
+if app_fdf_inf not in fv:
     fv = fv.replace(
         "  INF MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf",
-        app_inf + "\n  INF MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf",
+        app_fdf_inf + "\n  INF MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf",
         1,
     )
 (overlay / "ArmVirtQemuModernSetupFvMain.fdf.inc").write_text(fv)
