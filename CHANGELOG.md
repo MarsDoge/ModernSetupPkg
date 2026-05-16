@@ -91,6 +91,9 @@ this file as both a release log and a lightweight development progress record.
   rows stay inside the content panels.
 - Clear the GOP surface when the DisplayEngine path clears the logical setup
   page, preventing stale graphics from surviving a native FormBrowser redraw.
+- Render UEFI text-mode box drawing, arrow, triangle, and checkbox characters
+  as narrow GOP primitives so native UiApp/FormBrowser frames do not appear as
+  missing-glyph boxes.
 
 ### Current Status
 

@@ -15,6 +15,9 @@
 #include "ModernUiGlyphs.h"
 
 #define MODERN_UI_ASCII_CELL_WIDTH  8
+#define MODERN_UI_GRAPHIC_CELL_WIDTH  MODERN_UI_ASCII_CELL_WIDTH
+#define MODERN_UI_GRAPHIC_LINE_Y       9
+#define MODERN_UI_GRAPHIC_LINE_X       4
 #define MODERN_UI_TEXT_SEGMENT_MAX  96
 #define MODERN_UI_TARGET_WIDTH      1024
 #define MODERN_UI_TARGET_HEIGHT     768
@@ -413,6 +416,227 @@ DrawMissingGlyph (
 }
 
 /**
+  Return whether a UCS-2 character is a UEFI text-mode graphics character that
+  should be rendered as a narrow fixed-width shape.
+
+  @param[in] CodePoint  UCS-2 code point to classify.
+
+  @retval TRUE   CodePoint is a box, arrow, triangle, or checkbox glyph used by
+                 edk2 text-mode setup UI.
+  @retval FALSE  CodePoint should use normal text or built-in glyph rendering.
+**/
+STATIC
+BOOLEAN
+IsTextModeGraphicGlyph (
+  IN CHAR16  CodePoint
+  )
+{
+  return (((CodePoint >= BOXDRAW_HORIZONTAL) && (CodePoint <= BOXDRAW_DOUBLE_VERTICAL_HORIZONTAL)) ||
+          ((CodePoint >= ARROW_LEFT) && (CodePoint <= ARROW_DOWN)) ||
+          (CodePoint == 0x25A0) ||
+          (CodePoint == 0x25A1) ||
+          (CodePoint == 0x25B2) ||
+          (CodePoint == 0x25B6) ||
+          (CodePoint == 0x25BA) ||
+          (CodePoint == 0x25BC) ||
+          (CodePoint == 0x25C0) ||
+          (CodePoint == 0x25C4));
+}
+
+/**
+  Draw one UEFI text-mode graphics character as a narrow GOP primitive.
+
+  @param[in] Context    Initialized render context. Must not be NULL.
+  @param[in] X          Left coordinate in pixels.
+  @param[in] Y          Top coordinate in pixels.
+  @param[in] CodePoint  Box, arrow, triangle, or checkbox glyph to render.
+  @param[in] Color      Foreground color.
+  @param[in] Background Background fill color.
+
+  @retval EFI_SUCCESS            Glyph was rendered.
+  @retval EFI_INVALID_PARAMETER  Context is NULL or GOP is unavailable.
+  @retval others                 Status from fill or stroke primitives.
+**/
+STATIC
+EFI_STATUS
+DrawTextModeGraphicGlyph (
+  IN MODERN_UI_RENDER_CONTEXT       *Context,
+  IN UINTN                          X,
+  IN UINTN                          Y,
+  IN CHAR16                         CodePoint,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Color,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background
+  )
+{
+  EFI_STATUS  Status;
+  BOOLEAN     Horizontal;
+  BOOLEAN     Vertical;
+  BOOLEAN     Left;
+  BOOLEAN     Right;
+  BOOLEAN     Up;
+  BOOLEAN     Down;
+  UINTN       Index;
+
+  if ((Context == NULL) || (Context->Gop == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ X, Y, MODERN_UI_GRAPHIC_CELL_WIDTH, MODERN_UI_BUILTIN_GLYPH_HEIGHT }, Background);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  Horizontal = FALSE;
+  Vertical   = FALSE;
+  Left       = FALSE;
+  Right      = FALSE;
+  Up         = FALSE;
+  Down       = FALSE;
+
+  switch (CodePoint) {
+    case BOXDRAW_HORIZONTAL:
+    case BOXDRAW_DOUBLE_HORIZONTAL:
+      Left = Right = TRUE;
+      break;
+    case BOXDRAW_VERTICAL:
+    case BOXDRAW_DOUBLE_VERTICAL:
+      Up = Down = TRUE;
+      break;
+    case BOXDRAW_DOWN_RIGHT:
+    case BOXDRAW_DOWN_RIGHT_DOUBLE:
+    case BOXDRAW_DOWN_DOUBLE_RIGHT:
+    case BOXDRAW_DOUBLE_DOWN_RIGHT:
+      Right = Down = TRUE;
+      break;
+    case BOXDRAW_DOWN_LEFT:
+    case BOXDRAW_DOWN_LEFT_DOUBLE:
+    case BOXDRAW_DOWN_DOUBLE_LEFT:
+    case BOXDRAW_DOUBLE_DOWN_LEFT:
+      Left = Down = TRUE;
+      break;
+    case BOXDRAW_UP_RIGHT:
+    case BOXDRAW_UP_RIGHT_DOUBLE:
+    case BOXDRAW_UP_DOUBLE_RIGHT:
+    case BOXDRAW_DOUBLE_UP_RIGHT:
+      Right = Up = TRUE;
+      break;
+    case BOXDRAW_UP_LEFT:
+    case BOXDRAW_UP_LEFT_DOUBLE:
+    case BOXDRAW_UP_DOUBLE_LEFT:
+    case BOXDRAW_DOUBLE_UP_LEFT:
+      Left = Up = TRUE;
+      break;
+    case BOXDRAW_VERTICAL_RIGHT:
+    case BOXDRAW_VERTICAL_RIGHT_DOUBLE:
+    case BOXDRAW_VERTICAL_DOUBLE_RIGHT:
+    case BOXDRAW_DOUBLE_VERTICAL_RIGHT:
+      Up = Down = Right = TRUE;
+      break;
+    case BOXDRAW_VERTICAL_LEFT:
+    case BOXDRAW_VERTICAL_LEFT_DOUBLE:
+    case BOXDRAW_VERTICAL_DOUBLE_LEFT:
+    case BOXDRAW_DOUBLE_VERTICAL_LEFT:
+      Up = Down = Left = TRUE;
+      break;
+    case BOXDRAW_DOWN_HORIZONTAL:
+    case BOXDRAW_DOWN_HORIZONTAL_DOUBLE:
+    case BOXDRAW_DOWN_DOUBLE_HORIZONTAL:
+    case BOXDRAW_DOUBLE_DOWN_HORIZONTAL:
+      Left = Right = Down = TRUE;
+      break;
+    case BOXDRAW_UP_HORIZONTAL:
+    case BOXDRAW_UP_HORIZONTAL_DOUBLE:
+    case BOXDRAW_UP_DOUBLE_HORIZONTAL:
+    case BOXDRAW_DOUBLE_UP_HORIZONTAL:
+      Left = Right = Up = TRUE;
+      break;
+    case BOXDRAW_VERTICAL_HORIZONTAL:
+    case BOXDRAW_VERTICAL_HORIZONTAL_DOUBLE:
+    case BOXDRAW_VERTICAL_DOUBLE_HORIZONTAL:
+    case BOXDRAW_DOUBLE_VERTICAL_HORIZONTAL:
+      Left = Right = Up = Down = TRUE;
+      break;
+    case ARROW_RIGHT:
+    case 0x25B6:
+    case 0x25BA:
+      for (Index = 0; Index < 6; Index++) {
+        Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ X + 2 + Index, Y + 5 + Index, 1, 7 - (Index * 2 > 6 ? 6 : Index * 2) }, Color);
+        if (EFI_ERROR (Status)) {
+          return Status;
+        }
+      }
+
+      return EFI_SUCCESS;
+    case ARROW_LEFT:
+    case 0x25C0:
+    case 0x25C4:
+      for (Index = 0; Index < 6; Index++) {
+        Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ X + 6 - Index, Y + 5 + Index, 1, 7 - (Index * 2 > 6 ? 6 : Index * 2) }, Color);
+        if (EFI_ERROR (Status)) {
+          return Status;
+        }
+      }
+
+      return EFI_SUCCESS;
+    case ARROW_UP:
+    case 0x25B2:
+      Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ X + 3, Y + 5, 2, 8 }, Color);
+      if (EFI_ERROR (Status)) {
+        return Status;
+      }
+
+      return ModernUiFillRect (Context, (MODERN_UI_RECT){ X + 2, Y + 6, 4, 2 }, Color);
+    case ARROW_DOWN:
+    case 0x25BC:
+      Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ X + 3, Y + 5, 2, 8 }, Color);
+      if (EFI_ERROR (Status)) {
+        return Status;
+      }
+
+      return ModernUiFillRect (Context, (MODERN_UI_RECT){ X + 2, Y + 10, 4, 2 }, Color);
+    case 0x25A0:
+      return ModernUiFillRect (Context, (MODERN_UI_RECT){ X + 1, Y + 6, 6, 6 }, Color);
+    case 0x25A1:
+      return ModernUiStrokeRect (Context, (MODERN_UI_RECT){ X + 1, Y + 6, 6, 6 }, Color);
+    default:
+      break;
+  }
+
+  Horizontal = Left || Right;
+  Vertical   = Up || Down;
+  if (Horizontal) {
+    Status = ModernUiFillRect (
+               Context,
+               (MODERN_UI_RECT){
+                 X + (Left ? 0 : MODERN_UI_GRAPHIC_LINE_X),
+                 Y + MODERN_UI_GRAPHIC_LINE_Y,
+                 (Left && Right) ? MODERN_UI_GRAPHIC_CELL_WIDTH : (MODERN_UI_GRAPHIC_CELL_WIDTH - MODERN_UI_GRAPHIC_LINE_X),
+                 1
+               },
+               Color
+               );
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+  }
+
+  if (Vertical) {
+    Status = ModernUiFillRect (
+               Context,
+               (MODERN_UI_RECT){
+                 X + MODERN_UI_GRAPHIC_LINE_X,
+                 Y + (Up ? 0 : MODERN_UI_GRAPHIC_LINE_Y),
+                 1,
+                 (Up && Down) ? MODERN_UI_BUILTIN_GLYPH_HEIGHT : (MODERN_UI_BUILTIN_GLYPH_HEIGHT - MODERN_UI_GRAPHIC_LINE_Y)
+               },
+               Color
+               );
+  }
+
+  return Status;
+}
+
+/**
   Return the expected pixel width for a UCS-2 string.
 
   Built-in CJK glyphs are measured at their bitmap width. Other characters use
@@ -439,7 +663,9 @@ ModernUiMeasureText (
   Width = 0;
   for (Index = 0; Text[Index] != L'\0'; Index++) {
     Glyph = ModernUiFindBuiltinGlyph (Text[Index]);
-    if (Glyph != NULL) {
+    if (IsTextModeGraphicGlyph (Text[Index])) {
+      Width += MODERN_UI_GRAPHIC_CELL_WIDTH;
+    } else if (Glyph != NULL) {
       Width += Glyph->Advance;
     } else if (Text[Index] > 0x7F) {
       Width += MODERN_UI_BUILTIN_GLYPH_WIDTH;
@@ -494,12 +720,15 @@ ModernUiDrawText (
   ReturnStatus = EFI_SUCCESS;
   for (Index = 0; Text[Index] != L'\0'; ) {
     Glyph = ModernUiFindBuiltinGlyph (Text[Index]);
-    if ((Glyph != NULL) || (Text[Index] > 0x7F)) {
-      if (Glyph != NULL) {
+    if ((Glyph != NULL) || IsTextModeGraphicGlyph (Text[Index]) || (Text[Index] > 0x7F)) {
+      if (IsTextModeGraphicGlyph (Text[Index])) {
+        Status = DrawTextModeGraphicGlyph (Context, CurrentX, Y, Text[Index], Color, Background);
+        CurrentX += MODERN_UI_GRAPHIC_CELL_WIDTH;
+      } else if (Glyph != NULL) {
         Status = DrawBuiltinGlyph (Context, CurrentX, Y, Glyph, Color, Background);
         CurrentX += Glyph->Advance;
       } else {
-        DEBUG ((DEBUG_WARN, "%a: missing glyph U+%04x\n", __func__, Text[Index]));
+        DEBUG ((DEBUG_VERBOSE, "%a: missing glyph U+%04x\n", __func__, Text[Index]));
         Status = DrawMissingGlyph (Context, CurrentX, Y, Color, Background);
         CurrentX += MODERN_UI_BUILTIN_GLYPH_WIDTH;
       }
