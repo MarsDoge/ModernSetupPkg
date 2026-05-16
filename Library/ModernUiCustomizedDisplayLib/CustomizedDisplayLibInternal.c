@@ -253,6 +253,199 @@ ModernDisplayCopyPrintable (
 }
 
 /**
+  Blend two GOP colors.
+
+  @param[in] Base    Base color used when Weight is zero.
+  @param[in] Accent  Accent color used when Weight is one hundred.
+  @param[in] Weight  Accent weight in percent. Values above 100 are clamped.
+
+  @return Blended color with Reserved cleared.
+**/
+STATIC
+EFI_GRAPHICS_OUTPUT_BLT_PIXEL
+ModernDisplayBlendColor (
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Base,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Accent,
+  IN UINT8                          Weight
+  )
+{
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Result;
+  UINTN                          ClampedWeight;
+
+  ClampedWeight   = MIN (Weight, 100);
+  Result.Red = (UINT8)(
+                 ((UINTN)Base.Red * (100 - ClampedWeight) +
+                  (UINTN)Accent.Red * ClampedWeight) / 100
+                 );
+  Result.Green = (UINT8)(
+                   ((UINTN)Base.Green * (100 - ClampedWeight) +
+                    (UINTN)Accent.Green * ClampedWeight) / 100
+                   );
+  Result.Blue = (UINT8)(
+                  ((UINTN)Base.Blue * (100 - ClampedWeight) +
+                   (UINTN)Accent.Blue * ClampedWeight) / 100
+                  );
+  Result.Reserved = 0;
+  return Result;
+}
+
+/**
+  Draw a ModernSetup row background for one FormBrowser statement.
+
+  The caller still prints all statement text through the native DisplayEngine
+  flow. This hook only paints the GOP row surface beneath that text.
+
+  @param[in] Column     Text-grid column where the row starts.
+  @param[in] Row        Text-grid row to paint.
+  @param[in] Width      Text-grid column count to paint.
+  @param[in] Highlight  TRUE when the row is selected.
+  @param[in] GrayOut    TRUE when the statement is disabled or grayed.
+  @param[in] Action     TRUE when the statement is an action-like row.
+  @param[in] Subtitle   TRUE when the statement is a subtitle row.
+**/
+VOID
+EFIAPI
+ModernDisplayDrawStatementRow (
+  IN UINTN    Column,
+  IN UINTN    Row,
+  IN UINTN    Width,
+  IN BOOLEAN  Highlight,
+  IN BOOLEAN  GrayOut,
+  IN BOOLEAN  Action,
+  IN BOOLEAN  Subtitle
+  )
+{
+  CONST MODERN_UI_THEME            *Theme;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL    RowColor;
+  UINTN                            CellWidth;
+  UINTN                            CellHeight;
+  UINTN                            X;
+  UINTN                            Y;
+  UINTN                            PixelWidth;
+  MODERN_UI_RECT                   RowRect;
+
+  if ((Width == 0) || EFI_ERROR (ModernDisplayEnsureRenderer ())) {
+    return;
+  }
+
+  Theme = ModernUiGetTheme ();
+  ModernDisplayGetCellMetrics (&CellWidth, &CellHeight);
+
+  if (Highlight) {
+    RowColor = ModernDisplayBlendColor (
+                 Theme->AccentSoft,
+                 Theme->SurfaceRaised,
+                 16
+                 );
+  } else if (Action || Subtitle) {
+    RowColor = Theme->SurfaceRaised;
+  } else {
+    RowColor = Theme->Surface;
+  }
+
+  if (GrayOut && !Highlight) {
+    RowColor = ModernDisplayBlendColor (Theme->Surface, Theme->Background, 35);
+  }
+
+  X          = Column * CellWidth;
+  Y          = Row * CellHeight;
+  PixelWidth = Width * CellWidth;
+  RowRect    = (MODERN_UI_RECT){ X, Y, PixelWidth, CellHeight };
+
+  ModernUiFillRect (&mModernRenderContext, RowRect, RowColor);
+
+  if (Highlight && (PixelWidth > 6)) {
+    ModernUiFillRect (
+      &mModernRenderContext,
+      (MODERN_UI_RECT){ X, Y + 2, 4, CellHeight - 4 },
+      Theme->Accent
+      );
+  } else if (Subtitle && (PixelWidth > 6)) {
+    ModernUiFillRect (
+      &mModernRenderContext,
+      (MODERN_UI_RECT){ X, Y + CellHeight - 1, PixelWidth, 1 },
+      Theme->Border
+      );
+  }
+}
+
+/**
+  Draw text constrained to a pixel width, using "..." when truncation is needed.
+
+  @param[in] Context     Initialized render context. Must not be NULL.
+  @param[in] X           Left coordinate in pixels.
+  @param[in] Y           Top coordinate in pixels.
+  @param[in] MaxWidth    Maximum text width in pixels.
+  @param[in] Text        Null-terminated string. Must not be NULL.
+  @param[in] Color       Text foreground color.
+  @param[in] Background  Text background color.
+**/
+STATIC
+VOID
+ModernDisplayDrawTextFit (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN UINTN                             X,
+  IN UINTN                             Y,
+  IN UINTN                             MaxWidth,
+  IN CONST CHAR16                      *Text,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL     Color,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL     Background
+  )
+{
+  CHAR16  *Buffer;
+  CHAR16  Character[2];
+  UINTN   Index;
+  UINTN   CopyChars;
+  UINTN   CurrentWidth;
+  UINTN   CharacterWidth;
+  UINTN   EllipsisWidth;
+  UINTN   TargetWidth;
+  UINTN   TextLength;
+
+  if ((Context == NULL) || (Text == NULL) || (MaxWidth == 0)) {
+    return;
+  }
+
+  if (ModernUiMeasureText (Text) <= MaxWidth) {
+    ModernUiDrawText (Context, X, Y, Text, Color, Background);
+    return;
+  }
+
+  TextLength = StrLen (Text);
+  Buffer     = AllocateZeroPool ((TextLength + 4) * sizeof (CHAR16));
+  if (Buffer == NULL) {
+    return;
+  }
+
+  EllipsisWidth = ModernUiMeasureText (L"...");
+  TargetWidth   = (MaxWidth > EllipsisWidth) ? (MaxWidth - EllipsisWidth) : MaxWidth;
+  CopyChars     = 0;
+  CurrentWidth  = 0;
+  Character[1]  = L'\0';
+
+  for (Index = 0; Text[Index] != L'\0'; Index++) {
+    Character[0]   = Text[Index];
+    CharacterWidth = ModernUiMeasureText (Character);
+    if ((CurrentWidth + CharacterWidth) > TargetWidth) {
+      break;
+    }
+
+    Buffer[CopyChars++] = Text[Index];
+    CurrentWidth       += CharacterWidth;
+  }
+
+  if ((MaxWidth >= EllipsisWidth) && ((CopyChars + 3) < (TextLength + 4))) {
+    Buffer[CopyChars++] = L'.';
+    Buffer[CopyChars++] = L'.';
+    Buffer[CopyChars++] = L'.';
+  }
+
+  Buffer[CopyChars] = L'\0';
+  ModernUiDrawText (Context, X, Y, Buffer, Color, Background);
+  FreePool (Buffer);
+}
+
+/**
   Draw the modern DisplayEngine shell behind the native FormBrowser content.
 
   This function does not parse HII or own any FormBrowser semantics. It only
@@ -1153,6 +1346,9 @@ PrintInternal (
   UINTN   DrawColumn;
   UINTN   DrawRow;
   UINTN   DrawWidth;
+  UINTN   TextX;
+  UINTN   TextY;
+  UINTN   TextMaxWidth;
   CHAR16  *Printable;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Foreground;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background;
@@ -1226,10 +1422,16 @@ PrintInternal (
     Printable = AllocateZeroPool ((StrLen (Buffer) + 1) * sizeof (CHAR16));
     if (Printable != NULL) {
       ModernDisplayCopyPrintable (Printable, StrLen (Buffer) + 1, Buffer);
-      ModernUiDrawText (
+      TextX        = DrawColumn * CellWidth + 2;
+      TextY        = DrawRow * CellHeight + ((CellHeight > 18) ? ((CellHeight - 18) / 2) : 0);
+      TextMaxWidth = (DrawWidth * CellWidth > 4) ?
+                     (DrawWidth * CellWidth - 4) :
+                     DrawWidth * CellWidth;
+      ModernDisplayDrawTextFit (
         &mModernRenderContext,
-        DrawColumn * CellWidth + 2,
-        DrawRow * CellHeight + ((CellHeight > 18) ? ((CellHeight - 18) / 2) : 0),
+        TextX,
+        TextY,
+        TextMaxWidth,
         Printable,
         Foreground,
         Background

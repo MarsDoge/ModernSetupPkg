@@ -2418,6 +2418,9 @@ DisplayOneMenu (
   UINTN                          OptionLineNum;
   CHAR16                         AdjustValue;
   UINTN                          MaxRow;
+  UINTN                          RowWidth;
+  BOOLEAN                        IsActionRow;
+  BOOLEAN                        IsSubtitleRow;
 
   Statement            = MenuOption->ThisTag;
   Temp                 = SkipLine;
@@ -2428,11 +2431,27 @@ DisplayOneMenu (
   OptionLineNum        = 0;
   MaxRow               = 0;
   IsProcessingFirstRow = TRUE;
+  IsActionRow          = (BOOLEAN)(
+                                  (Statement->OpCode->OpCode == EFI_IFR_ACTION_OP) ||
+                                  (Statement->OpCode->OpCode == EFI_IFR_REF_OP) ||
+                                  (Statement->OpCode->OpCode == EFI_IFR_RESET_BUTTON_OP)
+                                  );
+  IsSubtitleRow        = (BOOLEAN)(Statement->OpCode->OpCode == EFI_IFR_SUBTITLE_OP);
 
   //
   // Set default color.
   //
   SetDisplayAttribute (MenuOption, FALSE);
+  RowWidth = (gPromptBlockWidth + gOptionBlockWidth + LEFT_SKIPPED_COLUMNS);
+  ModernDisplayDrawStatementRow (
+    BeginCol,
+    MenuOption->Row,
+    RowWidth,
+    Highlight,
+    MenuOption->GrayOut,
+    IsActionRow,
+    IsSubtitleRow
+    );
 
   //
   // 1. Paint the option string.

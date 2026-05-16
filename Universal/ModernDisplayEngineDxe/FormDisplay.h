@@ -70,6 +70,32 @@ extern CHAR16   gHelpBlockWidth;
 extern CHAR16   *mUnknownString;
 extern BOOLEAN  gMisMatch;
 
+/**
+  Draw a ModernSetup row background for one FormBrowser statement.
+
+  The DisplayEngine owns statement semantics. The customized display library
+  owns the GOP painting details behind the text-grid output.
+
+  @param[in] Column     Text-grid column where the row starts.
+  @param[in] Row        Text-grid row to paint.
+  @param[in] Width      Text-grid column count to paint.
+  @param[in] Highlight  TRUE when the row is selected.
+  @param[in] GrayOut    TRUE when the statement is disabled or grayed.
+  @param[in] Action     TRUE when the statement is an action-like row.
+  @param[in] Subtitle   TRUE when the statement is a subtitle row.
+**/
+VOID
+EFIAPI
+ModernDisplayDrawStatementRow (
+  IN UINTN    Column,
+  IN UINTN    Row,
+  IN UINTN    Width,
+  IN BOOLEAN  Highlight,
+  IN BOOLEAN  GrayOut,
+  IN BOOLEAN  Action,
+  IN BOOLEAN  Subtitle
+  );
+
 //
 // Screen definitions
 //

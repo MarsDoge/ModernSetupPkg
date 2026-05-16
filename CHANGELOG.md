@@ -108,6 +108,9 @@ this file as both a release log and a lightweight development progress record.
 - Render UEFI text-mode box drawing, arrow, triangle, and checkbox characters
   as narrow GOP primitives so native UiApp/FormBrowser frames do not appear as
   missing-glyph boxes.
+- Moved statement row surface styling and measured text truncation into the
+  DisplayEngine/customized display path so native FormBrowser rows can use the
+  modern GOP visual treatment without the experimental app/HII bridge.
 
 ### Current Status
 
@@ -127,7 +130,7 @@ this file as both a release log and a lightweight development progress record.
   write semantics in the default ArmVirt firmware.
 - The page adapter registry is experimental and not in the default native
   FormBrowser path.
-- The latest validated FVMAIN state is 8360320 bytes total, 8360288 bytes used,
+- The latest validated FVMAIN state is 8364416 bytes total, 8364384 bytes used,
   and 32 bytes free in the ArmVirt AARCH64 DEBUG_CLANGDWARF build.
 - `ModernDisplayEngineDxe` currently preserves most edk2 DisplayEngine behavior
   and routes its low-level text-cell drawing through GOP. Further visual polish
