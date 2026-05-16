@@ -56,9 +56,17 @@ Use this shape:
   fonts, logos, or image assets.
 - Layout code must derive positions from resolution and safe-area data. New UI
   must be usable without overlap at 800x600, 1024x768, and 1280x800.
-- HII/FormBrowser should not be replaced wholesale in early versions. Keep room
-  for a HII bridge so existing platform setup data, strings, permissions, and
-  localization can be reused.
+- HII/FormBrowser should not be replaced wholesale in early versions. Keep the
+  classic UiApp/FormBrowser path available while ModernSetup is still proving
+  compatibility with existing VFR/HII data and EFI applications that depend on
+  the legacy display stack.
+- The modern HII bridge may become the only setup engine only after it supports
+  the real platform form contract: form navigation, question rendering,
+  defaults, validation, expressions, callback policy, varstore routing,
+  localization, and safe failure reporting.
+- New HII bridge code must fail closed. Unsupported opcodes, unknown varstore
+  paths, callback-driven questions, or unevaluated expressions should render as
+  read-only/fallback rows instead of forcing writes around the owning driver.
 - Commercial firmware screens may be used only as visual and interaction
   references. Do not copy closed-source code, fonts, icons, images, layouts, or
   proprietary assets.

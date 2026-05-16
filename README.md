@@ -26,7 +26,12 @@ interaction references.
 
 This is not a full HII/FormBrowser replacement. The v1 goal is a usable modern
 setup shell that can launch from the firmware boot manager path and prove that
-existing HII/VFR content can be bridged incrementally.
+existing HII/VFR content can be bridged incrementally. During early development,
+the classic edk2 UiApp/FormBrowser path is intentionally kept as a fallback for
+EFI applications and platform flows that still depend on the legacy display
+stack. ModernSetup should become the only setup engine only after it can render,
+navigate, validate, and safely route existing VFR/HII data with production-level
+compatibility.
 
 ## Architecture
 
@@ -225,3 +230,8 @@ one-of, and numeric questions backed by buffer varstores can be advanced through
 the driver's `EFI_HII_CONFIG_ACCESS_PROTOCOL.RouteConfig()` when they are not
 read-only and not callback-driven. String and complex controls are displayed as
 read-only until ModernSetup grows a text editor and fuller FormBrowser behavior.
+
+The compatibility policy is two-track: keep the classic FormBrowser available
+while ModernSetup learns enough VFR/HII semantics, then reduce the legacy path
+only when the modern engine can cover real platform forms without data loss,
+incorrect writes, missing validation, or broken callbacks.

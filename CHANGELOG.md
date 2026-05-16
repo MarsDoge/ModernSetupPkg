@@ -39,6 +39,8 @@ this file as both a release log and a lightweight development progress record.
   numeric buffer-varstore questions.
 - 18px anti-aliased built-in glyph generation from Noto Sans CJK SC, including
   ModernSetup strings and selected DriverSample `.uni` strings.
+- Compatibility policy for keeping the classic UiApp/FormBrowser path alongside
+  ModernSetup until the modern HII bridge can safely cover existing VFR data.
 
 ### Fixed
 
@@ -69,6 +71,9 @@ this file as both a release log and a lightweight development progress record.
 - The HII bridge is a DriverSample-focused demo, not a complete FormBrowser
   replacement. Unsupported opcodes, callback questions, EFI varstores, and
   string editing remain read-only/fallback work.
+- The legacy FormBrowser path remains part of the supported early architecture
+  for EFI app and platform compatibility. Removing it is explicitly blocked on
+  full modern HII/VFR compatibility.
 - The UI framework is still early: platform data providers, layout library, and
   full write-capable setup flows are planned but not implemented.
 
