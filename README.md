@@ -21,6 +21,114 @@ interaction references.
 This is not a full HII/FormBrowser replacement. The v1 goal is a usable modern
 setup shell that can be launched from the firmware boot manager path.
 
+## Architecture
+
+Current code and planned extension points are separated below. Boxes marked
+`planned` are the intended direction for multi-architecture and IBV adaptation,
+but are not implemented yet.
+
+```text
+edk2 workspace
+|
++-- ModernSetupPkg
+    |
+    +-- Package metadata
+    |   |
+    |   +-- ModernSetupPkg.dec
+    |   +-- ModernSetupPkg.dsc
+    |
+    +-- Application
+    |   |
+    |   +-- ModernSetupApp
+    |       |
+    |       +-- Dashboard page
+    |       +-- Boot page       (read-only v1)
+    |       +-- Devices page    (read-only v1)
+    |       +-- Security page   (read-only v1)
+    |       +-- Exit page       (continue, reset, UiApp fallback)
+    |
+    +-- Public interfaces
+    |   |
+    |   +-- Include/ModernUi/ModernUiRenderer.h
+    |   +-- Include/ModernUi/ModernUiInput.h
+    |   +-- Include/ModernUi/ModernUiTheme.h
+    |
+    +-- Implemented framework libraries
+    |   |
+    |   +-- ModernUiRendererLib
+    |   |   |
+    |   |   +-- GOP framebuffer primitives
+    |   |   +-- HII Font text rendering
+    |   |
+    |   +-- ModernUiInputLib
+    |   |   |
+    |   |   +-- SimpleTextInputEx keyboard mapping
+    |   |   +-- AbsolutePointer optional pointer events
+    |   |
+    |   +-- ModernUiThemeLib
+    |       |
+    |       +-- Dark theme token table
+    |
+    +-- Planned framework libraries
+    |   |
+    |   +-- ModernUiLayoutLib        (planned)
+    |   |   +-- resolution-aware layout
+    |   |   +-- safe-area and scaling policy
+    |   |
+    |   +-- ModernUiPlatformLib      (planned)
+    |   |   +-- platform identity
+    |   |   +-- architecture and capability reporting
+    |   |
+    |   +-- ModernUiBootDataLib      (planned)
+    |   |   +-- Boot#### / BootOrder provider
+    |   |
+    |   +-- ModernUiDeviceDataLib    (planned)
+    |   |   +-- handle and device-path provider
+    |   |
+    |   +-- ModernUiSecurityDataLib  (planned)
+    |   |   +-- Secure Boot and security state provider
+    |   |
+    |   +-- ModernUiHiiBridgeLib     (planned)
+    |       |
+    |       +-- existing HII strings and setup data bridge
+    |
+    +-- Platform integration
+    |   |
+    |   +-- Scripts/build-armvirt.sh
+    |   |   |
+    |   |   +-- generates Build/ModernSetupPkgOverlay/*.dsc/*.fdf
+    |   |   +-- keeps upstream ArmVirtPkg files unchanged
+    |   |
+    |   +-- Scripts/run-armvirt.sh
+    |       |
+    |       +-- QEMU ArmVirt graphics validation
+    |
+    +-- Project records
+        |
+        +-- Docs/DEVELOPMENT.md
+        +-- CHANGELOG.md
+        +-- LICENSE
+```
+
+The intended dependency direction is:
+
+```text
+ModernSetupApp
+  |
+  +--> UI framework libraries
+  |      |
+  |      +--> renderer / input / theme / layout
+  |
+  +--> data provider libraries
+         |
+         +--> boot / device / security / platform / HII bridge
+                |
+                +--> edk2 protocols, variables, PCDs, and platform overrides
+```
+
+Platform-specific code should enter through provider libraries, PCDs, or overlay
+DSC/FDF files. Page rendering code should remain architecture-neutral.
+
 ## Development Documents
 
 - `Docs/DEVELOPMENT.md` defines coding rules, function comment requirements,
