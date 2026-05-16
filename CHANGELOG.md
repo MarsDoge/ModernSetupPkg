@@ -93,6 +93,8 @@ this file as both a release log and a lightweight development progress record.
   and prepares a bootable ArmVirt ESP at `Build/ModernSetupAppEsp`.
 - `Scripts/run-armvirt.sh` now supports `APP=1` to boot the experimental app
   from `\EFI\BOOT\BOOTAA64.EFI` instead of entering the native UiApp path.
+- Added GitHub showcase screenshots for the experimental ModernSetupApp
+  dashboard and English/Simplified Chinese exit pages.
 
 ### Fixed
 

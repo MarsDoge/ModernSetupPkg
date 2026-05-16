@@ -14,3 +14,10 @@ Capture rules:
   `armvirt-exit-language-dropdown.png`.
 - Update the README showcase section when adding or replacing presentation
   screenshots.
+
+Current captures:
+
+- `modern-app-dashboard.png` - experimental ModernSetupApp dashboard view.
+- `modern-app-en-exit.png` - experimental ModernSetupApp exit page in English.
+- `modern-app-zh-exit.png` - experimental ModernSetupApp exit page in
+  Simplified Chinese.

@@ -151,7 +151,8 @@ ArmVirt setup compatibility path.
 Build the legacy prototype explicitly with:
 
 ```sh
-build -a AARCH64 -t CLANGDWARF -p ModernSetupPkg/Experimental/ModernSetupApp.dsc
+ModernSetupPkg/Scripts/build-modern-app.sh
+APP=1 GRAPHICS=1 RESET_VARS=1 ACCEL=hvf ModernSetupPkg/Scripts/run-armvirt.sh
 ```
 
 Do not use the experimental HII bridge as a platform setup compatibility layer.
@@ -202,6 +203,16 @@ GRAPHICS=1 RESET_VARS=1 ModernSetupPkg/Scripts/run-armvirt.sh
 Click the QEMU window and press `Esc` or `F2` during BDS wait to enter the
 native UiApp firmware setup. Rendering is handled by `ModernDisplayEngineDxe`.
 
+The experimental `ModernSetupApp` is intentionally opt-in. Build it and boot it
+from a temporary ArmVirt ESP with:
+
+```sh
+ModernSetupPkg/Scripts/build-modern-app.sh
+APP=1 GRAPHICS=1 RESET_VARS=1 ACCEL=hvf ModernSetupPkg/Scripts/run-armvirt.sh
+```
+
+Without `APP=1`, `run-armvirt.sh` keeps the default native UiApp path.
+
 ## Fonts and Text Graphics
 
 Chinese glyphs do not depend on platform firmware fonts. A minimal bitmap table
@@ -237,7 +248,17 @@ legacy text-only form browser.
 
 Screenshots for GitHub presentation belong under `Assets/Screenshots/`. Keep
 captures focused on ModernSetup itself, not vendor firmware screens or copied
-assets. Recommended first captures:
+assets.
+
+Current experimental `ModernSetupApp` captures:
+
+![ModernSetupApp dashboard](Assets/Screenshots/modern-app-dashboard.png)
+
+![ModernSetupApp English exit page](Assets/Screenshots/modern-app-en-exit.png)
+
+![ModernSetupApp Chinese exit page](Assets/Screenshots/modern-app-zh-exit.png)
+
+Recommended next captures for the default DisplayEngine path:
 
 - `armvirt-uiapp-frontpage.png` - native UiApp rendered by ModernDisplayEngine.
 - `armvirt-device-manager.png` - Device Manager showing automatically loaded
