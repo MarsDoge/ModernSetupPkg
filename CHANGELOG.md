@@ -52,6 +52,11 @@ this file as both a release log and a lightweight development progress record.
 - More premium firmware chrome styling: richer dark theme tokens, accent mode
   pill, bordered resolution status, raised tabs, setting rows, and an aligned
   language selector.
+- DriverSample HII bridge now uses a scope-aware IFR parser with first-stage
+  expression evaluation for `suppressif`, `grayoutif`, and `disableif`.
+- HII rows now carry runtime visible/disabled/callback/read-only state, show
+  clearer control types, support scrolling through longer forms, and run
+  ConfigAccess callbacks for form open/close and callback actions.
 
 ### Fixed
 
@@ -83,6 +88,9 @@ this file as both a release log and a lightweight development progress record.
 - The HII bridge is a DriverSample-focused demo, not a complete FormBrowser
   replacement. Unsupported opcodes, callback questions, EFI varstores, and
   string editing remain read-only/fallback work.
+- The HII bridge intentionally keeps conservative writes: callback-driven
+  questions, EFI varstores, name/value varstores, strings, ordered lists,
+  date/time, and password controls are not force-written by ModernSetup.
 - The legacy FormBrowser path remains part of the supported early architecture
   for EFI app and platform compatibility. Removing it is explicitly blocked on
   full modern HII/VFR compatibility.

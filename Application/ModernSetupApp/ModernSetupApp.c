@@ -69,6 +69,7 @@ typedef struct {
   UINTN           FormSetIndex;
   UINTN           FormIndex;
   UINTN           Selection;
+  UINTN           Scroll;
 } HII_VIEW_STATE;
 
 STATIC CONST PAGE_DESCRIPTOR  mPages[] = {
@@ -80,9 +81,15 @@ STATIC CONST PAGE_DESCRIPTOR  mPages[] = {
   { PageExit,      ModernUiStringPageExit,      ModernUiStringPageExitHint      }
 };
 
-STATIC HII_VIEW_STATE  mHiiView = { HiiViewFormSets, 0, 0, 0 };
+STATIC HII_VIEW_STATE  mHiiView = { HiiViewFormSets, 0, 0, 0, 0 };
 STATIC BOOLEAN         mLanguageDropdownOpen;
 STATIC UINTN           mLanguageDropdownSelection;
+
+STATIC
+VOID
+UpdateHiiScroll (
+  VOID
+  );
 
 /**
   Return TRUE when the active UI language is Simplified Chinese.
@@ -221,12 +228,31 @@ SetPageSelection (
       break;
     case PageHii:
       mHiiView.Selection = Selection;
+      UpdateHiiScroll ();
       break;
     case PageExit:
       *ExitSelection = Selection;
       break;
     default:
       break;
+  }
+}
+
+/**
+  Keep the HII scroll window aligned with the selected row.
+**/
+STATIC
+VOID
+UpdateHiiScroll (
+  VOID
+  )
+{
+  if (mHiiView.Selection < mHiiView.Scroll) {
+    mHiiView.Scroll = mHiiView.Selection;
+  }
+
+  if (mHiiView.Selection >= (mHiiView.Scroll + MAX_HII_ROWS)) {
+    mHiiView.Scroll = mHiiView.Selection - MAX_HII_ROWS + 1;
   }
 }
 
@@ -497,6 +523,116 @@ GetVisibleDeviceCount (
 }
 
 /**
+  Count visible items in one HII form.
+
+  @param[in] Form  Form to inspect. May be NULL.
+
+  @return Number of visible items.
+**/
+STATIC
+UINTN
+GetVisibleHiiItemCount (
+  IN MODERN_UI_HII_FORM  *Form
+  )
+{
+  UINTN  Index;
+  UINTN  Count;
+
+  if (Form == NULL) {
+    return 0;
+  }
+
+  Count = 0;
+  for (Index = 0; Index < Form->ItemCount; Index++) {
+    if (Form->Items[Index].Visible) {
+      Count++;
+    }
+  }
+
+  return Count;
+}
+
+/**
+  Return a visible HII item by visible row index.
+
+  @param[in] Form          Form to inspect. Must not be NULL.
+  @param[in] VisibleIndex  Zero-based visible item index.
+
+  @return Matching item, or NULL when VisibleIndex is out of range.
+**/
+STATIC
+MODERN_UI_HII_ITEM *
+GetVisibleHiiItem (
+  IN MODERN_UI_HII_FORM  *Form,
+  IN UINTN               VisibleIndex
+  )
+{
+  UINTN  Index;
+  UINTN  Count;
+
+  if (Form == NULL) {
+    return NULL;
+  }
+
+  Count = 0;
+  for (Index = 0; Index < Form->ItemCount; Index++) {
+    if (!Form->Items[Index].Visible) {
+      continue;
+    }
+
+    if (Count == VisibleIndex) {
+      return &Form->Items[Index];
+    }
+
+    Count++;
+  }
+
+  return NULL;
+}
+
+/**
+  Return the source item index for a visible HII row.
+
+  @param[in]  Form          Form to inspect. Must not be NULL.
+  @param[in]  VisibleIndex  Zero-based visible item index.
+  @param[out] ItemIndex     Receives source item index. Must not be NULL.
+
+  @retval TRUE   Matching item was found.
+  @retval FALSE  VisibleIndex is out of range.
+**/
+STATIC
+BOOLEAN
+GetVisibleHiiItemIndex (
+  IN  MODERN_UI_HII_FORM  *Form,
+  IN  UINTN               VisibleIndex,
+  OUT UINTN               *ItemIndex
+  )
+{
+  UINTN  Index;
+  UINTN  Count;
+
+  if ((Form == NULL) || (ItemIndex == NULL)) {
+    return FALSE;
+  }
+
+  Count = 0;
+  for (Index = 0; Index < Form->ItemCount; Index++) {
+    if (!Form->Items[Index].Visible) {
+      continue;
+    }
+
+    if (Count == VisibleIndex) {
+      *ItemIndex = Index;
+      return TRUE;
+    }
+
+    Count++;
+  }
+
+  return FALSE;
+}
+
+/**
   Return the selectable row count for the current HII bridge view.
 
   @return Number of selectable HII rows available for the current view.
@@ -523,7 +659,7 @@ GetHiiSelectableCount (
     return 0;
   }
 
-  return MIN (mHiiModel.FormSets[mHiiView.FormSetIndex].Forms[mHiiView.FormIndex].ItemCount, MAX_HII_ROWS);
+  return GetVisibleHiiItemCount (&mHiiModel.FormSets[mHiiView.FormSetIndex].Forms[mHiiView.FormIndex]);
 }
 
 /**
@@ -1141,8 +1277,15 @@ FormatHiiItemValue (
     return;
   }
 
-  if (Item->ReadOnly || ((Item->QuestionFlags & EFI_IFR_FLAG_CALLBACK) != 0)) {
-    StrCpyS (Buffer, Size / sizeof (CHAR16), ModernUiGetString (ModernUiStringHiiReadOnly));
+  if (Item->Disabled || Item->GrayOut) {
+    if (Item->Reason == ModernUiHiiReasonUnsupportedCondition) {
+      StrCpyS (Buffer, Size / sizeof (CHAR16), L"condition unsupported");
+    } else if (Item->Reason == ModernUiHiiReasonGrayOut) {
+      StrCpyS (Buffer, Size / sizeof (CHAR16), L"grayed");
+    } else {
+      StrCpyS (Buffer, Size / sizeof (CHAR16), L"disabled");
+    }
+
     return;
   }
 
@@ -1171,12 +1314,33 @@ FormatHiiItemValue (
       }
       break;
     case ModernUiHiiItemString:
+    case ModernUiHiiItemPassword:
+      StrCpyS (Buffer, Size / sizeof (CHAR16), ModernUiGetString (ModernUiStringHiiReadOnly));
+      break;
+    case ModernUiHiiItemOrderedList:
+      UnicodeSPrint (Buffer, Size, L"%u options - read-only", Item->OptionCount);
+      break;
+    case ModernUiHiiItemDate:
+      StrCpyS (Buffer, Size / sizeof (CHAR16), L"date - read-only");
+      break;
+    case ModernUiHiiItemTime:
+      StrCpyS (Buffer, Size / sizeof (CHAR16), L"time - read-only");
+      break;
+    case ModernUiHiiItemAction:
+      StrCpyS (Buffer, Size / sizeof (CHAR16), Item->CallbackRequired ? L"action" : ModernUiGetString (ModernUiStringHiiReadOnly));
+      break;
+    case ModernUiHiiItemResetButton:
       StrCpyS (Buffer, Size / sizeof (CHAR16), ModernUiGetString (ModernUiStringHiiReadOnly));
       break;
     case ModernUiHiiItemRef:
       StrCpyS (Buffer, Size / sizeof (CHAR16), L">");
       break;
     default:
+      if (Item->CallbackRequired) {
+        StrCpyS (Buffer, Size / sizeof (CHAR16), L"callback");
+      } else if (Item->ReadOnly || (Item->Reason == ModernUiHiiReasonUnsupportedStorage)) {
+        StrCpyS (Buffer, Size / sizeof (CHAR16), ModernUiGetString (ModernUiStringHiiReadOnly));
+      }
       break;
   }
 }
@@ -1189,6 +1353,8 @@ FormatHiiItemValue (
   @param[in] Panel       Content panel rectangle.
   @param[in] Row         Zero-based visible row index.
   @param[in] Selected    TRUE when the row is selected.
+  @param[in] Disabled    TRUE when the row is visible but not actionable.
+  @param[in] Action      TRUE when the row represents a callback action.
   @param[in] Primary     Primary row text. Must not be NULL.
   @param[in] Secondary   Optional secondary text. May be NULL.
 **/
@@ -1200,6 +1366,8 @@ DrawHiiRow (
   IN MODERN_UI_RECT            Panel,
   IN UINTN                     Row,
   IN BOOLEAN                   Selected,
+  IN BOOLEAN                   Disabled,
+  IN BOOLEAN                   Action,
   IN CONST CHAR16              *Primary,
   IN CONST CHAR16              *Secondary
   )
@@ -1208,6 +1376,8 @@ DrawHiiRow (
   UINTN       RowWidth;
   UINTN       Y;
   CHAR16      Line[192];
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  RowColor;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  TextColor;
 
   RowX     = Panel.X + 20;
   RowWidth = Panel.Width - 40;
@@ -1219,12 +1389,14 @@ DrawHiiRow (
     StrnCpyS (Line, ARRAY_SIZE (Line), Primary, ARRAY_SIZE (Line) - 1);
   }
 
-  ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Y - 8, RowWidth, 30 }, Selected ? Theme->AccentSoft : Theme->Surface);
+  RowColor  = Selected ? Theme->AccentSoft : (Action ? Theme->SurfaceRaised : Theme->Surface);
+  TextColor = Disabled ? Theme->Border : (Selected ? Theme->Text : (Action ? Theme->Text : Theme->MutedText));
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Y - 8, RowWidth, 30 }, RowColor);
   if (Selected) {
     ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Y - 8, 4, 30 }, Theme->Accent);
   }
 
-  DrawTextFit (Ui, RowX + 16, Y, RowWidth - 32, Line, Selected ? Theme->Text : Theme->MutedText, Selected ? Theme->AccentSoft : Theme->Surface);
+  DrawTextFit (Ui, RowX + 16, Y, RowWidth - 32, Line, TextColor, RowColor);
 }
 
 /**
@@ -1251,6 +1423,8 @@ DrawHiiBridge (
   CONST CHAR16            *Title;
   CONST CHAR16            *Fallback;
   CHAR16                  Value[96];
+  CHAR16                  Breadcrumb[192];
+  UINTN                   Row;
 
   Panel = ContentRect (Ui);
   ModernUiDrawPanel (Ui, Panel, Theme);
@@ -1269,7 +1443,7 @@ DrawHiiBridge (
       Fallback   = ModernUiGetString (ModernUiStringHiiFormsets);
       Title      = GetHiiDisplayString (FormSet->HiiHandle, FormSet->TitleId, Fallback);
       UnicodeSPrint (Value, sizeof (Value), L"%u forms", FormSet->FormCount);
-      DrawHiiRow (Ui, Theme, Panel, Index, IsSelected, Title, Value);
+      DrawHiiRow (Ui, Theme, Panel, Index, IsSelected, FALSE, FALSE, Title, Value);
       FreeHiiDisplayString (Title, Fallback);
     }
 
@@ -1287,8 +1461,8 @@ DrawHiiBridge (
       IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Index == mHiiView.Selection));
       Fallback   = ModernUiGetString (ModernUiStringHiiForms);
       Title      = GetHiiDisplayString (FormSet->HiiHandle, Form->TitleId, Fallback);
-      UnicodeSPrint (Value, sizeof (Value), L"%u items", Form->ItemCount);
-      DrawHiiRow (Ui, Theme, Panel, Index, IsSelected, Title, Value);
+      UnicodeSPrint (Value, sizeof (Value), L"%u visible / %u items", GetVisibleHiiItemCount (Form), Form->ItemCount);
+      DrawHiiRow (Ui, Theme, Panel, Index, IsSelected, FALSE, FALSE, Title, Value);
       FreeHiiDisplayString (Title, Fallback);
     }
 
@@ -1300,14 +1474,35 @@ DrawHiiBridge (
   }
 
   Form = &FormSet->Forms[mHiiView.FormIndex];
-  for (Index = 0; (Index < Form->ItemCount) && (Index < MAX_HII_ROWS); Index++) {
-    Item       = &Form->Items[Index];
+  Fallback = ModernUiGetString (ModernUiStringHiiForms);
+  Title    = GetHiiDisplayString (FormSet->HiiHandle, Form->TitleId, Fallback);
+  UnicodeSPrint (Breadcrumb, sizeof (Breadcrumb), L"%s / %s", ModernUiGetString (ModernUiStringHiiForms), Title);
+  DrawTextFit (Ui, Panel.X + 20, Panel.Y + 42, Panel.Width - 40, Breadcrumb, Theme->MutedText, Theme->Surface);
+  FreeHiiDisplayString (Title, Fallback);
+
+  for (Row = 0, Index = mHiiView.Scroll; Row < MAX_HII_ROWS; Index++) {
+    Item = GetVisibleHiiItem (Form, Index);
+    if (Item == NULL) {
+      break;
+    }
+
     IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Index == mHiiView.Selection));
     Fallback   = ModernUiGetString (ModernUiStringHiiItems);
     Title      = GetHiiDisplayString (FormSet->HiiHandle, Item->PromptId, Fallback);
     FormatHiiItemValue (FormSet, Item, Value, sizeof (Value));
-    DrawHiiRow (Ui, Theme, Panel, Index, IsSelected, Title, Value);
+    DrawHiiRow (
+      Ui,
+      Theme,
+      Panel,
+      Row,
+      IsSelected,
+      (BOOLEAN)(Item->Disabled || Item->GrayOut || Item->ReadOnly || Item->Unsupported),
+      (BOOLEAN)(Item->Type == ModernUiHiiItemAction),
+      Title,
+      Value
+      );
     FreeHiiDisplayString (Title, Fallback);
+    Row++;
   }
 }
 
@@ -1510,15 +1705,75 @@ HiiViewBack (
   )
 {
   if (mHiiView.Level == HiiViewItems) {
+    ModernUiHiiBridgeNotifyForm (&mHiiModel, mHiiView.FormSetIndex, mHiiView.FormIndex, FALSE, NULL);
     mHiiView.Level     = HiiViewForms;
     mHiiView.Selection = mHiiView.FormIndex;
+    mHiiView.Scroll    = 0;
     return TRUE;
   }
 
   if (mHiiView.Level == HiiViewForms) {
     mHiiView.Level     = HiiViewFormSets;
     mHiiView.Selection = mHiiView.FormSetIndex;
+    mHiiView.Scroll    = 0;
     return TRUE;
+  }
+
+  return FALSE;
+}
+
+/**
+  Convert a callback action request into ModernSetup navigation feedback.
+
+  @param[in]     Request        Browser action request returned by callback.
+  @param[out]    StatusMessage  Status text buffer. Must not be NULL.
+  @param[in]     StatusSize     Size of StatusMessage in bytes.
+
+  @retval TRUE   Request changed HII navigation state.
+  @retval FALSE  Request did not require navigation.
+**/
+STATIC
+BOOLEAN
+HandleHiiActionRequest (
+  IN  EFI_BROWSER_ACTION_REQUEST  Request,
+  OUT CHAR16                      *StatusMessage,
+  IN  UINTN                       StatusSize
+  )
+{
+  if ((StatusMessage == NULL) || (StatusSize < sizeof (CHAR16))) {
+    return FALSE;
+  }
+
+  switch (Request) {
+    case EFI_BROWSER_ACTION_REQUEST_EXIT:
+      UnicodeSPrint (StatusMessage, StatusSize, L"Callback requested exit");
+      return HiiViewBack ();
+    case EFI_BROWSER_ACTION_REQUEST_FORM_SUBMIT_EXIT:
+      UnicodeSPrint (StatusMessage, StatusSize, L"Callback requested submit and exit");
+      return HiiViewBack ();
+    case EFI_BROWSER_ACTION_REQUEST_FORM_DISCARD_EXIT:
+      UnicodeSPrint (StatusMessage, StatusSize, L"Callback requested discard and exit");
+      return HiiViewBack ();
+    case EFI_BROWSER_ACTION_REQUEST_SUBMIT:
+      UnicodeSPrint (StatusMessage, StatusSize, L"Callback requested submit");
+      break;
+    case EFI_BROWSER_ACTION_REQUEST_FORM_APPLY:
+      UnicodeSPrint (StatusMessage, StatusSize, L"Callback requested form apply");
+      break;
+    case EFI_BROWSER_ACTION_REQUEST_FORM_DISCARD:
+      UnicodeSPrint (StatusMessage, StatusSize, L"Callback requested form discard");
+      break;
+    case EFI_BROWSER_ACTION_REQUEST_QUESTION_APPLY:
+      UnicodeSPrint (StatusMessage, StatusSize, L"Callback requested question apply");
+      break;
+    case EFI_BROWSER_ACTION_REQUEST_RESET:
+      UnicodeSPrint (StatusMessage, StatusSize, L"Callback requested reset");
+      break;
+    case EFI_BROWSER_ACTION_REQUEST_RECONNECT:
+      UnicodeSPrint (StatusMessage, StatusSize, L"Callback requested reconnect");
+      break;
+    default:
+      break;
   }
 
   return FALSE;
@@ -1576,7 +1831,10 @@ HiiViewEnter (
   MODERN_UI_HII_FORM     *Form;
   MODERN_UI_HII_ITEM     *Item;
   EFI_STATUS             Status;
+  EFI_BROWSER_ACTION_REQUEST  Request;
+  EFI_IFR_TYPE_VALUE      CallbackValue;
   UINTN                  TargetFormIndex;
+  UINTN                  ItemIndex;
 
   if ((StatusMessage == NULL) || (StatusSize < sizeof (CHAR16))) {
     return;
@@ -1588,6 +1846,7 @@ HiiViewEnter (
       mHiiView.FormSetIndex = mHiiView.Selection;
       mHiiView.Level        = HiiViewForms;
       mHiiView.Selection    = 0;
+      mHiiView.Scroll       = 0;
     }
 
     return;
@@ -1603,6 +1862,15 @@ HiiViewEnter (
       mHiiView.FormIndex = mHiiView.Selection;
       mHiiView.Level     = HiiViewItems;
       mHiiView.Selection = 0;
+      mHiiView.Scroll    = 0;
+      Status = ModernUiHiiBridgeNotifyForm (&mHiiModel, mHiiView.FormSetIndex, mHiiView.FormIndex, TRUE, &Request);
+      if (EFI_ERROR (Status)) {
+        UnicodeSPrint (StatusMessage, StatusSize, L"FORM_OPEN callback returned: %r", Status);
+      } else if (Request != EFI_BROWSER_ACTION_REQUEST_NONE) {
+        HandleHiiActionRequest (Request, StatusMessage, StatusSize);
+      }
+
+      ModernUiHiiBridgeLoad (&mHiiModel);
     }
 
     return;
@@ -1613,18 +1881,70 @@ HiiViewEnter (
   }
 
   Form = &FormSet->Forms[mHiiView.FormIndex];
-  if (mHiiView.Selection >= Form->ItemCount) {
+  if (!GetVisibleHiiItemIndex (Form, mHiiView.Selection, &ItemIndex)) {
     return;
   }
 
-  Item = &Form->Items[mHiiView.Selection];
+  Item = &Form->Items[ItemIndex];
+  if (Item->CallbackRequired) {
+    Request = EFI_BROWSER_ACTION_REQUEST_NONE;
+    ZeroMem (&CallbackValue, sizeof (CallbackValue));
+    Status = ModernUiHiiBridgeRunCallback (
+               &mHiiModel,
+               mHiiView.FormSetIndex,
+               mHiiView.FormIndex,
+               ItemIndex,
+               &CallbackValue,
+               &Request
+               );
+    if (EFI_ERROR (Status)) {
+      UnicodeSPrint (StatusMessage, StatusSize, L"Callback returned: %r", Status);
+      return;
+    }
+
+    if (HandleHiiActionRequest (Request, StatusMessage, StatusSize)) {
+      ModernUiHiiBridgeLoad (&mHiiModel);
+      return;
+    }
+
+    ModernUiHiiBridgeLoad (&mHiiModel);
+    FormSet = &mHiiModel.FormSets[mHiiView.FormSetIndex];
+    if (mHiiView.FormIndex >= FormSet->FormCount) {
+      return;
+    }
+
+    Form = &FormSet->Forms[mHiiView.FormIndex];
+    if (!GetVisibleHiiItemIndex (Form, mHiiView.Selection, &ItemIndex)) {
+      return;
+    }
+
+    Item = &Form->Items[ItemIndex];
+    if ((CallbackValue.ref.FormId != 0) && (Item->Type == ModernUiHiiItemRef)) {
+      Item->TargetFormId = CallbackValue.ref.FormId;
+    }
+  }
+
   if ((Item->Type == ModernUiHiiItemRef) && FindHiiFormIndex (FormSet, Item->TargetFormId, &TargetFormIndex)) {
+    ModernUiHiiBridgeNotifyForm (&mHiiModel, mHiiView.FormSetIndex, mHiiView.FormIndex, FALSE, NULL);
     mHiiView.FormIndex = TargetFormIndex;
     mHiiView.Selection = 0;
+    mHiiView.Scroll    = 0;
+    Status = ModernUiHiiBridgeNotifyForm (&mHiiModel, mHiiView.FormSetIndex, mHiiView.FormIndex, TRUE, &Request);
+    if (EFI_ERROR (Status)) {
+      UnicodeSPrint (StatusMessage, StatusSize, L"FORM_OPEN callback returned: %r", Status);
+    } else if (Request != EFI_BROWSER_ACTION_REQUEST_NONE) {
+      HandleHiiActionRequest (Request, StatusMessage, StatusSize);
+    }
+
+    ModernUiHiiBridgeLoad (&mHiiModel);
     return;
   }
 
-  Status = ModernUiHiiBridgeApplyNextValue (&mHiiModel, mHiiView.FormSetIndex, mHiiView.FormIndex, mHiiView.Selection);
+  if (Item->CallbackRequired || (Item->Type == ModernUiHiiItemAction) || (Item->Type == ModernUiHiiItemResetButton)) {
+    return;
+  }
+
+  Status = ModernUiHiiBridgeApplyNextValue (&mHiiModel, mHiiView.FormSetIndex, mHiiView.FormIndex, ItemIndex);
   if (EFI_ERROR (Status)) {
     UnicodeSPrint (StatusMessage, StatusSize, ModernUiGetString (ModernUiStringHiiRouteReturnedFormat), Status);
   }

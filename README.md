@@ -231,17 +231,25 @@ can still use edk2 HII Font rendering. The full font file is not committed. See
 
 ## HII Bridge Demo
 
-`ModernUiHiiBridgeLib` is intentionally scoped to `DriverSampleDxe` in this
-first demo. The ArmVirt overlay builds the driver without modifying its `.vfr`,
-`.uni`, or C source, then ModernSetup enumerates the runtime HII database and
-renders the DriverSample formsets under the HII tab.
+`ModernUiHiiBridgeLib` is intentionally scoped to `DriverSampleDxe` as the
+first compatibility target. The ArmVirt overlay builds the driver without
+modifying its `.vfr`, `.uni`, or C source, then ModernSetup enumerates the
+runtime HII database and renders the DriverSample formsets under the HII tab.
 
-The v1 bridge parses a practical IFR subset: formset, form, subtitle, text,
-goto/ref, checkbox, one-of, one-of option, numeric, and string. Checkbox,
-one-of, and numeric questions backed by buffer varstores can be advanced through
-the driver's `EFI_HII_CONFIG_ACCESS_PROTOCOL.RouteConfig()` when they are not
-read-only and not callback-driven. String and complex controls are displayed as
-read-only until ModernSetup grows a text editor and fuller FormBrowser behavior.
+The bridge now treats the forms package as scoped IFR bytecode. It tracks form,
+question, option, and conditional scopes, evaluates a first DriverSample-focused
+expression subset for `suppressif`, `grayoutif`, and `disableif`, and annotates
+rows with visible, disabled, callback, read-only, and unsupported state. Text,
+ref, checkbox, one-of, numeric, string, password, ordered list, date, time,
+action, and reset button rows render as distinct control types.
+
+Writes remain conservative. Checkbox, one-of, and numeric questions backed by
+buffer varstores can be advanced through `RouteConfig()` only when they are not
+read-only, disabled, or callback-driven. Callback rows use
+`EFI_HII_CONFIG_ACCESS_PROTOCOL.Callback()` for form open/close and
+action/navigation flow, then refresh the HII model. String editing, ordered
+list editing, EFI varstore writes, name/value writes, and full FormBrowser
+validation/default semantics are deferred.
 
 The compatibility policy is two-track: keep the classic FormBrowser available
 while ModernSetup learns enough VFR/HII semantics, then reduce the legacy path

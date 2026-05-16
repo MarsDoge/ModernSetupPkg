@@ -11,11 +11,12 @@
 #include <Protocol/HiiConfigAccess.h>
 #include <Uefi/UefiInternalFormRepresentation.h>
 
-#define MODERN_UI_HII_MAX_FORMSETS  8
+#define MODERN_UI_HII_MAX_FORMSETS  3
 #define MODERN_UI_HII_MAX_FORMS     8
-#define MODERN_UI_HII_MAX_ITEMS     80
-#define MODERN_UI_HII_MAX_OPTIONS   10
-#define MODERN_UI_HII_MAX_STORES    12
+#define MODERN_UI_HII_MAX_ITEMS     48
+#define MODERN_UI_HII_MAX_OPTIONS   8
+#define MODERN_UI_HII_MAX_STORES    8
+#define MODERN_UI_HII_MAX_EXPR_OPS  8
 
 typedef enum {
   ModernUiHiiItemText = 0,
@@ -25,6 +26,12 @@ typedef enum {
   ModernUiHiiItemOneOf,
   ModernUiHiiItemNumeric,
   ModernUiHiiItemString,
+  ModernUiHiiItemPassword,
+  ModernUiHiiItemOrderedList,
+  ModernUiHiiItemDate,
+  ModernUiHiiItemTime,
+  ModernUiHiiItemAction,
+  ModernUiHiiItemResetButton,
   ModernUiHiiItemUnsupported
 } MODERN_UI_HII_ITEM_TYPE;
 
@@ -35,33 +42,75 @@ typedef enum {
   ModernUiHiiStoreUnsupported
 } MODERN_UI_HII_STORE_TYPE;
 
+typedef enum {
+  ModernUiHiiReasonNone = 0,
+  ModernUiHiiReasonReadOnly,
+  ModernUiHiiReasonCallback,
+  ModernUiHiiReasonGrayOut,
+  ModernUiHiiReasonDisable,
+  ModernUiHiiReasonUnsupportedStorage,
+  ModernUiHiiReasonUnsupportedCondition,
+  ModernUiHiiReasonUnsupportedControl
+} MODERN_UI_HII_REASON;
+
 typedef struct {
   EFI_STRING_ID    PromptId;
+  UINT8            Flags;
   UINT8            ValueType;
   UINT64           Value;
 } MODERN_UI_HII_OPTION;
 
 typedef struct {
+  UINT8     OpCode;
+  UINT8     ValueType;
+  UINT8     ValueListCount;
+  UINT16    QuestionId;
+  UINT64    Value;
+  UINT16    ValueList[4];
+} MODERN_UI_HII_EXPR_OP;
+
+typedef struct {
+  UINTN                      OpCount;
+  BOOLEAN                    Unsupported;
+  MODERN_UI_HII_EXPR_OP      Ops[MODERN_UI_HII_MAX_EXPR_OPS];
+} MODERN_UI_HII_EXPR;
+
+typedef struct {
   MODERN_UI_HII_ITEM_TYPE    Type;
   EFI_STRING_ID              PromptId;
   EFI_STRING_ID              HelpId;
+  EFI_STRING_ID              TextTwoId;
   EFI_QUESTION_ID            QuestionId;
   EFI_VARSTORE_ID            VarStoreId;
   UINT16                     VarOffset;
   UINT8                      QuestionFlags;
+  UINT8                      ControlFlags;
   UINT8                      NumericFlags;
   UINTN                      StorageWidth;
   UINT64                     Minimum;
   UINT64                     Maximum;
   UINT64                     Step;
   UINT64                     CurrentValue;
+  UINT8                      CurrentType;
   EFI_FORM_ID                TargetFormId;
+  EFI_QUESTION_ID            TargetQuestionId;
   EFI_GUID                   TargetFormSetGuid;
+  EFI_STRING_ID              TargetDevicePathId;
   UINTN                      OptionCount;
   MODERN_UI_HII_OPTION       Options[MODERN_UI_HII_MAX_OPTIONS];
+  MODERN_UI_HII_EXPR         SuppressExpr;
+  MODERN_UI_HII_EXPR         GrayOutExpr;
+  MODERN_UI_HII_EXPR         DisableExpr;
   BOOLEAN                    HasValue;
   BOOLEAN                    ReadOnly;
+  BOOLEAN                    Visible;
+  BOOLEAN                    GrayOut;
+  BOOLEAN                    Disabled;
+  BOOLEAN                    CallbackRequired;
+  BOOLEAN                    ResetRequired;
+  BOOLEAN                    RestStyle;
   BOOLEAN                    Unsupported;
+  MODERN_UI_HII_REASON       Reason;
 } MODERN_UI_HII_ITEM;
 
 typedef struct {
@@ -153,6 +202,57 @@ ModernUiHiiBridgeApplyNextValue (
   IN     UINTN                FormSetIndex,
   IN     UINTN                FormIndex,
   IN     UINTN                ItemIndex
+  );
+
+/**
+  Notify a HII driver callback that a form is opening or closing.
+
+  @param[in,out] Model         Populated HII model. Must not be NULL.
+  @param[in]     FormSetIndex  Zero-based formset index.
+  @param[in]     FormIndex     Zero-based form index within the formset.
+  @param[in]     Opening       TRUE sends FORM_OPEN, FALSE sends FORM_CLOSE.
+  @param[out]    Request       Optional browser action request returned by the callback.
+
+  @retval EFI_SUCCESS            Callback was not needed or completed.
+  @retval EFI_INVALID_PARAMETER  Model or indices are invalid.
+  @retval others                 Status returned by ConfigAccess.Callback().
+**/
+EFI_STATUS
+EFIAPI
+ModernUiHiiBridgeNotifyForm (
+  IN OUT MODERN_UI_HII_MODEL         *Model,
+  IN     UINTN                       FormSetIndex,
+  IN     UINTN                       FormIndex,
+  IN     BOOLEAN                     Opening,
+  OUT    EFI_BROWSER_ACTION_REQUEST  *Request OPTIONAL
+  );
+
+/**
+  Run callback processing for the selected HII item.
+
+  The bridge uses this before a callback-driven REF, ACTION, or question edit.
+  The caller reloads the HII model when dynamic opcode updates are expected.
+
+  @param[in,out] Model         Populated HII model. Must not be NULL.
+  @param[in]     FormSetIndex  Zero-based formset index.
+  @param[in]     FormIndex     Zero-based form index within the formset.
+  @param[in]     ItemIndex     Zero-based item index within the form.
+  @param[out]    Value         Optional callback value, updated by the driver.
+  @param[out]    Request       Optional browser action request returned by the callback.
+
+  @retval EFI_SUCCESS            Callback was not needed or completed.
+  @retval EFI_INVALID_PARAMETER  Model or indices are invalid.
+  @retval others                 Status returned by ConfigAccess.Callback().
+**/
+EFI_STATUS
+EFIAPI
+ModernUiHiiBridgeRunCallback (
+  IN OUT MODERN_UI_HII_MODEL         *Model,
+  IN     UINTN                       FormSetIndex,
+  IN     UINTN                       FormIndex,
+  IN     UINTN                       ItemIndex,
+  OUT    EFI_IFR_TYPE_VALUE          *Value OPTIONAL,
+  OUT    EFI_BROWSER_ACTION_REQUEST  *Request OPTIONAL
   );
 
 #endif

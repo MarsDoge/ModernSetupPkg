@@ -83,11 +83,22 @@ Expected result:
 - `Enter` opens a formset, then opens a form, then selects a row.
 - DriverSample form rows render text, goto/ref, checkbox, one-of, numeric, and
   string questions without crashing or spilling past the content panel.
+- Long DriverSample forms can be scrolled with `Up/Down`; selection is not
+  limited to the first visible nine rows.
+- On the first DriverSample setup page, changing the suppress/grayout selector
+  updates dependent rows: suppressed rows disappear, grayed rows stay visible
+  but cannot be edited, and unsupported conditions are marked disabled.
+- Text rows show both prompt and secondary text when DriverSample provides both
+  HII strings.
+- Goto/ref rows navigate to local target forms. Callback-driven refs/actions
+  invoke ConfigAccess callback flow and refresh the HII model afterward.
 - Supported checkbox, one-of, and numeric rows that are buffer-varstore backed,
   not read-only, and not callback-driven can be advanced with `Enter`.
 - Returning to the same form after a successful write shows the refreshed value.
-- String rows and complex opcodes such as ordered list, date, time, action,
-  reset button, GUID op, security, match2, and refresh remain read-only or show
-  an unsupported status.
+- Callback, EFI varstore, name/value varstore, string, password, ordered list,
+  date, and time rows remain read-only or disabled rather than being force
+  written by ModernSetup.
+- Action rows show a callback/action status instead of a generic unsupported
+  row, and callback action requests are shown in the footer status line.
 - Exit page fallback to classic UiApp still works, and DriverSample remains
   available there for comparison with the native FormBrowser.
