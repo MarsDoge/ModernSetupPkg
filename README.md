@@ -104,10 +104,16 @@ edk2 workspace
     |       +-- QEMU ArmVirt graphics validation
     |
     +-- Project records
+    |   |
+    |   +-- Docs/DEVELOPMENT.md
+    |   +-- CHANGELOG.md
+    |   +-- LICENSE
+    |
+    +-- Tests
         |
-        +-- Docs/DEVELOPMENT.md
-        +-- CHANGELOG.md
-        +-- LICENSE
+        +-- Manual/ArmVirtQemu.md
+        +-- Smoke       (planned)
+        +-- Unit        (planned)
 ```
 
 The intended dependency direction is:
@@ -135,6 +141,7 @@ DSC/FDF files. Page rendering code should remain architecture-neutral.
   architecture boundaries, and extension points.
 - `CHANGELOG.md` records development progress, user-visible changes, and planned
   version work.
+- `Tests/README.md` defines the test layout and current validation scope.
 
 ## Build and Run
 

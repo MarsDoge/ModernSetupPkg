@@ -20,7 +20,12 @@
 #include <ModernUi/ModernUiRenderer.h>
 #include <ModernUi/ModernUiTheme.h>
 
-#define CARD_GAP       16
+#define CARD_GAP           16
+#define TOP_BAR_HEIGHT     54
+#define TAB_BAR_HEIGHT     54
+#define PAGE_TITLE_HEIGHT  64
+#define FOOTER_HEIGHT      36
+#define SCREEN_MARGIN      24
 
 STATIC CONST EFI_GUID  mUiAppGuid = { 0x462CAA21, 0x7614, 0x4503, { 0x83, 0x6E, 0x8A, 0xB6, 0xF4, 0x66, 0x23, 0x31 } };
 
@@ -361,14 +366,15 @@ DrawHeader (
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Header;
 
   Header = BlendAccent (Theme->Surface, Theme->AccentSoft, 35);
-  ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, 0, Ui->Width, 54 }, Header);
-  ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, 53, Ui->Width, 1 }, Theme->Accent);
-  ModernUiDrawText (Ui, 24, 15, L"MODERN UEFI UTILITY", Theme->Text, Header);
-  DrawTextF (Ui, Ui->Width - 260, 15, Theme->MutedText, Header, L"AARCH64  %ux%u", Ui->Width, Ui->Height);
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, 0, Ui->Width, TOP_BAR_HEIGHT }, Header);
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, TOP_BAR_HEIGHT - 1, Ui->Width, 1 }, Theme->Accent);
+  ModernUiDrawText (Ui, SCREEN_MARGIN, 15, L"MODERN UEFI BIOS UTILITY", Theme->Text, Header);
+  ModernUiDrawText (Ui, Ui->Width / 2 - 72, 15, L"ADVANCED MODE", Theme->Accent, Header);
+  DrawTextF (Ui, Ui->Width - 244, 15, Theme->MutedText, Header, L"AARCH64  %ux%u", Ui->Width, Ui->Height);
 }
 
 /**
-  Draw the left navigation rail.
+  Draw the top page tab bar.
 
   @param[in] Ui     Initialized render context. Must not be NULL.
   @param[in] Theme  Theme token table. Must not be NULL.
@@ -377,34 +383,66 @@ DrawHeader (
 **/
 STATIC
 VOID
-DrawNav (
+DrawTabs (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
   IN SETUP_PAGE                Page,
   IN SETUP_FOCUS               Focus
   )
 {
-  UINTN  Index;
+  UINTN                          Index;
+  UINTN                          TabWidth;
+  UINTN                          X;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  TabColor;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  TextColor;
+
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, TOP_BAR_HEIGHT, Ui->Width, TAB_BAR_HEIGHT }, Theme->Surface);
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, TOP_BAR_HEIGHT + TAB_BAR_HEIGHT - 1, Ui->Width, 1 }, Theme->Border);
+
+  TabWidth = (Ui->Width - (SCREEN_MARGIN * 2)) / ARRAY_SIZE (mPages);
+  for (Index = 0; Index < ARRAY_SIZE (mPages); Index++) {
+    X        = SCREEN_MARGIN + (Index * TabWidth);
+    TabColor = (mPages[Index].Page == Page) ? Theme->AccentSoft : Theme->Surface;
+    TextColor = (mPages[Index].Page == Page) ? Theme->Text : Theme->MutedText;
+
+    if (mPages[Index].Page == Page) {
+      ModernUiFillRect (Ui, (MODERN_UI_RECT){ X, TOP_BAR_HEIGHT + 9, TabWidth - 8, 36 }, TabColor);
+      ModernUiFillRect (
+        Ui,
+        (MODERN_UI_RECT){ X, TOP_BAR_HEIGHT + 43, TabWidth - 8, 3 },
+        (Focus == SetupFocusNav) ? Theme->Accent : Theme->Border
+        );
+    }
+
+    ModernUiDrawText (Ui, X + 12, TOP_BAR_HEIGHT + 20, (CHAR16 *)mPages[Index].Title, TextColor, TabColor);
+  }
+}
+
+/**
+  Draw the bottom hotkey/status strip.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] Focus  Current focus area.
+**/
+STATIC
+VOID
+DrawFooter (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus
+  )
+{
   UINTN  Y;
 
-  ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, 54, 232, Ui->Height - 54 }, Theme->Surface);
-  ModernUiFillRect (Ui, (MODERN_UI_RECT){ 231, 54, 1, Ui->Height - 54 }, Theme->Border);
-  ModernUiDrawText (Ui, 24, 76, L"SETUP", Theme->MutedText, Theme->Surface);
-
-  for (Index = 0; Index < ARRAY_SIZE (mPages); Index++) {
-    Y = 112 + (Index * 54);
-    if (mPages[Index].Page == Page) {
-      ModernUiFillRect (Ui, (MODERN_UI_RECT){ 16, Y - 10, 200, 42 }, Theme->AccentSoft);
-      ModernUiFillRect (Ui, (MODERN_UI_RECT){ 16, Y - 10, 4, 42 }, (Focus == SetupFocusNav) ? Theme->Accent : Theme->Border);
-      ModernUiDrawText (Ui, 32, Y, (CHAR16 *)mPages[Index].Title, Theme->Text, Theme->AccentSoft);
-    } else {
-      ModernUiDrawText (Ui, 32, Y, (CHAR16 *)mPages[Index].Title, Theme->MutedText, Theme->Surface);
-    }
+  Y = Ui->Height - FOOTER_HEIGHT;
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, Y, Ui->Width, FOOTER_HEIGHT }, Theme->Surface);
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ 0, Y, Ui->Width, 1 }, Theme->Border);
+  if (Focus == SetupFocusNav) {
+    ModernUiDrawText (Ui, SCREEN_MARGIN, Y + 10, L"Up/Down: tab    Right/Enter: page    Esc: continue boot", Theme->MutedText, Theme->Surface);
+  } else {
+    ModernUiDrawText (Ui, SCREEN_MARGIN, Y + 10, L"Up/Down: select    Left/Esc: tabs    Enter: action    Tab: switch focus", Theme->MutedText, Theme->Surface);
   }
-
-  ModernUiDrawText (Ui, 24, Ui->Height - 80, L"Up/Down: page", Theme->MutedText, Theme->Surface);
-  ModernUiDrawText (Ui, 24, Ui->Height - 58, L"Right/Enter: open", Theme->MutedText, Theme->Surface);
-  ModernUiDrawText (Ui, 24, Ui->Height - 36, L"Esc: continue", Theme->MutedText, Theme->Surface);
 }
 
 /**
@@ -420,7 +458,12 @@ ContentRect (
   IN MODERN_UI_RENDER_CONTEXT  *Ui
   )
 {
-  return (MODERN_UI_RECT){ 256, 82, Ui->Width - 280, Ui->Height - 112 };
+  return (MODERN_UI_RECT){
+           SCREEN_MARGIN,
+           TOP_BAR_HEIGHT + TAB_BAR_HEIGHT + PAGE_TITLE_HEIGHT,
+           Ui->Width - (SCREEN_MARGIN * 2),
+           Ui->Height - TOP_BAR_HEIGHT - TAB_BAR_HEIGHT - PAGE_TITLE_HEIGHT - FOOTER_HEIGHT - SCREEN_MARGIN
+         };
 }
 
 /**
@@ -460,8 +503,8 @@ DrawPageTitle (
   IN SETUP_PAGE                Page
   )
 {
-  ModernUiDrawText (Ui, 256, 72, (CHAR16 *)mPages[Page].Title, Theme->Text, Theme->Background);
-  ModernUiDrawText (Ui, 256, 98, (CHAR16 *)mPages[Page].Hint, Theme->MutedText, Theme->Background);
+  ModernUiDrawText (Ui, SCREEN_MARGIN, TOP_BAR_HEIGHT + TAB_BAR_HEIGHT + 16, (CHAR16 *)mPages[Page].Title, Theme->Text, Theme->Background);
+  ModernUiDrawText (Ui, SCREEN_MARGIN, TOP_BAR_HEIGHT + TAB_BAR_HEIGHT + 40, (CHAR16 *)mPages[Page].Hint, Theme->MutedText, Theme->Background);
 }
 
 /**
@@ -510,23 +553,25 @@ DrawDashboard (
   CHAR16  Resolution[48];
   CHAR16  BootCount[48];
   UINTN   CardWidth;
+  MODERN_UI_RECT  Content;
   MODERN_UI_RECT  StatusRect;
 
-  CardWidth = (Ui->Width - 304 - CARD_GAP) / 2;
-  StatusRect = (MODERN_UI_RECT){ 256, 374, Ui->Width - 304, 132 };
+  Content = ContentRect (Ui);
+  CardWidth = (Content.Width - CARD_GAP) / 2;
+  StatusRect = (MODERN_UI_RECT){ Content.X, Content.Y + 216, Content.Width, 112 };
   UnicodeSPrint (Resolution, sizeof (Resolution), L"%u x %u", Ui->Width, Ui->Height);
   UnicodeSPrint (BootCount, sizeof (BootCount), L"%u entries", GetBootCount ());
 
-  DrawInfoCard (Ui, Theme, 256, 142, CardWidth, L"Firmware Vendor", gST->FirmwareVendor);
-  DrawInfoCard (Ui, Theme, 256 + CardWidth + CARD_GAP, 142, CardWidth, L"Firmware Revision", L"edk2 / ArmVirt");
-  DrawInfoCard (Ui, Theme, 256, 250, CardWidth, L"Display", Resolution);
-  DrawInfoCard (Ui, Theme, 256 + CardWidth + CARD_GAP, 250, CardWidth, L"Boot Options", BootCount);
+  DrawInfoCard (Ui, Theme, Content.X, Content.Y, CardWidth, L"Firmware Vendor", gST->FirmwareVendor);
+  DrawInfoCard (Ui, Theme, Content.X + CardWidth + CARD_GAP, Content.Y, CardWidth, L"Firmware Revision", L"edk2 / ArmVirt");
+  DrawInfoCard (Ui, Theme, Content.X, Content.Y + 108, CardWidth, L"Display", Resolution);
+  DrawInfoCard (Ui, Theme, Content.X + CardWidth + CARD_GAP, Content.Y + 108, CardWidth, L"Boot Options", BootCount);
 
   ModernUiDrawPanel (Ui, StatusRect, Theme);
   DrawContentFocus (Ui, Theme, StatusRect, (BOOLEAN)(Focus == SetupFocusContent));
-  ModernUiDrawText (Ui, 276, 396, L"Prototype Status", Theme->MutedText, Theme->Surface);
-  ModernUiDrawText (Ui, 276, 430, L"GOP renderer online. Keyboard navigation is active.", Theme->Text, Theme->Surface);
-  ModernUiDrawProgress (Ui, (MODERN_UI_RECT){ 276, 470, Ui->Width - 344, 12 }, 68, Theme->Border, Theme->Accent);
+  ModernUiDrawText (Ui, StatusRect.X + 20, StatusRect.Y + 18, L"Prototype Status", Theme->MutedText, Theme->Surface);
+  ModernUiDrawText (Ui, StatusRect.X + 20, StatusRect.Y + 48, L"GOP renderer online. Keyboard navigation is active.", Theme->Text, Theme->Surface);
+  ModernUiDrawProgress (Ui, (MODERN_UI_RECT){ StatusRect.X + 20, StatusRect.Y + 82, StatusRect.Width - 40, 12 }, 68, Theme->Border, Theme->Accent);
 }
 
 /**
@@ -596,21 +641,25 @@ DrawBoot (
   CHAR16      *Description;
   BOOLEAN     IsSelected;
   MODERN_UI_RECT  Panel;
+  UINTN       RowX;
+  UINTN       RowWidth;
 
   Panel = ContentRect (Ui);
+  RowX = Panel.X + 20;
+  RowWidth = Panel.Width - 40;
   ModernUiDrawPanel (Ui, Panel, Theme);
   DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
-  ModernUiDrawText (Ui, 280, 118, L"Boot order is read-only in this prototype.", Theme->MutedText, Theme->Surface);
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, L"Boot order is read-only in this prototype.", Theme->MutedText, Theme->Surface);
 
   Status = ReadGlobalVariable (EFI_BOOT_ORDER_VARIABLE_NAME, (VOID **)&BootOrder, &Size);
   if (EFI_ERROR (Status)) {
-    ModernUiDrawText (Ui, 280, 164, L"No BootOrder variable found.", Theme->Warning, Theme->Surface);
+    ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 66, L"No BootOrder variable found.", Theme->Warning, Theme->Surface);
     return;
   }
 
   Count = Size / sizeof (UINT16);
   for (Index = 0; (Index < Count) && (Index < 9); Index++) {
-    Y           = 160 + Index * 42;
+    Y           = Panel.Y + 62 + Index * 38;
     Description = BootDescription (BootOrder[Index]);
     IsSelected  = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
     UnicodeSPrint (
@@ -621,12 +670,12 @@ DrawBoot (
       BootOrder[Index],
       (Description != NULL) ? Description : L"(no description)"
       );
-    ModernUiFillRect (Ui, (MODERN_UI_RECT){ 280, Y - 8, Ui->Width - 340, 34 }, IsSelected ? Theme->AccentSoft : Theme->Surface);
+    ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Y - 8, RowWidth, 32 }, IsSelected ? Theme->AccentSoft : Theme->Surface);
     if (IsSelected) {
-      ModernUiFillRect (Ui, (MODERN_UI_RECT){ 280, Y - 8, 4, 34 }, Theme->Accent);
+      ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Y - 8, 4, 32 }, Theme->Accent);
     }
 
-    ModernUiDrawText (Ui, 296, Y, Line, IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
+    ModernUiDrawText (Ui, RowX + 16, Y, Line, IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
     if (Description != NULL) {
       FreePool (Description);
     }
@@ -662,8 +711,12 @@ DrawDevices (
   CHAR16                    Line[168];
   BOOLEAN                   IsSelected;
   MODERN_UI_RECT            Panel;
+  UINTN                     RowX;
+  UINTN                     RowWidth;
 
   Panel = ContentRect (Ui);
+  RowX = Panel.X + 20;
+  RowWidth = Panel.Width - 40;
   ModernUiDrawPanel (Ui, Panel, Theme);
   DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
 
@@ -673,7 +726,7 @@ DrawDevices (
     return;
   }
 
-  DrawTextF (Ui, 280, 118, Theme->MutedText, Theme->Surface, L"%u handles visible to DXE", HandleCount);
+  DrawTextF (Ui, Panel.X + 20, Panel.Y + 20, Theme->MutedText, Theme->Surface, L"%u handles visible to DXE", HandleCount);
 
   Shown = 0;
   for (Index = 0; (Index < HandleCount) && (Shown < 8); Index++) {
@@ -691,14 +744,14 @@ DrawDevices (
     IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Shown == Selected));
     ModernUiFillRect (
       Ui,
-      (MODERN_UI_RECT){ 280, 152 + Shown * 38, Ui->Width - 340, 32 },
+      (MODERN_UI_RECT){ RowX, Panel.Y + 54 + Shown * 36, RowWidth, 30 },
       IsSelected ? Theme->AccentSoft : Theme->Surface
       );
     if (IsSelected) {
-      ModernUiFillRect (Ui, (MODERN_UI_RECT){ 280, 152 + Shown * 38, 4, 32 }, Theme->Accent);
+      ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Panel.Y + 54 + Shown * 36, 4, 30 }, Theme->Accent);
     }
 
-    ModernUiDrawText (Ui, 296, 160 + Shown * 38, Line, IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
+    ModernUiDrawText (Ui, RowX + 16, Panel.Y + 62 + Shown * 36, Line, IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
     FreePool (Text);
     Shown++;
   }
@@ -728,9 +781,9 @@ DrawSecurity (
   Panel = ContentRect (Ui);
   ModernUiDrawPanel (Ui, Panel, Theme);
   DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
-  ModernUiDrawText (Ui, 280, 126, L"Secure Boot", Theme->MutedText, Theme->Surface);
-  ModernUiDrawText (Ui, 280, 166, SecureBoot ? L"Enabled" : L"Disabled", SecureBoot ? Theme->Success : Theme->Warning, Theme->Surface);
-  ModernUiDrawText (Ui, 280, 218, L"Key management is intentionally read-only in v1.", Theme->MutedText, Theme->Surface);
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 24, L"Secure Boot", Theme->MutedText, Theme->Surface);
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 64, SecureBoot ? L"Enabled" : L"Disabled", SecureBoot ? Theme->Success : Theme->Warning, Theme->Surface);
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 116, L"Key management is intentionally read-only in v1.", Theme->MutedText, Theme->Surface);
 }
 
 /**
@@ -759,25 +812,29 @@ DrawExit (
   UINTN         Y;
   BOOLEAN       IsSelected;
   MODERN_UI_RECT  Panel;
+  UINTN         RowX;
+  UINTN         RowWidth;
 
   Panel = ContentRect (Ui);
+  RowX = Panel.X + 20;
+  RowWidth = Panel.Width - 40;
   ModernUiDrawPanel (Ui, Panel, Theme);
   DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
-  ModernUiDrawText (Ui, 280, 118, L"Use Up/Down to select an action, Enter to run it.", Theme->MutedText, Theme->Surface);
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, L"Use Up/Down to select an action, Enter to run it.", Theme->MutedText, Theme->Surface);
 
   for (Index = 0; Index < ARRAY_SIZE (Items); Index++) {
-    Y = 172 + Index * 58;
+    Y = Panel.Y + 76 + Index * 56;
     IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
     ModernUiFillRect (
       Ui,
-      (MODERN_UI_RECT){ 280, Y - 12, Ui->Width - 340, 42 },
+      (MODERN_UI_RECT){ RowX, Y - 12, RowWidth, 42 },
       IsSelected ? Theme->AccentSoft : Theme->Surface
       );
     if (IsSelected) {
-      ModernUiFillRect (Ui, (MODERN_UI_RECT){ 280, Y - 12, 4, 42 }, Theme->Accent);
+      ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX, Y - 12, 4, 42 }, Theme->Accent);
     }
 
-    ModernUiDrawText (Ui, 300, Y, (CHAR16 *)Items[Index], IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
+    ModernUiDrawText (Ui, RowX + 20, Y, (CHAR16 *)Items[Index], IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
   }
 }
 
@@ -860,7 +917,7 @@ DrawPage (
 {
   ModernUiClear (Ui, Theme->Background);
   DrawHeader (Ui, Theme);
-  DrawNav (Ui, Theme, Page, Focus);
+  DrawTabs (Ui, Theme, Page, Focus);
   DrawPageTitle (Ui, Theme, Page);
 
   switch (Page) {
@@ -882,6 +939,8 @@ DrawPage (
     default:
       break;
   }
+
+  DrawFooter (Ui, Theme, Focus);
 }
 
 /**

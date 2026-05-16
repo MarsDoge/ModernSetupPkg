@@ -21,6 +21,10 @@ this file as both a release log and a lightweight development progress record.
 - ArmVirtQemu overlay build and run scripts for macOS Apple Silicon validation.
 - Development guide covering function comments, multi-architecture boundaries,
   IBV-friendly extension points, and change discipline.
+- `Tests/` documentation for manual ArmVirtQemu validation and planned smoke/unit
+  test locations.
+- A top-tab firmware UI layout with central content focus and bottom hotkey
+  strip, moving away from the original left-rail prototype.
 
 ### Fixed
 

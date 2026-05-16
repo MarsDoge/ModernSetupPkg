@@ -84,6 +84,9 @@ expanding `ModernSetupApp` directly.
 
 - Update `CHANGELOG.md` for user-visible behavior, architecture decisions, build
   flow changes, or platform support changes.
+- Update `Tests/` when behavior changes. UI interaction changes should update
+  manual QEMU checks; provider, layout, or parser changes should add or update
+  smoke/unit tests when those layers exist.
 - Keep ArmVirt overlay scripts non-invasive. They may generate files under
   `Build/ModernSetupPkgOverlay`, but must not edit upstream `ArmVirtPkg` files.
 - Keep the package buildable as an edk2 package in a workspace submodule.
