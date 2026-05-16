@@ -21,9 +21,11 @@
   ModernSetupPkg/ModernSetupPkg.dec
 
 [LibraryClasses]
+  BaseLib
   BaseMemoryLib
   DebugLib
   MemoryAllocationLib
+  PrintLib
   UefiBootServicesTableLib
 
 [Protocols]

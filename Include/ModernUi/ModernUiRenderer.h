@@ -163,6 +163,33 @@ ModernUiDrawText (
   );
 
 /**
+  Format and draw one UCS-2 text line.
+
+  @param[in] Context     Initialized render context. Must not be NULL.
+  @param[in] X           Left coordinate in pixels.
+  @param[in] Y           Top coordinate in pixels.
+  @param[in] Color       Text foreground color.
+  @param[in] Background  Text background color.
+  @param[in] Format      PrintLib format string. Must not be NULL.
+  @param[in] ...         Format arguments consumed according to Format.
+
+  @retval EFI_SUCCESS            Text was formatted and rendered.
+  @retval EFI_INVALID_PARAMETER  Context or Format is NULL.
+  @retval others                 Status returned by ModernUiDrawText().
+**/
+EFI_STATUS
+EFIAPI
+ModernUiDrawTextFormatted (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN UINTN                             X,
+  IN UINTN                             Y,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL     Color,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL     Background,
+  IN CONST CHAR16                      *Format,
+  ...
+  );
+
+/**
   Draw UCS-2 text constrained to a pixel width.
 
   The renderer measures mixed ASCII, built-in CJK, and text-mode graphic glyphs
@@ -213,6 +240,74 @@ ModernUiDrawPanel (
   );
 
 /**
+  Draw a focus frame only when requested.
+
+  @param[in] Context   Initialized render context. Must not be NULL.
+  @param[in] Rect      Rectangle to outline when HasFocus is TRUE.
+  @param[in] HasFocus  TRUE to draw the focus frame.
+  @param[in] Theme     Theme token table. Must not be NULL.
+
+  @retval EFI_SUCCESS            Focus frame was drawn or skipped.
+  @retval EFI_INVALID_PARAMETER  Context or Theme is NULL, or Rect is empty
+                                  when HasFocus is TRUE.
+  @retval EFI_OUT_OF_RESOURCES   Temporary BLT allocation failed.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiDrawFocusFrame (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN BOOLEAN                           HasFocus,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
+  Draw a compact title/value information card.
+
+  @param[in] Context  Initialized render context. Must not be NULL.
+  @param[in] Rect     Card rectangle. Must be large enough for two text rows.
+  @param[in] Title    Card title text. Must not be NULL.
+  @param[in] Value    Card value text. Must not be NULL.
+  @param[in] Theme    Theme token table. Must not be NULL.
+
+  @retval EFI_SUCCESS            Card was drawn.
+  @retval EFI_INVALID_PARAMETER  Context, Title, Value, or Theme is NULL, or
+                                  Rect is empty.
+  @retval EFI_OUT_OF_RESOURCES   Temporary BLT allocation failed.
+  @retval others                 Status returned by text rendering.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiDrawInfoCard (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Title,
+  IN CONST CHAR16                      *Value,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
+  Return the themed background color used by a selectable row.
+
+  @param[in] Selected  TRUE when the row is selected.
+  @param[in] Disabled  TRUE when the row is visible but disabled or grayed.
+  @param[in] Action    TRUE when the row represents an action-like command.
+  @param[in] Subtitle  TRUE when the row is a section subtitle.
+  @param[in] Theme     Theme token table. Must not be NULL.
+
+  @return Row background color. NULL Theme returns zero.
+**/
+EFI_GRAPHICS_OUTPUT_BLT_PIXEL
+EFIAPI
+ModernUiGetSelectableRowBackground (
+  IN BOOLEAN                           Selected,
+  IN BOOLEAN                           Disabled,
+  IN BOOLEAN                           Action,
+  IN BOOLEAN                           Subtitle,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
   Draw a themed selectable row surface.
 
   This is a shared visual primitive for DisplayEngine statement rows and
@@ -239,6 +334,71 @@ ModernUiDrawSelectableRow (
   IN BOOLEAN                           Disabled,
   IN BOOLEAN                           Action,
   IN BOOLEAN                           Subtitle,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
+  Draw the standard border used around an action/selectable row.
+
+  @param[in] Context   Initialized render context. Must not be NULL.
+  @param[in] Rect      Row rectangle.
+  @param[in] Selected  TRUE when the row is selected.
+  @param[in] Theme     Theme token table. Must not be NULL.
+
+  @retval EFI_SUCCESS            Row border was drawn.
+  @retval EFI_INVALID_PARAMETER  Context or Theme is NULL, or Rect is empty.
+  @retval EFI_OUT_OF_RESOURCES   Temporary BLT allocation failed.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiDrawSelectableRowBorder (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
+  Draw a value selector box with a trailing drop-down marker.
+
+  @param[in] Context   Initialized render context. Must not be NULL.
+  @param[in] Rect      Selector rectangle.
+  @param[in] Value     Selected value text. Must not be NULL.
+  @param[in] Selected  TRUE when the owning row is selected.
+  @param[in] Theme     Theme token table. Must not be NULL.
+
+  @retval EFI_SUCCESS            Selector was drawn.
+  @retval EFI_INVALID_PARAMETER  Context, Value, or Theme is NULL, or Rect is
+                                  empty.
+  @retval EFI_OUT_OF_RESOURCES   Temporary BLT allocation failed.
+  @retval others                 Status returned by text rendering.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiDrawValueBox (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
+  Draw a drop-down list frame.
+
+  @param[in] Context  Initialized render context. Must not be NULL.
+  @param[in] Rect     Drop-down rectangle.
+  @param[in] Theme    Theme token table. Must not be NULL.
+
+  @retval EFI_SUCCESS            Drop-down frame was drawn.
+  @retval EFI_INVALID_PARAMETER  Context or Theme is NULL, or Rect is empty.
+  @retval EFI_OUT_OF_RESOURCES   Temporary BLT allocation failed.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiDrawDropdownFrame (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
   IN CONST MODERN_UI_THEME             *Theme
   );
 

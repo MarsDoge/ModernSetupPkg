@@ -95,6 +95,10 @@ this file as both a release log and a lightweight development progress record.
   from `\EFI\BOOT\BOOTAA64.EFI` instead of entering the native UiApp path.
 - Added GitHub showcase screenshots for the experimental ModernSetupApp
   dashboard and English/Simplified Chinese exit pages.
+- Migrated more experimental app visual helpers into `ModernUiRendererLib`:
+  formatted text, focus frames, info cards, selectable row background
+  calculation, selectable row borders, value selector boxes, and drop-down
+  frames.
 
 ### Fixed
 

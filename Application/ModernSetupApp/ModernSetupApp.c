@@ -696,39 +696,6 @@ GetSecureBootEnabled (
 }
 
 /**
-  Format and draw a single text line.
-
-  @param[in] Ui          Initialized render context. Must not be NULL.
-  @param[in] X           Left coordinate in pixels.
-  @param[in] Y           Top coordinate in pixels.
-  @param[in] Color       Text foreground color.
-  @param[in] Background  Text background color.
-  @param[in] Format      PrintLib format string. Must not be NULL.
-  @param[in] ...         Format arguments.
-**/
-STATIC
-VOID
-DrawTextF (
-  IN MODERN_UI_RENDER_CONTEXT       *Ui,
-  IN UINTN                          X,
-  IN UINTN                          Y,
-  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Color,
-  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background,
-  IN CONST CHAR16                   *Format,
-  ...
-  )
-{
-  VA_LIST  Marker;
-  CHAR16   Buffer[192];
-
-  VA_START (Marker, Format);
-  UnicodeVSPrint (Buffer, sizeof (Buffer), Format, Marker);
-  VA_END (Marker);
-
-  ModernUiDrawText (Ui, X, Y, Buffer, Color, Background);
-}
-
-/**
   Draw the top status/header band.
 
   @param[in] Ui     Initialized render context. Must not be NULL.
@@ -759,7 +726,7 @@ DrawHeader (
   InfoX = Ui->Width - 276;
   ModernUiFillRect (Ui, (MODERN_UI_RECT){ InfoX, 10, 220, 32 }, Theme->Surface);
   ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ InfoX, 10, 220, 32 }, Theme->Border);
-  DrawTextF (Ui, InfoX + 18, 18, Theme->MutedText, Theme->Surface, L"AARCH64  %ux%u", Ui->Width, Ui->Height);
+  ModernUiDrawTextFormatted (Ui, InfoX + 18, 18, Theme->MutedText, Theme->Surface, L"AARCH64  %ux%u", Ui->Width, Ui->Height);
 }
 
 /**
@@ -861,28 +828,6 @@ ContentRect (
 }
 
 /**
-  Draw a focus border around a content rectangle when content has focus.
-
-  @param[in] Ui        Initialized render context. Must not be NULL.
-  @param[in] Theme     Theme token table. Must not be NULL.
-  @param[in] Rect      Content rectangle.
-  @param[in] HasFocus  TRUE when content focus should be visible.
-**/
-STATIC
-VOID
-DrawContentFocus (
-  IN MODERN_UI_RENDER_CONTEXT  *Ui,
-  IN CONST MODERN_UI_THEME     *Theme,
-  IN MODERN_UI_RECT            Rect,
-  IN BOOLEAN                   HasFocus
-  )
-{
-  if (HasFocus) {
-    ModernUiStrokeRect (Ui, Rect, Theme->Accent);
-  }
-}
-
-/**
   Draw the current page title and hint text.
 
   @param[in] Ui     Initialized render context. Must not be NULL.
@@ -899,34 +844,6 @@ DrawPageTitle (
 {
   ModernUiDrawText (Ui, SCREEN_MARGIN, TOP_BAR_HEIGHT + TAB_BAR_HEIGHT + 16, ModernUiGetString (mPages[Page].Title), Theme->Text, Theme->Background);
   ModernUiDrawText (Ui, SCREEN_MARGIN, TOP_BAR_HEIGHT + TAB_BAR_HEIGHT + 40, ModernUiGetString (mPages[Page].Hint), Theme->MutedText, Theme->Background);
-}
-
-/**
-  Draw a compact information card.
-
-  @param[in] Ui     Initialized render context. Must not be NULL.
-  @param[in] Theme  Theme token table. Must not be NULL.
-  @param[in] X      Left coordinate in pixels.
-  @param[in] Y      Top coordinate in pixels.
-  @param[in] W      Card width in pixels.
-  @param[in] Title  Card title. Must not be NULL.
-  @param[in] Value  Card value. Must not be NULL.
-**/
-STATIC
-VOID
-DrawInfoCard (
-  IN MODERN_UI_RENDER_CONTEXT  *Ui,
-  IN CONST MODERN_UI_THEME     *Theme,
-  IN UINTN                     X,
-  IN UINTN                     Y,
-  IN UINTN                     W,
-  IN CONST CHAR16              *Title,
-  IN CONST CHAR16              *Value
-  )
-{
-  ModernUiDrawPanel (Ui, (MODERN_UI_RECT){ X, Y, W, 92 }, Theme);
-  ModernUiDrawText (Ui, X + 18, Y + 16, (CHAR16 *)Title, Theme->MutedText, Theme->Surface);
-  ModernUiDrawText (Ui, X + 18, Y + 48, (CHAR16 *)Value, Theme->Text, Theme->Surface);
 }
 
 /**
@@ -956,13 +873,13 @@ DrawDashboard (
   UnicodeSPrint (Resolution, sizeof (Resolution), L"%u x %u", Ui->Width, Ui->Height);
   UnicodeSPrint (BootCount, sizeof (BootCount), ModernUiGetString (ModernUiStringBootCountFormat), GetBootCount ());
 
-  DrawInfoCard (Ui, Theme, Content.X, Content.Y, CardWidth, ModernUiGetString (ModernUiStringFirmwareVendor), gST->FirmwareVendor);
-  DrawInfoCard (Ui, Theme, Content.X + CardWidth + CARD_GAP, Content.Y, CardWidth, ModernUiGetString (ModernUiStringFirmwareRevision), L"edk2 / ArmVirt");
-  DrawInfoCard (Ui, Theme, Content.X, Content.Y + 108, CardWidth, ModernUiGetString (ModernUiStringDisplay), Resolution);
-  DrawInfoCard (Ui, Theme, Content.X + CardWidth + CARD_GAP, Content.Y + 108, CardWidth, ModernUiGetString (ModernUiStringBootOptions), BootCount);
+  ModernUiDrawInfoCard (Ui, (MODERN_UI_RECT){ Content.X, Content.Y, CardWidth, 92 }, ModernUiGetString (ModernUiStringFirmwareVendor), gST->FirmwareVendor, Theme);
+  ModernUiDrawInfoCard (Ui, (MODERN_UI_RECT){ Content.X + CardWidth + CARD_GAP, Content.Y, CardWidth, 92 }, ModernUiGetString (ModernUiStringFirmwareRevision), L"edk2 / ArmVirt", Theme);
+  ModernUiDrawInfoCard (Ui, (MODERN_UI_RECT){ Content.X, Content.Y + 108, CardWidth, 92 }, ModernUiGetString (ModernUiStringDisplay), Resolution, Theme);
+  ModernUiDrawInfoCard (Ui, (MODERN_UI_RECT){ Content.X + CardWidth + CARD_GAP, Content.Y + 108, CardWidth, 92 }, ModernUiGetString (ModernUiStringBootOptions), BootCount, Theme);
 
   ModernUiDrawPanel (Ui, StatusRect, Theme);
-  DrawContentFocus (Ui, Theme, StatusRect, (BOOLEAN)(Focus == SetupFocusContent));
+  ModernUiDrawFocusFrame (Ui, StatusRect, (BOOLEAN)(Focus == SetupFocusContent), Theme);
   ModernUiDrawText (Ui, StatusRect.X + 20, StatusRect.Y + 18, ModernUiGetString (ModernUiStringPrototypeStatus), Theme->MutedText, Theme->Surface);
   ModernUiDrawText (Ui, StatusRect.X + 20, StatusRect.Y + 48, ModernUiGetString (ModernUiStringPrototypeStatusValue), Theme->Text, Theme->Surface);
   ModernUiDrawProgress (Ui, (MODERN_UI_RECT){ StatusRect.X + 20, StatusRect.Y + 82, StatusRect.Width - 40, 12 }, 68, Theme->Border, Theme->Accent);
@@ -1003,7 +920,7 @@ DrawBoot (
   RowX = Panel.X + 20;
   RowWidth = Panel.Width - 40;
   ModernUiDrawPanel (Ui, Panel, Theme);
-  DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
+  ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
   ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, ModernUiGetString (ModernUiStringBootInstruction), Theme->MutedText, Theme->Surface);
 
   BootOptions = EfiBootManagerGetLoadOptions (&BootOptionCount, LoadOptionTypeBoot);
@@ -1022,9 +939,7 @@ DrawBoot (
     Description = (BootOptions[Index].Description != NULL) ? BootOptions[Index].Description : ModernUiGetString (ModernUiStringNoDescription);
     State       = ((BootOptions[Index].Attributes & LOAD_OPTION_ACTIVE) != 0) ? ModernUiGetString (ModernUiStringActive) : ModernUiGetString (ModernUiStringInactive);
     IsSelected  = (BOOLEAN)((Focus == SetupFocusContent) && (VisibleIndex == Selected));
-    RowBackground = IsSelected ?
-                    ModernUiBlendColor (Theme->AccentSoft, Theme->SurfaceRaised, 16) :
-                    Theme->Surface;
+    RowBackground = ModernUiGetSelectableRowBackground (IsSelected, FALSE, FALSE, FALSE, Theme);
     UnicodeSPrint (
       Line,
       sizeof (Line),
@@ -1098,7 +1013,7 @@ DrawDevices (
   RowX = Panel.X + 20;
   RowWidth = Panel.Width - 40;
   ModernUiDrawPanel (Ui, Panel, Theme);
-  DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
+  ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
 
   Status = gBS->LocateHandleBuffer (AllHandles, NULL, NULL, &HandleCount, &Handles);
   if (EFI_ERROR (Status)) {
@@ -1106,7 +1021,7 @@ DrawDevices (
     return;
   }
 
-  DrawTextF (Ui, Panel.X + 20, Panel.Y + 20, Theme->MutedText, Theme->Surface, ModernUiGetString (ModernUiStringHandleCountFormat), HandleCount);
+  ModernUiDrawTextFormatted (Ui, Panel.X + 20, Panel.Y + 20, Theme->MutedText, Theme->Surface, ModernUiGetString (ModernUiStringHandleCountFormat), HandleCount);
 
   Shown = 0;
   for (Index = 0; (Index < HandleCount) && (Shown < 8); Index++) {
@@ -1122,9 +1037,7 @@ DrawDevices (
 
     UnicodeSPrint (Line, sizeof (Line), L"%02u  %s", Shown + 1, Text);
     IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Shown == Selected));
-    RowBackground = IsSelected ?
-                    ModernUiBlendColor (Theme->AccentSoft, Theme->SurfaceRaised, 16) :
-                    Theme->Surface;
+    RowBackground = ModernUiGetSelectableRowBackground (IsSelected, FALSE, FALSE, FALSE, Theme);
     ModernUiDrawSelectableRow (
       Ui,
       (MODERN_UI_RECT){ RowX, Panel.Y + 54 + Shown * 36, RowWidth, 30 },
@@ -1352,13 +1265,7 @@ DrawHiiRow (
     StrnCpyS (Line, ARRAY_SIZE (Line), Primary, ARRAY_SIZE (Line) - 1);
   }
 
-  Background = Selected ?
-               ModernUiBlendColor (Theme->AccentSoft, Theme->SurfaceRaised, 16) :
-               (Action ? Theme->SurfaceRaised : Theme->Surface);
-  if (Disabled && !Selected) {
-    Background = ModernUiBlendColor (Theme->Surface, Theme->Background, 35);
-  }
-
+  Background = ModernUiGetSelectableRowBackground (Selected, Disabled, Action, FALSE, Theme);
   TextColor  = Disabled ? Theme->Border : (Selected ? Theme->Text : (Action ? Theme->Text : Theme->MutedText));
   ModernUiDrawSelectableRow (
     Ui,
@@ -1404,7 +1311,7 @@ DrawHiiBridge (
 
   Panel = ContentRect (Ui);
   ModernUiDrawPanel (Ui, Panel, Theme);
-  DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
+  ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
   ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, ModernUiGetString (ModernUiStringHiiEnterForm), Theme->MutedText, Theme->Surface);
 
   if (mHiiModel.FormSetCount == 0) {
@@ -1521,7 +1428,7 @@ DrawSecurity (
   SecureBoot = GetSecureBootEnabled ();
   Panel = ContentRect (Ui);
   ModernUiDrawPanel (Ui, Panel, Theme);
-  DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
+  ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
   ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 24, ModernUiGetString (ModernUiStringSecureBoot), Theme->MutedText, Theme->Surface);
   ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 64, SecureBoot ? ModernUiGetString (ModernUiStringEnabled) : ModernUiGetString (ModernUiStringDisabled), SecureBoot ? Theme->Success : Theme->Warning, Theme->Surface);
   ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 116, ModernUiGetString (ModernUiStringSecurityReadOnly), Theme->MutedText, Theme->Surface);
@@ -1567,15 +1474,13 @@ DrawExit (
   RowWidth = Panel.Width - 52;
   ValueWidth = 220;
   ModernUiDrawPanel (Ui, Panel, Theme);
-  DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
+  ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
   ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, ModernUiGetString (ModernUiStringExitInstruction), Theme->MutedText, Theme->Surface);
 
   for (Index = 0; Index < ARRAY_SIZE (Items); Index++) {
     Y = Panel.Y + 72 + Index * 54;
     IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
-    RowBackground = IsSelected ?
-                    ModernUiBlendColor (Theme->AccentSoft, Theme->SurfaceRaised, 16) :
-                    Theme->SurfaceRaised;
+    RowBackground = ModernUiGetSelectableRowBackground (IsSelected, FALSE, TRUE, FALSE, Theme);
     ModernUiDrawSelectableRow (
       Ui,
       (MODERN_UI_RECT){ RowX, Y - 10, RowWidth, 40 },
@@ -1585,14 +1490,17 @@ DrawExit (
       FALSE,
       Theme
       );
-    ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ RowX, Y - 10, RowWidth, 40 }, IsSelected ? ModernUiBlendColor (Theme->Accent, Theme->Border, 30) : Theme->Border);
+    ModernUiDrawSelectableRowBorder (Ui, (MODERN_UI_RECT){ RowX, Y - 10, RowWidth, 40 }, IsSelected, Theme);
 
     if (Index == 3) {
       ModernUiDrawText (Ui, RowX + 20, Y, Items[Index], IsSelected ? Theme->Text : Theme->MutedText, RowBackground);
-      ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowX + RowWidth - ValueWidth - 12, Y - 4, ValueWidth, 28 }, Theme->Surface);
-      ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ RowX + RowWidth - ValueWidth - 12, Y - 4, ValueWidth, 28 }, IsSelected ? Theme->Accent : Theme->Border);
-      ModernUiDrawText (Ui, RowX + RowWidth - ValueWidth + 4, Y + 3, LanguageName, Theme->Text, Theme->Surface);
-      ModernUiDrawText (Ui, RowX + RowWidth - 38, Y + 3, L"v", Theme->Accent, Theme->Surface);
+      ModernUiDrawValueBox (
+        Ui,
+        (MODERN_UI_RECT){ RowX + RowWidth - ValueWidth - 12, Y - 4, ValueWidth, 28 },
+        LanguageName,
+        IsSelected,
+        Theme
+        );
     } else {
       ModernUiDrawText (Ui, RowX + 20, Y, (CHAR16 *)Items[Index], IsSelected ? Theme->Text : Theme->MutedText, RowBackground);
     }
@@ -1605,15 +1513,11 @@ DrawExit (
 
     DropdownX = RowX + RowWidth - ValueWidth - 12;
     DropdownY = Panel.Y + 72 + 4 * 54 - 8;
-    ModernUiFillRect (Ui, (MODERN_UI_RECT){ DropdownX, DropdownY, ValueWidth, 80 }, Theme->Surface);
-    ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ DropdownX, DropdownY, ValueWidth, 80 }, Theme->Accent);
-    ModernUiFillRect (Ui, (MODERN_UI_RECT){ DropdownX + 1, DropdownY + 1, ValueWidth - 2, 1 }, Theme->Accent);
+    ModernUiDrawDropdownFrame (Ui, (MODERN_UI_RECT){ DropdownX, DropdownY, ValueWidth, 80 }, Theme);
 
     for (Option = 0; Option < 2; Option++) {
       IsSelected = (BOOLEAN)(Option == mLanguageDropdownSelection);
-      RowBackground = IsSelected ?
-                      ModernUiBlendColor (Theme->AccentSoft, Theme->SurfaceRaised, 16) :
-                      Theme->Surface;
+      RowBackground = ModernUiGetSelectableRowBackground (IsSelected, FALSE, FALSE, FALSE, Theme);
       ModernUiDrawSelectableRow (
         Ui,
         (MODERN_UI_RECT){ DropdownX + 6, DropdownY + 7 + Option * 34, ValueWidth - 12, 30 },
