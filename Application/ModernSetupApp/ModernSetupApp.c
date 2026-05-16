@@ -33,6 +33,11 @@ typedef enum {
   PageMax
 } SETUP_PAGE;
 
+typedef enum {
+  SetupFocusNav = 0,
+  SetupFocusContent
+} SETUP_FOCUS;
+
 typedef struct {
   SETUP_PAGE    Page;
   CONST CHAR16  *Title;
@@ -71,6 +76,71 @@ BlendAccent (
   Result.Blue     = (UINT8)(((UINTN)Base.Blue * (100 - Weight) + (UINTN)Accent.Blue * Weight) / 100);
   Result.Reserved = 0;
   return Result;
+}
+
+/**
+  Get the selected item value for a page.
+
+  @param[in] Page             Page whose selected item is requested.
+  @param[in] BootSelection    Current Boot page selection.
+  @param[in] DeviceSelection  Current Devices page selection.
+  @param[in] ExitSelection    Current Exit page selection.
+
+  @return Selected item index for Page. Pages without selectable rows return 0.
+**/
+STATIC
+UINTN
+GetPageSelection (
+  IN SETUP_PAGE  Page,
+  IN UINTN       BootSelection,
+  IN UINTN       DeviceSelection,
+  IN UINTN       ExitSelection
+  )
+{
+  switch (Page) {
+    case PageBoot:
+      return BootSelection;
+    case PageDevices:
+      return DeviceSelection;
+    case PageExit:
+      return ExitSelection;
+    default:
+      return 0;
+  }
+}
+
+/**
+  Store the selected item value for a page.
+
+  @param[in]     Page             Page whose selected item is updated.
+  @param[in]     Selection        New selected item index.
+  @param[in,out] BootSelection    Boot page selection storage. Must not be NULL.
+  @param[in,out] DeviceSelection  Devices page selection storage. Must not be NULL.
+  @param[in,out] ExitSelection    Exit page selection storage. Must not be NULL.
+**/
+STATIC
+VOID
+SetPageSelection (
+  IN     SETUP_PAGE  Page,
+  IN     UINTN       Selection,
+  IN OUT UINTN       *BootSelection,
+  IN OUT UINTN       *DeviceSelection,
+  IN OUT UINTN       *ExitSelection
+  )
+{
+  switch (Page) {
+    case PageBoot:
+      *BootSelection = Selection;
+      break;
+    case PageDevices:
+      *DeviceSelection = Selection;
+      break;
+    case PageExit:
+      *ExitSelection = Selection;
+      break;
+    default:
+      break;
+  }
 }
 
 /**
@@ -152,6 +222,67 @@ GetBootCount (
   Count = Size / sizeof (UINT16);
   FreePool (BootOrder);
   return Count;
+}
+
+/**
+  Count visible device-path rows for the Devices page.
+
+  @return Number of device-path rows that can be selected in the current v1
+          Devices page, capped at 8 rows.
+**/
+STATIC
+UINTN
+GetVisibleDeviceCount (
+  VOID
+  )
+{
+  EFI_STATUS                Status;
+  EFI_HANDLE                *Handles;
+  UINTN                     HandleCount;
+  UINTN                     Index;
+  UINTN                     Count;
+  EFI_DEVICE_PATH_PROTOCOL  *DevicePath;
+
+  Status = gBS->LocateHandleBuffer (AllHandles, NULL, NULL, &HandleCount, &Handles);
+  if (EFI_ERROR (Status)) {
+    return 0;
+  }
+
+  Count = 0;
+  for (Index = 0; (Index < HandleCount) && (Count < 8); Index++) {
+    DevicePath = DevicePathFromHandle (Handles[Index]);
+    if (DevicePath != NULL) {
+      Count++;
+    }
+  }
+
+  FreePool (Handles);
+  return Count;
+}
+
+/**
+  Return the selectable row count for one page.
+
+  @param[in] Page  Page whose selectable count is requested.
+
+  @return Number of selectable rows or actions available on Page.
+**/
+STATIC
+UINTN
+GetPageSelectableCount (
+  IN SETUP_PAGE  Page
+  )
+{
+  switch (Page) {
+    case PageBoot:
+      return MIN (GetBootCount (), 9);
+    case PageDevices:
+      return GetVisibleDeviceCount ();
+    case PageExit:
+      return 3;
+    default:
+      return 0;
+  }
 }
 
 /**
@@ -242,13 +373,15 @@ DrawHeader (
   @param[in] Ui     Initialized render context. Must not be NULL.
   @param[in] Theme  Theme token table. Must not be NULL.
   @param[in] Page   Currently selected page.
+  @param[in] Focus  Current focus area.
 **/
 STATIC
 VOID
 DrawNav (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
-  IN SETUP_PAGE                Page
+  IN SETUP_PAGE                Page,
+  IN SETUP_FOCUS               Focus
   )
 {
   UINTN  Index;
@@ -262,7 +395,7 @@ DrawNav (
     Y = 112 + (Index * 54);
     if (mPages[Index].Page == Page) {
       ModernUiFillRect (Ui, (MODERN_UI_RECT){ 16, Y - 10, 200, 42 }, Theme->AccentSoft);
-      ModernUiFillRect (Ui, (MODERN_UI_RECT){ 16, Y - 10, 4, 42 }, Theme->Accent);
+      ModernUiFillRect (Ui, (MODERN_UI_RECT){ 16, Y - 10, 4, 42 }, (Focus == SetupFocusNav) ? Theme->Accent : Theme->Border);
       ModernUiDrawText (Ui, 32, Y, (CHAR16 *)mPages[Index].Title, Theme->Text, Theme->AccentSoft);
     } else {
       ModernUiDrawText (Ui, 32, Y, (CHAR16 *)mPages[Index].Title, Theme->MutedText, Theme->Surface);
@@ -270,7 +403,7 @@ DrawNav (
   }
 
   ModernUiDrawText (Ui, 24, Ui->Height - 80, L"Up/Down: page", Theme->MutedText, Theme->Surface);
-  ModernUiDrawText (Ui, 24, Ui->Height - 58, L"Enter: action", Theme->MutedText, Theme->Surface);
+  ModernUiDrawText (Ui, 24, Ui->Height - 58, L"Right/Enter: open", Theme->MutedText, Theme->Surface);
   ModernUiDrawText (Ui, 24, Ui->Height - 36, L"Esc: continue", Theme->MutedText, Theme->Surface);
 }
 
@@ -288,6 +421,28 @@ ContentRect (
   )
 {
   return (MODERN_UI_RECT){ 256, 82, Ui->Width - 280, Ui->Height - 112 };
+}
+
+/**
+  Draw a focus border around a content rectangle when content has focus.
+
+  @param[in] Ui        Initialized render context. Must not be NULL.
+  @param[in] Theme     Theme token table. Must not be NULL.
+  @param[in] Rect      Content rectangle.
+  @param[in] HasFocus  TRUE when content focus should be visible.
+**/
+STATIC
+VOID
+DrawContentFocus (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN MODERN_UI_RECT            Rect,
+  IN BOOLEAN                   HasFocus
+  )
+{
+  if (HasFocus) {
+    ModernUiStrokeRect (Ui, Rect, Theme->Accent);
+  }
 }
 
 /**
@@ -342,19 +497,23 @@ DrawInfoCard (
 
   @param[in] Ui     Initialized render context. Must not be NULL.
   @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] Focus  Current focus area.
 **/
 STATIC
 VOID
 DrawDashboard (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
-  IN CONST MODERN_UI_THEME     *Theme
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus
   )
 {
   CHAR16  Resolution[48];
   CHAR16  BootCount[48];
   UINTN   CardWidth;
+  MODERN_UI_RECT  StatusRect;
 
   CardWidth = (Ui->Width - 304 - CARD_GAP) / 2;
+  StatusRect = (MODERN_UI_RECT){ 256, 374, Ui->Width - 304, 132 };
   UnicodeSPrint (Resolution, sizeof (Resolution), L"%u x %u", Ui->Width, Ui->Height);
   UnicodeSPrint (BootCount, sizeof (BootCount), L"%u entries", GetBootCount ());
 
@@ -363,7 +522,8 @@ DrawDashboard (
   DrawInfoCard (Ui, Theme, 256, 250, CardWidth, L"Display", Resolution);
   DrawInfoCard (Ui, Theme, 256 + CardWidth + CARD_GAP, 250, CardWidth, L"Boot Options", BootCount);
 
-  ModernUiDrawPanel (Ui, (MODERN_UI_RECT){ 256, 374, Ui->Width - 304, 132 }, Theme);
+  ModernUiDrawPanel (Ui, StatusRect, Theme);
+  DrawContentFocus (Ui, Theme, StatusRect, (BOOLEAN)(Focus == SetupFocusContent));
   ModernUiDrawText (Ui, 276, 396, L"Prototype Status", Theme->MutedText, Theme->Surface);
   ModernUiDrawText (Ui, 276, 430, L"GOP renderer online. Keyboard navigation is active.", Theme->Text, Theme->Surface);
   ModernUiDrawProgress (Ui, (MODERN_UI_RECT){ 276, 470, Ui->Width - 344, 12 }, 68, Theme->Border, Theme->Accent);
@@ -412,14 +572,18 @@ BootDescription (
 /**
   Draw the Boot page with read-only BootOrder entries.
 
-  @param[in] Ui     Initialized render context. Must not be NULL.
-  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] Ui        Initialized render context. Must not be NULL.
+  @param[in] Theme     Theme token table. Must not be NULL.
+  @param[in] Focus     Current focus area.
+  @param[in] Selected  Selected BootOrder row.
 **/
 STATIC
 VOID
 DrawBoot (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
-  IN CONST MODERN_UI_THEME     *Theme
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus,
+  IN UINTN                     Selected
   )
 {
   EFI_STATUS  Status;
@@ -430,8 +594,12 @@ DrawBoot (
   UINTN       Y;
   CHAR16      Line[160];
   CHAR16      *Description;
+  BOOLEAN     IsSelected;
+  MODERN_UI_RECT  Panel;
 
-  ModernUiDrawPanel (Ui, ContentRect (Ui), Theme);
+  Panel = ContentRect (Ui);
+  ModernUiDrawPanel (Ui, Panel, Theme);
+  DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
   ModernUiDrawText (Ui, 280, 118, L"Boot order is read-only in this prototype.", Theme->MutedText, Theme->Surface);
 
   Status = ReadGlobalVariable (EFI_BOOT_ORDER_VARIABLE_NAME, (VOID **)&BootOrder, &Size);
@@ -444,6 +612,7 @@ DrawBoot (
   for (Index = 0; (Index < Count) && (Index < 9); Index++) {
     Y           = 160 + Index * 42;
     Description = BootDescription (BootOrder[Index]);
+    IsSelected  = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
     UnicodeSPrint (
       Line,
       sizeof (Line),
@@ -452,8 +621,12 @@ DrawBoot (
       BootOrder[Index],
       (Description != NULL) ? Description : L"(no description)"
       );
-    ModernUiFillRect (Ui, (MODERN_UI_RECT){ 280, Y - 8, Ui->Width - 340, 34 }, (Index == 0) ? Theme->SurfaceRaised : Theme->Surface);
-    ModernUiDrawText (Ui, 296, Y, Line, (Index == 0) ? Theme->Text : Theme->MutedText, (Index == 0) ? Theme->SurfaceRaised : Theme->Surface);
+    ModernUiFillRect (Ui, (MODERN_UI_RECT){ 280, Y - 8, Ui->Width - 340, 34 }, IsSelected ? Theme->AccentSoft : Theme->Surface);
+    if (IsSelected) {
+      ModernUiFillRect (Ui, (MODERN_UI_RECT){ 280, Y - 8, 4, 34 }, Theme->Accent);
+    }
+
+    ModernUiDrawText (Ui, 296, Y, Line, IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
     if (Description != NULL) {
       FreePool (Description);
     }
@@ -465,14 +638,18 @@ DrawBoot (
 /**
   Draw the Devices page with a small handle/device-path inventory.
 
-  @param[in] Ui     Initialized render context. Must not be NULL.
-  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] Ui        Initialized render context. Must not be NULL.
+  @param[in] Theme     Theme token table. Must not be NULL.
+  @param[in] Focus     Current focus area.
+  @param[in] Selected  Selected device-path row.
 **/
 STATIC
 VOID
 DrawDevices (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
-  IN CONST MODERN_UI_THEME     *Theme
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus,
+  IN UINTN                     Selected
   )
 {
   EFI_STATUS                Status;
@@ -483,8 +660,12 @@ DrawDevices (
   EFI_DEVICE_PATH_PROTOCOL  *DevicePath;
   CHAR16                    *Text;
   CHAR16                    Line[168];
+  BOOLEAN                   IsSelected;
+  MODERN_UI_RECT            Panel;
 
-  ModernUiDrawPanel (Ui, ContentRect (Ui), Theme);
+  Panel = ContentRect (Ui);
+  ModernUiDrawPanel (Ui, Panel, Theme);
+  DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
 
   Status = gBS->LocateHandleBuffer (AllHandles, NULL, NULL, &HandleCount, &Handles);
   if (EFI_ERROR (Status)) {
@@ -507,7 +688,17 @@ DrawDevices (
     }
 
     UnicodeSPrint (Line, sizeof (Line), L"%02u  %s", Shown + 1, Text);
-    ModernUiDrawText (Ui, 280, 160 + Shown * 38, Line, Theme->Text, Theme->Surface);
+    IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Shown == Selected));
+    ModernUiFillRect (
+      Ui,
+      (MODERN_UI_RECT){ 280, 152 + Shown * 38, Ui->Width - 340, 32 },
+      IsSelected ? Theme->AccentSoft : Theme->Surface
+      );
+    if (IsSelected) {
+      ModernUiFillRect (Ui, (MODERN_UI_RECT){ 280, 152 + Shown * 38, 4, 32 }, Theme->Accent);
+    }
+
+    ModernUiDrawText (Ui, 296, 160 + Shown * 38, Line, IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
     FreePool (Text);
     Shown++;
   }
@@ -520,18 +711,23 @@ DrawDevices (
 
   @param[in] Ui     Initialized render context. Must not be NULL.
   @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] Focus  Current focus area.
 **/
 STATIC
 VOID
 DrawSecurity (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
-  IN CONST MODERN_UI_THEME     *Theme
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus
   )
 {
   BOOLEAN  SecureBoot;
+  MODERN_UI_RECT  Panel;
 
   SecureBoot = GetSecureBootEnabled ();
-  ModernUiDrawPanel (Ui, ContentRect (Ui), Theme);
+  Panel = ContentRect (Ui);
+  ModernUiDrawPanel (Ui, Panel, Theme);
+  DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
   ModernUiDrawText (Ui, 280, 126, L"Secure Boot", Theme->MutedText, Theme->Surface);
   ModernUiDrawText (Ui, 280, 166, SecureBoot ? L"Enabled" : L"Disabled", SecureBoot ? Theme->Success : Theme->Warning, Theme->Surface);
   ModernUiDrawText (Ui, 280, 218, L"Key management is intentionally read-only in v1.", Theme->MutedText, Theme->Surface);
@@ -542,6 +738,7 @@ DrawSecurity (
 
   @param[in] Ui        Initialized render context. Must not be NULL.
   @param[in] Theme     Theme token table. Must not be NULL.
+  @param[in] Focus     Current focus area.
   @param[in] Selected  Selected action index. Values 0..2 are expected.
 **/
 STATIC
@@ -549,6 +746,7 @@ VOID
 DrawExit (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus,
   IN UINTN                     Selected
   )
 {
@@ -559,18 +757,27 @@ DrawExit (
   };
   UINTN         Index;
   UINTN         Y;
+  BOOLEAN       IsSelected;
+  MODERN_UI_RECT  Panel;
 
-  ModernUiDrawPanel (Ui, ContentRect (Ui), Theme);
-  ModernUiDrawText (Ui, 280, 118, L"Use Left/Right to select an action, Enter to run it.", Theme->MutedText, Theme->Surface);
+  Panel = ContentRect (Ui);
+  ModernUiDrawPanel (Ui, Panel, Theme);
+  DrawContentFocus (Ui, Theme, Panel, (BOOLEAN)(Focus == SetupFocusContent));
+  ModernUiDrawText (Ui, 280, 118, L"Use Up/Down to select an action, Enter to run it.", Theme->MutedText, Theme->Surface);
 
   for (Index = 0; Index < ARRAY_SIZE (Items); Index++) {
     Y = 172 + Index * 58;
+    IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
     ModernUiFillRect (
       Ui,
       (MODERN_UI_RECT){ 280, Y - 12, Ui->Width - 340, 42 },
-      (Index == Selected) ? Theme->AccentSoft : Theme->Surface
+      IsSelected ? Theme->AccentSoft : Theme->Surface
       );
-    ModernUiDrawText (Ui, 300, Y, (CHAR16 *)Items[Index], (Index == Selected) ? Theme->Text : Theme->MutedText, (Index == Selected) ? Theme->AccentSoft : Theme->Surface);
+    if (IsSelected) {
+      ModernUiFillRect (Ui, (MODERN_UI_RECT){ 280, Y - 12, 4, 42 }, Theme->Accent);
+    }
+
+    ModernUiDrawText (Ui, 300, Y, (CHAR16 *)Items[Index], IsSelected ? Theme->Text : Theme->MutedText, IsSelected ? Theme->AccentSoft : Theme->Surface);
   }
 }
 
@@ -634,6 +841,9 @@ LaunchUiAppFallback (
   @param[in] Ui             Initialized render context. Must not be NULL.
   @param[in] Theme          Theme token table. Must not be NULL.
   @param[in] Page           Page to draw.
+  @param[in] Focus          Current focus area.
+  @param[in] BootSelection  Selected Boot page row.
+  @param[in] DeviceSelection Selected Devices page row.
   @param[in] ExitSelection  Selected Exit page action.
 **/
 STATIC
@@ -642,29 +852,32 @@ DrawPage (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
   IN SETUP_PAGE                Page,
+  IN SETUP_FOCUS               Focus,
+  IN UINTN                     BootSelection,
+  IN UINTN                     DeviceSelection,
   IN UINTN                     ExitSelection
   )
 {
   ModernUiClear (Ui, Theme->Background);
   DrawHeader (Ui, Theme);
-  DrawNav (Ui, Theme, Page);
+  DrawNav (Ui, Theme, Page, Focus);
   DrawPageTitle (Ui, Theme, Page);
 
   switch (Page) {
     case PageDashboard:
-      DrawDashboard (Ui, Theme);
+      DrawDashboard (Ui, Theme, Focus);
       break;
     case PageBoot:
-      DrawBoot (Ui, Theme);
+      DrawBoot (Ui, Theme, Focus, BootSelection);
       break;
     case PageDevices:
-      DrawDevices (Ui, Theme);
+      DrawDevices (Ui, Theme, Focus, DeviceSelection);
       break;
     case PageSecurity:
-      DrawSecurity (Ui, Theme);
+      DrawSecurity (Ui, Theme, Focus);
       break;
     case PageExit:
-      DrawExit (Ui, Theme, ExitSelection);
+      DrawExit (Ui, Theme, Focus, ExitSelection);
       break;
     default:
       break;
@@ -693,7 +906,12 @@ UefiMain (
   MODERN_UI_INPUT_EVENT     Event;
   CONST MODERN_UI_THEME     *Theme;
   SETUP_PAGE                Page;
+  SETUP_FOCUS               Focus;
+  UINTN                     BootSelection;
+  UINTN                     DeviceSelection;
   UINTN                     ExitSelection;
+  UINTN                     Selection;
+  UINTN                     SelectableCount;
   BOOLEAN                   Redraw;
 
   gBS->SetWatchdogTimer (0, 0, 0, NULL);
@@ -707,12 +925,15 @@ UefiMain (
   ModernUiInputInit (&Input);
   Theme         = ModernUiGetTheme ();
   Page          = PageDashboard;
+  Focus         = SetupFocusNav;
+  BootSelection = 0;
+  DeviceSelection = 0;
   ExitSelection = 0;
   Redraw        = TRUE;
 
   for (;;) {
     if (Redraw) {
-      DrawPage (&Ui, Theme, Page, ExitSelection);
+      DrawPage (&Ui, Theme, Page, Focus, BootSelection, DeviceSelection, ExitSelection);
       Redraw = FALSE;
     }
 
@@ -723,30 +944,59 @@ UefiMain (
 
     switch (Event.Type) {
       case ModernUiInputUp:
-        Page   = (Page == 0) ? (PageMax - 1) : (Page - 1);
+        if (Focus == SetupFocusNav) {
+          Page = (Page == 0) ? (PageMax - 1) : (Page - 1);
+        } else {
+          SelectableCount = GetPageSelectableCount (Page);
+          if (SelectableCount > 0) {
+            Selection = GetPageSelection (Page, BootSelection, DeviceSelection, ExitSelection);
+            Selection = (Selection == 0) ? (SelectableCount - 1) : (Selection - 1);
+            SetPageSelection (Page, Selection, &BootSelection, &DeviceSelection, &ExitSelection);
+          }
+        }
+
         Redraw = TRUE;
         break;
       case ModernUiInputDown:
+        if (Focus == SetupFocusNav) {
+          Page = (Page + 1) % PageMax;
+        } else {
+          SelectableCount = GetPageSelectableCount (Page);
+          if (SelectableCount > 0) {
+            Selection = GetPageSelection (Page, BootSelection, DeviceSelection, ExitSelection);
+            Selection = (Selection + 1) % SelectableCount;
+            SetPageSelection (Page, Selection, &BootSelection, &DeviceSelection, &ExitSelection);
+          }
+        }
+
+        Redraw = TRUE;
+        break;
       case ModernUiInputTab:
-        Page   = (Page + 1) % PageMax;
+        Focus  = (Focus == SetupFocusNav) ? SetupFocusContent : SetupFocusNav;
         Redraw = TRUE;
         break;
       case ModernUiInputLeft:
-        if (Page == PageExit) {
-          ExitSelection = (ExitSelection == 0) ? 2 : (ExitSelection - 1);
-          Redraw        = TRUE;
-        }
+        Focus  = SetupFocusNav;
+        Redraw = TRUE;
         break;
       case ModernUiInputRight:
-        if (Page == PageExit) {
-          ExitSelection = (ExitSelection + 1) % 3;
-          Redraw        = TRUE;
-        }
+        Focus  = SetupFocusContent;
+        Redraw = TRUE;
         break;
       case ModernUiInputEscape:
-        return EFI_SUCCESS;
+        if (Focus == SetupFocusContent) {
+          Focus  = SetupFocusNav;
+          Redraw = TRUE;
+        } else {
+          return EFI_SUCCESS;
+        }
+
+        break;
       case ModernUiInputEnter:
-        if (Page == PageExit) {
+        if (Focus == SetupFocusNav) {
+          Focus  = SetupFocusContent;
+          Redraw = TRUE;
+        } else if (Page == PageExit) {
           if (ExitSelection == 0) {
             return EFI_SUCCESS;
           } else if (ExitSelection == 1) {

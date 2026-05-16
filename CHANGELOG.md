@@ -28,6 +28,9 @@ this file as both a release log and a lightweight development progress record.
   passing a one-line buffer as a multi-line BLT source.
 - Fixed text rendering setup by providing the HII Font output dimensions and
   clipping flags expected by edk2's direct-to-screen `StringToImage()` path.
+- Added an explicit navigation/content focus model so Right/Enter moves into the
+  current page content area, Left/Esc returns to navigation, and content rows or
+  actions have visible selection.
 
 ### Current Status
 
