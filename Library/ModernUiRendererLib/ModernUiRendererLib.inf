@@ -1,0 +1,30 @@
+## @file
+# GOP-backed renderer library for ModernSetupPkg.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = ModernUiRendererLib
+  FILE_GUID                      = D3D33C67-43C2-45F0-A9FB-D83F631BA5FE
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 0.1
+  LIBRARY_CLASS                  = ModernUiRendererLib|UEFI_APPLICATION
+
+[Sources]
+  ModernUiRendererLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  ModernSetupPkg/ModernSetupPkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  DebugLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+
+[Protocols]
+  gEfiGraphicsOutputProtocolGuid
+  gEfiHiiFontProtocolGuid

@@ -1,0 +1,28 @@
+## @file
+# Input adapter library for ModernSetupPkg.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = ModernUiInputLib
+  FILE_GUID                      = 4422A402-A767-48DF-A252-F63B5C168B75
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 0.1
+  LIBRARY_CLASS                  = ModernUiInputLib|UEFI_APPLICATION
+
+[Sources]
+  ModernUiInputLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  ModernSetupPkg/ModernSetupPkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  UefiBootServicesTableLib
+
+[Protocols]
+  gEfiAbsolutePointerProtocolGuid
+  gEfiSimpleTextInputExProtocolGuid

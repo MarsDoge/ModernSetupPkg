@@ -1,0 +1,5 @@
+Build/
+Conf/
+*.fd
+*.log
+.DS_Store

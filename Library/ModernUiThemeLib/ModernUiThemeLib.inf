@@ -1,0 +1,20 @@
+## @file
+# Theme library for ModernSetupPkg.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = ModernUiThemeLib
+  FILE_GUID                      = 15FA8D87-5E31-4968-9E2C-D46F21F558A6
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.1
+  LIBRARY_CLASS                  = ModernUiThemeLib
+
+[Sources]
+  ModernUiThemeLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  ModernSetupPkg/ModernSetupPkg.dec
