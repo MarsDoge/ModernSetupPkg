@@ -23,6 +23,14 @@ typedef struct {
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL    Success;
 } MODERN_UI_THEME;
 
+/**
+  Return the active built-in theme token table.
+
+  The returned pointer is owned by ModernUiThemeLib and must not be freed or
+  modified by the caller.
+
+  @return Non-NULL pointer to immutable theme tokens.
+**/
 CONST MODERN_UI_THEME *
 EFIAPI
 ModernUiGetTheme (

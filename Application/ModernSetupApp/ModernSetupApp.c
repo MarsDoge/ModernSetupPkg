@@ -47,6 +47,15 @@ STATIC CONST PAGE_DESCRIPTOR  mPages[] = {
   { PageExit,      L"Exit",      L"Leave setup or reset" }
 };
 
+/**
+  Blend two colors by percentage weight.
+
+  @param[in] Base    Base color used when Weight is 0.
+  @param[in] Accent  Accent color used when Weight is 100.
+  @param[in] Weight  Accent weight in percent. Values above 100 are not expected.
+
+  @return Blended color with Reserved cleared to zero.
+**/
 STATIC
 EFI_GRAPHICS_OUTPUT_BLT_PIXEL
 BlendAccent (
@@ -64,6 +73,19 @@ BlendAccent (
   return Result;
 }
 
+/**
+  Read a UEFI global variable into an allocated buffer.
+
+  @param[in]  Name        Variable name. Must not be NULL.
+  @param[out] Buffer      Receives an allocated buffer owned by the caller. Must
+                          not be NULL. Set to NULL on failure.
+  @param[out] BufferSize  Receives the buffer size in bytes. Must not be NULL.
+
+  @retval EFI_SUCCESS            Variable was read and Buffer must be freed.
+  @retval EFI_INVALID_PARAMETER  Name, Buffer, or BufferSize is NULL.
+  @retval EFI_OUT_OF_RESOURCES   Allocation failed.
+  @retval others                 Status returned by GetVariable().
+**/
 STATIC
 EFI_STATUS
 ReadGlobalVariable (
@@ -105,6 +127,12 @@ ReadGlobalVariable (
   return EFI_SUCCESS;
 }
 
+/**
+  Count entries in the BootOrder variable.
+
+  @return Number of Boot#### entries in BootOrder, or 0 when BootOrder is absent
+          or unreadable.
+**/
 STATIC
 UINTN
 GetBootCount (
@@ -126,6 +154,12 @@ GetBootCount (
   return Count;
 }
 
+/**
+  Read the SecureBoot variable as a boolean state.
+
+  @retval TRUE   SecureBoot exists and is non-zero.
+  @retval FALSE  SecureBoot is absent, unreadable, too small, or zero.
+**/
 STATIC
 BOOLEAN
 GetSecureBootEnabled (
@@ -147,6 +181,17 @@ GetSecureBootEnabled (
   return Enabled;
 }
 
+/**
+  Format and draw a single text line.
+
+  @param[in] Ui          Initialized render context. Must not be NULL.
+  @param[in] X           Left coordinate in pixels.
+  @param[in] Y           Top coordinate in pixels.
+  @param[in] Color       Text foreground color.
+  @param[in] Background  Text background color.
+  @param[in] Format      PrintLib format string. Must not be NULL.
+  @param[in] ...         Format arguments.
+**/
 STATIC
 VOID
 DrawTextF (
@@ -169,6 +214,12 @@ DrawTextF (
   ModernUiDrawText (Ui, X, Y, Buffer, Color, Background);
 }
 
+/**
+  Draw the top status/header band.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+**/
 STATIC
 VOID
 DrawHeader (
@@ -185,6 +236,13 @@ DrawHeader (
   DrawTextF (Ui, Ui->Width - 260, 15, Theme->MutedText, Header, L"AARCH64  %ux%u", Ui->Width, Ui->Height);
 }
 
+/**
+  Draw the left navigation rail.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] Page   Currently selected page.
+**/
 STATIC
 VOID
 DrawNav (
@@ -216,6 +274,13 @@ DrawNav (
   ModernUiDrawText (Ui, 24, Ui->Height - 36, L"Esc: continue", Theme->MutedText, Theme->Surface);
 }
 
+/**
+  Calculate the main content rectangle for the current resolution.
+
+  @param[in] Ui  Initialized render context. Must not be NULL.
+
+  @return Content rectangle in screen coordinates.
+**/
 STATIC
 MODERN_UI_RECT
 ContentRect (
@@ -225,6 +290,13 @@ ContentRect (
   return (MODERN_UI_RECT){ 256, 82, Ui->Width - 280, Ui->Height - 112 };
 }
 
+/**
+  Draw the current page title and hint text.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] Page   Page descriptor index to draw.
+**/
 STATIC
 VOID
 DrawPageTitle (
@@ -237,6 +309,17 @@ DrawPageTitle (
   ModernUiDrawText (Ui, 256, 98, (CHAR16 *)mPages[Page].Hint, Theme->MutedText, Theme->Background);
 }
 
+/**
+  Draw a compact information card.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] X      Left coordinate in pixels.
+  @param[in] Y      Top coordinate in pixels.
+  @param[in] W      Card width in pixels.
+  @param[in] Title  Card title. Must not be NULL.
+  @param[in] Value  Card value. Must not be NULL.
+**/
 STATIC
 VOID
 DrawInfoCard (
@@ -254,6 +337,12 @@ DrawInfoCard (
   ModernUiDrawText (Ui, X + 18, Y + 48, (CHAR16 *)Value, Theme->Text, Theme->Surface);
 }
 
+/**
+  Draw the Dashboard page.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+**/
 STATIC
 VOID
 DrawDashboard (
@@ -280,6 +369,14 @@ DrawDashboard (
   ModernUiDrawProgress (Ui, (MODERN_UI_RECT){ 276, 470, Ui->Width - 344, 12 }, 68, Theme->Border, Theme->Accent);
 }
 
+/**
+  Read the description string from one Boot#### option.
+
+  @param[in] BootId  Numeric Boot#### identifier.
+
+  @return Allocated description string owned by the caller, or NULL when the
+          option is absent, malformed, or allocation fails.
+**/
 STATIC
 CHAR16 *
 BootDescription (
@@ -312,6 +409,12 @@ BootDescription (
   return Description;
 }
 
+/**
+  Draw the Boot page with read-only BootOrder entries.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+**/
 STATIC
 VOID
 DrawBoot (
@@ -359,6 +462,12 @@ DrawBoot (
   FreePool (BootOrder);
 }
 
+/**
+  Draw the Devices page with a small handle/device-path inventory.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+**/
 STATIC
 VOID
 DrawDevices (
@@ -406,6 +515,12 @@ DrawDevices (
   FreePool (Handles);
 }
 
+/**
+  Draw the Security page with read-only Secure Boot state.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+**/
 STATIC
 VOID
 DrawSecurity (
@@ -422,6 +537,13 @@ DrawSecurity (
   ModernUiDrawText (Ui, 280, 218, L"Key management is intentionally read-only in v1.", Theme->MutedText, Theme->Surface);
 }
 
+/**
+  Draw the Exit page and selected action.
+
+  @param[in] Ui        Initialized render context. Must not be NULL.
+  @param[in] Theme     Theme token table. Must not be NULL.
+  @param[in] Selected  Selected action index. Values 0..2 are expected.
+**/
 STATIC
 VOID
 DrawExit (
@@ -452,6 +574,17 @@ DrawExit (
   }
 }
 
+/**
+  Load and start the classic edk2 UiApp from the same firmware volume.
+
+  @param[in] ImageHandle  Current image handle. Must not be NULL.
+
+  @retval EFI_SUCCESS           UiApp returned successfully.
+  @retval EFI_NOT_FOUND         Current image device path could not be resolved.
+  @retval EFI_OUT_OF_RESOURCES  Device path allocation failed.
+  @retval others                Status returned by HandleProtocol(), LoadImage(),
+                                or StartImage().
+**/
 STATIC
 EFI_STATUS
 LaunchUiAppFallback (
@@ -495,6 +628,14 @@ LaunchUiAppFallback (
   return gBS->StartImage (ChildHandle, NULL, NULL);
 }
 
+/**
+  Draw the full application frame for one page.
+
+  @param[in] Ui             Initialized render context. Must not be NULL.
+  @param[in] Theme          Theme token table. Must not be NULL.
+  @param[in] Page           Page to draw.
+  @param[in] ExitSelection  Selected Exit page action.
+**/
 STATIC
 VOID
 DrawPage (
@@ -530,6 +671,15 @@ DrawPage (
   }
 }
 
+/**
+  ModernSetupApp entry point.
+
+  @param[in] ImageHandle  UEFI image handle for this application.
+  @param[in] SystemTable  UEFI system table. Must not be NULL.
+
+  @retval EFI_SUCCESS  User selected continue boot or left setup.
+  @retval others       Renderer initialization failed.
+**/
 EFI_STATUS
 EFIAPI
 UefiMain (

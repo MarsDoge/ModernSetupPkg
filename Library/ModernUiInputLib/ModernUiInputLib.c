@@ -10,6 +10,14 @@
 
 #include <ModernUi/ModernUiInput.h>
 
+/**
+  Convert raw firmware key data into a ModernUi input type.
+
+  @param[in] ScanCode     UEFI scan code from Simple Text Input.
+  @param[in] UnicodeChar  Unicode character from Simple Text Input.
+
+  @return Normalized UI input type. Unsupported keys return ModernUiInputOther.
+**/
 STATIC
 MODERN_UI_INPUT_TYPE
 MapKey (
@@ -44,6 +52,15 @@ MapKey (
   }
 }
 
+/**
+  Initialize the input context from firmware console and optional pointer services.
+
+  @param[out] Context  Input context to initialize. Must not be NULL. Missing
+                       optional protocols are recorded as NULL members.
+
+  @retval EFI_SUCCESS            Context was initialized.
+  @retval EFI_INVALID_PARAMETER  Context is NULL.
+**/
 EFI_STATUS
 EFIAPI
 ModernUiInputInit (
@@ -80,6 +97,16 @@ ModernUiInputInit (
   return EFI_SUCCESS;
 }
 
+/**
+  Wait for and return the next normalized UI input event.
+
+  @param[in,out] Context  Initialized input context. Must not be NULL.
+  @param[out]    Event    Receives a normalized input event. Must not be NULL.
+
+  @retval EFI_SUCCESS            Event contains input data.
+  @retval EFI_INVALID_PARAMETER  Context or Event is NULL.
+  @retval EFI_NOT_READY          No usable input source is available.
+**/
 EFI_STATUS
 EFIAPI
 ModernUiReadInput (

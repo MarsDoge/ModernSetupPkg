@@ -21,6 +21,14 @@ STATIC CONST MODERN_UI_THEME  mTheme = {
   RGB (0x52, 0xD2, 0x73)   // Success
 };
 
+/**
+  Return the active built-in theme token table.
+
+  The returned pointer is owned by this library and must not be freed or
+  modified by the caller.
+
+  @return Non-NULL pointer to immutable theme tokens.
+**/
 CONST MODERN_UI_THEME *
 EFIAPI
 ModernUiGetTheme (

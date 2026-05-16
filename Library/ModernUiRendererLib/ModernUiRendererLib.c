@@ -13,6 +13,16 @@
 
 #include <ModernUi/ModernUiRenderer.h>
 
+/**
+  Initialize a render context from firmware graphics services.
+
+  @param[out] Context  Render context to initialize. Must not be NULL. On
+                       success, GOP is required and Font is optional.
+
+  @retval EFI_SUCCESS            Context was initialized.
+  @retval EFI_INVALID_PARAMETER  Context is NULL.
+  @retval EFI_NOT_FOUND          GOP is unavailable or has no active mode.
+**/
 EFI_STATUS
 EFIAPI
 ModernUiRendererInit (
@@ -60,6 +70,17 @@ ModernUiRendererInit (
   return EFI_SUCCESS;
 }
 
+/**
+  Fill a rectangle in the active render target.
+
+  @param[in] Context  Initialized render context. Must not be NULL.
+  @param[in] Rect     Pixel rectangle. Zero width or height is invalid.
+  @param[in] Color    Fill color.
+
+  @retval EFI_SUCCESS            Rectangle was filled or clipped outside view.
+  @retval EFI_INVALID_PARAMETER  Context is NULL, GOP is unavailable, or Rect is empty.
+  @retval EFI_OUT_OF_RESOURCES   Temporary BLT allocation failed.
+**/
 EFI_STATUS
 EFIAPI
 ModernUiFillRect (
@@ -113,6 +134,16 @@ ModernUiFillRect (
   return Status;
 }
 
+/**
+  Fill the full render target with one color.
+
+  @param[in] Context  Initialized render context. Must not be NULL.
+  @param[in] Color    Fill color.
+
+  @retval EFI_SUCCESS            The screen was cleared.
+  @retval EFI_INVALID_PARAMETER  Context is NULL or invalid.
+  @retval EFI_OUT_OF_RESOURCES   Temporary BLT allocation failed.
+**/
 EFI_STATUS
 EFIAPI
 ModernUiClear (
@@ -127,6 +158,17 @@ ModernUiClear (
   return ModernUiFillRect (Context, (MODERN_UI_RECT){ 0, 0, Context->Width, Context->Height }, Color);
 }
 
+/**
+  Draw a one-pixel rectangle border.
+
+  @param[in] Context  Initialized render context. Must not be NULL.
+  @param[in] Rect     Pixel rectangle to outline.
+  @param[in] Color    Border color.
+
+  @retval EFI_SUCCESS            Border was drawn.
+  @retval EFI_INVALID_PARAMETER  Context is NULL, GOP is unavailable, or Rect is empty.
+  @retval EFI_OUT_OF_RESOURCES   Temporary BLT allocation failed.
+**/
 EFI_STATUS
 EFIAPI
 ModernUiStrokeRect (
@@ -155,6 +197,21 @@ ModernUiStrokeRect (
   return ModernUiFillRect (Context, (MODERN_UI_RECT){ Rect.X + Rect.Width - 1, Rect.Y, 1, Rect.Height }, Color);
 }
 
+/**
+  Draw UCS-2 text using the active firmware font service.
+
+  @param[in] Context     Initialized render context. Must not be NULL.
+  @param[in] X           Left coordinate in pixels.
+  @param[in] Y           Top coordinate in pixels.
+  @param[in] Text        Null-terminated UCS-2 string. Must not be NULL.
+  @param[in] Color       Text foreground color.
+  @param[in] Background  Background color passed to the font renderer.
+
+  @retval EFI_SUCCESS            Text was rendered.
+  @retval EFI_INVALID_PARAMETER  Context or Text is NULL.
+  @retval EFI_UNSUPPORTED        HII Font protocol is unavailable.
+  @retval EFI_OUT_OF_RESOURCES   Temporary rendering allocation failed.
+**/
 EFI_STATUS
 EFIAPI
 ModernUiDrawText (
@@ -205,6 +262,17 @@ ModernUiDrawText (
   return Status;
 }
 
+/**
+  Draw a themed panel surface and border.
+
+  @param[in] Context  Initialized render context. Must not be NULL.
+  @param[in] Rect     Panel rectangle.
+  @param[in] Theme    Theme token table. Must not be NULL.
+
+  @retval EFI_SUCCESS            Panel was drawn.
+  @retval EFI_INVALID_PARAMETER  Context or Theme is NULL.
+  @retval EFI_OUT_OF_RESOURCES   Temporary BLT allocation failed.
+**/
 EFI_STATUS
 EFIAPI
 ModernUiDrawPanel (
@@ -227,6 +295,19 @@ ModernUiDrawPanel (
   return ModernUiStrokeRect (Context, Rect, Theme->Border);
 }
 
+/**
+  Draw a horizontal progress bar.
+
+  @param[in] Context  Initialized render context. Must not be NULL.
+  @param[in] Rect     Progress track rectangle.
+  @param[in] Percent  Completion percentage. Values above 100 are clamped.
+  @param[in] Track    Track color.
+  @param[in] Fill     Fill color.
+
+  @retval EFI_SUCCESS            Progress bar was drawn.
+  @retval EFI_INVALID_PARAMETER  Context is NULL, GOP is unavailable, or Rect is empty.
+  @retval EFI_OUT_OF_RESOURCES   Temporary BLT allocation failed.
+**/
 EFI_STATUS
 EFIAPI
 ModernUiDrawProgress (

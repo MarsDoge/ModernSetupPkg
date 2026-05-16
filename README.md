@@ -15,9 +15,18 @@ interaction references.
 - Optional pointer polling through `EFI_ABSOLUTE_POINTER_PROTOCOL`
 - A standalone `ModernSetupApp` with Dashboard, Boot, Devices, Security, and Exit pages
 - ArmVirtQemu overlay scripts that keep upstream `ArmVirtPkg` files unchanged
+- Development rules for function contracts, multi-architecture extension points,
+  and IBV-friendly adaptation
 
 This is not a full HII/FormBrowser replacement. The v1 goal is a usable modern
 setup shell that can be launched from the firmware boot manager path.
+
+## Development Documents
+
+- `Docs/DEVELOPMENT.md` defines coding rules, function comment requirements,
+  architecture boundaries, and extension points.
+- `CHANGELOG.md` records development progress, user-visible changes, and planned
+  version work.
 
 ## Build and Run
 
