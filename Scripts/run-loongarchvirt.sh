@@ -21,7 +21,60 @@ PFLASH_VARS="${FV_DIR}/QEMU_VARS.modern.loongarch.work.fd"
 
 export PATH="/opt/homebrew/bin:${PATH}"
 
-if ! command -v qemu-system-loongarch64 >/dev/null 2>&1; then
+find_qemu_binary() {
+  local candidate
+
+  if [[ -n "${QEMU_BIN:-}" ]]; then
+    echo "${QEMU_BIN}"
+    return 0
+  fi
+
+  for candidate in /usr/bin/qemu-system-loongarch64 /usr/local/bin/qemu-system-loongarch64 "$(command -v qemu-system-loongarch64 2>/dev/null || true)"; do
+    if [[ -n "${candidate}" && -x "${candidate}" ]]; then
+      echo "${candidate}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+qemu_supports_display() {
+  local backend="$1"
+
+  "${QEMU}" -display help 2>&1 | grep -qx "${backend}"
+}
+
+select_display_backend() {
+  local backend
+
+  if [[ -n "${DISPLAY_BACKEND:-}" ]]; then
+    echo "${DISPLAY_BACKEND}"
+    return 0
+  fi
+
+  case "$(uname -s)" in
+    Darwin)
+      backend="cocoa"
+      ;;
+    Linux)
+      for backend in gtk sdl spice-app dbus; do
+        if qemu_supports_display "${backend}"; then
+          echo "${backend}"
+          return 0
+        fi
+      done
+      backend="none"
+      ;;
+    *)
+      backend="none"
+      ;;
+  esac
+
+  echo "${backend}"
+}
+
+if ! QEMU="$(find_qemu_binary)"; then
   echo "Missing qemu-system-loongarch64. Install QEMU first, for example with Homebrew." >&2
   exit 1
 fi
@@ -49,8 +102,24 @@ QEMU_ARGS=(
 )
 
 if [[ "${GRAPHICS}" == "1" ]]; then
+  DISPLAY_BACKEND="$(select_display_backend)"
+  if ! qemu_supports_display "${DISPLAY_BACKEND}"; then
+    echo "${QEMU} does not support DISPLAY_BACKEND='${DISPLAY_BACKEND}'." >&2
+    echo "Available display backends:" >&2
+    "${QEMU}" -display help >&2
+    echo "Set QEMU_BIN=/path/to/qemu-system-loongarch64 or use GRAPHICS=0 for serial validation." >&2
+    exit 1
+  fi
+
+  if [[ "${DISPLAY_BACKEND}" == "none" ]]; then
+    echo "${QEMU} has no usable graphical display backend; use GRAPHICS=0 for serial validation." >&2
+    echo "Available display backends:" >&2
+    "${QEMU}" -display help >&2
+    exit 1
+  fi
+
   QEMU_ARGS+=(
-    -display cocoa
+    -display "${DISPLAY_BACKEND}"
     -device virtio-gpu-pci
     -device qemu-xhci
     -device usb-kbd
@@ -64,5 +133,9 @@ else
   )
 fi
 
+echo "Using QEMU: ${QEMU}"
+if [[ "${GRAPHICS}" == "1" ]]; then
+  echo "Using display backend: ${DISPLAY_BACKEND}"
+fi
 echo "Press Esc or F2 during BDS wait to enter native UiApp rendered by ModernDisplayEngineDxe."
-exec qemu-system-loongarch64 "${QEMU_ARGS[@]}"
+exec "${QEMU}" "${QEMU_ARGS[@]}"

@@ -44,6 +44,13 @@ cd /Users/cy/github/edk2
 GRAPHICS=1 RESET_VARS=1 ModernSetupPkg/Scripts/run-loongarchvirt.sh
 ```
 
+If the host has multiple QEMU installs, prefer one with `gtk` or `sdl` display
+support:
+
+```sh
+QEMU_BIN=/usr/bin/qemu-system-loongarch64 GRAPHICS=1 RESET_VARS=1 ModernSetupPkg/Scripts/run-loongarchvirt.sh
+```
+
 Expected result:
 
 - QEMU opens a LoongArch64 graphical window.

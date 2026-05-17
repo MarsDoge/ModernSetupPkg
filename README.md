@@ -322,6 +322,19 @@ The LoongArch run path uses native UiApp plus ModernDisplayEngine, matching the
 default ArmVirt compatibility path. It does not boot `ModernSetupApp` by
 default.
 
+On Linux, the script prefers a QEMU binary with `gtk` or `sdl` display support.
+If another QEMU appears earlier in `PATH`, override it explicitly:
+
+```sh
+QEMU_BIN=/usr/bin/qemu-system-loongarch64 GRAPHICS=1 RESET_VARS=1 ModernSetupPkg/Scripts/run-loongarchvirt.sh
+```
+
+For serial-only validation:
+
+```sh
+GRAPHICS=0 RESET_VARS=1 ModernSetupPkg/Scripts/run-loongarchvirt.sh
+```
+
 `ModernSetupApp` is intentionally opt-in while the default firmware path stays
 native UiApp plus ModernDisplayEngine. Build it and boot it from a temporary
 ArmVirt ESP with:
