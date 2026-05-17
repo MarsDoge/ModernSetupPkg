@@ -41,6 +41,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #include <Library/PcdLib.h>
 #include <Library/DevicePathLib.h>
 #include <Library/CustomizedDisplayLib.h>
+#include <ModernUi/ModernUiEngine.h>
 #include <ModernUi/ModernUiRenderer.h>
 #include <ModernUi/ModernUiTheme.h>
 

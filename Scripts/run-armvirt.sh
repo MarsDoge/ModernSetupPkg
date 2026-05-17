@@ -40,10 +40,12 @@ case "${ACCEL}" in
   hvf)
     MACHINE_ACCEL="hvf"
     CPU_MODEL="host"
+    GIC_VERSION="${GIC_VERSION:-2}"
     ;;
   tcg)
     MACHINE_ACCEL="tcg"
     CPU_MODEL="${CPU:-cortex-a57}"
+    GIC_VERSION="${GIC_VERSION:-3}"
     ;;
   *)
     echo "Unsupported ACCEL='${ACCEL}'. Use ACCEL=tcg or ACCEL=hvf." >&2
@@ -52,7 +54,7 @@ case "${ACCEL}" in
 esac
 
 QEMU_ARGS=(
-  -machine "virt,accel=${MACHINE_ACCEL},gic-version=3"
+  -machine "virt,accel=${MACHINE_ACCEL},gic-version=${GIC_VERSION}"
   -cpu "${CPU_MODEL}"
   -m "${MEMORY}"
   -monitor none

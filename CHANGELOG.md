@@ -88,12 +88,15 @@ this file as both a release log and a lightweight development progress record.
 - Build-time DisplayEngine theme selection through
   `PcdModernSetupTheme`/`MODERN_SETUP_THEME`, with black/orange as the default
   and black/deep-red/yellow retained as an experimental option.
+- `ModernUiEngineLib`, a shared visual model and drawing layer for page chrome,
+  tabs, statement rows, value controls, popups, footers, help surfaces, and the
+  right-side telemetry rail.
 
 ### Changed
 
 - The main package DSC now builds only the DisplayEngine path:
   `ModernDisplayEngineDxe`, `ModernUiCustomizedDisplayLib`,
-  `ModernUiRendererLib`, and `ModernUiThemeLib`.
+  `ModernUiEngineLib`, `ModernUiRendererLib`, and `ModernUiThemeLib`.
 - The ArmVirt overlay no longer injects prototype-only `ModernUiInputLib`,
   `ModernUiStringLib`, `ModernUiHiiBridgeLib`, or `ModernUiPageAdapterLib`
   library mappings.
@@ -128,6 +131,12 @@ this file as both a release log and a lightweight development progress record.
   full statement field and use a brighter orange/yellow selection treatment.
 - Restored the black/orange DisplayEngine theme as the default after the
   black/deep-red/yellow experiment proved too harsh in FrontPage rendering.
+- `ModernUiCustomizedDisplayLib` now converts DisplayEngine text-cell state
+  into `ModernUiEngineLib` draw models for page chrome, rows, and popups instead
+  of owning those visual surfaces locally.
+- The experimental `ModernSetupApp` now uses `ModernUiEngineLib` for header,
+  tabs, footer, selectable rows, value selector rows, and language drop-down
+  surfaces while keeping only demo data and navigation state in the app.
 
 ### Fixed
 
@@ -173,7 +182,7 @@ this file as both a release log and a lightweight development progress record.
   write semantics in the default ArmVirt firmware.
 - The page adapter registry is experimental and not in the default native
   FormBrowser path.
-- The latest validated FVMAIN state is 8368512 bytes total, 8368480 bytes used,
+- The latest validated FVMAIN state is 8372608 bytes total, 8372576 bytes used,
   and 32 bytes free in the ArmVirt AARCH64 DEBUG_CLANGDWARF build.
 - `ModernDisplayEngineDxe` currently preserves most edk2 DisplayEngine behavior
   and routes its low-level text-cell drawing through GOP. Further visual polish

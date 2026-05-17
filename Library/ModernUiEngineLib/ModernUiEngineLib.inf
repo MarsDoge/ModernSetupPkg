@@ -1,0 +1,28 @@
+## @file
+# Shared visual engine for ModernSetupPkg.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = ModernUiEngineLib
+  FILE_GUID                      = 0FE5B8EC-6B89-4525-8A02-A80E7187CE87
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.1
+  LIBRARY_CLASS                  = ModernUiEngineLib|DXE_DRIVER UEFI_APPLICATION
+
+[Sources]
+  ModernUiEngineLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  ModernSetupPkg/ModernSetupPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  ModernUiRendererLib
+  ModernUiThemeLib
+  PrintLib
+  UefiRuntimeServicesTableLib

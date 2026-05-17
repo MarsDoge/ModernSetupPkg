@@ -47,6 +47,10 @@ Use this shape:
 - UI pages consume structured data models. They should not directly own platform
   enumeration, variable parsing, security policy, or architecture-specific
   behavior.
+- `ModernUiEngineLib` is the shared visual contract between the native
+  DisplayEngine path and experimental app path. DisplayEngine adapters and app
+  pages should build engine models instead of drawing their own tabs, rows,
+  value selectors, popups, or footers.
 - Platform and IBV differences should be introduced through LibraryClass
   instances, PCDs, or small platform overlays.
 - Renderer APIs must hide the concrete graphics backend. GOP is the first
@@ -76,6 +80,8 @@ Use this shape:
 Future architecture and IBV adaptation should prefer these layers:
 
 - `ModernUiRendererLib` for drawing primitives and backend adaptation.
+- `ModernUiEngineLib` for reusable page chrome, layout, tab, row, value,
+  popup, footer, help panel, and right-rail drawing models.
 - `ModernUiInputLib` for keyboard, pointer, touch, and serial event mapping.
 - `ModernUiThemeLib` for style tokens and vendor/theme selection.
 - `ModernUiLayoutLib` for resolution-aware geometry.
@@ -85,8 +91,9 @@ Future architecture and IBV adaptation should prefer these layers:
 - `ModernUiSecurityDataLib` for Secure Boot and related security state.
 
 The current prototype does not have all of these libraries yet. When code starts
-to grow around one of these responsibilities, add the library instead of
-expanding `ModernSetupApp` directly.
+to grow around one of these responsibilities, add or extend the matching shared
+library instead of expanding `ModernSetupApp` or `ModernDisplayEngineDxe`
+directly.
 
 ## Change Discipline
 

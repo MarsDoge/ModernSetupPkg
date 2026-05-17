@@ -11,6 +11,8 @@ interaction references.
 ## Current Scope
 
 - GOP-based rendering through `ModernUiRendererLib`
+- Shared page, tab, row, value, popup, footer, and right-rail visual models
+  through `ModernUiEngineLib`
 - `ModernDisplayEngineDxe`, an edk2 DisplayEngine-compatible GOP frontend for
   `SetupBrowserDxe/FormBrowser2`
 - Minimal built-in 18px anti-aliased glyphs generated from Noto Sans CJK SC
@@ -74,6 +76,7 @@ edk2 workspace
     |
     +-- Public interfaces
     |   |
+    |   +-- Include/ModernUi/ModernUiEngine.h
     |   +-- Include/ModernUi/ModernUiRenderer.h
     |   +-- Include/ModernUi/ModernUiTheme.h
     |
@@ -82,7 +85,13 @@ edk2 workspace
     |   +-- ModernUiCustomizedDisplayLib
     |   |   |
     |   |   +-- edk2 CustomizedDisplayLib-compatible API
-    |   |   +-- redirects DisplayEngine text cells to GOP drawing
+    |   |   +-- converts DisplayEngine text cells into engine draw models
+    |   |
+    |   +-- ModernUiEngineLib
+    |   |   |
+    |   |   +-- common visual model for page chrome, tabs, rows, values,
+    |   |       popups, footer, help panel, and right rail
+    |   |   +-- shared by ModernDisplayEngineDxe and experimental app
     |   |
     |   +-- ModernUiRendererLib
     |   |   |
@@ -148,9 +157,11 @@ Driver VFR / UNI / ConfigAccess
                              |
                              +--> ModernUiCustomizedDisplayLib
                                     |
-                                    +--> IBV-style chrome, statement surfaces,
-                                    |    popup/input visuals, and layout
-                                    |    reservations
+                                    +--> ModernUiEngineLib
+                                    |      |
+                                    |      +--> IBV-style chrome, statement
+                                    |           surfaces, popup/input visuals,
+                                    |           and layout reservations
                                     |
                                     +--> ModernUiRendererLib / Theme / Fonts
                                            |
@@ -168,6 +179,10 @@ variable routing remain owned by edk2 FormBrowser.
 from the earlier self-contained setup shell. They are useful for comparison,
 debugging, and prototyping UI ideas, but they are not part of the default
 ArmVirt setup compatibility path.
+
+The experimental app should share `ModernUiEngineLib` for visual surfaces. App
+code may own demo data, navigation state, and language switching, but should not
+grow a second tab, row, popup, or footer renderer.
 
 Build the legacy prototype explicitly with:
 
@@ -220,6 +235,10 @@ Run with graphics:
 ```sh
 GRAPHICS=1 RESET_VARS=1 ModernSetupPkg/Scripts/run-armvirt.sh
 ```
+
+On macOS, `ACCEL=hvf` defaults to `gic-version=2` because QEMU HVF can stop
+advancing during the BDS wait countdown with ArmVirt `gic-version=3`. Override
+with `GIC_VERSION=3` only when testing that specific combination.
 
 Click the QEMU window and press `Esc` or `F2` during BDS wait to enter the
 native UiApp firmware setup. Rendering is handled by `ModernDisplayEngineDxe`.

@@ -18,6 +18,7 @@
 
 [LibraryClasses]
   # DisplayEngine main path.
+  ModernUiEngineLib|Include/ModernUi/ModernUiEngine.h
   ModernUiRendererLib|Include/ModernUi/ModernUiRenderer.h
   ModernUiThemeLib|Include/ModernUi/ModernUiTheme.h
 

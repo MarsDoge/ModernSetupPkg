@@ -39,6 +39,7 @@
   HiiLib
   DevicePathLib
   PcdLib
+  ModernUiEngineLib
   ModernUiRendererLib
   ModernUiThemeLib
 

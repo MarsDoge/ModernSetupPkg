@@ -49,7 +49,8 @@ modern_display_fdf_inf = "  INF ModernSetupPkg/Universal/ModernDisplayEngineDxe/
 driver_sample_component = "  MdeModulePkg/Universal/DriverSampleDxe/DriverSampleDxe.inf"
 driver_sample_fdf_inf = "  INF MdeModulePkg/Universal/DriverSampleDxe/DriverSampleDxe.inf"
 ui_app_guid_bytes = "{ 0x21, 0xaa, 0x2c, 0x46, 0x14, 0x76, 0x03, 0x45, 0x83, 0x6e, 0x8a, 0xb6, 0xf4, 0x66, 0x23, 0x31 }"
-library_block = """  ModernUiRendererLib|ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
+library_block = """  ModernUiEngineLib|ModernSetupPkg/Library/ModernUiEngineLib/ModernUiEngineLib.inf
+  ModernUiRendererLib|ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
   ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
 """
 
@@ -64,7 +65,7 @@ dsc = dsc.replace(
     "  FLASH_DEFINITION               = ArmVirtPkg/ArmVirtQemu.fdf",
     "  FLASH_DEFINITION               = Build/ModernSetupPkgOverlay/ArmVirtQemuModernSetup.fdf",
 )
-if "ModernUiRendererLib|ModernSetupPkg" not in dsc:
+if "ModernUiEngineLib|ModernSetupPkg" not in dsc:
     dsc = dsc.replace("[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + library_block, 1)
 dsc = dsc.replace(
     "  CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf",

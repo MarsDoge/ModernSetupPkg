@@ -38,6 +38,7 @@
   VariablePolicyHelperLib|MdeModulePkg/Library/VariablePolicyHelperLib/VariablePolicyHelperLib.inf
   UefiLib|MdePkg/Library/UefiLib/UefiLib.inf
   UefiRuntimeServicesTableLib|MdePkg/Library/UefiRuntimeServicesTableLib/UefiRuntimeServicesTableLib.inf
+  ModernUiEngineLib|ModernSetupPkg/Library/ModernUiEngineLib/ModernUiEngineLib.inf
   ModernUiRendererLib|ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
   ModernUiInputLib|ModernSetupPkg/Library/ModernUiInputLib/ModernUiInputLib.inf
   ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
@@ -49,6 +50,7 @@
   gModernSetupPkgTokenSpaceGuid.PcdModernSetupDefaultLanguage|"zh-Hans"
 
 [Components]
+  ModernSetupPkg/Library/ModernUiEngineLib/ModernUiEngineLib.inf
   ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
   ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
   ModernSetupPkg/Library/ModernUiInputLib/ModernUiInputLib.inf

@@ -29,6 +29,7 @@
   HiiLib|MdeModulePkg/Library/UefiHiiLib/UefiHiiLib.inf
   UefiLib|MdePkg/Library/UefiLib/UefiLib.inf
   UefiRuntimeServicesTableLib|MdePkg/Library/UefiRuntimeServicesTableLib/UefiRuntimeServicesTableLib.inf
+  ModernUiEngineLib|ModernSetupPkg/Library/ModernUiEngineLib/ModernUiEngineLib.inf
   ModernUiRendererLib|ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
   ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
   CustomizedDisplayLib|ModernSetupPkg/Library/ModernUiCustomizedDisplayLib/ModernUiCustomizedDisplayLib.inf
@@ -37,6 +38,7 @@
   gModernSetupPkgTokenSpaceGuid.PcdModernSetupTheme|0x00
 
 [Components]
+  ModernSetupPkg/Library/ModernUiEngineLib/ModernUiEngineLib.inf
   ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
   ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
   ModernSetupPkg/Library/ModernUiCustomizedDisplayLib/ModernUiCustomizedDisplayLib.inf

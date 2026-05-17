@@ -20,6 +20,7 @@ Expected result:
 - `Build/ArmVirtQemu-AArch64/DEBUG_CLANGDWARF/FV/QEMU_VARS.fd` exists.
 - The default build firmware image contains `ModernDisplayEngineDxe`, native
   `UiApp`, and `DriverSample`.
+- `ModernUiEngineLib` is included in the default DisplayEngine library path.
 - The generated ArmVirt overlay does not reference `ModernSetupApp`,
   `ModernUiHiiBridgeLib`, `ModernUiPageAdapterLib`, or `ModernUiStringLib`.
 - FVMAIN space is recorded after each architecture-level change. The current
@@ -31,6 +32,10 @@ Expected result:
 cd /Users/cy/github/edk2
 GRAPHICS=1 RESET_VARS=1 ACCEL=hvf ModernSetupPkg/Scripts/run-armvirt.sh
 ```
+
+The run script defaults HVF to `gic-version=2`; QEMU HVF with ArmVirt
+`gic-version=3` can stop advancing during the BDS wait countdown on macOS.
+Use `GIC_VERSION=3` only when explicitly validating that combination.
 
 If HVF is unavailable:
 
@@ -53,7 +58,8 @@ Expected result:
   Driver Health Manager render without falling back to the old text-only
   DisplayEngine path.
 - Header, footer help, page title, selectable rows, highlighted rows, disabled
-  rows, and popups are drawn through the GOP-backed display layer.
+  rows, and popups are drawn through the shared `ModernUiEngineLib` plus the
+  GOP-backed renderer.
 - `Up/Down`, `Left/Right`, `Enter`, `Esc`, `F9`, and `F10` keep native
   FormBrowser behavior.
 - Boot Manager can launch a selected `Boot####` option. If the target returns,

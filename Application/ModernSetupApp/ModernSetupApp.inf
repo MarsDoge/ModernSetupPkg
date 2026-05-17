@@ -27,6 +27,7 @@
   DevicePathLib
   HiiLib
   MemoryAllocationLib
+  ModernUiEngineLib
   ModernUiHiiBridgeLib
   ModernUiInputLib
   ModernUiPageAdapterLib

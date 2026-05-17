@@ -32,13 +32,6 @@ ModernDisplayRows (
   VOID
   );
 
-STATIC
-VOID
-ModernDisplayDrawGlowStrip (
-  IN MODERN_UI_RECT          Rect,
-  IN CONST MODERN_UI_THEME   *Theme
-  );
-
 /**
   Return GOP cell metrics that match the active text-mode grid.
 
@@ -361,183 +354,6 @@ ModernDisplaySelectChromeTab (
 }
 
 /**
-  Draw a subtle procedural pattern band without vendor artwork or assets.
-
-  @param[in] Y       Top coordinate in pixels.
-  @param[in] Height  Band height in pixels.
-  @param[in] Theme   Theme token table. Must not be NULL.
-**/
-STATIC
-VOID
-ModernDisplayDrawPatternBand (
-  IN UINTN                  Y,
-  IN UINTN                  Height,
-  IN CONST MODERN_UI_THEME  *Theme
-  )
-{
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  FaintAccent;
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  FaintBorder;
-  UINTN                          X;
-  UINTN                          LineY;
-
-  if ((Theme == NULL) || (Height == 0)) {
-    return;
-  }
-
-  FaintAccent = ModernUiBlendColor (Theme->HeaderPattern, Theme->AccentOrange, 18);
-  FaintBorder = ModernUiBlendColor (Theme->HeaderPattern, Theme->Border, 24);
-
-  for (LineY = Y + 12; LineY < (Y + Height); LineY += 32) {
-    ModernUiFillRect (
-      &mModernRenderContext,
-      (MODERN_UI_RECT){ 0, LineY, mModernRenderContext.Width, 1 },
-      FaintBorder
-      );
-  }
-
-  for (X = 48; X < mModernRenderContext.Width; X += 112) {
-    ModernUiFillRect (
-      &mModernRenderContext,
-      (MODERN_UI_RECT){ X, Y + 6, 2, (Height > 12) ? (Height - 12) : 1 },
-      FaintAccent
-      );
-    if ((X + 10) < mModernRenderContext.Width) {
-      ModernUiFillRect (
-        &mModernRenderContext,
-        (MODERN_UI_RECT){ X + 10, Y + 2, 1, (Height > 4) ? (Height - 4) : 1 },
-        FaintBorder
-        );
-    }
-  }
-}
-
-/**
-  Draw a horizontal glow strip used by selected top-level navigation tabs.
-
-  @param[in] Rect   Pixel rectangle for the strip.
-  @param[in] Theme  Theme token table. Must not be NULL.
-**/
-STATIC
-VOID
-ModernDisplayDrawGlowStrip (
-  IN MODERN_UI_RECT          Rect,
-  IN CONST MODERN_UI_THEME   *Theme
-  )
-{
-  if ((Theme == NULL) || (Rect.Width == 0) || (Rect.Height < 3)) {
-    return;
-  }
-
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ Rect.X, Rect.Y, Rect.Width, 1 }, Theme->GlowOrange);
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ Rect.X, Rect.Y + 1, Rect.Width, 1 }, Theme->AccentOrange);
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ Rect.X, Rect.Y + 2, Rect.Width, 1 }, Theme->AccentYellow);
-}
-
-/**
-  Draw IBV-style top chrome around the native FormBrowser page.
-
-  @param[in] Theme           Theme token table. Must not be NULL.
-  @param[in] PrintableTitle  Current form title with HII width markers removed.
-                             NULL is allowed.
-  @param[in] CellWidth       Text-grid cell width in pixels.
-  @param[in] CellHeight      Text-grid cell height in pixels.
-  @param[in] HeaderHeight    Header height in pixels.
-**/
-STATIC
-VOID
-ModernDisplayDrawTopChrome (
-  IN CONST MODERN_UI_THEME  *Theme,
-  IN CONST CHAR16           *PrintableTitle,
-  IN UINTN                  CellWidth,
-  IN UINTN                  CellHeight,
-  IN UINTN                  HeaderHeight
-  )
-{
-  STATIC CONST CHAR16  *Tabs[] = {
-    L"Main",
-    L"Devices",
-    L"Boot",
-    L"Security",
-    L"Save & Exit"
-  };
-  EFI_TIME  Time;
-  UINTN     Margin;
-  UINTN     TabY;
-  UINTN     TabWidth;
-  UINTN     TabIndex;
-  UINTN     SelectedTab;
-  UINTN     X;
-  UINTN     TextWidth;
-
-  Margin      = MODERN_SETUP_HORIZONTAL_MARGIN * CellWidth;
-  TabY        = (CellHeight * 2) + 2;
-  TabWidth    = (mModernRenderContext.Width > (Margin * 2)) ? ((mModernRenderContext.Width - (Margin * 2)) / ARRAY_SIZE (Tabs)) : 1;
-  SelectedTab = ModernDisplaySelectChromeTab (PrintableTitle);
-
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, 0, mModernRenderContext.Width, HeaderHeight }, Theme->BackgroundBlack);
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, 0, mModernRenderContext.Width, HeaderHeight / 2 }, Theme->HeaderPattern);
-  ModernDisplayDrawPatternBand (0, HeaderHeight, Theme);
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, HeaderHeight - 2, mModernRenderContext.Width, 2 }, Theme->AccentOrange);
-
-  ModernUiDrawText (&mModernRenderContext, Margin + 2, 6, L"MODERN SETUP", Theme->Text, Theme->HeaderPattern);
-  ModernUiDrawText (
-    &mModernRenderContext,
-    (mModernRenderContext.Width > 190) ? ((mModernRenderContext.Width - 190) / 2) : Margin,
-    6,
-    L"ADVANCED MODE",
-    Theme->AccentOrange,
-    Theme->HeaderPattern
-    );
-
-  if (!EFI_ERROR (gRT->GetTime (&Time, NULL))) {
-    ModernUiDrawTextFormatted (
-      &mModernRenderContext,
-      (mModernRenderContext.Width > 210) ? (mModernRenderContext.Width - 210) : Margin,
-      6,
-      Theme->Text,
-      Theme->HeaderPattern,
-      L"%02d/%02d/%04d  %02d:%02d",
-      Time.Month,
-      Time.Day,
-      Time.Year,
-      Time.Hour,
-      Time.Minute
-      );
-  }
-
-  for (TabIndex = 0; TabIndex < ARRAY_SIZE (Tabs); TabIndex++) {
-    X = Margin + (TabIndex * TabWidth);
-    TextWidth = ModernUiMeasureText (Tabs[TabIndex]);
-    if (TabIndex == SelectedTab) {
-      ModernUiStrokeRect (
-        &mModernRenderContext,
-        (MODERN_UI_RECT){ X + 14, TabY + 2, (TabWidth > 28) ? (TabWidth - 28) : TabWidth, CellHeight + 8 },
-        Theme->PopupBorder
-        );
-      ModernDisplayDrawGlowStrip (
-        (MODERN_UI_RECT){ X + 18, TabY + CellHeight + 12, (TabWidth > 36) ? (TabWidth - 36) : TabWidth, 3 },
-        Theme
-        );
-    }
-
-    ModernUiFillRect (
-      &mModernRenderContext,
-      (MODERN_UI_RECT){ X + 18, TabY + CellHeight + 10, (TabWidth > 36) ? (TabWidth - 36) : TabWidth, 2 },
-      (TabIndex == SelectedTab) ? Theme->AccentOrange : ModernUiBlendColor (Theme->BackgroundBlack, Theme->AccentOrange, 60)
-      );
-    ModernUiDrawTextFit (
-      &mModernRenderContext,
-      X + ((TabWidth > TextWidth) ? ((TabWidth - TextWidth) / 2) : 8),
-      TabY + 8,
-      (TabWidth > 24) ? (TabWidth - 24) : TabWidth,
-      Tabs[TabIndex],
-      (TabIndex == SelectedTab) ? Theme->AccentYellow : Theme->AccentOrange,
-      Theme->BackgroundBlack
-      );
-  }
-}
-
-/**
   Draw the GOP surface behind a text-mode popup/dialog.
 
   @param[in] StartColumn  Left text-grid column of the popup.
@@ -557,6 +373,7 @@ ModernDisplayDrawPopupSurface (
   UINTN                  CellWidth;
   UINTN                  CellHeight;
   MODERN_UI_RECT         Rect;
+  MODERN_UI_POPUP_MODEL  Popup;
 
   if ((EndColumn <= StartColumn) || (BottomRow <= TopRow) || EFI_ERROR (ModernDisplayEnsureRenderer ())) {
     return;
@@ -571,64 +388,9 @@ ModernDisplayDrawPopupSurface (
            (BottomRow - TopRow) * CellHeight
          };
 
-  if ((Rect.Width > 12) && (Rect.Height > 12)) {
-    ModernUiFillRect (
-      &mModernRenderContext,
-      (MODERN_UI_RECT){ Rect.X + 8, Rect.Y + 8, Rect.Width, Rect.Height },
-      ModernUiBlendColor (Theme->BackgroundBlack, Theme->AccentOrange, 12)
-      );
-  }
-
-  ModernUiFillRect (&mModernRenderContext, Rect, Theme->BackgroundBlack);
-  ModernUiStrokeRect (&mModernRenderContext, Rect, Theme->PopupBorder);
-  if (Rect.Height > 4) {
-    ModernDisplayDrawGlowStrip ((MODERN_UI_RECT){ Rect.X + 1, Rect.Y + 1, Rect.Width - 2, 3 }, Theme);
-  }
-}
-
-/**
-  Draw the right-side status rail used by the modern DisplayEngine chrome.
-
-  Values are intentionally conservative placeholders until a platform telemetry
-  provider is added. The rail is visual-only and does not affect HII semantics.
-
-  @param[in] Rect   Rail rectangle in pixels.
-  @param[in] Theme  Theme token table. Must not be NULL.
-**/
-STATIC
-VOID
-ModernDisplayDrawStatusRail (
-  IN MODERN_UI_RECT          Rect,
-  IN CONST MODERN_UI_THEME   *Theme
-  )
-{
-  UINTN  X;
-  UINTN  Y;
-
-  if ((Theme == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
-    return;
-  }
-
-  ModernUiFillRect (&mModernRenderContext, Rect, Theme->BackgroundBlack);
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ Rect.X, Rect.Y, 1, Rect.Height }, Theme->Border);
-
-  X = Rect.X + 16;
-  Y = Rect.Y + 18;
-  ModernUiDrawText (&mModernRenderContext, X, Y, L"CPU", Theme->AccentYellow, Theme->BackgroundBlack);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 28, L"Architecture", Theme->MutedText, Theme->BackgroundBlack);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 48, L"AARCH64", Theme->TelemetryText, Theme->BackgroundBlack);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 82, L"Platform", Theme->MutedText, Theme->BackgroundBlack);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 102, L"ArmVirt / QEMU", Theme->TelemetryText, Theme->BackgroundBlack);
-
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ Rect.X + 12, Y + 136, Rect.Width - 24, 1 }, Theme->Border);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 158, L"Memory", Theme->AccentYellow, Theme->BackgroundBlack);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 188, L"Provided by", Theme->MutedText, Theme->BackgroundBlack);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 208, L"UEFI memory map", Theme->TelemetryText, Theme->BackgroundBlack);
-
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ Rect.X + 12, Y + 242, Rect.Width - 24, 1 }, Theme->Border);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 264, L"Voltage", Theme->AccentYellow, Theme->BackgroundBlack);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 294, L"Sensor provider", Theme->MutedText, Theme->BackgroundBlack);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 314, L"N/A", Theme->TelemetryText, Theme->BackgroundBlack);
+  Popup.Rect  = Rect;
+  Popup.Title = NULL;
+  ModernUiEngineDrawPopup (&mModernRenderContext, &Popup, Theme);
 }
 
 /**
@@ -664,6 +426,7 @@ ModernDisplayDrawStatementRow (
   UINTN                            Y;
   UINTN                            PixelWidth;
   MODERN_UI_RECT                   RowRect;
+  MODERN_UI_ROW_MODEL              RowModel;
 
   if ((Width == 0) || EFI_ERROR (ModernDisplayEnsureRenderer ())) {
     return;
@@ -676,16 +439,23 @@ ModernDisplayDrawStatementRow (
   Y          = Row * CellHeight;
   PixelWidth = Width * CellWidth;
   RowRect    = (MODERN_UI_RECT){ X, Y, PixelWidth, CellHeight };
+  RowModel.Rect      = RowRect;
+  RowModel.Prompt    = NULL;
+  RowModel.Value     = NULL;
+  RowModel.ValueType = ModernUiValueNone;
+  if (Highlight) {
+    RowModel.Role = ModernUiRowSelected;
+  } else if (GrayOut) {
+    RowModel.Role = ModernUiRowDisabled;
+  } else if (Subtitle) {
+    RowModel.Role = ModernUiRowSubtitle;
+  } else if (Action) {
+    RowModel.Role = ModernUiRowAction;
+  } else {
+    RowModel.Role = ModernUiRowNormal;
+  }
 
-  ModernUiDrawSelectableRow (
-    &mModernRenderContext,
-    RowRect,
-    Highlight,
-    GrayOut,
-    Action,
-    Subtitle,
-    Theme
-    );
+  ModernUiEngineDrawRows (&mModernRenderContext, &RowModel, 1, Theme);
 }
 
 /**
@@ -707,12 +477,17 @@ ModernDisplayDrawPageChrome (
   CHAR16                 *PrintableTitle;
   UINTN                  CellWidth;
   UINTN                  CellHeight;
-  MODERN_UI_RECT         ContentRect;
-  MODERN_UI_RECT         RightRailRect;
-  MODERN_UI_RECT         FooterRect;
   MODERN_DISPLAY_LAYOUT  Layout;
+  MODERN_UI_LAYOUT       EngineLayout;
+  MODERN_UI_PAGE_MODEL   PageModel;
+  STATIC CONST MODERN_UI_TAB_MODEL  Tabs[] = {
+    { L"Main" },
+    { L"Devices" },
+    { L"Boot" },
+    { L"Security" },
+    { L"Save & Exit" }
+  };
   UINTN                  HeaderHeight;
-  UINTN                  SplitX;
 
   ASSERT (FormData != NULL);
   if ((FormData == NULL) || EFI_ERROR (ModernDisplayEnsureRenderer ())) {
@@ -736,43 +511,42 @@ ModernDisplayDrawPageChrome (
     }
   }
 
-  ModernUiClear (&mModernRenderContext, Theme->Background);
-  ModernDisplayDrawTopChrome (Theme, PrintableTitle, CellWidth, CellHeight, HeaderHeight);
-
-  FooterRect = (MODERN_UI_RECT){ 0, Layout.FooterTopRow * CellHeight, mModernRenderContext.Width, mModernRenderContext.Height - (Layout.FooterTopRow * CellHeight) };
-  ModernUiFillRect (&mModernRenderContext, FooterRect, Theme->SurfaceRaised);
-  ModernUiFillRect (
-    &mModernRenderContext,
-    (MODERN_UI_RECT){ 0, Layout.FooterTopRow * CellHeight, mModernRenderContext.Width, 1 },
-    Theme->Border
-    );
-
-  ContentRect = (MODERN_UI_RECT){
-                  Layout.ContentLeftColumn * CellWidth,
-                  Layout.ContentTopRow * CellHeight,
-                  (Layout.ContentRightColumn - Layout.ContentLeftColumn) * CellWidth,
-                  (Layout.ContentBottomRow - Layout.ContentTopRow) * CellHeight
-                };
-
-  ModernUiFillRect (&mModernRenderContext, ContentRect, Theme->Surface);
-  if (ContentRect.Width > (CellWidth * 28)) {
-    SplitX = ContentRect.X + ((ContentRect.Width * 42) / 100);
-    ModernUiFillRect (
-      &mModernRenderContext,
-      (MODERN_UI_RECT){ SplitX, ContentRect.Y + CellHeight, 1, ContentRect.Height - (CellHeight * 2) },
-      Theme->Border
-      );
-  }
-
+  EngineLayout.Header = (MODERN_UI_RECT){ 0, 0, mModernRenderContext.Width, HeaderHeight };
+  EngineLayout.TabBar = EngineLayout.Header;
+  EngineLayout.Footer = (MODERN_UI_RECT){
+                         0,
+                         Layout.FooterTopRow * CellHeight,
+                         mModernRenderContext.Width,
+                         mModernRenderContext.Height - (Layout.FooterTopRow * CellHeight)
+                       };
+  EngineLayout.Content = (MODERN_UI_RECT){
+                          Layout.ContentLeftColumn * CellWidth,
+                          Layout.ContentTopRow * CellHeight,
+                          (Layout.ContentRightColumn - Layout.ContentLeftColumn) * CellWidth,
+                          (Layout.ContentBottomRow - Layout.ContentTopRow) * CellHeight
+                        };
+  EngineLayout.RightRailVisible = Layout.RightRailVisible;
   if (Layout.RightRailVisible) {
-    RightRailRect = (MODERN_UI_RECT){
-                     Layout.RightRailLeftColumn * CellWidth,
-                     Layout.ContentTopRow * CellHeight,
-                     (Layout.RightRailRightColumn - Layout.RightRailLeftColumn) * CellWidth,
-                     (Layout.ContentBottomRow - Layout.ContentTopRow) * CellHeight
-                   };
-    ModernDisplayDrawStatusRail (RightRailRect, Theme);
+    EngineLayout.RightRail = (MODERN_UI_RECT){
+                              Layout.RightRailLeftColumn * CellWidth,
+                              Layout.ContentTopRow * CellHeight,
+                              (Layout.RightRailRightColumn - Layout.RightRailLeftColumn) * CellWidth,
+                              (Layout.ContentBottomRow - Layout.ContentTopRow) * CellHeight
+                            };
+  } else {
+    ZeroMem (&EngineLayout.RightRail, sizeof (EngineLayout.RightRail));
   }
+
+  PageModel.Layout        = EngineLayout;
+  PageModel.Rect          = EngineLayout.Header;
+  PageModel.Tabs          = Tabs;
+  PageModel.TabCount      = ARRAY_SIZE (Tabs);
+  PageModel.SelectedTab   = ModernDisplaySelectChromeTab (PrintableTitle);
+  PageModel.ProductName   = L"MODERN SETUP";
+  PageModel.ModeName      = L"ADVANCED MODE";
+  PageModel.StatusText    = NULL;
+  PageModel.DrawRightRail = TRUE;
+  ModernUiEngineDrawPage (&mModernRenderContext, &PageModel, Theme);
 
   if (PrintableTitle != NULL) {
     FreePool (PrintableTitle);
