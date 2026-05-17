@@ -30,11 +30,11 @@ backend. The custom HII bridge remains useful for experiments, but it is not the
 main route for Device Manager, DriverSample, Boot Maintenance, or third-party
 HII driver pages.
 
-The current DisplayEngine visual direction uses an AORUS-like advanced-mode
-structure without reusing commercial artwork: black/orange top chrome,
-high-density content, orange selectable rows, a right-side platform status rail,
-and a bottom hotkey strip owned by native FormBrowser. These surfaces are drawn
-from theme tokens and GOP primitives so OEM-specific styling can later be
+The current DisplayEngine visual direction uses a commercial-IBV-style
+advanced-mode structure without reusing commercial artwork: black and deep red
+chrome, yellow focus accents, high-density content, a right-side hardware status
+rail, and a bottom hotkey strip owned by native FormBrowser. These surfaces are
+drawn from theme tokens and GOP primitives so OEM-specific styling can later be
 provided through theme/layout configuration instead of by changing HII parsing
 behavior.
 
@@ -111,6 +111,7 @@ edk2 workspace
     |
     +-- Project records
     |   |
+    |   +-- Assets/Brand
     |   +-- Assets/Fonts
     |   +-- Scripts/generate-font-glyphs.py
     |   +-- Docs/DEVELOPMENT.md

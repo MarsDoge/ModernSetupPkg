@@ -523,7 +523,7 @@ ModernDisplayDrawTopChrome (
     ModernUiFillRect (
       &mModernRenderContext,
       (MODERN_UI_RECT){ X + 18, TabY + CellHeight + 10, (TabWidth > 36) ? (TabWidth - 36) : TabWidth, 2 },
-      (TabIndex == SelectedTab) ? Theme->AccentOrange : ModernUiBlendColor (Theme->BackgroundBlack, Theme->AccentOrange, 60)
+      (TabIndex == SelectedTab) ? Theme->AccentYellow : ModernUiBlendColor (Theme->BackgroundBlack, Theme->Border, 50)
       );
     ModernUiDrawTextFit (
       &mModernRenderContext,
@@ -531,7 +531,7 @@ ModernDisplayDrawTopChrome (
       TabY + 8,
       (TabWidth > 24) ? (TabWidth - 24) : TabWidth,
       Tabs[TabIndex],
-      (TabIndex == SelectedTab) ? Theme->AccentYellow : Theme->AccentOrange,
+      (TabIndex == SelectedTab) ? Theme->AccentYellow : Theme->Text,
       Theme->BackgroundBlack
       );
   }
