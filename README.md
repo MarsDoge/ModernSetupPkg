@@ -322,6 +322,21 @@ The LoongArch run path uses native UiApp plus ModernDisplayEngine, matching the
 default ArmVirt compatibility path. It does not boot `ModernSetupApp` by
 default.
 
+To boot the experimental front-page App on LoongArch, build a LoongArch ESP and
+attach it explicitly:
+
+```sh
+GCC_LOONGARCH64_PREFIX=loongarch64-linux-gnu- ARCH=LOONGARCH64 ModernSetupPkg/Scripts/build-modern-app.sh
+APP=1 GRAPHICS=1 RESET_VARS=1 ModernSetupPkg/Scripts/run-loongarchvirt.sh
+```
+
+To keep native UiApp available while also attaching the ModernSetupApp ESP:
+
+```sh
+GCC_LOONGARCH64_PREFIX=loongarch64-linux-gnu- ARCH=LOONGARCH64 ModernSetupPkg/Scripts/build-modern-app.sh
+DUAL_APP=1 GRAPHICS=1 RESET_VARS=1 ModernSetupPkg/Scripts/run-loongarchvirt.sh
+```
+
 On Linux, the script prefers a QEMU binary with `gtk` or `sdl` display support.
 If another QEMU appears earlier in `PATH`, override it explicitly:
 

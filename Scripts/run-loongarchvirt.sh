@@ -11,6 +11,8 @@ PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKSPACE="${WORKSPACE:-$(cd "${PKG_DIR}/.." && pwd)}"
 TARGET="${TARGET:-DEBUG}"
 GRAPHICS="${GRAPHICS:-1}"
+APP="${APP:-0}"
+DUAL_APP="${DUAL_APP:-0}"
 MEMORY="${MEMORY:-4096}"
 SMP="${SMP:-2}"
 CPU="${CPU:-la464}"
@@ -18,6 +20,7 @@ FV_DIR="${WORKSPACE}/Build/LoongArchVirtQemu/${TARGET}_GCC/FV"
 CODE_FD="${FV_DIR}/QEMU_EFI.fd"
 VARS_FD="${FV_DIR}/QEMU_VARS.fd"
 PFLASH_VARS="${FV_DIR}/QEMU_VARS.modern.loongarch.work.fd"
+APP_ESP="${WORKSPACE}/Build/ModernSetupAppEsp"
 
 export PATH="/opt/homebrew/bin:${PATH}"
 
@@ -128,6 +131,25 @@ else
   FIRMWARE_MODE="bios"
 fi
 
+if [[ "${APP}" == "1" || "${DUAL_APP}" == "1" ]]; then
+  APP_DEVICE="virtio-blk-pci,drive=modernsetupapp"
+
+  if [[ ! -f "${APP_ESP}/EFI/BOOT/BOOTLOONGARCH64.EFI" ]]; then
+    echo "Missing ModernSetupApp LoongArch boot file." >&2
+    echo "Build it first with: ARCH=LOONGARCH64 ${PKG_DIR}/Scripts/build-modern-app.sh" >&2
+    exit 1
+  fi
+
+  if [[ "${APP}" == "1" ]]; then
+    APP_DEVICE="${APP_DEVICE},bootindex=0"
+  fi
+
+  QEMU_ARGS+=(
+    -drive "if=none,file=fat:rw:${APP_ESP},format=raw,id=modernsetupapp"
+    -device "${APP_DEVICE}"
+  )
+fi
+
 if [[ "${GRAPHICS}" == "1" ]]; then
   DISPLAY_BACKEND="$(select_display_backend)"
   if ! qemu_supports_display "${DISPLAY_BACKEND}"; then
@@ -168,5 +190,11 @@ fi
 if [[ "${GRAPHICS}" == "1" ]]; then
   echo "Using display backend: ${DISPLAY_BACKEND}"
 fi
-echo "Press Esc or F2 during BDS wait to enter native UiApp rendered by ModernDisplayEngineDxe."
+if [[ "${APP}" == "1" ]]; then
+  echo "Booting ModernSetupApp from ${APP_ESP}/EFI/BOOT/BOOTLOONGARCH64.EFI."
+elif [[ "${DUAL_APP}" == "1" ]]; then
+  echo "ModernSetupApp ESP attached. Use Boot Manager to choose native UiApp or ModernSetupApp."
+else
+  echo "Press Esc or F2 during BDS wait to enter native UiApp rendered by ModernDisplayEngineDxe."
+fi
 exec "${QEMU}" "${QEMU_ARGS[@]}"
