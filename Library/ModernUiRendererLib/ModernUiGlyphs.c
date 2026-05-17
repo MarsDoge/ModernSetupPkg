@@ -4,6 +4,10 @@
   Source font: Noto Sans CJK SC Regular, SIL Open Font License 1.1.
   Regenerate with Scripts/generate-font-glyphs.py.
 
+  Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
+  Author: MarsDoge (Dongyan Qian)
+  Open source: https://github.com/MarsDoge/ModernSetupPkg
+
   SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
 

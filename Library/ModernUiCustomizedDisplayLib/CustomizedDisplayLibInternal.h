@@ -3,6 +3,10 @@
   This library class defines a set of interfaces to customize Display module
 
 Copyright (c) 2013 - 2018, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
+  Author: MarsDoge (Dongyan Qian)
+  Open source: https://github.com/MarsDoge/ModernSetupPkg
+
 SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/

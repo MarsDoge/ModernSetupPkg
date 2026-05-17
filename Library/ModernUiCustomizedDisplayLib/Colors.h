@@ -2,6 +2,10 @@
 MACRO definitions for color used in Setup Browser.
 
 Copyright (c) 2004 - 2011, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
+  Author: MarsDoge (Dongyan Qian)
+  Open source: https://github.com/MarsDoge/ModernSetupPkg
+
 SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/

@@ -1,3 +1,10 @@
+<!--
+Copyright (c) 2026, MarsDoge. All rights reserved.
+Author: MarsDoge (Dongyan Qian)
+Open source: https://github.com/MarsDoge/ModernSetupPkg
+SPDX-License-Identifier: BSD-2-Clause-Patent
+-->
+
 # Changelog
 
 All notable ModernSetupPkg changes should be recorded here. The project uses
@@ -95,6 +102,10 @@ this file as both a release log and a lightweight development progress record.
   and `ModernUiSecurityDataLib` as the standard front-page app data layer.
 - Dual-entry ArmVirt run mode through `DUAL_APP=1`, attaching the
   `ModernSetupApp` ESP while preserving native UiApp in firmware.
+- LoongArchVirtQemu overlay build and run scripts for LOONGARCH64 validation
+  with native UiApp plus `ModernDisplayEngineDxe`.
+- LoongArchVirtQemu manual validation guide covering GCC toolchain checks,
+  graphics boot, Device Manager, DriverSample, and FormBrowser compatibility.
 
 ### Changed
 
@@ -157,6 +168,8 @@ this file as both a release log and a lightweight development progress record.
   monitor and selectable Quick Access cards for Boot, Devices/HII, and Secure
   Boot.
 - Added the `setup-v0.4-dashboard.png` GitHub showcase capture.
+- `ModernUiEngineLib` right-rail platform strings now follow the build
+  architecture, including LOONGARCH64, instead of hardcoding ArmVirt labels.
 
 ### Fixed
 
@@ -187,6 +200,9 @@ this file as both a release log and a lightweight development progress record.
 ### Current Status
 
 - ArmVirt AARCH64 DEBUG_CLANGDWARF build has been validated locally.
+- LoongArchVirtQemu overlay generation has been validated locally; full
+  LOONGARCH64 firmware compilation still requires installing/providing a
+  LoongArch GCC/binutils cross toolchain on this macOS host.
 - The default ArmVirt setup path enters native `UiApp`; setup rendering is
   handled by `ModernDisplayEngineDxe` through edk2's
   `EDKII_FORM_DISPLAY_ENGINE_PROTOCOL`.

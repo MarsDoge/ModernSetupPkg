@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
+# Author: MarsDoge (Dongyan Qian)
+# Open source: https://github.com/MarsDoge/ModernSetupPkg
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
 """Generate a minimal anti-aliased glyph table for ModernUiRendererLib."""
 
 from __future__ import annotations
@@ -74,6 +80,10 @@ def write_c_file(output: Path, chars: list[str], pixels_by_char: dict[str, list[
         "",
         "  Source font: Noto Sans CJK SC Regular, SIL Open Font License 1.1.",
         "  Regenerate with Scripts/generate-font-glyphs.py.",
+        "",
+        "  Copyright (c) 2026, MarsDoge. All rights reserved.<BR>",
+        "  Author: MarsDoge (Dongyan Qian)",
+        "  Open source: https://github.com/MarsDoge/ModernSetupPkg",
         "",
         "  SPDX-License-Identifier: BSD-2-Clause-Patent",
         "**/",

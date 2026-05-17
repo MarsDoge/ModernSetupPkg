@@ -1,3 +1,10 @@
+<!--
+Copyright (c) 2026, MarsDoge. All rights reserved.
+Author: MarsDoge (Dongyan Qian)
+Open source: https://github.com/MarsDoge/ModernSetupPkg
+SPDX-License-Identifier: BSD-2-Clause-Patent
+-->
+
 # Tests
 
 ModernSetupPkg tests are split by verification level. Early firmware UI work is
@@ -10,6 +17,7 @@ Tests
 +-- Manual
 |   |
 |   +-- ArmVirtQemu.md       Manual graphics, input, and navigation checks.
+|   +-- LoongArchVirtQemu.md Manual LoongArchVirt build and graphics checks.
 |
 +-- Smoke                  Planned scripted build/boot smoke tests.
 |
@@ -19,6 +27,9 @@ Tests
 ## Current Coverage
 
 - ArmVirtQemu AARCH64 build validation through `Scripts/build-armvirt.sh`.
+- LoongArchVirtQemu LOONGARCH64 overlay generation through
+  `Scripts/build-loongarchvirt.sh`; full compile requires an external
+  LoongArch GCC/binutils cross toolchain.
 - Manual QEMU graphics validation through `Scripts/run-armvirt.sh`.
 - Manual native UiApp/FormBrowser navigation validation through
   `ModernDisplayEngineDxe`.
@@ -29,6 +40,8 @@ Tests
   summary, and FormBrowser2 handoff.
 - Static overlay validation that the default path does not reference
   `ModernSetupApp` or custom HII bridge libraries.
+- Static LoongArchVirt overlay validation that the default path uses native
+  UiApp plus `ModernDisplayEngineDxe`.
 
 ## Planned Coverage
 

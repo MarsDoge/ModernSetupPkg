@@ -3,6 +3,10 @@ Implementation for handling user input from the User Interfaces.
 
 Copyright (c) 2004 - 2018, Intel Corporation. All rights reserved.<BR>
 Copyright (C) 2024 Advanced Micro Devices, Inc. All rights reserved.
+  Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
+  Author: MarsDoge (Dongyan Qian)
+  Open source: https://github.com/MarsDoge/ModernSetupPkg
+
 SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/

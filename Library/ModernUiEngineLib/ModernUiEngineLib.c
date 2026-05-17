@@ -1,6 +1,10 @@
 /** @file
   Shared ModernSetup visual engine implementation.
 
+  Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
+  Author: MarsDoge (Dongyan Qian)
+  Open source: https://github.com/MarsDoge/ModernSetupPkg
+
   SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
 
@@ -12,6 +16,54 @@
 #include <ModernUi/ModernUiEngine.h>
 
 #define MODERN_UI_ENGINE_RIGHT_RAIL_MIN_WIDTH  1000
+
+/**
+  Return a display string for the current build architecture.
+
+  @retval CHAR16*  Static architecture string for the active MDE_CPU_* target.
+**/
+STATIC
+CONST CHAR16 *
+GetArchitectureName (
+  VOID
+  )
+{
+#if defined (MDE_CPU_AARCH64)
+  return L"AARCH64";
+#elif defined (MDE_CPU_ARM)
+  return L"ARM";
+#elif defined (MDE_CPU_X64)
+  return L"X64";
+#elif defined (MDE_CPU_IA32)
+  return L"IA32";
+#elif defined (MDE_CPU_LOONGARCH64)
+  return L"LOONGARCH64";
+#elif defined (MDE_CPU_RISCV64)
+  return L"RISCV64";
+#else
+  return L"UNKNOWN";
+#endif
+}
+
+/**
+  Return a display string for the current virtual platform family.
+
+  @retval CHAR16*  Static platform string inferred from the active architecture.
+**/
+STATIC
+CONST CHAR16 *
+GetPlatformName (
+  VOID
+  )
+{
+#if defined (MDE_CPU_LOONGARCH64)
+  return L"LoongArchVirt / QEMU";
+#elif defined (MDE_CPU_AARCH64) || defined (MDE_CPU_ARM)
+  return L"ArmVirt / QEMU";
+#else
+  return L"UEFI platform";
+#endif
+}
 
 /**
   Draw a procedural header pattern band.
@@ -168,7 +220,7 @@ DrawRightRail (
     return Status;
   }
 
-  Status = ModernUiDrawText (Context, X, Y + 48, L"AARCH64", Theme->TelemetryText, Theme->BackgroundBlack);
+  Status = ModernUiDrawText (Context, X, Y + 48, GetArchitectureName (), Theme->TelemetryText, Theme->BackgroundBlack);
   if (EFI_ERROR (Status)) {
     return Status;
   }
@@ -178,7 +230,7 @@ DrawRightRail (
     return Status;
   }
 
-  Status = ModernUiDrawText (Context, X, Y + 102, L"ArmVirt / QEMU", Theme->TelemetryText, Theme->BackgroundBlack);
+  Status = ModernUiDrawText (Context, X, Y + 102, GetPlatformName (), Theme->TelemetryText, Theme->BackgroundBlack);
   if (EFI_ERROR (Status)) {
     return Status;
   }

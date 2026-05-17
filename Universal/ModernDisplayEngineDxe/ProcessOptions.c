@@ -3,6 +3,10 @@ Implementation for handling the User Interface option processing.
 
 
 Copyright (c) 2004 - 2020, Intel Corporation. All rights reserved.<BR>
+  Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
+  Author: MarsDoge (Dongyan Qian)
+  Open source: https://github.com/MarsDoge/ModernSetupPkg
+
 SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/

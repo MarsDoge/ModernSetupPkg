@@ -1,6 +1,10 @@
 ## @file
 # Standalone build description for ModernSetupPkg modules.
 #
+# Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
+# Author: MarsDoge (Dongyan Qian)
+# Open source: https://github.com/MarsDoge/ModernSetupPkg
+#
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 ##
 
@@ -10,7 +14,7 @@
   PLATFORM_VERSION               = 0.1
   DSC_SPECIFICATION              = 0x00010005
   OUTPUT_DIRECTORY               = Build/ModernSetupPkg
-  SUPPORTED_ARCHITECTURES        = AARCH64|X64
+  SUPPORTED_ARCHITECTURES        = AARCH64|X64|LOONGARCH64
   BUILD_TARGETS                  = DEBUG|RELEASE
   SKUID_IDENTIFIER               = DEFAULT
 

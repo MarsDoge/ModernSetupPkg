@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
+# Author: MarsDoge (Dongyan Qian)
+# Open source: https://github.com/MarsDoge/ModernSetupPkg
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
 set -euo pipefail
 
 PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

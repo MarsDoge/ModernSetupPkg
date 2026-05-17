@@ -1,8 +1,15 @@
+<!--
+Copyright (c) 2026, MarsDoge. All rights reserved.
+Author: MarsDoge (Dongyan Qian)
+Open source: https://github.com/MarsDoge/ModernSetupPkg
+SPDX-License-Identifier: BSD-2-Clause-Patent
+-->
+
 # ModernSetupPkg
 
 ModernSetupPkg is an experimental edk2 package for a modern graphical firmware
-setup shell. The first target is ArmVirtQemu on macOS/Apple Silicon; LoongArch
-integration is planned after the ArmVirt prototype is stable.
+setup shell. The first validation targets are ArmVirtQemu on macOS/Apple
+Silicon and LoongArchVirtQemu for LoongArch64 virtual firmware work.
 
 The UI intentionally uses only open source edk2 interfaces and original visual
 assets. Commercial IBV firmware screens are treated only as visual and
@@ -23,6 +30,8 @@ interaction references.
 - A standalone `ModernSetupApp` standard front-page shell that uses shared
   engine surfaces and opens real HII/VFR pages through native FormBrowser2
 - ArmVirtQemu overlay scripts that keep upstream `ArmVirtPkg` files unchanged
+- LoongArchVirtQemu overlay scripts that keep upstream `OvmfPkg/LoongArchVirt`
+  files unchanged
 - Development rules for function contracts, multi-architecture extension points,
   and IBV-friendly adaptation
 
@@ -134,8 +143,14 @@ edk2 workspace
     |   |   +-- keeps upstream ArmVirtPkg files unchanged
     |   |
     |   +-- Scripts/run-armvirt.sh
+    |   |   |
+    |   |   +-- QEMU ArmVirt graphics validation
+    |   |
+    |   +-- Scripts/build-loongarchvirt.sh
+    |   |
+    |   +-- Scripts/run-loongarchvirt.sh
     |       |
-    |       +-- QEMU ArmVirt graphics validation
+    |       +-- QEMU LoongArchVirt graphics validation
     |
     +-- Project records
     |   |
@@ -149,6 +164,7 @@ edk2 workspace
     +-- Tests
         |
         +-- Manual/ArmVirtQemu.md
+        +-- Manual/LoongArchVirtQemu.md
         +-- Smoke       (planned)
         +-- Unit        (planned)
 ```
@@ -259,6 +275,26 @@ that demo driver:
 MODERN_SETUP_DEMO_DRIVER_SAMPLE=0 ModernSetupPkg/Scripts/build-armvirt.sh
 ```
 
+Build LoongArchVirtQemu:
+
+```sh
+export GCC_LOONGARCH64_PREFIX=loongarch64-unknown-linux-gnu-
+ModernSetupPkg/Scripts/build-loongarchvirt.sh
+```
+
+LoongArchVirt currently follows upstream edk2's GCC-based path. The build
+script checks for `${GCC_LOONGARCH64_PREFIX}gcc` and
+`${GCC_LOONGARCH64_PREFIX}objcopy` before compiling. On macOS, QEMU can be
+installed with Homebrew, but the LoongArch GCC/binutils cross toolchain must be
+provided separately.
+
+To inspect the generated LoongArch overlay before the cross toolchain is
+available:
+
+```sh
+GENERATE_ONLY=1 ModernSetupPkg/Scripts/build-loongarchvirt.sh
+```
+
 The renderer asks GOP for a larger display mode during initialization. If the
 firmware exposes a suitable mode, it switches away from small 800x600 defaults
 to at least 1024x768.
@@ -275,6 +311,16 @@ with `GIC_VERSION=3` only when testing that specific combination.
 
 Click the QEMU window and press `Esc` or `F2` during BDS wait to enter the
 native UiApp firmware setup. Rendering is handled by `ModernDisplayEngineDxe`.
+
+Run LoongArchVirtQemu with graphics:
+
+```sh
+GRAPHICS=1 RESET_VARS=1 ModernSetupPkg/Scripts/run-loongarchvirt.sh
+```
+
+The LoongArch run path uses native UiApp plus ModernDisplayEngine, matching the
+default ArmVirt compatibility path. It does not boot `ModernSetupApp` by
+default.
 
 `ModernSetupApp` is intentionally opt-in while the default firmware path stays
 native UiApp plus ModernDisplayEngine. Build it and boot it from a temporary

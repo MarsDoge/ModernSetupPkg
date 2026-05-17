@@ -1,3 +1,10 @@
+<!--
+Copyright (c) 2026, MarsDoge. All rights reserved.
+Author: MarsDoge (Dongyan Qian)
+Open source: https://github.com/MarsDoge/ModernSetupPkg
+SPDX-License-Identifier: BSD-2-Clause-Patent
+-->
+
 # ArmVirtQemu Manual Test
 
 ## Build
