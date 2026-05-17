@@ -56,8 +56,21 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #define MODERN_SETUP_HORIZONTAL_MARGIN 3
 #define MODERN_SETUP_CONTENT_TOP_GAP   1
 #define MODERN_SETUP_CONTENT_BOTTOM_GAP 1
-#define MODERN_SETUP_RIGHT_RAIL_COLUMNS 24
-#define MODERN_SETUP_RIGHT_RAIL_MIN_COLUMNS 96
+#define MODERN_SETUP_RIGHT_RAIL_COLUMNS 26
+#define MODERN_SETUP_RIGHT_RAIL_MIN_COLUMNS 112
+
+typedef struct {
+  EFI_SCREEN_DESCRIPTOR    Statement;
+  UINTN                    HeaderRows;
+  UINTN                    FooterTopRow;
+  UINTN                    ContentLeftColumn;
+  UINTN                    ContentRightColumn;
+  UINTN                    ContentTopRow;
+  UINTN                    ContentBottomRow;
+  UINTN                    RightRailLeftColumn;
+  UINTN                    RightRailRightColumn;
+  BOOLEAN                  RightRailVisible;
+} MODERN_DISPLAY_LAYOUT;
 
 //
 // Screen definitions
@@ -171,6 +184,38 @@ LibGetToken (
 VOID
 ModernDisplayClearGop (
   VOID
+  );
+
+/**
+  Calculate the text-grid layout used by the GOP DisplayEngine chrome.
+
+  The returned statement rectangle is the only area where native FormBrowser
+  statements should be printed. Other fields describe the surrounding chrome.
+
+  @param[out] Layout  Layout description to fill. Must not be NULL.
+
+  @retval EFI_SUCCESS            Layout was calculated.
+  @retval EFI_INVALID_PARAMETER  Layout is NULL.
+**/
+EFI_STATUS
+ModernDisplayCalculateLayout (
+  OUT MODERN_DISPLAY_LAYOUT  *Layout
+  );
+
+/**
+  Draw the GOP surface behind a text-mode popup/dialog.
+
+  @param[in] StartColumn  Left text-grid column of the popup.
+  @param[in] EndColumn    Right text-grid column of the popup.
+  @param[in] TopRow       Top text-grid row of the popup.
+  @param[in] BottomRow    Bottom text-grid row of the popup.
+**/
+VOID
+ModernDisplayDrawPopupSurface (
+  IN UINTN  StartColumn,
+  IN UINTN  EndColumn,
+  IN UINTN  TopRow,
+  IN UINTN  BottomRow
   );
 
 /**

@@ -77,6 +77,12 @@ this file as both a release log and a lightweight development progress record.
   top advanced-mode navigation chrome, right-side status rail, content area
   reservation, and bottom action strip drawn in the GOP-backed customized
   display path without vendor artwork or a custom HII parser.
+- AORUS-like black/orange theme tokens for DisplayEngine rendering, including
+  header pattern, orange/yellow accents, selected bands, popup border, warning
+  text, and telemetry text colors.
+- Shared layout helper for DisplayEngine chrome and native statement area
+  reservation, with the right telemetry rail enabled only on sufficiently wide
+  text grids.
 
 ### Changed
 
@@ -110,6 +116,9 @@ this file as both a release log and a lightweight development progress record.
   FormBrowser hotkey help, suppresses duplicate form-title text in the top tab
   area, and keeps the procedural pattern limited to the header instead of the
   main content surface.
+- DisplayEngine rows, value boxes, drop-down frames, popups, and pick lists now
+  use black/orange AORUS-like surfaces while preserving native FormBrowser
+  control semantics.
 
 ### Fixed
 

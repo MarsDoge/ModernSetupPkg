@@ -58,7 +58,7 @@ DisplayPageFrame (
   )
 {
   EFI_STATUS  Status;
-  UINTN       ScreenColumns;
+  MODERN_DISPLAY_LAYOUT Layout;
 
   ASSERT (FormData != NULL && ScreenForStatement != NULL);
   if ((FormData == NULL) || (ScreenForStatement == NULL)) {
@@ -74,30 +74,12 @@ DisplayPageFrame (
 
   ProcessExternedOpcode (FormData);
 
-  //
-  // Calculate the ScreenForStatement.
-  //
-  ScreenForStatement->BottomRow = gScreenDimensions.BottomRow - STATUS_BAR_HEIGHT - gFooterHeight - MODERN_SETUP_CONTENT_BOTTOM_GAP;
-  if (gClassOfVfr == FORMSET_CLASS_FRONT_PAGE) {
-    ScreenForStatement->TopRow = gScreenDimensions.TopRow + FRONT_PAGE_HEADER_HEIGHT;
-  } else {
-    ScreenForStatement->TopRow = gScreenDimensions.TopRow + NONE_FRONT_PAGE_HEADER_HEIGHT + MODERN_SETUP_CONTENT_TOP_GAP;
+  Status = ModernDisplayCalculateLayout (&Layout);
+  if (EFI_ERROR (Status)) {
+    return Status;
   }
 
-  ScreenColumns = gScreenDimensions.RightColumn - gScreenDimensions.LeftColumn;
-  if (ScreenColumns > (2 * MODERN_SETUP_HORIZONTAL_MARGIN + 40)) {
-    ScreenForStatement->LeftColumn  = gScreenDimensions.LeftColumn + MODERN_SETUP_HORIZONTAL_MARGIN;
-    ScreenForStatement->RightColumn = gScreenDimensions.RightColumn - MODERN_SETUP_HORIZONTAL_MARGIN;
-  } else {
-    ScreenForStatement->LeftColumn  = gScreenDimensions.LeftColumn;
-    ScreenForStatement->RightColumn = gScreenDimensions.RightColumn;
-  }
-
-  if ((ScreenColumns >= MODERN_SETUP_RIGHT_RAIL_MIN_COLUMNS) &&
-      ((ScreenForStatement->RightColumn - ScreenForStatement->LeftColumn) > (MODERN_SETUP_RIGHT_RAIL_COLUMNS + 44)))
-  {
-    ScreenForStatement->RightColumn -= MODERN_SETUP_RIGHT_RAIL_COLUMNS;
-  }
+  CopyMem (ScreenForStatement, &Layout.Statement, sizeof (*ScreenForStatement));
 
   if ((gLibIsFirstForm) || ((FormData->Attribute & HII_DISPLAY_MODAL) != 0)) {
     //
@@ -503,6 +485,7 @@ CreateDialog (
 
   Top    = ((DimensionsHeight - LineNum - 2) / 2) + gScreenDimensions.TopRow - 1;
   Bottom = Top + LineNum + 2;
+  ModernDisplayDrawPopupSurface (Start, End, Top, Bottom);
 
   Character = BOXDRAW_DOWN_RIGHT;
   PrintCharAt (Start, Top, Character);
@@ -792,7 +775,7 @@ GetPopupColor (
   VOID
   )
 {
-  return POPUP_TEXT | POPUP_BACKGROUND;
+  return EFI_TEXT_ATTR (EFI_YELLOW, EFI_BLACK);
 }
 
 /**
@@ -806,7 +789,7 @@ GetPopupInverseColor (
   VOID
   )
 {
-  return POPUP_INVERSE_TEXT | POPUP_INVERSE_BACKGROUND;
+  return EFI_TEXT_ATTR (EFI_WHITE, EFI_RED);
 }
 
 /**
@@ -820,7 +803,7 @@ GetPickListColor (
   VOID
   )
 {
-  return PICKLIST_HIGHLIGHT_TEXT | PICKLIST_HIGHLIGHT_BACKGROUND;
+  return EFI_TEXT_ATTR (EFI_YELLOW, EFI_RED);
 }
 
 /**

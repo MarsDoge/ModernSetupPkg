@@ -32,6 +32,13 @@ ModernDisplayRows (
   VOID
   );
 
+STATIC
+VOID
+ModernDisplayDrawGlowStrip (
+  IN MODERN_UI_RECT          Rect,
+  IN CONST MODERN_UI_THEME   *Theme
+  );
+
 /**
   Return GOP cell metrics that match the active text-mode grid.
 
@@ -148,6 +155,59 @@ ModernDisplayRows (
 }
 
 /**
+  Calculate the text-grid layout used by the GOP DisplayEngine chrome.
+
+  The returned statement rectangle is the only area where native FormBrowser
+  statements should be printed. Other fields describe the surrounding chrome.
+
+  @param[out] Layout  Layout description to fill. Must not be NULL.
+
+  @retval EFI_SUCCESS            Layout was calculated.
+  @retval EFI_INVALID_PARAMETER  Layout is NULL.
+**/
+EFI_STATUS
+ModernDisplayCalculateLayout (
+  OUT MODERN_DISPLAY_LAYOUT  *Layout
+  )
+{
+  UINTN  ScreenColumns;
+  UINTN  HorizontalMargin;
+
+  if (Layout == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  ZeroMem (Layout, sizeof (*Layout));
+
+  ScreenColumns          = gScreenDimensions.RightColumn - gScreenDimensions.LeftColumn;
+  HorizontalMargin       = (ScreenColumns > (2 * MODERN_SETUP_HORIZONTAL_MARGIN + 40)) ? MODERN_SETUP_HORIZONTAL_MARGIN : 0;
+  Layout->HeaderRows     = (gClassOfVfr == FORMSET_CLASS_FRONT_PAGE) ? FRONT_PAGE_HEADER_HEIGHT : NONE_FRONT_PAGE_HEADER_HEIGHT;
+  Layout->FooterTopRow   = gScreenDimensions.BottomRow - STATUS_BAR_HEIGHT - gFooterHeight;
+  Layout->ContentTopRow  = gScreenDimensions.TopRow + Layout->HeaderRows;
+  Layout->ContentBottomRow = Layout->FooterTopRow - MODERN_SETUP_CONTENT_BOTTOM_GAP;
+  Layout->ContentLeftColumn = gScreenDimensions.LeftColumn + HorizontalMargin;
+  Layout->ContentRightColumn = gScreenDimensions.RightColumn - HorizontalMargin;
+
+  Layout->RightRailVisible = (BOOLEAN)(
+                                      (ScreenColumns >= MODERN_SETUP_RIGHT_RAIL_MIN_COLUMNS) &&
+                                      ((Layout->ContentRightColumn - Layout->ContentLeftColumn) >
+                                       (MODERN_SETUP_RIGHT_RAIL_COLUMNS + 44))
+                                      );
+  if (Layout->RightRailVisible) {
+    Layout->RightRailRightColumn = Layout->ContentRightColumn;
+    Layout->RightRailLeftColumn  = Layout->RightRailRightColumn - MODERN_SETUP_RIGHT_RAIL_COLUMNS;
+    Layout->ContentRightColumn   = Layout->RightRailLeftColumn - 2;
+  }
+
+  Layout->Statement.TopRow    = Layout->ContentTopRow + MODERN_SETUP_CONTENT_TOP_GAP;
+  Layout->Statement.BottomRow = Layout->ContentBottomRow;
+  Layout->Statement.LeftColumn = Layout->ContentLeftColumn;
+  Layout->Statement.RightColumn = Layout->ContentRightColumn;
+
+  return EFI_SUCCESS;
+}
+
+/**
   Convert an EFI text attribute into a foreground pixel color.
 
   @param[in] Attribute  EFI text attribute from ConOut.
@@ -166,7 +226,7 @@ ModernDisplayForeground (
   switch (Attribute & 0x0F) {
     case EFI_RED:
     case EFI_LIGHTRED:
-      return Theme->Warning;
+      return Theme->WarningText;
     case EFI_GREEN:
     case EFI_LIGHTGREEN:
       return Theme->Success;
@@ -174,13 +234,14 @@ ModernDisplayForeground (
     case EFI_LIGHTCYAN:
     case EFI_BLUE:
     case EFI_LIGHTBLUE:
-      return Theme->Accent;
+      return Theme->AccentOrange;
     case EFI_DARKGRAY:
     case EFI_LIGHTGRAY:
       return Theme->MutedText;
-    case EFI_WHITE:
     case EFI_YELLOW:
+      return Theme->AccentYellow;
     case EFI_BROWN:
+    case EFI_WHITE:
     default:
       return Theme->Text;
   }
@@ -203,11 +264,15 @@ ModernDisplayBackground (
 
   Theme = ModernUiGetTheme ();
   switch ((Attribute >> 4) & 0x07) {
+    case EFI_RED:
+      return Theme->SelectedBand;
     case EFI_BLUE:
       return Theme->SurfaceRaised;
     case EFI_CYAN:
     case EFI_LIGHTBLUE:
-      return Theme->AccentSoft;
+      return Theme->SelectedBand;
+    case EFI_BLACK:
+      return Theme->BackgroundBlack;
     case EFI_LIGHTGRAY:
       return Theme->Surface;
     default:
@@ -319,8 +384,8 @@ ModernDisplayDrawPatternBand (
     return;
   }
 
-  FaintAccent = ModernUiBlendColor (Theme->Background, Theme->Accent, 10);
-  FaintBorder = ModernUiBlendColor (Theme->Background, Theme->Border, 20);
+  FaintAccent = ModernUiBlendColor (Theme->HeaderPattern, Theme->AccentOrange, 18);
+  FaintBorder = ModernUiBlendColor (Theme->HeaderPattern, Theme->Border, 24);
 
   for (LineY = Y + 12; LineY < (Y + Height); LineY += 32) {
     ModernUiFillRect (
@@ -344,6 +409,28 @@ ModernDisplayDrawPatternBand (
         );
     }
   }
+}
+
+/**
+  Draw a horizontal glow strip used by selected top-level navigation tabs.
+
+  @param[in] Rect   Pixel rectangle for the strip.
+  @param[in] Theme  Theme token table. Must not be NULL.
+**/
+STATIC
+VOID
+ModernDisplayDrawGlowStrip (
+  IN MODERN_UI_RECT          Rect,
+  IN CONST MODERN_UI_THEME   *Theme
+  )
+{
+  if ((Theme == NULL) || (Rect.Width == 0) || (Rect.Height < 3)) {
+    return;
+  }
+
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ Rect.X, Rect.Y, Rect.Width, 1 }, Theme->GlowOrange);
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ Rect.X, Rect.Y + 1, Rect.Width, 1 }, Theme->AccentOrange);
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ Rect.X, Rect.Y + 2, Rect.Width, 1 }, Theme->AccentYellow);
 }
 
 /**
@@ -380,24 +467,26 @@ ModernDisplayDrawTopChrome (
   UINTN     TabIndex;
   UINTN     SelectedTab;
   UINTN     X;
+  UINTN     TextWidth;
 
   Margin      = MODERN_SETUP_HORIZONTAL_MARGIN * CellWidth;
-  TabY        = (CellHeight * 2);
+  TabY        = (CellHeight * 2) + 2;
   TabWidth    = (mModernRenderContext.Width > (Margin * 2)) ? ((mModernRenderContext.Width - (Margin * 2)) / ARRAY_SIZE (Tabs)) : 1;
   SelectedTab = ModernDisplaySelectChromeTab (PrintableTitle);
 
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, 0, mModernRenderContext.Width, HeaderHeight }, Theme->SurfaceRaised);
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, 0, mModernRenderContext.Width, HeaderHeight }, Theme->BackgroundBlack);
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, 0, mModernRenderContext.Width, HeaderHeight / 2 }, Theme->HeaderPattern);
   ModernDisplayDrawPatternBand (0, HeaderHeight, Theme);
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, HeaderHeight - 2, mModernRenderContext.Width, 2 }, Theme->Accent);
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, HeaderHeight - 2, mModernRenderContext.Width, 2 }, Theme->AccentOrange);
 
-  ModernUiDrawText (&mModernRenderContext, Margin + 2, 6, L"MODERN SETUP", Theme->Text, Theme->SurfaceRaised);
+  ModernUiDrawText (&mModernRenderContext, Margin + 2, 6, L"MODERN SETUP", Theme->Text, Theme->HeaderPattern);
   ModernUiDrawText (
     &mModernRenderContext,
-    (mModernRenderContext.Width > 180) ? ((mModernRenderContext.Width - 180) / 2) : Margin,
+    (mModernRenderContext.Width > 190) ? ((mModernRenderContext.Width - 190) / 2) : Margin,
     6,
     L"ADVANCED MODE",
-    Theme->Accent,
-    Theme->SurfaceRaised
+    Theme->AccentOrange,
+    Theme->HeaderPattern
     );
 
   if (!EFI_ERROR (gRT->GetTime (&Time, NULL))) {
@@ -406,7 +495,7 @@ ModernDisplayDrawTopChrome (
       (mModernRenderContext.Width > 210) ? (mModernRenderContext.Width - 210) : Margin,
       6,
       Theme->Text,
-      Theme->SurfaceRaised,
+      Theme->HeaderPattern,
       L"%02d/%02d/%04d  %02d:%02d",
       Time.Month,
       Time.Day,
@@ -416,31 +505,84 @@ ModernDisplayDrawTopChrome (
       );
   }
 
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, TabY - 1, mModernRenderContext.Width, 1 }, Theme->Border);
   for (TabIndex = 0; TabIndex < ARRAY_SIZE (Tabs); TabIndex++) {
     X = Margin + (TabIndex * TabWidth);
+    TextWidth = ModernUiMeasureText (Tabs[TabIndex]);
     if (TabIndex == SelectedTab) {
-      ModernUiFillRect (
+      ModernUiStrokeRect (
         &mModernRenderContext,
-        (MODERN_UI_RECT){ X + 4, TabY + 4, (TabWidth > 8) ? (TabWidth - 8) : TabWidth, CellHeight + 4 },
-        Theme->AccentSoft
+        (MODERN_UI_RECT){ X + 14, TabY + 2, (TabWidth > 28) ? (TabWidth - 28) : TabWidth, CellHeight + 8 },
+        Theme->PopupBorder
         );
-      ModernUiFillRect (
-        &mModernRenderContext,
-        (MODERN_UI_RECT){ X + 4, TabY + CellHeight + 8, (TabWidth > 8) ? (TabWidth - 8) : TabWidth, 2 },
-        Theme->Accent
+      ModernDisplayDrawGlowStrip (
+        (MODERN_UI_RECT){ X + 18, TabY + CellHeight + 12, (TabWidth > 36) ? (TabWidth - 36) : TabWidth, 3 },
+        Theme
         );
     }
 
+    ModernUiFillRect (
+      &mModernRenderContext,
+      (MODERN_UI_RECT){ X + 18, TabY + CellHeight + 10, (TabWidth > 36) ? (TabWidth - 36) : TabWidth, 2 },
+      (TabIndex == SelectedTab) ? Theme->AccentOrange : ModernUiBlendColor (Theme->BackgroundBlack, Theme->AccentOrange, 60)
+      );
     ModernUiDrawTextFit (
       &mModernRenderContext,
-      X + 12,
+      X + ((TabWidth > TextWidth) ? ((TabWidth - TextWidth) / 2) : 8),
       TabY + 8,
       (TabWidth > 24) ? (TabWidth - 24) : TabWidth,
       Tabs[TabIndex],
-      (TabIndex == SelectedTab) ? Theme->Text : Theme->MutedText,
-      (TabIndex == SelectedTab) ? Theme->AccentSoft : Theme->SurfaceRaised
+      (TabIndex == SelectedTab) ? Theme->AccentYellow : Theme->AccentOrange,
+      Theme->BackgroundBlack
       );
+  }
+}
+
+/**
+  Draw the GOP surface behind a text-mode popup/dialog.
+
+  @param[in] StartColumn  Left text-grid column of the popup.
+  @param[in] EndColumn    Right text-grid column of the popup.
+  @param[in] TopRow       Top text-grid row of the popup.
+  @param[in] BottomRow    Bottom text-grid row of the popup.
+**/
+VOID
+ModernDisplayDrawPopupSurface (
+  IN UINTN  StartColumn,
+  IN UINTN  EndColumn,
+  IN UINTN  TopRow,
+  IN UINTN  BottomRow
+  )
+{
+  CONST MODERN_UI_THEME  *Theme;
+  UINTN                  CellWidth;
+  UINTN                  CellHeight;
+  MODERN_UI_RECT         Rect;
+
+  if ((EndColumn <= StartColumn) || (BottomRow <= TopRow) || EFI_ERROR (ModernDisplayEnsureRenderer ())) {
+    return;
+  }
+
+  Theme = ModernUiGetTheme ();
+  ModernDisplayGetCellMetrics (&CellWidth, &CellHeight);
+  Rect = (MODERN_UI_RECT){
+           StartColumn * CellWidth,
+           TopRow * CellHeight,
+           (EndColumn - StartColumn) * CellWidth,
+           (BottomRow - TopRow) * CellHeight
+         };
+
+  if ((Rect.Width > 12) && (Rect.Height > 12)) {
+    ModernUiFillRect (
+      &mModernRenderContext,
+      (MODERN_UI_RECT){ Rect.X + 8, Rect.Y + 8, Rect.Width, Rect.Height },
+      ModernUiBlendColor (Theme->BackgroundBlack, Theme->AccentOrange, 12)
+      );
+  }
+
+  ModernUiFillRect (&mModernRenderContext, Rect, Theme->BackgroundBlack);
+  ModernUiStrokeRect (&mModernRenderContext, Rect, Theme->PopupBorder);
+  if (Rect.Height > 4) {
+    ModernDisplayDrawGlowStrip ((MODERN_UI_RECT){ Rect.X + 1, Rect.Y + 1, Rect.Width - 2, 3 }, Theme);
   }
 }
 
@@ -467,26 +609,26 @@ ModernDisplayDrawStatusRail (
     return;
   }
 
-  ModernUiFillRect (&mModernRenderContext, Rect, Theme->Background);
+  ModernUiFillRect (&mModernRenderContext, Rect, Theme->BackgroundBlack);
   ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ Rect.X, Rect.Y, 1, Rect.Height }, Theme->Border);
 
   X = Rect.X + 16;
   Y = Rect.Y + 18;
-  ModernUiDrawText (&mModernRenderContext, X, Y, L"CPU", Theme->Warning, Theme->Background);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 28, L"Architecture", Theme->MutedText, Theme->Background);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 48, L"AARCH64", Theme->Text, Theme->Background);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 82, L"Platform", Theme->MutedText, Theme->Background);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 102, L"ArmVirt / QEMU", Theme->Text, Theme->Background);
+  ModernUiDrawText (&mModernRenderContext, X, Y, L"CPU", Theme->AccentYellow, Theme->BackgroundBlack);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 28, L"Architecture", Theme->MutedText, Theme->BackgroundBlack);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 48, L"AARCH64", Theme->TelemetryText, Theme->BackgroundBlack);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 82, L"Platform", Theme->MutedText, Theme->BackgroundBlack);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 102, L"ArmVirt / QEMU", Theme->TelemetryText, Theme->BackgroundBlack);
 
   ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ Rect.X + 12, Y + 136, Rect.Width - 24, 1 }, Theme->Border);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 158, L"Memory", Theme->Warning, Theme->Background);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 188, L"Provided by", Theme->MutedText, Theme->Background);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 208, L"UEFI memory map", Theme->Text, Theme->Background);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 158, L"Memory", Theme->AccentYellow, Theme->BackgroundBlack);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 188, L"Provided by", Theme->MutedText, Theme->BackgroundBlack);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 208, L"UEFI memory map", Theme->TelemetryText, Theme->BackgroundBlack);
 
   ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ Rect.X + 12, Y + 242, Rect.Width - 24, 1 }, Theme->Border);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 264, L"Voltage", Theme->Warning, Theme->Background);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 294, L"Sensor provider", Theme->MutedText, Theme->Background);
-  ModernUiDrawText (&mModernRenderContext, X, Y + 314, L"N/A", Theme->Text, Theme->Background);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 264, L"Voltage", Theme->AccentYellow, Theme->BackgroundBlack);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 294, L"Sensor provider", Theme->MutedText, Theme->BackgroundBlack);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 314, L"N/A", Theme->TelemetryText, Theme->BackgroundBlack);
 }
 
 /**
@@ -565,20 +707,12 @@ ModernDisplayDrawPageChrome (
   CHAR16                 *PrintableTitle;
   UINTN                  CellWidth;
   UINTN                  CellHeight;
-  UINTN                  HeaderHeight;
-  UINTN                  FooterTop;
-  UINTN                  ContentX;
-  UINTN                  ContentY;
-  UINTN                  ContentWidth;
-  UINTN                  ContentHeight;
-  UINTN                  HorizontalMargin;
-  UINTN                  ScreenColumns;
-  UINTN                  RightRailWidth;
-  UINTN                  RightRailGap;
-  UINTN                  RightRailX;
   MODERN_UI_RECT         ContentRect;
   MODERN_UI_RECT         RightRailRect;
   MODERN_UI_RECT         FooterRect;
+  MODERN_DISPLAY_LAYOUT  Layout;
+  UINTN                  HeaderHeight;
+  UINTN                  SplitX;
 
   ASSERT (FormData != NULL);
   if ((FormData == NULL) || EFI_ERROR (ModernDisplayEnsureRenderer ())) {
@@ -587,12 +721,11 @@ ModernDisplayDrawPageChrome (
 
   Theme = ModernUiGetTheme ();
   ModernDisplayGetCellMetrics (&CellWidth, &CellHeight);
+  if (EFI_ERROR (ModernDisplayCalculateLayout (&Layout))) {
+    return;
+  }
 
-  HeaderHeight = (gClassOfVfr == FORMSET_CLASS_FRONT_PAGE) ? (FRONT_PAGE_HEADER_HEIGHT * CellHeight) :
-                 (NONE_FRONT_PAGE_HEADER_HEIGHT * CellHeight);
-  FooterTop = (gScreenDimensions.BottomRow - STATUS_BAR_HEIGHT - gFooterHeight) * CellHeight;
-  ScreenColumns = gScreenDimensions.RightColumn - gScreenDimensions.LeftColumn;
-  HorizontalMargin = (ScreenColumns > (2 * MODERN_SETUP_HORIZONTAL_MARGIN + 4)) ? MODERN_SETUP_HORIZONTAL_MARGIN : 0;
+  HeaderHeight = Layout.HeaderRows * CellHeight;
 
   Title          = LibGetToken (FormData->FormTitle, FormData->HiiHandle);
   PrintableTitle = NULL;
@@ -606,32 +739,38 @@ ModernDisplayDrawPageChrome (
   ModernUiClear (&mModernRenderContext, Theme->Background);
   ModernDisplayDrawTopChrome (Theme, PrintableTitle, CellWidth, CellHeight, HeaderHeight);
 
-  FooterRect = (MODERN_UI_RECT){ 0, FooterTop, mModernRenderContext.Width, mModernRenderContext.Height - FooterTop };
+  FooterRect = (MODERN_UI_RECT){ 0, Layout.FooterTopRow * CellHeight, mModernRenderContext.Width, mModernRenderContext.Height - (Layout.FooterTopRow * CellHeight) };
   ModernUiFillRect (&mModernRenderContext, FooterRect, Theme->SurfaceRaised);
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, FooterTop, mModernRenderContext.Width, 1 }, Theme->Border);
+  ModernUiFillRect (
+    &mModernRenderContext,
+    (MODERN_UI_RECT){ 0, Layout.FooterTopRow * CellHeight, mModernRenderContext.Width, 1 },
+    Theme->Border
+    );
 
-  ContentX      = (gScreenDimensions.LeftColumn + HorizontalMargin) * CellWidth;
-  ContentY      = (gScreenDimensions.TopRow + NONE_FRONT_PAGE_HEADER_HEIGHT) * CellHeight;
-  ContentWidth  = MAX (1, ScreenColumns - (2 * HorizontalMargin)) * CellWidth;
-  ContentHeight = (FooterTop > ContentY + CellHeight) ? (FooterTop - ContentY - CellHeight) : CellHeight;
-
-  RightRailWidth = 0;
-  RightRailGap   = CellWidth * 2;
-  if ((ScreenColumns >= MODERN_SETUP_RIGHT_RAIL_MIN_COLUMNS) &&
-      (ContentWidth > ((MODERN_SETUP_RIGHT_RAIL_COLUMNS + 44) * CellWidth)))
-  {
-    RightRailWidth = MODERN_SETUP_RIGHT_RAIL_COLUMNS * CellWidth;
-    ContentWidth  -= RightRailWidth + RightRailGap;
-  }
-
-  ContentRect   = (MODERN_UI_RECT){ ContentX, ContentY, ContentWidth, ContentHeight };
+  ContentRect = (MODERN_UI_RECT){
+                  Layout.ContentLeftColumn * CellWidth,
+                  Layout.ContentTopRow * CellHeight,
+                  (Layout.ContentRightColumn - Layout.ContentLeftColumn) * CellWidth,
+                  (Layout.ContentBottomRow - Layout.ContentTopRow) * CellHeight
+                };
 
   ModernUiFillRect (&mModernRenderContext, ContentRect, Theme->Surface);
-  ModernUiStrokeRect (&mModernRenderContext, ContentRect, Theme->Border);
+  if (ContentRect.Width > (CellWidth * 28)) {
+    SplitX = ContentRect.X + ((ContentRect.Width * 42) / 100);
+    ModernUiFillRect (
+      &mModernRenderContext,
+      (MODERN_UI_RECT){ SplitX, ContentRect.Y + CellHeight, 1, ContentRect.Height - (CellHeight * 2) },
+      Theme->Border
+      );
+  }
 
-  if (RightRailWidth != 0) {
-    RightRailX    = ContentX + ContentWidth + RightRailGap;
-    RightRailRect = (MODERN_UI_RECT){ RightRailX, ContentY, RightRailWidth, ContentHeight };
+  if (Layout.RightRailVisible) {
+    RightRailRect = (MODERN_UI_RECT){
+                     Layout.RightRailLeftColumn * CellWidth,
+                     Layout.ContentTopRow * CellHeight,
+                     (Layout.RightRailRightColumn - Layout.RightRailLeftColumn) * CellWidth,
+                     (Layout.ContentBottomRow - Layout.ContentTopRow) * CellHeight
+                   };
     ModernDisplayDrawStatusRail (RightRailRect, Theme);
   }
 

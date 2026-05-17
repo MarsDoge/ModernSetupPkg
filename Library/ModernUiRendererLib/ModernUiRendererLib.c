@@ -1073,7 +1073,7 @@ ModernUiGetSelectableRowBackground (
   }
 
   if (Selected) {
-    RowColor = ModernUiBlendColor (Theme->AccentSoft, Theme->SurfaceRaised, 16);
+    RowColor = Theme->SelectedBand;
   } else if (Action || Subtitle) {
     RowColor = Theme->SurfaceRaised;
   } else {
@@ -1131,10 +1131,28 @@ ModernUiDrawSelectableRow (
   }
 
   if (Selected && (Rect.Width > 6) && (Rect.Height > 4)) {
+    Status = ModernUiFillRect (
+               Context,
+               (MODERN_UI_RECT){ Rect.X, Rect.Y + 1, Rect.Width, 1 },
+               Theme->GlowOrange
+               );
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+
+    Status = ModernUiFillRect (
+               Context,
+               (MODERN_UI_RECT){ Rect.X, Rect.Y + Rect.Height - 2, Rect.Width, 1 },
+               ModernUiBlendColor (Theme->SelectedBand, Theme->BackgroundBlack, 35)
+               );
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+
     return ModernUiFillRect (
              Context,
-             (MODERN_UI_RECT){ Rect.X, Rect.Y + 2, 4, Rect.Height - 4 },
-             Theme->Accent
+             (MODERN_UI_RECT){ Rect.X, Rect.Y + 2, 5, Rect.Height - 4 },
+             Theme->AccentOrange
              );
   }
 
@@ -1177,7 +1195,7 @@ ModernUiDrawSelectableRowBorder (
   return ModernUiStrokeRect (
            Context,
            Rect,
-           Selected ? ModernUiBlendColor (Theme->Accent, Theme->Border, 30) : Theme->Border
+           Selected ? ModernUiBlendColor (Theme->AccentOrange, Theme->Border, 30) : Theme->Border
            );
 }
 
@@ -1212,12 +1230,12 @@ ModernUiDrawValueBox (
     return EFI_INVALID_PARAMETER;
   }
 
-  Status = ModernUiFillRect (Context, Rect, Theme->Surface);
+  Status = ModernUiFillRect (Context, Rect, Selected ? Theme->SelectedBand : Theme->Surface);
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
-  Status = ModernUiStrokeRect (Context, Rect, Selected ? Theme->Accent : Theme->Border);
+  Status = ModernUiStrokeRect (Context, Rect, Selected ? Theme->PopupBorder : Theme->Border);
   if (EFI_ERROR (Status)) {
     return Status;
   }
@@ -1229,7 +1247,7 @@ ModernUiDrawValueBox (
              (Rect.Width > 48) ? (Rect.Width - 48) : Rect.Width,
              Value,
              Theme->Text,
-             Theme->Surface
+             Selected ? Theme->SelectedBand : Theme->Surface
              );
   if (EFI_ERROR (Status)) {
     return Status;
@@ -1240,8 +1258,8 @@ ModernUiDrawValueBox (
            Rect.X + Rect.Width - 26,
            Rect.Y + ((Rect.Height > 18) ? ((Rect.Height - 18) / 2) : 0),
            L"v",
-           Theme->Accent,
-           Theme->Surface
+           Theme->AccentYellow,
+           Selected ? Theme->SelectedBand : Theme->Surface
            );
 }
 
@@ -1270,12 +1288,12 @@ ModernUiDrawDropdownFrame (
     return EFI_INVALID_PARAMETER;
   }
 
-  Status = ModernUiFillRect (Context, Rect, Theme->Surface);
+  Status = ModernUiFillRect (Context, Rect, Theme->BackgroundBlack);
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
-  Status = ModernUiStrokeRect (Context, Rect, Theme->Accent);
+  Status = ModernUiStrokeRect (Context, Rect, Theme->PopupBorder);
   if (EFI_ERROR (Status)) {
     return Status;
   }
@@ -1284,7 +1302,7 @@ ModernUiDrawDropdownFrame (
     return EFI_SUCCESS;
   }
 
-  return ModernUiFillRect (Context, (MODERN_UI_RECT){ Rect.X + 1, Rect.Y + 1, Rect.Width - 2, 1 }, Theme->Accent);
+  return ModernUiFillRect (Context, (MODERN_UI_RECT){ Rect.X + 1, Rect.Y + 1, Rect.Width - 2, 1 }, Theme->GlowOrange);
 }
 
 /**
