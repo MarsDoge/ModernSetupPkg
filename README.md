@@ -31,12 +31,20 @@ main route for Device Manager, DriverSample, Boot Maintenance, or third-party
 HII driver pages.
 
 The current DisplayEngine visual direction uses a commercial-IBV-style
-advanced-mode structure without reusing commercial artwork: black and deep red
-chrome, yellow focus accents, high-density content, a right-side hardware status
-rail, and a bottom hotkey strip owned by native FormBrowser. These surfaces are
-drawn from theme tokens and GOP primitives so OEM-specific styling can later be
-provided through theme/layout configuration instead of by changing HII parsing
-behavior.
+advanced-mode structure without reusing commercial artwork. The default theme is
+black/orange with yellow focus accents; an experimental black/deep-red/yellow
+theme can be selected at build time with `MODERN_SETUP_THEME=red`. These
+surfaces are drawn from theme tokens and GOP primitives so OEM-specific styling
+can later be provided through theme/layout configuration instead of by changing
+HII parsing behavior.
+
+```sh
+# Default black/orange theme
+ModernSetupPkg/Scripts/build-armvirt.sh
+
+# Experimental black/deep-red/yellow theme
+MODERN_SETUP_THEME=red ModernSetupPkg/Scripts/build-armvirt.sh
+```
 
 ## Architecture
 

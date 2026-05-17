@@ -30,3 +30,6 @@
 
 [PcdsFixedAtBuild]
   gModernSetupPkgTokenSpaceGuid.PcdModernSetupDefaultLanguage|"zh-Hans"|VOID*|0x00000001
+  ## Selects the built-in DisplayEngine theme.
+  #  0 = black/orange, 1 = black/deep-red/yellow.
+  gModernSetupPkgTokenSpaceGuid.PcdModernSetupTheme|0x00|UINT8|0x00000002

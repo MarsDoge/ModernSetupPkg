@@ -5,10 +5,33 @@
 **/
 
 #include <ModernUi/ModernUiTheme.h>
+#include <Library/PcdLib.h>
 
 #define RGB(r, g, b)  { (b), (g), (r), 0 }
 
-STATIC CONST MODERN_UI_THEME  mTheme = {
+STATIC CONST MODERN_UI_THEME  mOrangeTheme = {
+  RGB (0x02, 0x02, 0x02),  // Background
+  RGB (0x07, 0x08, 0x09),  // Surface
+  RGB (0x10, 0x0C, 0x08),  // SurfaceRaised
+  RGB (0x3C, 0x28, 0x12),  // Border
+  RGB (0xFF, 0x6A, 0x00),  // Accent
+  RGB (0x6D, 0x22, 0x06),  // AccentSoft
+  RGB (0xF5, 0xF3, 0xEE),  // Text
+  RGB (0x9B, 0x9A, 0x95),  // MutedText
+  RGB (0xFF, 0xD2, 0x00),  // Warning
+  RGB (0x68, 0xD3, 0x84),  // Success
+  RGB (0x00, 0x00, 0x00),  // BackgroundBlack
+  RGB (0x1E, 0x0E, 0x06),  // HeaderPattern
+  RGB (0xFF, 0x6A, 0x00),  // AccentOrange
+  RGB (0xFF, 0xE1, 0x00),  // AccentYellow
+  RGB (0xFF, 0x8A, 0x14),  // GlowOrange
+  RGB (0x9A, 0x2A, 0x04),  // SelectedBand
+  RGB (0xF2, 0x66, 0x00),  // PopupBorder
+  RGB (0xFF, 0xD2, 0x00),  // WarningText
+  RGB (0xD9, 0xD7, 0xCD)   // TelemetryText
+};
+
+STATIC CONST MODERN_UI_THEME  mRedTheme = {
   RGB (0x0A, 0x0A, 0x0A),  // Background
   RGB (0x13, 0x13, 0x13),  // Surface
   RGB (0x1C, 0x1C, 0x1C),  // SurfaceRaised
@@ -44,5 +67,9 @@ ModernUiGetTheme (
   VOID
   )
 {
-  return &mTheme;
+  if (FixedPcdGet8 (PcdModernSetupTheme) == 1) {
+    return &mRedTheme;
+  }
+
+  return &mOrangeTheme;
 }

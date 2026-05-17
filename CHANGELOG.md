@@ -85,6 +85,9 @@ this file as both a release log and a lightweight development progress record.
   text grids.
 - Project-provided logo asset under `Assets/Brand/` for repository showcase
   use. It is intentionally not included in the default firmware image.
+- Build-time DisplayEngine theme selection through
+  `PcdModernSetupTheme`/`MODERN_SETUP_THEME`, with black/orange as the default
+  and black/deep-red/yellow retained as an experimental option.
 
 ### Changed
 
@@ -123,9 +126,8 @@ this file as both a release log and a lightweight development progress record.
   control semantics.
 - Native FormBrowser selected rows now keep the highlight attribute across the
   full statement field and use a brighter orange/yellow selection treatment.
-- DisplayEngine default theme now uses a black/deep-red/yellow visual hierarchy
-  closer to common premium IBV setup utilities while keeping all rendering as
-  original GOP primitives.
+- Restored the black/orange DisplayEngine theme as the default after the
+  black/deep-red/yellow experiment proved too harsh in FrontPage rendering.
 
 ### Fixed
 
