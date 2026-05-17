@@ -293,6 +293,7 @@ ModernUiEngineDrawTabs (
   UINTN       X;
   UINTN       TextWidth;
   UINTN       TabY;
+  MODERN_UI_RECT TabRect;
   EFI_STATUS  Status;
 
   if ((Context == NULL) || (Theme == NULL) || ((TabCount > 0) && (Tabs == NULL)) || (Rect.Width == 0)) {
@@ -308,19 +309,34 @@ ModernUiEngineDrawTabs (
   for (TabIndex = 0; TabIndex < TabCount; TabIndex++) {
     X         = Rect.X + (TabIndex * TabWidth);
     TextWidth = ModernUiMeasureText (Tabs[TabIndex].Text);
+    TabRect   = (MODERN_UI_RECT){ X + 14, TabY + 2, (TabWidth > 28) ? (TabWidth - 28) : TabWidth, 28 };
     if (TabIndex == SelectedTab) {
-      Status = ModernUiStrokeRect (
+      Status = ModernUiFillRect (
                  Context,
-                 (MODERN_UI_RECT){ X + 14, TabY + 2, (TabWidth > 28) ? (TabWidth - 28) : TabWidth, 28 },
-                 Theme->PopupBorder
+                 TabRect,
+                 ModernUiBlendColor (Theme->BackgroundBlack, Theme->SelectedBand, 78)
                  );
+      if (EFI_ERROR (Status)) {
+        return Status;
+      }
+
+      Status = ModernUiFillRect (
+                 Context,
+                 (MODERN_UI_RECT){ TabRect.X, TabRect.Y, 4, TabRect.Height },
+                 Theme->AccentYellow
+                 );
+      if (EFI_ERROR (Status)) {
+        return Status;
+      }
+
+      Status = ModernUiStrokeRect (Context, TabRect, Theme->PopupBorder);
       if (EFI_ERROR (Status)) {
         return Status;
       }
 
       Status = DrawGlowStrip (
                  Context,
-                 (MODERN_UI_RECT){ X + 18, TabY + 32, (TabWidth > 36) ? (TabWidth - 36) : TabWidth, 3 },
+                 (MODERN_UI_RECT){ TabRect.X, TabY + 32, TabRect.Width, 3 },
                  Theme
                  );
       if (EFI_ERROR (Status)) {
@@ -331,7 +347,7 @@ ModernUiEngineDrawTabs (
     Status = ModernUiFillRect (
                Context,
                (MODERN_UI_RECT){ X + 18, TabY + 30, (TabWidth > 36) ? (TabWidth - 36) : TabWidth, 2 },
-               (TabIndex == SelectedTab) ? Theme->AccentOrange : ModernUiBlendColor (Theme->BackgroundBlack, Theme->AccentOrange, 60)
+               (TabIndex == SelectedTab) ? Theme->AccentYellow : ModernUiBlendColor (Theme->BackgroundBlack, Theme->AccentOrange, 45)
                );
     if (EFI_ERROR (Status)) {
       return Status;
@@ -343,8 +359,8 @@ ModernUiEngineDrawTabs (
                TabY + 8,
                (TabWidth > 24) ? (TabWidth - 24) : TabWidth,
                Tabs[TabIndex].Text,
-               (TabIndex == SelectedTab) ? Theme->AccentYellow : Theme->AccentOrange,
-               Theme->BackgroundBlack
+               (TabIndex == SelectedTab) ? Theme->AccentYellow : ModernUiBlendColor (Theme->Text, Theme->AccentOrange, 35),
+               (TabIndex == SelectedTab) ? ModernUiBlendColor (Theme->BackgroundBlack, Theme->SelectedBand, 78) : Theme->BackgroundBlack
                );
     if (EFI_ERROR (Status)) {
       return Status;

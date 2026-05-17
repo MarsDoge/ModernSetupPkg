@@ -471,6 +471,74 @@ DrawPageTitle (
 }
 
 /**
+  Draw one dashboard label/value row.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] X      Left coordinate in pixels.
+  @param[in] Y      Top coordinate in pixels.
+  @param[in] Width  Available row width in pixels.
+  @param[in] Label  Label text. Must not be NULL.
+  @param[in] Value  Value text. Must not be NULL.
+**/
+STATIC
+VOID
+DrawDashboardInfoRow (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN UINTN                     X,
+  IN UINTN                     Y,
+  IN UINTN                     Width,
+  IN CONST CHAR16              *Label,
+  IN CONST CHAR16              *Value
+  )
+{
+  UINTN  LabelWidth;
+  UINTN  ValueX;
+
+  if (Width < 32) {
+    return;
+  }
+
+  LabelWidth = (Width > 240) ? 180 : (Width / 2);
+  ValueX     = X + LabelWidth;
+  ModernUiDrawTextFit (Ui, X, Y, LabelWidth - 8, Label, Theme->MutedText, Theme->Surface);
+  ModernUiDrawTextFit (Ui, ValueX, Y, (Width > LabelWidth) ? (Width - LabelWidth) : Width, Value, Theme->Text, Theme->Surface);
+}
+
+/**
+  Draw one dashboard status tile.
+
+  @param[in] Ui       Initialized render context. Must not be NULL.
+  @param[in] Theme    Theme token table. Must not be NULL.
+  @param[in] Rect     Tile rectangle in pixels.
+  @param[in] Title    Tile title text. Must not be NULL.
+  @param[in] Value    Tile value text. Must not be NULL.
+  @param[in] Emphasis TRUE to draw the value as a highlighted state.
+**/
+STATIC
+VOID
+DrawDashboardTile (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN MODERN_UI_RECT            Rect,
+  IN CONST CHAR16              *Title,
+  IN CONST CHAR16              *Value,
+  IN BOOLEAN                   Emphasis
+  )
+{
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  TileColor;
+
+  TileColor = ModernUiBlendColor (Theme->Surface, Theme->SurfaceRaised, 60);
+  ModernUiFillRect (Ui, Rect, TileColor);
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ Rect.X, Rect.Y, Rect.Width, 2 }, Emphasis ? Theme->AccentYellow : Theme->AccentOrange);
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ Rect.X, Rect.Y, 4, Rect.Height }, Emphasis ? Theme->AccentYellow : Theme->AccentSoft);
+  ModernUiStrokeRect (Ui, Rect, Emphasis ? Theme->PopupBorder : Theme->Border);
+  ModernUiDrawTextFit (Ui, Rect.X + 18, Rect.Y + 14, Rect.Width - 36, Title, Theme->MutedText, TileColor);
+  ModernUiDrawTextFit (Ui, Rect.X + 18, Rect.Y + 44, Rect.Width - 36, Value, Emphasis ? Theme->AccentYellow : Theme->Text, TileColor);
+}
+
+/**
   Draw the Dashboard page.
 
   @param[in] Ui     Initialized render context. Must not be NULL.
@@ -489,15 +557,23 @@ DrawDashboard (
   CHAR16  BootCount[48];
   CHAR16  MemoryText[48];
   CHAR16  SecurityText[48];
-  UINTN   CardWidth;
+  CHAR16  ArchitectureText[96];
   MODERN_UI_RECT  Content;
-  MODERN_UI_RECT  StatusRect;
+  MODERN_UI_RECT  InfoPanel;
+  MODERN_UI_RECT  TilePanel;
+  MODERN_UI_RECT  BottomPanel;
+  MODERN_UI_RECT  HelpPanel;
+  UINTN           TileGap;
+  UINTN           TileWidth;
+  UINTN           TileHeight;
+  UINTN           TopHeight;
+  UINTN           BottomHeight;
+  UINTN           BottomY;
+  UINTN           HelpY;
   MODERN_UI_PLATFORM_SUMMARY  Platform;
   MODERN_UI_SECURITY_SUMMARY  Security;
 
   Content = ContentRect (Ui);
-  CardWidth = (Content.Width - CARD_GAP) / 2;
-  StatusRect = (MODERN_UI_RECT){ Content.X, Content.Y + 216, Content.Width, 112 };
   UnicodeSPrint (Resolution, sizeof (Resolution), L"%u x %u", Ui->Width, Ui->Height);
   UnicodeSPrint (BootCount, sizeof (BootCount), ModernUiGetString (ModernUiStringBootCountFormat), GetBootCount ());
   if (EFI_ERROR (ModernUiPlatformDataGetSummary (&Platform))) {
@@ -509,25 +585,65 @@ DrawDashboard (
 
   ModernUiSecurityDataGetSummary (&Security);
   UnicodeSPrint (MemoryText, sizeof (MemoryText), L"%lu MB", Platform.MemorySizeMb);
+  UnicodeSPrint (ArchitectureText, sizeof (ArchitectureText), L"%s", Platform.Architecture);
   UnicodeSPrint (
     SecurityText,
     sizeof (SecurityText),
-    L"%s / %s",
-    Platform.Architecture,
+    L"%s",
     (Security.SecureBoot == ModernUiSecurityStateEnabled) ? ModernUiGetString (ModernUiStringEnabled) : ModernUiGetString (ModernUiStringDisabled)
     );
 
-  ModernUiDrawInfoCard (Ui, (MODERN_UI_RECT){ Content.X, Content.Y, CardWidth, 92 }, ModernUiGetString (ModernUiStringFirmwareVendor), Platform.FirmwareVendor, Theme);
-  ModernUiDrawInfoCard (Ui, (MODERN_UI_RECT){ Content.X + CardWidth + CARD_GAP, Content.Y, CardWidth, 92 }, ModernUiGetString (ModernUiStringFirmwareRevision), Platform.FirmwareRevision, Theme);
-  ModernUiDrawInfoCard (Ui, (MODERN_UI_RECT){ Content.X, Content.Y + 108, CardWidth, 92 }, ModernUiGetString (ModernUiStringDisplay), Resolution, Theme);
-  ModernUiDrawInfoCard (Ui, (MODERN_UI_RECT){ Content.X + CardWidth + CARD_GAP, Content.Y + 108, CardWidth, 92 }, ModernUiGetString (ModernUiStringBootOptions), BootCount, Theme);
+  TopHeight    = (Content.Height >= 460) ? 278 : 220;
+  BottomHeight = (Content.Height >= 460) ? 118 : 88;
+  BottomY      = Content.Y + TopHeight + 16;
+  HelpY        = BottomY + BottomHeight + 16;
 
-  ModernUiDrawPanel (Ui, StatusRect, Theme);
-  ModernUiDrawFocusFrame (Ui, StatusRect, (BOOLEAN)(Focus == SetupFocusContent), Theme);
-  ModernUiDrawText (Ui, StatusRect.X + 20, StatusRect.Y + 18, ModernUiGetString (ModernUiStringPrototypeStatus), Theme->MutedText, Theme->Surface);
-  ModernUiDrawText (Ui, StatusRect.X + 20, StatusRect.Y + 48, SecurityText, Theme->Text, Theme->Surface);
-  ModernUiDrawText (Ui, StatusRect.X + 20, StatusRect.Y + 72, MemoryText, Theme->MutedText, Theme->Surface);
-  ModernUiDrawProgress (Ui, (MODERN_UI_RECT){ StatusRect.X + 20, StatusRect.Y + 82, StatusRect.Width - 40, 12 }, 68, Theme->Border, Theme->Accent);
+  InfoPanel   = (MODERN_UI_RECT){ Content.X, Content.Y, (Content.Width * 58) / 100, TopHeight };
+  TilePanel   = (MODERN_UI_RECT){ InfoPanel.X + InfoPanel.Width + CARD_GAP, Content.Y, Content.Width - InfoPanel.Width - CARD_GAP, TopHeight };
+  BottomPanel = (MODERN_UI_RECT){ Content.X, BottomY, Content.Width, BottomHeight };
+  HelpPanel   = (MODERN_UI_RECT){
+                  Content.X,
+                  HelpY,
+                  Content.Width,
+                  (Content.Height > (TopHeight + BottomHeight + 32)) ? (Content.Height - TopHeight - BottomHeight - 32) : 0
+                };
+
+  ModernUiDrawPanel (Ui, InfoPanel, Theme);
+  ModernUiDrawFocusFrame (Ui, InfoPanel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ InfoPanel.X, InfoPanel.Y, 5, InfoPanel.Height }, Theme->AccentOrange);
+  ModernUiDrawText (Ui, InfoPanel.X + 22, InfoPanel.Y + 18, L"Platform", Theme->AccentYellow, Theme->Surface);
+  DrawDashboardInfoRow (Ui, Theme, InfoPanel.X + 22, InfoPanel.Y + 58, InfoPanel.Width - 44, ModernUiGetString (ModernUiStringFirmwareVendor), Platform.FirmwareVendor);
+  DrawDashboardInfoRow (Ui, Theme, InfoPanel.X + 22, InfoPanel.Y + 90, InfoPanel.Width - 44, ModernUiGetString (ModernUiStringFirmwareRevision), Platform.FirmwareRevision);
+  DrawDashboardInfoRow (Ui, Theme, InfoPanel.X + 22, InfoPanel.Y + 122, InfoPanel.Width - 44, L"Architecture", ArchitectureText);
+  DrawDashboardInfoRow (Ui, Theme, InfoPanel.X + 22, InfoPanel.Y + 154, InfoPanel.Width - 44, L"Memory", MemoryText);
+  DrawDashboardInfoRow (Ui, Theme, InfoPanel.X + 22, InfoPanel.Y + 186, InfoPanel.Width - 44, ModernUiGetString (ModernUiStringDisplay), Resolution);
+  if (TopHeight >= 260) {
+    DrawDashboardInfoRow (Ui, Theme, InfoPanel.X + 22, InfoPanel.Y + 218, InfoPanel.Width - 44, ModernUiGetString (ModernUiStringBootOptions), BootCount);
+  }
+
+  TileGap    = 14;
+  TileWidth  = (TilePanel.Width > TileGap) ? ((TilePanel.Width - TileGap) / 2) : TilePanel.Width;
+  TileHeight = (TopHeight >= 260) ? 96 : 78;
+  DrawDashboardTile (Ui, Theme, (MODERN_UI_RECT){ TilePanel.X, TilePanel.Y, TileWidth, TileHeight }, ModernUiGetString (ModernUiStringSecureBoot), SecurityText, (BOOLEAN)(Security.SecureBoot == ModernUiSecurityStateEnabled));
+  DrawDashboardTile (Ui, Theme, (MODERN_UI_RECT){ TilePanel.X + TileWidth + TileGap, TilePanel.Y, TileWidth, TileHeight }, L"Boot", BootCount, TRUE);
+  DrawDashboardTile (Ui, Theme, (MODERN_UI_RECT){ TilePanel.X, TilePanel.Y + TileHeight + TileGap, TileWidth, TileHeight }, L"Engine", L"Modern GOP", TRUE);
+  DrawDashboardTile (Ui, Theme, (MODERN_UI_RECT){ TilePanel.X + TileWidth + TileGap, TilePanel.Y + TileHeight + TileGap, TileWidth, TileHeight }, L"HII", L"Native Browser", TRUE);
+
+  ModernUiDrawPanel (Ui, BottomPanel, Theme);
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ BottomPanel.X, BottomPanel.Y, BottomPanel.Width, 2 }, Theme->AccentOrange);
+  ModernUiDrawTextFit (Ui, BottomPanel.X + 20, BottomPanel.Y + 18, BottomPanel.Width - 40, L"Front Page Capabilities", Theme->MutedText, Theme->Surface);
+  ModernUiDrawTextFit (Ui, BottomPanel.X + 20, BottomPanel.Y + 48, (BottomPanel.Width / 3) - 28, L"Dynamic Boot#### enumeration", Theme->Text, Theme->Surface);
+  ModernUiDrawTextFit (Ui, BottomPanel.X + (BottomPanel.Width / 3), BottomPanel.Y + 48, (BottomPanel.Width / 3) - 28, L"FormBrowser2 handoff", Theme->Text, Theme->Surface);
+  ModernUiDrawTextFit (Ui, BottomPanel.X + ((BottomPanel.Width * 2) / 3), BottomPanel.Y + 48, (BottomPanel.Width / 3) - 28, L"Shared UI engine", Theme->Text, Theme->Surface);
+  if (BottomPanel.Height >= 110) {
+    ModernUiDrawProgress (Ui, (MODERN_UI_RECT){ BottomPanel.X + 20, BottomPanel.Y + 86, BottomPanel.Width - 40, 10 }, 72, Theme->Border, Theme->AccentOrange);
+  }
+
+  if (HelpPanel.Height > 50) {
+    ModernUiFillRect (Ui, HelpPanel, Theme->BackgroundBlack);
+    ModernUiFillRect (Ui, (MODERN_UI_RECT){ HelpPanel.X, HelpPanel.Y, HelpPanel.Width, 1 }, Theme->Border);
+    ModernUiDrawTextFit (Ui, HelpPanel.X + 20, HelpPanel.Y + 18, HelpPanel.Width - 40, L"Select Boot or Devices to open platform-provided entries; real setup forms stay on native edk2 FormBrowser.", Theme->MutedText, Theme->BackgroundBlack);
+  }
 }
 
 /**

@@ -1073,7 +1073,7 @@ ModernUiGetSelectableRowBackground (
   }
 
   if (Selected) {
-    RowColor = Theme->SelectedBand;
+    RowColor = ModernUiBlendColor (Theme->SelectedBand, Theme->AccentOrange, 35);
   } else if (Action || Subtitle) {
     RowColor = Theme->SurfaceRaised;
   } else {
@@ -1131,9 +1131,20 @@ ModernUiDrawSelectableRow (
   }
 
   if (Selected && (Rect.Width > 6) && (Rect.Height > 4)) {
+    if ((Rect.Width > 10) && (Rect.Height > 8)) {
+      Status = ModernUiFillRect (
+                 Context,
+                 (MODERN_UI_RECT){ Rect.X + 6, Rect.Y + 3, Rect.Width - 6, Rect.Height - 6 },
+                 ModernUiBlendColor (Theme->SelectedBand, Theme->AccentOrange, 24)
+                 );
+      if (EFI_ERROR (Status)) {
+        return Status;
+      }
+    }
+
     Status = ModernUiFillRect (
                Context,
-               (MODERN_UI_RECT){ Rect.X, Rect.Y + 1, Rect.Width, 1 },
+               (MODERN_UI_RECT){ Rect.X, Rect.Y, Rect.Width, 2 },
                Theme->GlowOrange
                );
     if (EFI_ERROR (Status)) {
@@ -1142,8 +1153,8 @@ ModernUiDrawSelectableRow (
 
     Status = ModernUiFillRect (
                Context,
-               (MODERN_UI_RECT){ Rect.X, Rect.Y + Rect.Height - 2, Rect.Width, 1 },
-               ModernUiBlendColor (Theme->SelectedBand, Theme->BackgroundBlack, 35)
+               (MODERN_UI_RECT){ Rect.X, Rect.Y + Rect.Height - 3, Rect.Width, 2 },
+               Theme->AccentOrange
                );
     if (EFI_ERROR (Status)) {
       return Status;
@@ -1151,7 +1162,7 @@ ModernUiDrawSelectableRow (
 
     Status = ModernUiFillRect (
                Context,
-               (MODERN_UI_RECT){ Rect.X, Rect.Y + 2, 5, Rect.Height - 4 },
+               (MODERN_UI_RECT){ Rect.X, Rect.Y + 2, 7, Rect.Height - 4 },
                Theme->AccentYellow
                );
     if (EFI_ERROR (Status)) {
@@ -1159,10 +1170,15 @@ ModernUiDrawSelectableRow (
     }
 
     if (Rect.Width > 20) {
+      Status = ModernUiStrokeRect (Context, Rect, Theme->PopupBorder);
+      if (EFI_ERROR (Status)) {
+        return Status;
+      }
+
       return ModernUiFillRect (
                Context,
-               (MODERN_UI_RECT){ Rect.X + 5, Rect.Y + 2, Rect.Width - 5, 1 },
-               ModernUiBlendColor (Theme->SelectedBand, Theme->AccentOrange, 50)
+               (MODERN_UI_RECT){ Rect.X + 8, Rect.Y + 2, Rect.Width - 8, 1 },
+               ModernUiBlendColor (Theme->AccentYellow, Theme->AccentOrange, 55)
                );
     }
 
