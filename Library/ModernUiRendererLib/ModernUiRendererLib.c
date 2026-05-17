@@ -1149,11 +1149,24 @@ ModernUiDrawSelectableRow (
       return Status;
     }
 
-    return ModernUiFillRect (
-             Context,
-             (MODERN_UI_RECT){ Rect.X, Rect.Y + 2, 5, Rect.Height - 4 },
-             Theme->AccentOrange
-             );
+    Status = ModernUiFillRect (
+               Context,
+               (MODERN_UI_RECT){ Rect.X, Rect.Y + 2, 5, Rect.Height - 4 },
+               Theme->AccentYellow
+               );
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+
+    if (Rect.Width > 20) {
+      return ModernUiFillRect (
+               Context,
+               (MODERN_UI_RECT){ Rect.X + 5, Rect.Y + 2, Rect.Width - 5, 1 },
+               ModernUiBlendColor (Theme->SelectedBand, Theme->AccentOrange, 50)
+               );
+    }
+
+    return EFI_SUCCESS;
   }
 
   if (Subtitle && (Rect.Width > 6)) {

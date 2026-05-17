@@ -873,7 +873,7 @@ GetHighlightTextColor (
   VOID
   )
 {
-  return PcdGet8 (PcdBrowserFieldTextHighlightColor) | PcdGet8 (PcdBrowserFieldBackgroundHighlightColor);
+  return EFI_TEXT_ATTR (EFI_YELLOW, EFI_RED);
 }
 
 /**

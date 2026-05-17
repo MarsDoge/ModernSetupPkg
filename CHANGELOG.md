@@ -119,6 +119,8 @@ this file as both a release log and a lightweight development progress record.
 - DisplayEngine rows, value boxes, drop-down frames, popups, and pick lists now
   use black/orange AORUS-like surfaces while preserving native FormBrowser
   control semantics.
+- Native FormBrowser selected rows now keep the highlight attribute across the
+  full statement field and use a brighter orange/yellow selection treatment.
 
 ### Fixed
 

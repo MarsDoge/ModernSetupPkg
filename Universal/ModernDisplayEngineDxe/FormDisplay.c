@@ -2174,7 +2174,7 @@ DisplayMenuString (
   //
   // Second, clean the empty after the string.
   //
-  SetDisplayAttribute (MenuOption, FALSE);
+  SetDisplayAttribute (MenuOption, TRUE);
   Length = GetStringWidth (String) / 2 - 1;
   PrintStringAtWithWidth (Col + Length, Row, L"", Width - Length);
 }
