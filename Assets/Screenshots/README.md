@@ -24,6 +24,11 @@ Capture rules:
 
 Current captures:
 
+- `modern-loongarch-dashboard.png` - LoongArchVirtQemu ModernSetupApp dashboard
+  with Simplified Chinese UI, platform summary, quick access cards, and
+  hardware monitor placeholders.
+- `modern-loongarch-displayengine-device.png` - LoongArchVirtQemu native
+  FormBrowser page rendered by ModernDisplayEngine.
 - `setup-v0.4-dashboard.png` - ModernSetupApp v0.4 dashboard with Chinese UI,
   Quick Access cards, and hardware monitor layout.
 - `modern-app-dashboard.png` - experimental ModernSetupApp dashboard view.

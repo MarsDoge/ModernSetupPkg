@@ -15,6 +15,20 @@ The UI intentionally uses only open source edk2 interfaces and original visual
 assets. Commercial IBV firmware screens are treated only as visual and
 interaction references.
 
+## Latest Status
+
+LoongArchVirtQemu now boots the experimental front-page App from a temporary ESP
+and keeps the native edk2 setup path available through `UiApp` plus
+`ModernDisplayEngineDxe`. The current LoongArch capture shows the shared
+`ModernUiEngineLib` dashboard running with Simplified Chinese text, dynamic boot
+entry counts, platform telemetry placeholders, and the black/orange advanced
+mode theme.
+
+![ModernSetup LoongArch dashboard](Assets/Screenshots/modern-loongarch-dashboard.png)
+
+The same graphics stack also renders native FormBrowser pages; edk2 still owns
+HII/VFR/IFR parsing, GUID formset discovery, callbacks, and variable writes.
+
 ## Current Scope
 
 - GOP-based rendering through `ModernUiRendererLib`
@@ -411,7 +425,13 @@ Screenshots for GitHub presentation belong under `Assets/Screenshots/`. Keep
 captures focused on ModernSetup itself, not vendor firmware screens or copied
 assets.
 
-Current `ModernSetupApp` captures:
+Current LoongArch captures:
+
+![ModernSetup LoongArch dashboard](Assets/Screenshots/modern-loongarch-dashboard.png)
+
+![ModernDisplayEngine LoongArch device page](Assets/Screenshots/modern-loongarch-displayengine-device.png)
+
+Current ArmVirt `ModernSetupApp` captures:
 
 ![ModernSetupApp v0.4 dashboard](Assets/Screenshots/setup-v0.4-dashboard.png)
 
