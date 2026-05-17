@@ -153,6 +153,10 @@ this file as both a release log and a lightweight development progress record.
   experimental/debug code only.
 - `Scripts/run-armvirt.sh` can attach the ModernSetupApp ESP with `DUAL_APP=1`
   without forcing the VM to boot the app directly.
+- `ModernSetupApp` dashboard now uses a system overview layout with hardware
+  monitor and selectable Quick Access cards for Boot, Devices/HII, and Secure
+  Boot.
+- Added the `setup-v0.4-dashboard.png` GitHub showcase capture.
 
 ### Fixed
 

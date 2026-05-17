@@ -335,6 +335,8 @@ assets.
 
 Current `ModernSetupApp` captures:
 
+![ModernSetupApp v0.4 dashboard](Assets/Screenshots/setup-v0.4-dashboard.png)
+
 ![ModernSetupApp dashboard](Assets/Screenshots/modern-app-dashboard.png)
 
 ![ModernSetupApp English exit page](Assets/Screenshots/modern-app-en-exit.png)

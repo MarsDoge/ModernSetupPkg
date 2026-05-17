@@ -17,6 +17,8 @@ Capture rules:
 
 Current captures:
 
+- `setup-v0.4-dashboard.png` - ModernSetupApp v0.4 dashboard with Chinese UI,
+  Quick Access cards, and hardware monitor layout.
 - `modern-app-dashboard.png` - experimental ModernSetupApp dashboard view.
 - `modern-app-en-exit.png` - experimental ModernSetupApp exit page in English.
 - `modern-app-zh-exit.png` - experimental ModernSetupApp exit page in
