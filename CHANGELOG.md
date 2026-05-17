@@ -73,6 +73,10 @@ this file as both a release log and a lightweight development progress record.
   entry.
 - `Experimental/ModernSetupApp.dsc` for explicitly building the legacy
   ModernSetupApp/HII bridge prototype outside the default DisplayEngine path.
+- First IBV-style DisplayEngine chrome skeleton: procedural dark pattern bands,
+  top advanced-mode navigation chrome, right-side status rail, content area
+  reservation, and bottom action strip drawn in the GOP-backed customized
+  display path without vendor artwork or a custom HII parser.
 
 ### Changed
 
@@ -99,6 +103,9 @@ this file as both a release log and a lightweight development progress record.
   formatted text, focus frames, info cards, selectable row background
   calculation, selectable row borders, value selector boxes, and drop-down
   frames.
+- Native FormBrowser statement layout now reserves a right status rail on wide
+  GOP modes so DisplayEngine pages can evolve toward high-density IBV-style
+  setup layouts without letting HII statement text overlap the telemetry area.
 
 ### Fixed
 
@@ -144,7 +151,7 @@ this file as both a release log and a lightweight development progress record.
   write semantics in the default ArmVirt firmware.
 - The page adapter registry is experimental and not in the default native
   FormBrowser path.
-- The latest validated FVMAIN state is 8364416 bytes total, 8364384 bytes used,
+- The latest validated FVMAIN state is 8368512 bytes total, 8368480 bytes used,
   and 32 bytes free in the ArmVirt AARCH64 DEBUG_CLANGDWARF build.
 - `ModernDisplayEngineDxe` currently preserves most edk2 DisplayEngine behavior
   and routes its low-level text-cell drawing through GOP. Further visual polish

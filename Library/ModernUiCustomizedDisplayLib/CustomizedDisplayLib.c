@@ -58,6 +58,7 @@ DisplayPageFrame (
   )
 {
   EFI_STATUS  Status;
+  UINTN       ScreenColumns;
 
   ASSERT (FormData != NULL && ScreenForStatement != NULL);
   if ((FormData == NULL) || (ScreenForStatement == NULL)) {
@@ -83,12 +84,19 @@ DisplayPageFrame (
     ScreenForStatement->TopRow = gScreenDimensions.TopRow + NONE_FRONT_PAGE_HEADER_HEIGHT + MODERN_SETUP_CONTENT_TOP_GAP;
   }
 
-  if ((gScreenDimensions.RightColumn - gScreenDimensions.LeftColumn) > (2 * MODERN_SETUP_HORIZONTAL_MARGIN + 40)) {
+  ScreenColumns = gScreenDimensions.RightColumn - gScreenDimensions.LeftColumn;
+  if (ScreenColumns > (2 * MODERN_SETUP_HORIZONTAL_MARGIN + 40)) {
     ScreenForStatement->LeftColumn  = gScreenDimensions.LeftColumn + MODERN_SETUP_HORIZONTAL_MARGIN;
     ScreenForStatement->RightColumn = gScreenDimensions.RightColumn - MODERN_SETUP_HORIZONTAL_MARGIN;
   } else {
     ScreenForStatement->LeftColumn  = gScreenDimensions.LeftColumn;
     ScreenForStatement->RightColumn = gScreenDimensions.RightColumn;
+  }
+
+  if ((ScreenColumns >= MODERN_SETUP_RIGHT_RAIL_MIN_COLUMNS) &&
+      ((ScreenForStatement->RightColumn - ScreenForStatement->LeftColumn) > (MODERN_SETUP_RIGHT_RAIL_COLUMNS + 44)))
+  {
+    ScreenForStatement->RightColumn -= MODERN_SETUP_RIGHT_RAIL_COLUMNS;
   }
 
   if ((gLibIsFirstForm) || ((FormData->Attribute & HII_DISPLAY_MODAL) != 0)) {

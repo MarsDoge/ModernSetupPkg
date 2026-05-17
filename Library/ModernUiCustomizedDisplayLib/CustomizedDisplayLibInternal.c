@@ -253,6 +253,243 @@ ModernDisplayCopyPrintable (
 }
 
 /**
+  Pick the chrome tab that best matches the current form title.
+
+  This is a visual hint only. Form navigation, HII GUID binding, callbacks, and
+  storage behavior remain owned by edk2 SetupBrowser/FormBrowser.
+
+  @param[in] Title  Printable form title. NULL selects the main tab.
+
+  @return Zero-based chrome tab index.
+**/
+STATIC
+UINTN
+ModernDisplaySelectChromeTab (
+  IN CONST CHAR16  *Title
+  )
+{
+  if (Title == NULL) {
+    return 0;
+  }
+
+  if ((StrStr (Title, L"Boot") != NULL) || (StrStr (Title, L"启动") != NULL)) {
+    return 2;
+  }
+
+  if ((StrStr (Title, L"Device") != NULL) || (StrStr (Title, L"Driver") != NULL) ||
+      (StrStr (Title, L"设备") != NULL))
+  {
+    return 1;
+  }
+
+  if ((StrStr (Title, L"Security") != NULL) || (StrStr (Title, L"安全") != NULL)) {
+    return 3;
+  }
+
+  if ((StrStr (Title, L"Exit") != NULL) || (StrStr (Title, L"Save") != NULL) ||
+      (StrStr (Title, L"退出") != NULL))
+  {
+    return 4;
+  }
+
+  return 0;
+}
+
+/**
+  Draw a subtle procedural pattern band without vendor artwork or assets.
+
+  @param[in] Y       Top coordinate in pixels.
+  @param[in] Height  Band height in pixels.
+  @param[in] Theme   Theme token table. Must not be NULL.
+**/
+STATIC
+VOID
+ModernDisplayDrawPatternBand (
+  IN UINTN                  Y,
+  IN UINTN                  Height,
+  IN CONST MODERN_UI_THEME  *Theme
+  )
+{
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  FaintAccent;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  FaintBorder;
+  UINTN                          X;
+  UINTN                          LineY;
+
+  if ((Theme == NULL) || (Height == 0)) {
+    return;
+  }
+
+  FaintAccent = ModernUiBlendColor (Theme->Background, Theme->Accent, 18);
+  FaintBorder = ModernUiBlendColor (Theme->Background, Theme->Border, 35);
+
+  for (LineY = Y + 8; LineY < (Y + Height); LineY += 18) {
+    ModernUiFillRect (
+      &mModernRenderContext,
+      (MODERN_UI_RECT){ 0, LineY, mModernRenderContext.Width, 1 },
+      FaintBorder
+      );
+  }
+
+  for (X = 24; X < mModernRenderContext.Width; X += 56) {
+    ModernUiFillRect (
+      &mModernRenderContext,
+      (MODERN_UI_RECT){ X, Y + 6, 2, (Height > 12) ? (Height - 12) : 1 },
+      FaintAccent
+      );
+    if ((X + 10) < mModernRenderContext.Width) {
+      ModernUiFillRect (
+        &mModernRenderContext,
+        (MODERN_UI_RECT){ X + 10, Y + 2, 1, (Height > 4) ? (Height - 4) : 1 },
+        FaintBorder
+        );
+    }
+  }
+}
+
+/**
+  Draw IBV-style top chrome around the native FormBrowser page.
+
+  @param[in] Theme           Theme token table. Must not be NULL.
+  @param[in] PrintableTitle  Current form title with HII width markers removed.
+                             NULL is allowed.
+  @param[in] CellWidth       Text-grid cell width in pixels.
+  @param[in] CellHeight      Text-grid cell height in pixels.
+  @param[in] HeaderHeight    Header height in pixels.
+**/
+STATIC
+VOID
+ModernDisplayDrawTopChrome (
+  IN CONST MODERN_UI_THEME  *Theme,
+  IN CONST CHAR16           *PrintableTitle,
+  IN UINTN                  CellWidth,
+  IN UINTN                  CellHeight,
+  IN UINTN                  HeaderHeight
+  )
+{
+  STATIC CONST CHAR16  *Tabs[] = {
+    L"Main",
+    L"Devices",
+    L"Boot",
+    L"Security",
+    L"Save & Exit"
+  };
+  EFI_TIME  Time;
+  UINTN     Margin;
+  UINTN     TabY;
+  UINTN     TabWidth;
+  UINTN     TabIndex;
+  UINTN     SelectedTab;
+  UINTN     X;
+
+  Margin      = MODERN_SETUP_HORIZONTAL_MARGIN * CellWidth;
+  TabY        = (CellHeight * 2);
+  TabWidth    = (mModernRenderContext.Width > (Margin * 2)) ? ((mModernRenderContext.Width - (Margin * 2)) / ARRAY_SIZE (Tabs)) : 1;
+  SelectedTab = ModernDisplaySelectChromeTab (PrintableTitle);
+
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, 0, mModernRenderContext.Width, HeaderHeight }, Theme->SurfaceRaised);
+  ModernDisplayDrawPatternBand (0, HeaderHeight, Theme);
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, HeaderHeight - 2, mModernRenderContext.Width, 2 }, Theme->Accent);
+
+  ModernUiDrawText (&mModernRenderContext, Margin + 2, 6, L"MODERN SETUP", Theme->Text, Theme->SurfaceRaised);
+  ModernUiDrawText (
+    &mModernRenderContext,
+    (mModernRenderContext.Width > 180) ? ((mModernRenderContext.Width - 180) / 2) : Margin,
+    6,
+    L"ADVANCED MODE",
+    Theme->Accent,
+    Theme->SurfaceRaised
+    );
+
+  if (!EFI_ERROR (gRT->GetTime (&Time, NULL))) {
+    ModernUiDrawTextFormatted (
+      &mModernRenderContext,
+      (mModernRenderContext.Width > 210) ? (mModernRenderContext.Width - 210) : Margin,
+      6,
+      Theme->Text,
+      Theme->SurfaceRaised,
+      L"%02d/%02d/%04d  %02d:%02d",
+      Time.Month,
+      Time.Day,
+      Time.Year,
+      Time.Hour,
+      Time.Minute
+      );
+  }
+
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, TabY - 1, mModernRenderContext.Width, 1 }, Theme->Border);
+  for (TabIndex = 0; TabIndex < ARRAY_SIZE (Tabs); TabIndex++) {
+    X = Margin + (TabIndex * TabWidth);
+    if (TabIndex == SelectedTab) {
+      ModernUiFillRect (
+        &mModernRenderContext,
+        (MODERN_UI_RECT){ X + 4, TabY + 4, (TabWidth > 8) ? (TabWidth - 8) : TabWidth, CellHeight + 4 },
+        Theme->AccentSoft
+        );
+      ModernUiFillRect (
+        &mModernRenderContext,
+        (MODERN_UI_RECT){ X + 4, TabY + CellHeight + 8, (TabWidth > 8) ? (TabWidth - 8) : TabWidth, 2 },
+        Theme->Accent
+        );
+    }
+
+    ModernUiDrawTextFit (
+      &mModernRenderContext,
+      X + 12,
+      TabY + 8,
+      (TabWidth > 24) ? (TabWidth - 24) : TabWidth,
+      Tabs[TabIndex],
+      (TabIndex == SelectedTab) ? Theme->Text : Theme->MutedText,
+      (TabIndex == SelectedTab) ? Theme->AccentSoft : Theme->SurfaceRaised
+      );
+  }
+}
+
+/**
+  Draw the right-side status rail used by the modern DisplayEngine chrome.
+
+  Values are intentionally conservative placeholders until a platform telemetry
+  provider is added. The rail is visual-only and does not affect HII semantics.
+
+  @param[in] Rect   Rail rectangle in pixels.
+  @param[in] Theme  Theme token table. Must not be NULL.
+**/
+STATIC
+VOID
+ModernDisplayDrawStatusRail (
+  IN MODERN_UI_RECT          Rect,
+  IN CONST MODERN_UI_THEME   *Theme
+  )
+{
+  UINTN  X;
+  UINTN  Y;
+
+  if ((Theme == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
+    return;
+  }
+
+  ModernUiFillRect (&mModernRenderContext, Rect, Theme->Background);
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ Rect.X, Rect.Y, 1, Rect.Height }, Theme->Border);
+
+  X = Rect.X + 16;
+  Y = Rect.Y + 18;
+  ModernUiDrawText (&mModernRenderContext, X, Y, L"CPU", Theme->Warning, Theme->Background);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 28, L"Architecture", Theme->MutedText, Theme->Background);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 48, L"AARCH64", Theme->Text, Theme->Background);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 82, L"Platform", Theme->MutedText, Theme->Background);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 102, L"ArmVirt / QEMU", Theme->Text, Theme->Background);
+
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ Rect.X + 12, Y + 136, Rect.Width - 24, 1 }, Theme->Border);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 158, L"Memory", Theme->Warning, Theme->Background);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 188, L"Provided by", Theme->MutedText, Theme->Background);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 208, L"UEFI memory map", Theme->Text, Theme->Background);
+
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ Rect.X + 12, Y + 242, Rect.Width - 24, 1 }, Theme->Border);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 264, L"Voltage", Theme->Warning, Theme->Background);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 294, L"Sensor provider", Theme->MutedText, Theme->Background);
+  ModernUiDrawText (&mModernRenderContext, X, Y + 314, L"N/A", Theme->Text, Theme->Background);
+}
+
+/**
   Draw a ModernSetup row background for one FormBrowser statement.
 
   The caller still prints all statement text through the native DisplayEngine
@@ -336,7 +573,13 @@ ModernDisplayDrawPageChrome (
   UINTN                  ContentHeight;
   UINTN                  HorizontalMargin;
   UINTN                  ScreenColumns;
+  UINTN                  RightRailWidth;
+  UINTN                  RightRailGap;
+  UINTN                  RightRailX;
+  UINTN                  FooterButtonWidth;
   MODERN_UI_RECT         ContentRect;
+  MODERN_UI_RECT         RightRailRect;
+  MODERN_UI_RECT         FooterRect;
 
   ASSERT (FormData != NULL);
   if ((FormData == NULL) || EFI_ERROR (ModernDisplayEnsureRenderer ())) {
@@ -352,37 +595,62 @@ ModernDisplayDrawPageChrome (
   ScreenColumns = gScreenDimensions.RightColumn - gScreenDimensions.LeftColumn;
   HorizontalMargin = (ScreenColumns > (2 * MODERN_SETUP_HORIZONTAL_MARGIN + 4)) ? MODERN_SETUP_HORIZONTAL_MARGIN : 0;
 
+  Title          = LibGetToken (FormData->FormTitle, FormData->HiiHandle);
+  PrintableTitle = NULL;
+  if (Title != NULL) {
+    PrintableTitle = AllocateZeroPool ((StrLen (Title) + 1) * sizeof (CHAR16));
+    if (PrintableTitle != NULL) {
+      ModernDisplayCopyPrintable (PrintableTitle, StrLen (Title) + 1, Title);
+    }
+  }
+
   ModernUiClear (&mModernRenderContext, Theme->Background);
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, 0, mModernRenderContext.Width, HeaderHeight }, Theme->SurfaceRaised);
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, HeaderHeight - 2, mModernRenderContext.Width, 2 }, Theme->Accent);
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, FooterTop, mModernRenderContext.Width, mModernRenderContext.Height - FooterTop }, Theme->SurfaceRaised);
+  ModernDisplayDrawPatternBand (HeaderHeight, (FooterTop > HeaderHeight) ? (FooterTop - HeaderHeight) : 0, Theme);
+  ModernDisplayDrawTopChrome (Theme, PrintableTitle, CellWidth, CellHeight, HeaderHeight);
+
+  FooterRect = (MODERN_UI_RECT){ 0, FooterTop, mModernRenderContext.Width, mModernRenderContext.Height - FooterTop };
+  ModernUiFillRect (&mModernRenderContext, FooterRect, Theme->SurfaceRaised);
   ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, FooterTop, mModernRenderContext.Width, 1 }, Theme->Border);
+  FooterButtonWidth = mModernRenderContext.Width / 7;
+  if (FooterButtonWidth > 120) {
+    ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ FooterButtonWidth * 3, FooterTop + 12, FooterButtonWidth - 8, 26 }, Theme->AccentSoft);
+    ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ FooterButtonWidth * 4, FooterTop + 12, FooterButtonWidth - 8, 26 }, Theme->AccentSoft);
+    ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ FooterButtonWidth * 5, FooterTop + 12, FooterButtonWidth - 8, 26 }, Theme->AccentSoft);
+    ModernUiDrawText (&mModernRenderContext, FooterButtonWidth * 3 + 24, FooterTop + 18, L"Help", Theme->Text, Theme->AccentSoft);
+    ModernUiDrawText (&mModernRenderContext, FooterButtonWidth * 4 + 24, FooterTop + 18, L"Defaults", Theme->Text, Theme->AccentSoft);
+    ModernUiDrawText (&mModernRenderContext, FooterButtonWidth * 5 + 24, FooterTop + 18, L"Save", Theme->Text, Theme->AccentSoft);
+  }
 
   ContentX      = (gScreenDimensions.LeftColumn + HorizontalMargin) * CellWidth;
   ContentY      = (gScreenDimensions.TopRow + NONE_FRONT_PAGE_HEADER_HEIGHT) * CellHeight;
   ContentWidth  = MAX (1, ScreenColumns - (2 * HorizontalMargin)) * CellWidth;
   ContentHeight = (FooterTop > ContentY + CellHeight) ? (FooterTop - ContentY - CellHeight) : CellHeight;
+
+  RightRailWidth = 0;
+  RightRailGap   = CellWidth * 2;
+  if ((ScreenColumns >= MODERN_SETUP_RIGHT_RAIL_MIN_COLUMNS) &&
+      (ContentWidth > ((MODERN_SETUP_RIGHT_RAIL_COLUMNS + 44) * CellWidth)))
+  {
+    RightRailWidth = MODERN_SETUP_RIGHT_RAIL_COLUMNS * CellWidth;
+    ContentWidth  -= RightRailWidth + RightRailGap;
+  }
+
   ContentRect   = (MODERN_UI_RECT){ ContentX, ContentY, ContentWidth, ContentHeight };
 
   ModernUiFillRect (&mModernRenderContext, ContentRect, Theme->Surface);
   ModernUiStrokeRect (&mModernRenderContext, ContentRect, Theme->Border);
 
-  Title = LibGetToken (FormData->FormTitle, FormData->HiiHandle);
-  if (Title != NULL) {
-    PrintableTitle = AllocateZeroPool ((StrLen (Title) + 1) * sizeof (CHAR16));
-    if (PrintableTitle != NULL) {
-      ModernDisplayCopyPrintable (PrintableTitle, StrLen (Title) + 1, Title);
-      ModernUiDrawText (
-        &mModernRenderContext,
-        (gScreenDimensions.LeftColumn + HorizontalMargin + 1) * CellWidth,
-        gScreenDimensions.TopRow * CellHeight + ((CellHeight > 18) ? ((CellHeight - 18) / 2) : 0),
-        PrintableTitle,
-        Theme->Text,
-        Theme->SurfaceRaised
-        );
-      FreePool (PrintableTitle);
-    }
+  if (RightRailWidth != 0) {
+    RightRailX    = ContentX + ContentWidth + RightRailGap;
+    RightRailRect = (MODERN_UI_RECT){ RightRailX, ContentY, RightRailWidth, ContentHeight };
+    ModernDisplayDrawStatusRail (RightRailRect, Theme);
+  }
 
+  if (PrintableTitle != NULL) {
+    FreePool (PrintableTitle);
+  }
+
+  if (Title != NULL) {
     FreePool (Title);
   }
 }

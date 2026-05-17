@@ -30,6 +30,13 @@ backend. The custom HII bridge remains useful for experiments, but it is not the
 main route for Device Manager, DriverSample, Boot Maintenance, or third-party
 HII driver pages.
 
+The current DisplayEngine visual direction follows a common IBV-style setup
+structure without reusing commercial artwork: advanced-mode top chrome,
+high-density content, selectable rows, a right-side platform status rail, and a
+bottom action strip. These surfaces are drawn from theme tokens and GOP
+primitives so OEM-specific styling can later be provided through theme/layout
+configuration instead of by changing HII parsing behavior.
+
 ## Architecture
 
 Current code and planned extension points are separated below. The default
@@ -130,6 +137,10 @@ Driver VFR / UNI / ConfigAccess
                       +--> ModernDisplayEngineDxe
                              |
                              +--> ModernUiCustomizedDisplayLib
+                                    |
+                                    +--> IBV-style chrome, statement surfaces,
+                                    |    popup/input visuals, and layout
+                                    |    reservations
                                     |
                                     +--> ModernUiRendererLib / Theme / Fonts
                                            |
