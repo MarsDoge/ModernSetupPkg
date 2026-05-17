@@ -7,9 +7,11 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 # ModernSetupPkg
 
-ModernSetupPkg is an experimental edk2 package for a modern graphical firmware
-setup shell. The first validation targets are ArmVirtQemu on macOS/Apple
-Silicon and LoongArchVirtQemu for LoongArch64 virtual firmware work.
+ModernSetupPkg is an experimental edk2 package for a modern GOP-based UEFI setup
+graphics engine and standard front-page shell. It keeps edk2 HII/FormBrowser
+semantics intact while validating the shared engine on ArmVirtQemu and
+LoongArchVirtQemu, with other architectures and platform classes treated as
+future extension targets.
 
 The UI intentionally uses only open source edk2 interfaces and original visual
 assets. Commercial IBV firmware screens are treated only as visual and
