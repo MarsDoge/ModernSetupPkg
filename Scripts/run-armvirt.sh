@@ -8,6 +8,7 @@ ACCEL="${ACCEL:-tcg}"
 GRAPHICS="${GRAPHICS:-1}"
 MEMORY="${MEMORY:-1024}"
 APP="${APP:-0}"
+DUAL_APP="${DUAL_APP:-0}"
 FV_DIR="${WORKSPACE}/Build/ArmVirtQemu-AArch64/${TARGET}_CLANGDWARF/FV"
 CODE_FD="${FV_DIR}/QEMU_EFI.fd"
 VARS_FD="${FV_DIR}/QEMU_VARS.fd"
@@ -64,7 +65,7 @@ QEMU_ARGS=(
   -netdev user,id=net0
 )
 
-if [[ "${APP}" == "1" ]]; then
+if [[ "${APP}" == "1" || "${DUAL_APP}" == "1" ]]; then
   if [[ ! -f "${APP_ESP}/EFI/BOOT/BOOTAA64.EFI" ]]; then
     echo "Missing ModernSetupApp boot file." >&2
     echo "Build it first with: ${PKG_DIR}/Scripts/build-modern-app.sh" >&2
@@ -95,6 +96,8 @@ fi
 
 if [[ "${APP}" == "1" ]]; then
   echo "Booting ModernSetupApp from ${APP_ESP}/EFI/BOOT/BOOTAA64.EFI."
+elif [[ "${DUAL_APP}" == "1" ]]; then
+  echo "ModernSetupApp ESP attached. Use Boot Manager to choose native UiApp or ModernSetupApp."
 else
   echo "Press Esc or F2 during BDS wait to enter native UiApp rendered by ModernDisplayEngineDxe."
 fi

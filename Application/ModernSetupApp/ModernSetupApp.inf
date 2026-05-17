@@ -23,15 +23,15 @@
 [LibraryClasses]
   BaseLib
   BaseMemoryLib
-  DebugLib
   DevicePathLib
-  HiiLib
   MemoryAllocationLib
+  ModernUiBootDataLib
+  ModernUiDeviceDataLib
   ModernUiEngineLib
-  ModernUiHiiBridgeLib
   ModernUiInputLib
-  ModernUiPageAdapterLib
+  ModernUiPlatformDataLib
   ModernUiRendererLib
+  ModernUiSecurityDataLib
   ModernUiStringLib
   ModernUiThemeLib
   PrintLib
@@ -42,9 +42,5 @@
   UefiRuntimeServicesTableLib
 
 [Protocols]
+  gEfiFormBrowser2ProtocolGuid
   gEfiLoadedImageProtocolGuid
-
-[Guids]
-  gDriverSampleFormSetGuid
-  gDriverSampleInventoryGuid
-  gEfiGlobalVariableGuid

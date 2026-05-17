@@ -20,17 +20,22 @@ interaction references.
 - Native edk2 HII/IFR/VFR parsing, GUID formset discovery, ConfigAccess,
   callback, condition, and variable write handling through the existing
   FormBrowser stack
-- A standalone `ModernSetupApp`, `ModernUiHiiBridgeLib`, and
-  `ModernUiPageAdapterLib` retained only under the experimental prototype path
+- A standalone `ModernSetupApp` standard front-page shell that uses shared
+  engine surfaces and opens real HII/VFR pages through native FormBrowser2
 - ArmVirtQemu overlay scripts that keep upstream `ArmVirtPkg` files unchanged
 - Development rules for function contracts, multi-architecture extension points,
   and IBV-friendly adaptation
 
 The default ArmVirt path is now compatibility-first: edk2 still owns HII parsing
 and setup semantics, while ModernSetup replaces the display engine drawing
-backend. The custom HII bridge remains useful for experiments, but it is not the
-main route for Device Manager, DriverSample, Boot Maintenance, or third-party
-HII driver pages.
+backend. The standard front-page app is intentionally separate from that
+default path: it can present dashboard, boot, device, security, language, and
+theme entry points, but when a real setup page is selected it calls
+`EFI_FORM_BROWSER2_PROTOCOL.SendForm()` instead of parsing IFR itself.
+
+The custom HII bridge remains useful for experiments, but it is not the main
+route for Device Manager, DriverSample, Boot Maintenance, or third-party HII
+driver pages.
 
 The current DisplayEngine visual direction uses a commercial-IBV-style
 advanced-mode structure without reusing commercial artwork. The default theme is
@@ -79,6 +84,10 @@ edk2 workspace
     |   +-- Include/ModernUi/ModernUiEngine.h
     |   +-- Include/ModernUi/ModernUiRenderer.h
     |   +-- Include/ModernUi/ModernUiTheme.h
+    |   +-- Include/ModernUi/ModernUiPlatformData.h
+    |   +-- Include/ModernUi/ModernUiBootData.h
+    |   +-- Include/ModernUi/ModernUiDeviceData.h
+    |   +-- Include/ModernUi/ModernUiSecurityData.h
     |
     +-- Main framework libraries
     |   |
@@ -91,7 +100,7 @@ edk2 workspace
     |   |   |
     |   |   +-- common visual model for page chrome, tabs, rows, values,
     |   |       popups, footer, help panel, and right rail
-    |   |   +-- shared by ModernDisplayEngineDxe and experimental app
+    |   |   +-- shared by ModernDisplayEngineDxe and ModernSetupApp
     |   |
     |   +-- ModernUiRendererLib
     |   |   |
@@ -112,8 +121,10 @@ edk2 workspace
     |   |
     |   +-- Experimental/ModernSetupApp.dsc
     |   +-- Application/ModernSetupApp
+    |   +-- ModernUiPlatformDataLib / ModernUiBootDataLib
+    |   +-- ModernUiDeviceDataLib / ModernUiSecurityDataLib
     |   +-- ModernUiInputLib / ModernUiStringLib
-    |   +-- ModernUiHiiBridgeLib / ModernUiPageAdapterLib
+    |   +-- ModernUiHiiBridgeLib / ModernUiPageAdapterLib (debug only)
     |
     +-- Platform integration
     |   |
@@ -172,19 +183,41 @@ Default platform-specific integration should enter through overlay DSC/FDF files
 or future DisplayEngine/customized display PCDs. Page parsing, callback flow, and
 variable routing remain owned by edk2 FormBrowser.
 
-## Experimental Prototype Path
+The optional ModernSetupApp path is a front-page shell, not a second setup
+browser:
 
-`ModernSetupApp`, `ModernUiHiiBridgeLib`, `ModernUiPageAdapterLib`,
-`ModernUiInputLib`, and `ModernUiStringLib` are retained as experimental code
-from the earlier self-contained setup shell. They are useful for comparison,
-debugging, and prototyping UI ideas, but they are not part of the default
-ArmVirt setup compatibility path.
+```text
+ModernSetupApp
+  |
+  +--> ModernUiPlatformDataLib / BootDataLib / DeviceDataLib / SecurityDataLib
+  |
+  +--> ModernUiEngineLib -> ModernUiRendererLib -> GOP
+  |
+  +--> EFI_FORM_BROWSER2_PROTOCOL.SendForm()
+          |
+          +--> SetupBrowserDxe/FormBrowser2 -> ModernDisplayEngineDxe
+```
 
-The experimental app should share `ModernUiEngineLib` for visual surfaces. App
-code may own demo data, navigation state, and language switching, but should not
-grow a second tab, row, popup, or footer renderer.
+## Standard Front-Page App
 
-Build the legacy prototype explicitly with:
+`ModernSetupApp` is an opt-in standard firmware front page. It is meant to be a
+portable open source shell for desktop, laptop, server, tablet, and future
+architecture targets. It owns high-level navigation and summary pages only:
+dashboard, boot list, HII/device entry list, security overview, exit, language,
+and theme controls.
+
+The app must share `ModernUiEngineLib` for visual surfaces. App code may own
+front-page data, navigation state, and language switching, but should not grow a
+second tab, row, popup, or footer renderer. It also must not parse VFR/IFR, call
+ConfigAccess directly, or write HII varstores. Device/setup entries are opened
+with native FormBrowser2 so edk2 keeps GUID formset handling, callbacks,
+conditions, validation, defaults, and variable routing.
+
+`ModernUiHiiBridgeLib` and `ModernUiPageAdapterLib` are retained as
+experimental/debug code only. They are not linked into the standard
+`ModernSetupApp` build.
+
+Build the app explicitly with:
 
 ```sh
 ModernSetupPkg/Scripts/build-modern-app.sh
@@ -243,15 +276,25 @@ with `GIC_VERSION=3` only when testing that specific combination.
 Click the QEMU window and press `Esc` or `F2` during BDS wait to enter the
 native UiApp firmware setup. Rendering is handled by `ModernDisplayEngineDxe`.
 
-The experimental `ModernSetupApp` is intentionally opt-in. Build it and boot it
-from a temporary ArmVirt ESP with:
+`ModernSetupApp` is intentionally opt-in while the default firmware path stays
+native UiApp plus ModernDisplayEngine. Build it and boot it from a temporary
+ArmVirt ESP with:
 
 ```sh
 ModernSetupPkg/Scripts/build-modern-app.sh
 APP=1 GRAPHICS=1 RESET_VARS=1 ACCEL=hvf ModernSetupPkg/Scripts/run-armvirt.sh
 ```
 
-Without `APP=1`, `run-armvirt.sh` keeps the default native UiApp path.
+To keep native UiApp in firmware while also attaching the ModernSetupApp ESP for
+manual selection from Boot Manager:
+
+```sh
+ModernSetupPkg/Scripts/build-modern-app.sh
+DUAL_APP=1 GRAPHICS=1 RESET_VARS=1 ACCEL=hvf ModernSetupPkg/Scripts/run-armvirt.sh
+```
+
+Without `APP=1` or `DUAL_APP=1`, `run-armvirt.sh` keeps the default native UiApp
+path.
 
 ## Fonts and Text Graphics
 
@@ -290,7 +333,7 @@ Screenshots for GitHub presentation belong under `Assets/Screenshots/`. Keep
 captures focused on ModernSetup itself, not vendor firmware screens or copied
 assets.
 
-Current experimental `ModernSetupApp` captures:
+Current `ModernSetupApp` captures:
 
 ![ModernSetupApp dashboard](Assets/Screenshots/modern-app-dashboard.png)
 

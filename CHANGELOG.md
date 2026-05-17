@@ -91,6 +91,10 @@ this file as both a release log and a lightweight development progress record.
 - `ModernUiEngineLib`, a shared visual model and drawing layer for page chrome,
   tabs, statement rows, value controls, popups, footers, help surfaces, and the
   right-side telemetry rail.
+- `ModernUiPlatformDataLib`, `ModernUiBootDataLib`, `ModernUiDeviceDataLib`,
+  and `ModernUiSecurityDataLib` as the standard front-page app data layer.
+- Dual-entry ArmVirt run mode through `DUAL_APP=1`, attaching the
+  `ModernSetupApp` ESP while preserving native UiApp in firmware.
 
 ### Changed
 
@@ -107,9 +111,9 @@ this file as both a release log and a lightweight development progress record.
   `ModernUiRendererLib`, so both `ModernDisplayEngineDxe` and the legacy app use
   the same public renderer interfaces for color blending, measured text
   truncation, and selectable row surfaces.
-- `Scripts/build-modern-app.sh` now builds the experimental `ModernSetupApp`
+- `Scripts/build-modern-app.sh` now builds the opt-in `ModernSetupApp`
   and prepares a bootable ArmVirt ESP at `Build/ModernSetupAppEsp`.
-- `Scripts/run-armvirt.sh` now supports `APP=1` to boot the experimental app
+- `Scripts/run-armvirt.sh` now supports `APP=1` to boot the opt-in app
   from `\EFI\BOOT\BOOTAA64.EFI` instead of entering the native UiApp path.
 - Added GitHub showcase screenshots for the experimental ModernSetupApp
   dashboard and English/Simplified Chinese exit pages.
@@ -137,6 +141,18 @@ this file as both a release log and a lightweight development progress record.
 - The experimental `ModernSetupApp` now uses `ModernUiEngineLib` for header,
   tabs, footer, selectable rows, value selector rows, and language drop-down
   surfaces while keeping only demo data and navigation state in the app.
+- `ModernSetupApp` is now a standard front-page shell instead of a self-owned
+  HII bridge demo. It displays dynamic Boot#### options, HII formset/device
+  entries, platform summary, and Secure Boot state through provider libraries.
+- The Devices page opens selected HII formsets through
+  `EFI_FORM_BROWSER2_PROTOCOL.SendForm()`, keeping VFR/IFR parsing,
+  ConfigAccess callback flow, conditions, validation, and variable writes in
+  native edk2 FormBrowser.
+- The app build no longer links `ModernUiHiiBridgeLib` or
+  `ModernUiPageAdapterLib`; those libraries remain source-level
+  experimental/debug code only.
+- `Scripts/run-armvirt.sh` can attach the ModernSetupApp ESP with `DUAL_APP=1`
+  without forcing the VM to boot the app directly.
 
 ### Fixed
 
@@ -176,7 +192,8 @@ this file as both a release log and a lightweight development progress record.
   only to the experimental `ModernSetupApp`; native UiApp language behavior
   remains owned by edk2 HII/FormBrowser.
 - The custom HII bridge is retained only as prototype/debug code and is not in
-  the default package DSC or ArmVirt overlay path.
+  the default package DSC, ArmVirt overlay path, or standard ModernSetupApp
+  build.
 - Native `SetupBrowserDxe/FormBrowser2` owns HII/IFR/VFR parsing, GUID formset
   handling, ConfigAccess callback flow, condition evaluation, and variable
   write semantics in the default ArmVirt firmware.
@@ -195,8 +212,8 @@ this file as both a release log and a lightweight development progress record.
 
 - Add DisplayEngine/customized display layout helpers for resolution-aware
   layout and safe-area handling.
-- Decide whether the standalone `ModernSetupApp` remains as an experimental
-  showcase/debug tool or is removed after the DisplayEngine path is stable.
+- Continue filling out `ModernSetupApp` as a portable standard front-page shell
+  while keeping all real setup pages on native FormBrowser.
 - Add PCDs for default page, feature visibility, fallback behavior, pointer
   support, and theme selection.
 - Improve `ModernDisplayEngineDxe` visual styling for panels, highlight rows,

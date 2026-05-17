@@ -22,8 +22,12 @@
   ModernUiRendererLib|Include/ModernUi/ModernUiRenderer.h
   ModernUiThemeLib|Include/ModernUi/ModernUiTheme.h
 
-  # Experimental ModernSetupApp prototype path. These are intentionally not
-  # used by the default ArmVirt overlay or the main package DSC.
+  # Optional ModernSetupApp front-page path. These are intentionally not used
+  # by the default ArmVirt overlay or the main package DSC.
+  ModernUiPlatformDataLib|Include/ModernUi/ModernUiPlatformData.h
+  ModernUiBootDataLib|Include/ModernUi/ModernUiBootData.h
+  ModernUiDeviceDataLib|Include/ModernUi/ModernUiDeviceData.h
+  ModernUiSecurityDataLib|Include/ModernUi/ModernUiSecurityData.h
   ModernUiInputLib|Include/ModernUi/ModernUiInput.h
   ModernUiStringLib|Include/ModernUi/ModernUiString.h
   ModernUiHiiBridgeLib|Include/ModernUi/ModernUiHiiBridge.h

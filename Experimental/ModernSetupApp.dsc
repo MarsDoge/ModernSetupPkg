@@ -1,5 +1,5 @@
 ## @file
-# Experimental build description for the legacy ModernSetupApp prototype.
+# Experimental build description for the ModernSetupApp front-page shell.
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 ##
@@ -39,22 +39,26 @@
   UefiLib|MdePkg/Library/UefiLib/UefiLib.inf
   UefiRuntimeServicesTableLib|MdePkg/Library/UefiRuntimeServicesTableLib/UefiRuntimeServicesTableLib.inf
   ModernUiEngineLib|ModernSetupPkg/Library/ModernUiEngineLib/ModernUiEngineLib.inf
+  ModernUiPlatformDataLib|ModernSetupPkg/Library/ModernUiPlatformDataLib/ModernUiPlatformDataLib.inf
+  ModernUiBootDataLib|ModernSetupPkg/Library/ModernUiBootDataLib/ModernUiBootDataLib.inf
+  ModernUiDeviceDataLib|ModernSetupPkg/Library/ModernUiDeviceDataLib/ModernUiDeviceDataLib.inf
+  ModernUiSecurityDataLib|ModernSetupPkg/Library/ModernUiSecurityDataLib/ModernUiSecurityDataLib.inf
   ModernUiRendererLib|ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
   ModernUiInputLib|ModernSetupPkg/Library/ModernUiInputLib/ModernUiInputLib.inf
   ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
   ModernUiStringLib|ModernSetupPkg/Library/ModernUiStringLib/ModernUiStringLib.inf
-  ModernUiHiiBridgeLib|ModernSetupPkg/Library/ModernUiHiiBridgeLib/ModernUiHiiBridgeLib.inf
-  ModernUiPageAdapterLib|ModernSetupPkg/Library/ModernUiPageAdapterLib/ModernUiPageAdapterLib.inf
 
 [PcdsFixedAtBuild]
   gModernSetupPkgTokenSpaceGuid.PcdModernSetupDefaultLanguage|"zh-Hans"
 
 [Components]
   ModernSetupPkg/Library/ModernUiEngineLib/ModernUiEngineLib.inf
+  ModernSetupPkg/Library/ModernUiPlatformDataLib/ModernUiPlatformDataLib.inf
+  ModernSetupPkg/Library/ModernUiBootDataLib/ModernUiBootDataLib.inf
+  ModernSetupPkg/Library/ModernUiDeviceDataLib/ModernUiDeviceDataLib.inf
+  ModernSetupPkg/Library/ModernUiSecurityDataLib/ModernUiSecurityDataLib.inf
   ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
   ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
   ModernSetupPkg/Library/ModernUiInputLib/ModernUiInputLib.inf
   ModernSetupPkg/Library/ModernUiStringLib/ModernUiStringLib.inf
-  ModernSetupPkg/Library/ModernUiHiiBridgeLib/ModernUiHiiBridgeLib.inf
-  ModernSetupPkg/Library/ModernUiPageAdapterLib/ModernUiPageAdapterLib.inf
   ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf

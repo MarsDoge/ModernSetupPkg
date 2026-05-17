@@ -7,6 +7,13 @@ cd /Users/cy/github/edk2
 ModernSetupPkg/Scripts/build-armvirt.sh
 ```
 
+Build the optional standard front-page app ESP:
+
+```sh
+cd /Users/cy/github/edk2
+ModernSetupPkg/Scripts/build-modern-app.sh
+```
+
 For overlay verification without the DriverSample HII demo driver:
 
 ```sh
@@ -25,6 +32,8 @@ Expected result:
   `ModernUiHiiBridgeLib`, `ModernUiPageAdapterLib`, or `ModernUiStringLib`.
 - FVMAIN space is recorded after each architecture-level change. The current
   DisplayEngine build is expected to remain near full capacity.
+- `Build/ModernSetupAppEsp/EFI/BOOT/BOOTAA64.EFI` exists after
+  `build-modern-app.sh`.
 
 ## Run
 
@@ -43,6 +52,12 @@ If HVF is unavailable:
 GRAPHICS=1 RESET_VARS=1 ACCEL=tcg ModernSetupPkg/Scripts/run-armvirt.sh
 ```
 
+Attach the optional ModernSetupApp ESP while preserving native UiApp in firmware:
+
+```sh
+GRAPHICS=1 RESET_VARS=1 ACCEL=hvf DUAL_APP=1 ModernSetupPkg/Scripts/run-armvirt.sh
+```
+
 Expected result:
 
 - QEMU opens a graphical window.
@@ -51,6 +66,8 @@ Expected result:
 - No ASSERT, exception, or GOP initialization failure is printed to serial.
 - Serial output does not repeatedly print missing glyph warnings for box
   drawing, arrows, triangles, or checkbox glyphs.
+- With `DUAL_APP=1`, Boot Manager can see the removable ESP path for
+  `ModernSetupApp` while native UiApp remains available.
 
 ## UI Checks
 
@@ -98,3 +115,18 @@ Expected result:
   `DisplayEngineDxe`.
 - F9/F10 default/save flows and Esc discard/exit confirmation work without
   ASSERTs or stale graphics.
+
+## Standard Front-Page App Checks
+
+- Boot `ModernSetupApp` from the ESP with `APP=1` or through Boot Manager with
+  `DUAL_APP=1`.
+- Dashboard shows firmware vendor/revision, display mode, boot option count,
+  architecture, memory size, and Secure Boot summary without ASSERTs.
+- Boot page lists dynamic visible `Boot####` entries from `BootOrder` and can
+  launch the selected option.
+- Devices page lists HII formset entries. Selecting an entry opens native
+  FormBrowser via `EFI_FORM_BROWSER2_PROTOCOL.SendForm()`; the app must not
+  show the old self-parsed HII bridge page.
+- Security page shows Secure Boot, Setup Mode, PK, KEK, db, and dbx as
+  read-only state.
+- Exit page language switching and fallback to classic UiApp still work.

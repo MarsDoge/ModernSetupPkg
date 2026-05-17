@@ -1,0 +1,27 @@
+## @file
+# Platform summary provider for ModernSetupApp.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = ModernUiPlatformDataLib
+  FILE_GUID                      = 9C30E3A3-F776-4700-96ED-0F4C906E3DE3
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.1
+  LIBRARY_CLASS                  = ModernUiPlatformDataLib|UEFI_APPLICATION
+
+[Sources]
+  ModernUiPlatformDataLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  ModernSetupPkg/ModernSetupPkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  MemoryAllocationLib
+  PrintLib
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib

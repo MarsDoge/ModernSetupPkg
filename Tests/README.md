@@ -24,8 +24,11 @@ Tests
   `ModernDisplayEngineDxe`.
 - Manual DriverSample validation through edk2 Device Manager/FormBrowser in the
   ArmVirt overlay.
-- Static overlay validation that the default path does not reference the
-  experimental `ModernSetupApp` or custom HII bridge libraries.
+- Manual `ModernSetupApp` front-page validation from the ESP path, including
+  dashboard, dynamic boot entries, HII formset entry enumeration, security
+  summary, and FormBrowser2 handoff.
+- Static overlay validation that the default path does not reference
+  `ModernSetupApp` or custom HII bridge libraries.
 
 ## Planned Coverage
 

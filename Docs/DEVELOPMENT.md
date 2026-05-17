@@ -48,9 +48,16 @@ Use this shape:
   enumeration, variable parsing, security policy, or architecture-specific
   behavior.
 - `ModernUiEngineLib` is the shared visual contract between the native
-  DisplayEngine path and experimental app path. DisplayEngine adapters and app
+  DisplayEngine path and standard front-page app path. DisplayEngine adapters and app
   pages should build engine models instead of drawing their own tabs, rows,
   value selectors, popups, or footers.
+- `ModernSetupApp` is a standard front-page shell. It may own navigation,
+  language/theme state, dashboard composition, boot selection, and entry points,
+  but it must not parse IFR, evaluate VFR conditions, call ConfigAccess
+  directly, or write HII varstores.
+- App entries for real setup pages must use `EFI_FORM_BROWSER2_PROTOCOL.SendForm()`.
+  That keeps GUID formset handling, callbacks, defaults, validation, and
+  variable routing inside native edk2 FormBrowser.
 - Platform and IBV differences should be introduced through LibraryClass
   instances, PCDs, or small platform overlays.
 - Renderer APIs must hide the concrete graphics backend. GOP is the first
@@ -89,6 +96,8 @@ Future architecture and IBV adaptation should prefer these layers:
 - `ModernUiBootDataLib` for Boot#### and BootOrder access.
 - `ModernUiDeviceDataLib` for handle/device-path inventory.
 - `ModernUiSecurityDataLib` for Secure Boot and related security state.
+- `ModernUiDeviceDataLib` should expose FormBrowser entry points, not decoded
+  IFR controls.
 
 The current prototype does not have all of these libraries yet. When code starts
 to grow around one of these responsibilities, add or extend the matching shared

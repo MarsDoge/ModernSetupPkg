@@ -1,0 +1,34 @@
+## @file
+# Device and HII formset entry provider for ModernSetupApp.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = ModernUiDeviceDataLib
+  FILE_GUID                      = 092165BA-D63F-4D7E-8B15-57506E6D4B0B
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.1
+  LIBRARY_CLASS                  = ModernUiDeviceDataLib|UEFI_APPLICATION
+
+[Sources]
+  ModernUiDeviceDataLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  ModernSetupPkg/ModernSetupPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DevicePathLib
+  HiiLib
+  MemoryAllocationLib
+  PrintLib
+  UefiBootServicesTableLib
+  UefiHiiServicesLib
+
+[Protocols]
+  gEfiFormBrowser2ProtocolGuid

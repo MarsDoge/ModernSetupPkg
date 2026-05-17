@@ -1,0 +1,28 @@
+## @file
+# Security state provider for ModernSetupApp.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = ModernUiSecurityDataLib
+  FILE_GUID                      = 0A020598-0A98-442E-80D2-3B1D91C69605
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.1
+  LIBRARY_CLASS                  = ModernUiSecurityDataLib|UEFI_APPLICATION
+
+[Sources]
+  ModernUiSecurityDataLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  ModernSetupPkg/ModernSetupPkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  UefiRuntimeServicesTableLib
+
+[Guids]
+  gEfiGlobalVariableGuid
+  gEfiImageSecurityDatabaseGuid
