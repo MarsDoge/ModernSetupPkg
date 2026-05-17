@@ -69,6 +69,39 @@ STATIC BOOLEAN         mLanguageDropdownOpen;
 STATIC UINTN           mLanguageDropdownSelection;
 
 /**
+  Return TRUE when the Dashboard has enough vertical space for Quick Access.
+
+  @param[in] Ui  Initialized render context. Must not be NULL.
+
+  @retval TRUE   Quick Access cards are visible and selectable.
+  @retval FALSE  Quick Access is hidden for the current resolution.
+**/
+STATIC
+BOOLEAN
+DashboardQuickAccessVisible (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui
+  )
+{
+  MODERN_UI_RECT  Content;
+  UINTN           TopHeight;
+  UINTN           QuickHeight;
+
+  if (Ui == NULL) {
+    return FALSE;
+  }
+
+  Content     = (MODERN_UI_RECT){
+                  SCREEN_MARGIN,
+                  TOP_BAR_HEIGHT + TAB_BAR_HEIGHT + PAGE_TITLE_HEIGHT,
+                  Ui->Width - (SCREEN_MARGIN * 2),
+                  Ui->Height - TOP_BAR_HEIGHT - TAB_BAR_HEIGHT - PAGE_TITLE_HEIGHT - FOOTER_HEIGHT - SCREEN_MARGIN
+                };
+  TopHeight   = (Content.Height >= 460) ? 300 : 232;
+  QuickHeight = (Content.Height > (TopHeight + 16)) ? (Content.Height - TopHeight - 16) : 0;
+  return (BOOLEAN)(QuickHeight > 110);
+}
+
+/**
   Return TRUE when the active UI language is Simplified Chinese.
 
   @retval TRUE   Active language starts with "zh".
@@ -122,6 +155,7 @@ GetActiveLanguageSelection (
   Get the selected item value for a page.
 
   @param[in] Page             Page whose selected item is requested.
+  @param[in] DashboardSelection Current Dashboard Quick Access selection.
   @param[in] BootSelection    Current Boot page selection.
   @param[in] DeviceSelection  Current Devices page selection.
   @param[in] ExitSelection    Current Exit page selection.
@@ -132,12 +166,15 @@ STATIC
 UINTN
 GetPageSelection (
   IN SETUP_PAGE  Page,
+  IN UINTN       DashboardSelection,
   IN UINTN       BootSelection,
   IN UINTN       DeviceSelection,
   IN UINTN       ExitSelection
   )
 {
   switch (Page) {
+    case PageDashboard:
+      return DashboardSelection;
     case PageBoot:
       return BootSelection;
     case PageDevices:
@@ -154,6 +191,8 @@ GetPageSelection (
 
   @param[in]     Page             Page whose selected item is updated.
   @param[in]     Selection        New selected item index.
+  @param[in,out] DashboardSelection Dashboard Quick Access selection storage.
+                                      Must not be NULL.
   @param[in,out] BootSelection    Boot page selection storage. Must not be NULL.
   @param[in,out] DeviceSelection  Devices page selection storage. Must not be NULL.
   @param[in,out] ExitSelection    Exit page selection storage. Must not be NULL.
@@ -163,12 +202,16 @@ VOID
 SetPageSelection (
   IN     SETUP_PAGE  Page,
   IN     UINTN       Selection,
+  IN OUT UINTN       *DashboardSelection,
   IN OUT UINTN       *BootSelection,
   IN OUT UINTN       *DeviceSelection,
   IN OUT UINTN       *ExitSelection
   )
 {
   switch (Page) {
+    case PageDashboard:
+      *DashboardSelection = Selection;
+      break;
     case PageBoot:
       *BootSelection = Selection;
       break;
@@ -239,6 +282,7 @@ GetVisibleDeviceCount (
 /**
   Return the selectable row count for one page.
 
+  @param[in] Ui    Initialized render context. Must not be NULL.
   @param[in] Page  Page whose selectable count is requested.
 
   @return Number of selectable rows or actions available on Page.
@@ -246,10 +290,13 @@ GetVisibleDeviceCount (
 STATIC
 UINTN
 GetPageSelectableCount (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN SETUP_PAGE  Page
   )
 {
   switch (Page) {
+    case PageDashboard:
+      return DashboardQuickAccessVisible (Ui) ? 3 : 0;
     case PageBoot:
       return MIN (GetBootCount (), MAX_BOOT_ROWS);
     case PageDevices:
@@ -549,6 +596,7 @@ DrawDashboardSection (
   @param[in] Title    Tile title text. Must not be NULL.
   @param[in] Value    Tile value text. Must not be NULL.
   @param[in] Emphasis TRUE to draw the value as a highlighted state.
+  @param[in] Selected TRUE to draw the tile as the active Quick Access entry.
 **/
 STATIC
 VOID
@@ -558,17 +606,25 @@ DrawDashboardTile (
   IN MODERN_UI_RECT            Rect,
   IN CONST CHAR16              *Title,
   IN CONST CHAR16              *Value,
-  IN BOOLEAN                   Emphasis
+  IN BOOLEAN                   Emphasis,
+  IN BOOLEAN                   Selected
   )
 {
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  TileColor;
 
-  TileColor = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 24);
+  TileColor = Selected ?
+              ModernUiBlendColor (Theme->SelectedBand, Theme->BackgroundBlack, 42) :
+              ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 24);
   ModernUiFillRect (Ui, Rect, TileColor);
-  ModernUiStrokeRect (Ui, Rect, Theme->Border);
-  ModernUiFillRect (Ui, (MODERN_UI_RECT){ Rect.X, Rect.Y, 4, Rect.Height }, Emphasis ? Theme->AccentYellow : Theme->AccentSoft);
+  ModernUiStrokeRect (Ui, Rect, Selected ? Theme->PopupBorder : Theme->Border);
+  if (Selected) {
+    ModernUiFillRect (Ui, (MODERN_UI_RECT){ Rect.X, Rect.Y, Rect.Width, 2 }, Theme->GlowOrange);
+    ModernUiFillRect (Ui, (MODERN_UI_RECT){ Rect.X, Rect.Y + Rect.Height - 3, Rect.Width, 2 }, Theme->AccentOrange);
+  }
+
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ Rect.X, Rect.Y, Selected ? 7 : 4, Rect.Height }, (Emphasis || Selected) ? Theme->AccentYellow : Theme->AccentSoft);
   ModernUiDrawTextFit (Ui, Rect.X + 18, Rect.Y + 12, Rect.Width - 36, Title, Theme->MutedText, TileColor);
-  ModernUiDrawTextFit (Ui, Rect.X + 18, Rect.Y + 40, Rect.Width - 36, Value, Emphasis ? Theme->AccentYellow : Theme->Text, TileColor);
+  ModernUiDrawTextFit (Ui, Rect.X + 18, Rect.Y + 40, Rect.Width - 36, Value, (Emphasis || Selected) ? Theme->AccentYellow : Theme->Text, TileColor);
 }
 
 /**
@@ -576,14 +632,16 @@ DrawDashboardTile (
 
   @param[in] Ui     Initialized render context. Must not be NULL.
   @param[in] Theme  Theme token table. Must not be NULL.
-  @param[in] Focus  Current focus area.
+  @param[in] Focus      Current focus area.
+  @param[in] Selection  Selected Quick Access entry.
 **/
 STATIC
 VOID
 DrawDashboard (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
-  IN SETUP_FOCUS               Focus
+  IN SETUP_FOCUS               Focus,
+  IN UINTN                     Selection
   )
 {
   CHAR16  Resolution[48];
@@ -671,11 +729,11 @@ DrawDashboard (
     CardGap   = 14;
     CardWidth = (QuickPanel.Width > ((CardGap * 2) + 40)) ? ((QuickPanel.Width - (CardGap * 2) - 40) / 3) : QuickPanel.Width;
     QuickCard = (MODERN_UI_RECT){ QuickPanel.X + 20, QuickPanel.Y + 54, CardWidth, QuickPanel.Height - 74 };
-    DrawDashboardTile (Ui, Theme, QuickCard, ModernUiGetString (ModernUiStringBootOptions), BootCount, TRUE);
+    DrawDashboardTile (Ui, Theme, QuickCard, ModernUiGetString (ModernUiStringBootOptions), BootCount, TRUE, (BOOLEAN)((Focus == SetupFocusContent) && (Selection == 0)));
     QuickCard.X += CardWidth + CardGap;
-    DrawDashboardTile (Ui, Theme, QuickCard, L"Devices / HII", DeviceCount, TRUE);
+    DrawDashboardTile (Ui, Theme, QuickCard, L"Devices / HII", DeviceCount, TRUE, (BOOLEAN)((Focus == SetupFocusContent) && (Selection == 1)));
     QuickCard.X += CardWidth + CardGap;
-    DrawDashboardTile (Ui, Theme, QuickCard, ModernUiGetString (ModernUiStringSecureBoot), SecurityText, (BOOLEAN)(Security.SecureBoot == ModernUiSecurityStateEnabled));
+    DrawDashboardTile (Ui, Theme, QuickCard, ModernUiGetString (ModernUiStringSecureBoot), SecurityText, (BOOLEAN)(Security.SecureBoot == ModernUiSecurityStateEnabled), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == 2)));
   }
 }
 
@@ -1063,6 +1121,7 @@ LaunchUiAppFallback (
   @param[in] Theme          Theme token table. Must not be NULL.
   @param[in] Page           Page to draw.
   @param[in] Focus          Current focus area.
+  @param[in] DashboardSelection Selected Dashboard Quick Access entry.
   @param[in] BootSelection  Selected Boot page row.
   @param[in] DeviceSelection Selected Devices page row.
   @param[in] ExitSelection  Selected Exit page action.
@@ -1075,6 +1134,7 @@ DrawPage (
   IN CONST MODERN_UI_THEME     *Theme,
   IN SETUP_PAGE                Page,
   IN SETUP_FOCUS               Focus,
+  IN UINTN                     DashboardSelection,
   IN UINTN                     BootSelection,
   IN UINTN                     DeviceSelection,
   IN UINTN                     ExitSelection,
@@ -1088,7 +1148,7 @@ DrawPage (
 
   switch (Page) {
     case PageDashboard:
-      DrawDashboard (Ui, Theme, Focus);
+      DrawDashboard (Ui, Theme, Focus, DashboardSelection);
       break;
     case PageBoot:
       DrawBoot (Ui, Theme, Focus, BootSelection);
@@ -1132,6 +1192,7 @@ UefiMain (
   CONST MODERN_UI_THEME     *Theme;
   SETUP_PAGE                Page;
   SETUP_FOCUS               Focus;
+  UINTN                     DashboardSelection;
   UINTN                     BootSelection;
   UINTN                     DeviceSelection;
   UINTN                     ExitSelection;
@@ -1155,6 +1216,7 @@ UefiMain (
   Theme         = ModernUiGetTheme ();
   Page          = PageDashboard;
   Focus         = SetupFocusNav;
+  DashboardSelection = 0;
   BootSelection = 0;
   DeviceSelection = 0;
   ExitSelection = 0;
@@ -1163,7 +1225,7 @@ UefiMain (
 
   for (;;) {
     if (Redraw) {
-      DrawPage (&Ui, Theme, Page, Focus, BootSelection, DeviceSelection, ExitSelection, StatusMessage);
+      DrawPage (&Ui, Theme, Page, Focus, DashboardSelection, BootSelection, DeviceSelection, ExitSelection, StatusMessage);
       Redraw = FALSE;
     }
 
@@ -1176,12 +1238,14 @@ UefiMain (
       case ModernUiInputUp:
         if ((Focus == SetupFocusContent) && (Page == PageExit) && mLanguageDropdownOpen) {
           mLanguageDropdownSelection = (mLanguageDropdownSelection == 0) ? 1 : 0;
+        } else if ((Focus == SetupFocusContent) && (Page == PageDashboard)) {
+          Focus = SetupFocusNav;
         } else if (Focus == SetupFocusContent) {
-          SelectableCount = GetPageSelectableCount (Page);
+          SelectableCount = GetPageSelectableCount (&Ui, Page);
           if (SelectableCount > 0) {
-            Selection = GetPageSelection (Page, BootSelection, DeviceSelection, ExitSelection);
+            Selection = GetPageSelection (Page, DashboardSelection, BootSelection, DeviceSelection, ExitSelection);
             Selection = (Selection == 0) ? (SelectableCount - 1) : (Selection - 1);
-            SetPageSelection (Page, Selection, &BootSelection, &DeviceSelection, &ExitSelection);
+            SetPageSelection (Page, Selection, &DashboardSelection, &BootSelection, &DeviceSelection, &ExitSelection);
           }
         }
 
@@ -1191,13 +1255,15 @@ UefiMain (
         if ((Focus == SetupFocusContent) && (Page == PageExit) && mLanguageDropdownOpen) {
           mLanguageDropdownSelection = (mLanguageDropdownSelection + 1) % 2;
         } else if (Focus == SetupFocusNav) {
-          Focus = SetupFocusContent;
+          if (GetPageSelectableCount (&Ui, Page) > 0) {
+            Focus = SetupFocusContent;
+          }
         } else {
-          SelectableCount = GetPageSelectableCount (Page);
+          SelectableCount = GetPageSelectableCount (&Ui, Page);
           if (SelectableCount > 0) {
-            Selection = GetPageSelection (Page, BootSelection, DeviceSelection, ExitSelection);
+            Selection = GetPageSelection (Page, DashboardSelection, BootSelection, DeviceSelection, ExitSelection);
             Selection = (Selection + 1) % SelectableCount;
-            SetPageSelection (Page, Selection, &BootSelection, &DeviceSelection, &ExitSelection);
+            SetPageSelection (Page, Selection, &DashboardSelection, &BootSelection, &DeviceSelection, &ExitSelection);
           }
         }
 
@@ -1211,6 +1277,8 @@ UefiMain (
       case ModernUiInputLeft:
         if ((Focus == SetupFocusContent) && (Page == PageExit) && mLanguageDropdownOpen) {
           mLanguageDropdownOpen = FALSE;
+        } else if ((Focus == SetupFocusContent) && (Page == PageDashboard)) {
+          DashboardSelection = (DashboardSelection == 0) ? 2 : (DashboardSelection - 1);
         } else if (Focus == SetupFocusNav) {
           Page = (Page == 0) ? (PageMax - 1) : (Page - 1);
           mLanguageDropdownOpen = FALSE;
@@ -1225,6 +1293,9 @@ UefiMain (
         if (Focus == SetupFocusNav) {
           Page = (Page + 1) % PageMax;
           mLanguageDropdownOpen = FALSE;
+        } else if (Page == PageDashboard) {
+          DashboardSelection = (DashboardSelection + 1) % 3;
+          StatusMessage[0] = L'\0';
         } else {
           mLanguageDropdownOpen = FALSE;
           StatusMessage[0] = L'\0';
@@ -1247,7 +1318,23 @@ UefiMain (
         break;
       case ModernUiInputEnter:
         if (Focus == SetupFocusNav) {
-          Focus  = SetupFocusContent;
+          if (GetPageSelectableCount (&Ui, Page) > 0) {
+            Focus = SetupFocusContent;
+          }
+          StatusMessage[0] = L'\0';
+          Redraw = TRUE;
+        } else if (Page == PageDashboard) {
+          if (DashboardSelection == 0) {
+            Page  = PageBoot;
+            Focus = SetupFocusContent;
+          } else if (DashboardSelection == 1) {
+            Page  = PageDevices;
+            Focus = SetupFocusContent;
+          } else {
+            Page  = PageSecurity;
+            Focus = SetupFocusNav;
+          }
+
           StatusMessage[0] = L'\0';
           Redraw = TRUE;
         } else if (Page == PageBoot) {
