@@ -211,7 +211,7 @@ ModernDisplayBackground (
     case EFI_LIGHTGRAY:
       return Theme->Surface;
     default:
-      return Theme->Background;
+      return Theme->Surface;
   }
 }
 
@@ -319,10 +319,10 @@ ModernDisplayDrawPatternBand (
     return;
   }
 
-  FaintAccent = ModernUiBlendColor (Theme->Background, Theme->Accent, 18);
-  FaintBorder = ModernUiBlendColor (Theme->Background, Theme->Border, 35);
+  FaintAccent = ModernUiBlendColor (Theme->Background, Theme->Accent, 10);
+  FaintBorder = ModernUiBlendColor (Theme->Background, Theme->Border, 20);
 
-  for (LineY = Y + 8; LineY < (Y + Height); LineY += 18) {
+  for (LineY = Y + 12; LineY < (Y + Height); LineY += 32) {
     ModernUiFillRect (
       &mModernRenderContext,
       (MODERN_UI_RECT){ 0, LineY, mModernRenderContext.Width, 1 },
@@ -330,7 +330,7 @@ ModernDisplayDrawPatternBand (
       );
   }
 
-  for (X = 24; X < mModernRenderContext.Width; X += 56) {
+  for (X = 48; X < mModernRenderContext.Width; X += 112) {
     ModernUiFillRect (
       &mModernRenderContext,
       (MODERN_UI_RECT){ X, Y + 6, 2, (Height > 12) ? (Height - 12) : 1 },
@@ -576,7 +576,6 @@ ModernDisplayDrawPageChrome (
   UINTN                  RightRailWidth;
   UINTN                  RightRailGap;
   UINTN                  RightRailX;
-  UINTN                  FooterButtonWidth;
   MODERN_UI_RECT         ContentRect;
   MODERN_UI_RECT         RightRailRect;
   MODERN_UI_RECT         FooterRect;
@@ -605,21 +604,11 @@ ModernDisplayDrawPageChrome (
   }
 
   ModernUiClear (&mModernRenderContext, Theme->Background);
-  ModernDisplayDrawPatternBand (HeaderHeight, (FooterTop > HeaderHeight) ? (FooterTop - HeaderHeight) : 0, Theme);
   ModernDisplayDrawTopChrome (Theme, PrintableTitle, CellWidth, CellHeight, HeaderHeight);
 
   FooterRect = (MODERN_UI_RECT){ 0, FooterTop, mModernRenderContext.Width, mModernRenderContext.Height - FooterTop };
   ModernUiFillRect (&mModernRenderContext, FooterRect, Theme->SurfaceRaised);
   ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ 0, FooterTop, mModernRenderContext.Width, 1 }, Theme->Border);
-  FooterButtonWidth = mModernRenderContext.Width / 7;
-  if (FooterButtonWidth > 120) {
-    ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ FooterButtonWidth * 3, FooterTop + 12, FooterButtonWidth - 8, 26 }, Theme->AccentSoft);
-    ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ FooterButtonWidth * 4, FooterTop + 12, FooterButtonWidth - 8, 26 }, Theme->AccentSoft);
-    ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ FooterButtonWidth * 5, FooterTop + 12, FooterButtonWidth - 8, 26 }, Theme->AccentSoft);
-    ModernUiDrawText (&mModernRenderContext, FooterButtonWidth * 3 + 24, FooterTop + 18, L"Help", Theme->Text, Theme->AccentSoft);
-    ModernUiDrawText (&mModernRenderContext, FooterButtonWidth * 4 + 24, FooterTop + 18, L"Defaults", Theme->Text, Theme->AccentSoft);
-    ModernUiDrawText (&mModernRenderContext, FooterButtonWidth * 5 + 24, FooterTop + 18, L"Save", Theme->Text, Theme->AccentSoft);
-  }
 
   ContentX      = (gScreenDimensions.LeftColumn + HorizontalMargin) * CellWidth;
   ContentY      = (gScreenDimensions.TopRow + NONE_FRONT_PAGE_HEADER_HEIGHT) * CellHeight;
@@ -775,14 +764,6 @@ PrintFramework (
   IN FORM_DISPLAY_ENGINE_FORM  *FormData
   )
 {
-  CHAR16  *TitleStr;
-  UINTN   TitleColumn;
-  UINTN   TitleWidth;
-  UINTN   HeaderLeft;
-  UINTN   HeaderWidth;
-  UINTN   HorizontalMargin;
-  UINTN   ScreenColumns;
-
   if (gClassOfVfr != FORMSET_CLASS_PLATFORM_SETUP) {
     //
     // Only Setup page needs Framework
@@ -796,11 +777,6 @@ PrintFramework (
       );
     return;
   }
-
-  ScreenColumns = gScreenDimensions.RightColumn - gScreenDimensions.LeftColumn;
-  HorizontalMargin = (ScreenColumns > (2 * MODERN_SETUP_HORIZONTAL_MARGIN + 4)) ? MODERN_SETUP_HORIZONTAL_MARGIN : 0;
-  HeaderLeft       = gScreenDimensions.LeftColumn + HorizontalMargin + 1;
-  HeaderWidth      = MAX (1, ScreenColumns - (2 * HorizontalMargin) - 1);
 
   ClearLines (
     gScreenDimensions.LeftColumn,
@@ -827,25 +803,6 @@ PrintFramework (
     );
 
   ModernDisplayDrawPageChrome (FormData);
-
-  //
-  // Print the form title through the text-grid path so the browser cursor and
-  // width accounting stay consistent with the rest of DisplayEngine.
-  //
-  TitleStr = LibGetToken (FormData->FormTitle, FormData->HiiHandle);
-  if (TitleStr != NULL) {
-    TitleWidth  = LibGetStringWidth (TitleStr);
-    TitleWidth  = (TitleWidth > 2) ? ((TitleWidth - 2) / 2) : 0;
-    TitleColumn = HeaderLeft;
-    gST->ConOut->SetAttribute (gST->ConOut, TITLE_TEXT | TITLE_BACKGROUND);
-    PrintStringAtWithWidth (
-      TitleColumn,
-      gScreenDimensions.TopRow + 1,
-      TitleStr,
-      (TitleWidth > HeaderWidth) ? HeaderWidth : TitleWidth
-      );
-    FreePool (TitleStr);
-  }
 }
 
 /**

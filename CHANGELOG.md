@@ -106,6 +106,10 @@ this file as both a release log and a lightweight development progress record.
 - Native FormBrowser statement layout now reserves a right status rail on wide
   GOP modes so DisplayEngine pages can evolve toward high-density IBV-style
   setup layouts without letting HII statement text overlap the telemetry area.
+- DisplayEngine chrome now avoids drawing custom footer buttons over native
+  FormBrowser hotkey help, suppresses duplicate form-title text in the top tab
+  area, and keeps the procedural pattern limited to the header instead of the
+  main content surface.
 
 ### Fixed
 
