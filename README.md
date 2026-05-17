@@ -329,6 +329,10 @@ If another QEMU appears earlier in `PATH`, override it explicitly:
 QEMU_BIN=/usr/bin/qemu-system-loongarch64 GRAPHICS=1 RESET_VARS=1 ModernSetupPkg/Scripts/run-loongarchvirt.sh
 ```
 
+Some LoongArch QEMU builds support split pflash images, while others only
+support `-bios`. The run script detects this automatically. In `-bios` mode,
+`QEMU_VARS.fd` is not attached, so variable persistence is not validated.
+
 For serial-only validation:
 
 ```sh

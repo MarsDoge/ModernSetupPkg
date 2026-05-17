@@ -51,6 +51,10 @@ support:
 QEMU_BIN=/usr/bin/qemu-system-loongarch64 GRAPHICS=1 RESET_VARS=1 ModernSetupPkg/Scripts/run-loongarchvirt.sh
 ```
 
+The script automatically uses split pflash when the selected QEMU supports it.
+If the selected QEMU only supports `-bios`, the firmware should still boot, but
+variable persistence is not covered by that run.
+
 Expected result:
 
 - QEMU opens a LoongArch64 graphical window.

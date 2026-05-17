@@ -45,6 +45,22 @@ qemu_supports_display() {
   "${QEMU}" -display help 2>&1 | grep -qx "${backend}"
 }
 
+qemu_supports_pflash() {
+  local status
+
+  set +e
+  timeout 2s "${QEMU}" \
+    -M virt \
+    -display none \
+    -S \
+    -drive "if=pflash,format=raw,unit=0,readonly=on,file=${CODE_FD}" \
+    >/dev/null 2>&1
+  status=$?
+  set -e
+
+  [[ "${status}" == "124" ]]
+}
+
 select_display_backend() {
   local backend
 
@@ -95,11 +111,22 @@ QEMU_ARGS=(
   -smp "${SMP}"
   -m "${MEMORY}"
   -monitor none
-  -drive "if=pflash,format=raw,unit=0,readonly=on,file=${CODE_FD}"
-  -drive "if=pflash,format=raw,unit=1,file=${PFLASH_VARS}"
   -device virtio-net-pci,netdev=net0
   -netdev user,id=net0
 )
+
+if qemu_supports_pflash; then
+  QEMU_ARGS+=(
+    -drive "if=pflash,format=raw,unit=0,readonly=on,file=${CODE_FD}"
+    -drive "if=pflash,format=raw,unit=1,file=${PFLASH_VARS}"
+  )
+  FIRMWARE_MODE="pflash"
+else
+  QEMU_ARGS+=(
+    -bios "${CODE_FD}"
+  )
+  FIRMWARE_MODE="bios"
+fi
 
 if [[ "${GRAPHICS}" == "1" ]]; then
   DISPLAY_BACKEND="$(select_display_backend)"
@@ -134,6 +161,10 @@ else
 fi
 
 echo "Using QEMU: ${QEMU}"
+echo "Using firmware mode: ${FIRMWARE_MODE}"
+if [[ "${FIRMWARE_MODE}" == "bios" ]]; then
+  echo "Warning: ${QEMU} does not support LoongArch pflash; QEMU_VARS.fd is not attached."
+fi
 if [[ "${GRAPHICS}" == "1" ]]; then
   echo "Using display backend: ${DISPLAY_BACKEND}"
 fi
