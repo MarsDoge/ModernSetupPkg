@@ -9,13 +9,13 @@ body:
     attributes:
       label: Area
       options:
-        - core-api
-        - renderer/theme/ui-engine
-        - display-engine
-        - app/provider
-        - hii-bridge
-        - platform-ci
-        - docs
+        - area/core-api
+        - area/renderer
+        - area/display-engine
+        - area/app-provider
+        - area/hii-bridge
+        - area/platform-ci
+        - area/docs
     validations:
       required: true
   - type: textarea

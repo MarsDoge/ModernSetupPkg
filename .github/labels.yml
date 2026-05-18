@@ -18,6 +18,9 @@
 - name: area/platform-ci
   color: "c2e0c6"
   description: Scripts, tests, platform integration, CI, or release flow
+- name: area/docs
+  color: "0075ca"
+  description: Governance, contributor docs, issue templates, or labels
 - name: api-change
   color: "fbca04"
   description: Public API or DEC compatibility impact

@@ -23,10 +23,13 @@ Use ownership to answer three questions:
 | app/provider | App shell and provider agents | `Application/ModernSetupApp/`, `Library/ModernUi*DataLib/`, provider/data headers | Front-page shell, dashboards, navigation, typed read-only summaries, FormBrowser entry points | Real setup-page behavior needs display-engine/FormBrowser review; public provider models need core-api |
 | hii-bridge | Experimental HII bridge agent | `Library/ModernUiHiiBridgeLib/`, `Include/ModernUi/ModernUiHiiBridge.h` | Experimental HII interpretation research | Promotion beyond experimental needs core-api and display-engine review |
 | platform-ci | Platform/CI/release agent | `Scripts/`, `Tests/`, `Experimental/`, `*.dsc`, docs, `.github/`, release notes | Build scripts, QEMU/manual validation, package integration, maintainer docs | Script or DSC changes that hide behavior changes need affected code owner review |
+| docs | Docs/governance route through platform-ci | `Docs/`, `.github/ISSUE_TEMPLATE/`, `.github/labels.yml`, `.github/PULL_REQUEST_TEMPLATE.md` | Contributor docs, issue backlog, ownership routing, issue templates, label metadata | Policy changes that affect a stable code contract need that logical owner review |
 
 ## Practical routing
 
 - Docs-only changes may be reviewed by any maintainer; tag the logical owner only if the doc changes a contract.
+- Backlog-driven work should start from `Docs/ISSUE_BACKLOG.md`; keep its issue seeds, routing labels, and validation expectations synchronized with this file.
+- Keep `area/*` labels in `.github/labels.yml` aligned with the Area dropdown in `.github/ISSUE_TEMPLATE/module-request.yml`.
 - Public API or DEC changes require core-api plus the implementation owner.
 - Cross-layer behavior changes need every owner whose stable contract is consumed.
 - Platform-specific behavior should be routed through LibraryClass instances, PCDs, or overlays instead of hard-coding policy into shared UI layers.
