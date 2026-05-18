@@ -1,0 +1,54 @@
+name: Module request
+description: Propose a focused ModernSetupPkg module or boundary change.
+title: "[module] "
+labels:
+  - module-request
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - core-api
+        - renderer/theme/ui-engine
+        - display-engine
+        - app/provider
+        - hii-bridge
+        - platform-ci
+        - docs
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What should change, and why?
+      placeholder: Add a provider summary for firmware update state.
+    validations:
+      required: true
+  - type: textarea
+    id: paths
+    attributes:
+      label: Expected paths
+      description: List likely files or directories if known.
+      placeholder: |
+        Include/ModernUi/ModernUiFirmwareData.h
+        Library/ModernUiFirmwareDataLib/
+    validations:
+      required: false
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Boundary or compatibility notes
+      description: Mention public API/DEC changes, FormBrowser behavior, or cross-owner review if relevant. N/A is fine.
+      placeholder: N/A - no public API change expected.
+    validations:
+      required: false
+  - type: textarea
+    id: validation
+    attributes:
+      label: Suggested validation
+      description: Build, QEMU/manual check, docs review, or N/A if unknown.
+      placeholder: ArmVirt app smoke; QEMU unavailable is okay if explained.
+    validations:
+      required: false

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Development guide
+    url: https://github.com/MarsDoge/ModernSetupPkg/blob/main/Docs/DEVELOPMENT.md
+    about: Contributor quickstart, validation expectations, and maintenance links.

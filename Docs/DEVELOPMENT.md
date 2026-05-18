@@ -12,6 +12,17 @@ default setup application. New code should keep ArmVirt useful as the first test
 target, but must not bake ArmVirt, QEMU, AArch64, LoongArch, x86, or any IBV
 policy into the UI core.
 
+## New contributor quickstart
+
+1. Identify the area you are changing in `Docs/AGENT_OWNERSHIP.md`.
+2. Check `Docs/MODULE_BOUNDARIES.md` before moving behavior between layers.
+3. If you touch `Include/ModernUi/*.h` or `ModernSetupPkg.dec`, follow
+   `Docs/API_COMPATIBILITY.md` and request Core API review.
+4. Keep changes focused. Docs-only and small script fixes should not need the
+   full firmware checklist; mark unrelated PR-template items as N/A.
+5. Record validation in the PR. If QEMU or a platform target is unavailable,
+   say so and describe the closest validation you did run.
+
 ## Function Contracts
 
 Every function must have an edk2-style Doxygen comment before its declaration or
@@ -118,6 +129,35 @@ The current prototype does not have all of these libraries yet. When code starts
 to grow around one of these responsibilities, add or extend the matching shared
 library instead of expanding `ModernSetupApp` or `ModernDisplayEngineDxe`
 directly.
+
+## Multi-agent Maintenance
+
+Phase 1 collaboration scaffolding lives in:
+
+- `Docs/AGENT_OWNERSHIP.md` for module owners, labels, and review gates.
+- `Docs/MODULE_BOUNDARIES.md` for stable contracts and dependency rules.
+- `Docs/API_COMPATIBILITY.md` for public API, DEC, and deprecation policy.
+
+Use these before expanding shared headers, `ModernSetupPkg.dec`, DisplayEngine
+behavior, provider contracts, or experimental HII bridge surfaces.
+
+## Validation matrix
+
+Use the lightest validation that proves the changed area. Mark unrelated items
+as N/A in the PR.
+
+| Change type | Expected validation |
+| --- | --- |
+| Docs-only | Spell/link sanity and affected policy owner review when policy changes. |
+| Public API / DEC | Header/DEC review, affected libraries build or compile-plan noted, changelog for public impact. |
+| Renderer / theme / layout | Build or focused smoke test, plus notes for 800x600, 1024x768, and 1280x800 impact. |
+| DisplayEngine / HII | Native FormBrowser compatibility check, fallback behavior notes, no bypassed ConfigAccess/varstore writes. |
+| App / provider | App smoke path or provider contract check; real setup pages still use `SendForm()`. |
+| Platform / scripts | Script dry run or syntax/shellcheck-style review, target platform named, generated-file impact noted. |
+
+QEMU validation is preferred for firmware behavior changes, but unavailable QEMU
+is not a blocker for every PR. State what was unavailable and what substitute
+validation was performed.
 
 ## Change Discipline
 

@@ -1,0 +1,5 @@
+# GitHub CODEOWNERS requires real GitHub users/teams.
+# Logical agent routing is documented in Docs/AGENT_OWNERSHIP.md.
+# Keep this file as a friendly fallback, not a fake hard-reviewer map.
+
+* @MarsDoge
