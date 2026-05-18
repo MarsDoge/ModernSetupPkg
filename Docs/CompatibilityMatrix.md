@@ -33,28 +33,30 @@ operate the forms that edk2 has already prepared.
 
 | Surface | Expected behavior | Current status | Validation target |
 | --- | --- | --- | --- |
-| FrontPage | Native UiApp front page renders through ModernDisplayEngine. | Basic | ArmVirt / LoongArch manual |
-| Device Manager | Platform HII formsets enumerate through native FormBrowser. | Basic | DriverSample present in Device Manager |
+| FrontPage | Native UiApp front page renders through ModernDisplayEngine. | Captured | `before/after-armvirt-frontpage.png` |
+| Device Manager | Platform HII formsets enumerate through native FormBrowser. | Captured | `before/after-armvirt-device-manager.png` |
 | Boot Manager | Boot options render and launch through native BootManager. | Basic | ArmVirt / LoongArch manual |
 | Boot Maintenance Manager | Native navigation and forms remain available. | Basic | Manual |
 | Driver Health Manager | Native list rendering and Esc behavior work. | Basic | Manual |
-| Popup / confirm dialog | Popup content is centered, readable, and preserves native keys. | Partial | DriverSample save/discard/default flows |
+| DriverSample first page | Mixed DriverSample statements render through native FormBrowser. | Captured | `before/after-armvirt-driver-sample-first-page.png` |
+| Pick-list popup | One-of popup content is readable and preserves native keys. | Captured | `before/after-armvirt-driver-sample-oneof-popup.png` |
+| Popup / confirm dialog | Confirmation popup content is readable and preserves native keys. | Partial | DriverSample save/discard/default flows |
 | Help / footer hotkeys | Native help text remains readable and does not overlap custom chrome. | Basic | Manual |
 
 ## IFR Question Coverage
 
 | IFR / statement type | Semantic owner | ModernSetup responsibility | Current status | v0.5 acceptance |
 | --- | --- | --- | --- | --- |
-| `EFI_IFR_TEXT_OP` | FormBrowser | Prompt and secondary text are readable. | Basic | No clipping on DriverSample text rows. |
-| `EFI_IFR_SUBTITLE_OP` | FormBrowser | Section-like row is visually distinct. | Basic | Subtitle visible and non-selectable. |
-| `EFI_IFR_REF_OP` and REF variants | FormBrowser / ConfigAccess | Row looks actionable; Enter navigates or calls callback. | Basic | DriverSample goto rows work. |
-| `EFI_IFR_ACTION_OP` | FormBrowser / ConfigAccess | Action row is visually distinct. | Basic | Callback action does not ASSERT. |
-| `EFI_IFR_CHECKBOX_OP` | FormBrowser | Value state is readable and selected row is clear. | Basic | Toggle and readback match native DisplayEngine. |
-| `EFI_IFR_ONE_OF_OP` | FormBrowser | Current value and pick-list popup are readable. | Partial | Popup is usable; visual polish remains open. |
+| `EFI_IFR_TEXT_OP` | FormBrowser | Prompt and secondary text are readable. | Captured | DriverSample first page shows prompt/help text. |
+| `EFI_IFR_SUBTITLE_OP` | FormBrowser | Section-like row is visually distinct. | Captured | DriverSample subtitle appears in both engines. |
+| `EFI_IFR_REF_OP` and REF variants | FormBrowser / ConfigAccess | Row looks actionable; Enter navigates or calls callback. | Captured | Browser Testcase Engine opens DriverSample first page. |
+| `EFI_IFR_ACTION_OP` | FormBrowser / ConfigAccess | Action row is visually distinct. | Captured | DriverSample action rows are visible; callback behavior remains manual. |
+| `EFI_IFR_CHECKBOX_OP` | FormBrowser | Value state is readable and selected row is clear. | Captured | DriverSample checkbox row is visible on first page. |
+| `EFI_IFR_ONE_OF_OP` | FormBrowser | Current value and pick-list popup are readable. | Captured | One-of popup captured in before/after pair. |
 | `EFI_IFR_NUMERIC_OP` | FormBrowser | Value field and edit popup are readable. | Partial | Edit flow works without stale graphics. |
 | `EFI_IFR_STRING_OP` | FormBrowser | Input popup and committed value are readable. | Partial | Text entry returns without ASSERT. |
 | `EFI_IFR_PASSWORD_OP` | FormBrowser | Password input stays masked and readable. | Partial | Masked input flow returns cleanly. |
-| `EFI_IFR_ORDERED_LIST_OP` | FormBrowser | Ordered values and list popup are readable. | Partial | DriverSample ordered list opens without corruption. |
+| `EFI_IFR_ORDERED_LIST_OP` | FormBrowser | Ordered values and list popup are readable. | Captured | Ordered list row values appear on DriverSample first page; edit popup remains manual. |
 | `EFI_IFR_DATE_OP` | FormBrowser | Date fields and edit behavior remain native. | Partial | DriverSample date fields operate. |
 | `EFI_IFR_TIME_OP` | FormBrowser | Time fields and edit behavior remain native. | Partial | DriverSample time fields operate. |
 | `EFI_IFR_RESET_BUTTON_OP` | FormBrowser | Reset button is actionable and visually distinct. | Basic | DriverSample reset path prompts/returns cleanly. |
@@ -65,6 +67,8 @@ operate the forms that edk2 has already prepared.
 
 Status meanings:
 
+- `Captured`: before/after screenshots exist from the scripted ArmVirt capture
+  path and show the same native FormBrowser page or control.
 - `Basic`: expected to work in the current manual path, but needs repeated
   before/after evidence.
 - `Partial`: semantic path is native edk2, but ModernDisplayEngine drawing needs

@@ -38,6 +38,10 @@ UiApp/FormBrowser pages can be built with either native `DisplayEngineDxe` or
 [`Docs/CompatibilityMatrix.md`](Docs/CompatibilityMatrix.md) and
 [`Docs/BeforeAfter.md`](Docs/BeforeAfter.md).
 
+The repository now includes scripted ArmVirt before/after captures for
+FrontPage, Device Manager, DriverSample first page, and DriverSample one-of
+popup through `Scripts/capture-armvirt.sh`.
+
 ## Current Scope
 
 - GOP-based rendering through `ModernUiRendererLib`
@@ -452,14 +456,19 @@ Current ArmVirt `ModernSetupApp` captures:
 
 ![ModernSetupApp Chinese exit page](Assets/Screenshots/modern-app-zh-exit.png)
 
-Recommended next captures for the default DisplayEngine path:
+Current ArmVirt before/after DisplayEngine captures:
 
-- `armvirt-uiapp-frontpage.png` - native UiApp rendered by ModernDisplayEngine.
-- `armvirt-device-manager.png` - Device Manager showing automatically loaded
-  HII driver pages.
-- `armvirt-driver-sample.png` - DriverSample rendered through native
-  FormBrowser plus ModernDisplayEngine.
+![Native edk2 DisplayEngine FrontPage](Assets/Screenshots/before-armvirt-frontpage.png)
 
-Run the ArmVirt graphics command in the Build and Run section, switch QEMU to
-the target page, then capture the window at 1024x768 or larger for README and
-GitHub repository presentation.
+![ModernDisplayEngine FrontPage](Assets/Screenshots/after-armvirt-frontpage.png)
+
+![Native edk2 DisplayEngine DriverSample one-of popup](Assets/Screenshots/before-armvirt-driver-sample-oneof-popup.png)
+
+![ModernDisplayEngine DriverSample one-of popup](Assets/Screenshots/after-armvirt-driver-sample-oneof-popup.png)
+
+For repeatable local captures, build the desired path and run:
+
+```sh
+CAPTURE_PREFIX=before-armvirt ModernSetupPkg/Scripts/capture-armvirt.sh
+CAPTURE_PREFIX=after-armvirt ModernSetupPkg/Scripts/capture-armvirt.sh
+```

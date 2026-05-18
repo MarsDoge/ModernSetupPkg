@@ -54,6 +54,30 @@ Capture ModernDisplayEngine screenshots with matching `after-` prefixes:
 - `after-armvirt-driver-sample.png`
 - `after-armvirt-oneof-popup.png`
 
+## Scripted ArmVirt Capture
+
+For repeatable baseline evidence, use the monitor-driven capture helper after
+building the desired DisplayEngine path:
+
+```sh
+cd /Users/cy/github/edk2
+CAPTURE_PREFIX=before-armvirt ModernSetupPkg/Scripts/capture-armvirt.sh
+CAPTURE_PREFIX=after-armvirt ModernSetupPkg/Scripts/capture-armvirt.sh
+```
+
+The helper runs QEMU headless with `ramfb`, uses the QEMU monitor to send the
+same key sequence, and writes PNG captures to `Assets/Screenshots/`.
+
+Current scripted coverage:
+
+- `frontpage`
+- `frontpage-device-selected`
+- `device-manager`
+- `browser-testcase-selected`
+- `driver-sample-first-page`
+- `driver-sample-oneof-selected`
+- `driver-sample-oneof-popup`
+
 ## LoongArch Before / After
 
 Use the same switch on the LoongArch overlay:

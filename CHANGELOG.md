@@ -108,6 +108,10 @@ this file as both a release log and a lightweight development progress record.
   graphics boot, Device Manager, DriverSample, and FormBrowser compatibility.
 - v0.5 compatibility documentation, including `Docs/CompatibilityMatrix.md`
   and `Docs/BeforeAfter.md`.
+- Scripted ArmVirt before/after screenshot capture helper for the native edk2
+  DisplayEngine and ModernDisplayEngine paths.
+- v0.5 before/after ArmVirt screenshot set covering FrontPage, Device Manager,
+  DriverSample first page, and DriverSample one-of popup.
 
 ### Changed
 

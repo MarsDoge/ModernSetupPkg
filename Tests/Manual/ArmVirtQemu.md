@@ -35,6 +35,13 @@ MODERN_SETUP_DISPLAY_ENGINE=native ModernSetupPkg/Scripts/build-armvirt.sh
 MODERN_SETUP_DISPLAY_ENGINE=modern ModernSetupPkg/Scripts/build-armvirt.sh
 ```
 
+After each build, capture the repeatable baseline pages:
+
+```sh
+CAPTURE_PREFIX=before-armvirt ModernSetupPkg/Scripts/capture-armvirt.sh
+CAPTURE_PREFIX=after-armvirt ModernSetupPkg/Scripts/capture-armvirt.sh
+```
+
 Expected result:
 
 - Build exits successfully.
@@ -144,6 +151,9 @@ Expected result:
   popup.
 - Confirm row titles, form titles, and navigation behavior match between the two
   builds; only the drawing style should differ.
+- Current scripted capture covers FrontPage, Device Manager, DriverSample first
+  page, and DriverSample one-of popup. Confirmation popup and edit-input flows
+  remain manual checks.
 
 ## Standard Front-Page App Checks
 

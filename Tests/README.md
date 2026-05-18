@@ -44,6 +44,9 @@ Tests
   UiApp plus `ModernDisplayEngineDxe`.
 - Manual before/after validation by rebuilding the same overlay with
   `MODERN_SETUP_DISPLAY_ENGINE=native` and `MODERN_SETUP_DISPLAY_ENGINE=modern`.
+- Scripted ArmVirt before/after capture through
+  `Scripts/capture-armvirt.sh`, currently covering FrontPage, Device Manager,
+  DriverSample first page, and a DriverSample one-of popup.
 
 ## Compatibility Documentation
 

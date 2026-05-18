@@ -26,6 +26,16 @@ Capture rules:
 
 Current captures:
 
+- `before-armvirt-frontpage.png` / `after-armvirt-frontpage.png` - native edk2
+  DisplayEngine versus ModernDisplayEngine FrontPage comparison.
+- `before-armvirt-device-manager.png` / `after-armvirt-device-manager.png` -
+  Device Manager comparison from the same native FormBrowser path.
+- `before-armvirt-driver-sample-first-page.png` /
+  `after-armvirt-driver-sample-first-page.png` - DriverSample first page
+  comparison.
+- `before-armvirt-driver-sample-oneof-popup.png` /
+  `after-armvirt-driver-sample-oneof-popup.png` - DriverSample one-of popup
+  comparison.
 - `modern-loongarch-dashboard.png` - LoongArchVirtQemu ModernSetupApp dashboard
   with Simplified Chinese UI, platform summary, quick access cards, and
   hardware monitor placeholders.
