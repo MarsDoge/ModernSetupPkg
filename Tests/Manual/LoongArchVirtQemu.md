@@ -18,6 +18,13 @@ export GCC_LOONGARCH64_PREFIX=loongarch64-unknown-linux-gnu-
 ModernSetupPkg/Scripts/build-loongarchvirt.sh
 ```
 
+For before/after DisplayEngine comparison:
+
+```sh
+MODERN_SETUP_DISPLAY_ENGINE=native ModernSetupPkg/Scripts/build-loongarchvirt.sh
+MODERN_SETUP_DISPLAY_ENGINE=modern ModernSetupPkg/Scripts/build-loongarchvirt.sh
+```
+
 Expected result:
 
 - The script generates
@@ -26,6 +33,8 @@ Expected result:
   `Build/ModernSetupPkgOverlay/LoongArchVirtQemuModernSetup.fdf`.
 - The overlay replaces upstream `DisplayEngineDxe` with
   `ModernDisplayEngineDxe`.
+- With `MODERN_SETUP_DISPLAY_ENGINE=native`, the overlay keeps upstream
+  `DisplayEngineDxe` for before/after comparison.
 - The overlay keeps native `UiApp` as the setup entry.
 - `DriverSampleDxe` is included by default unless
   `MODERN_SETUP_DEMO_DRIVER_SAMPLE=0` is set.

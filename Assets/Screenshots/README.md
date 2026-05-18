@@ -21,6 +21,8 @@ Capture rules:
   `armvirt-exit-language-dropdown.png`.
 - Update the README showcase section when adding or replacing presentation
   screenshots.
+- Use `before-` and `after-` prefixes for native DisplayEngine versus
+  ModernDisplayEngine comparisons captured from the same HII page.
 
 Current captures:
 

@@ -13,6 +13,7 @@ TARGET="${TARGET:-DEBUG}"
 JOBS="${JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
 MODERN_SETUP_DEMO_DRIVER_SAMPLE="${MODERN_SETUP_DEMO_DRIVER_SAMPLE:-1}"
 MODERN_SETUP_THEME="${MODERN_SETUP_THEME:-orange}"
+MODERN_SETUP_DISPLAY_ENGINE="${MODERN_SETUP_DISPLAY_ENGINE:-modern}"
 GCC_LOONGARCH64_PREFIX="${GCC_LOONGARCH64_PREFIX:-loongarch64-unknown-linux-gnu-}"
 GENERATE_ONLY="${GENERATE_ONLY:-0}"
 OVERLAY_DIR="${WORKSPACE}/Build/ModernSetupPkgOverlay"
@@ -34,7 +35,7 @@ fi
 
 mkdir -p "${OVERLAY_DIR}"
 
-python3 - <<'PY' "${WORKSPACE}" "${OVERLAY_DIR}" "${MODERN_SETUP_DEMO_DRIVER_SAMPLE}" "${MODERN_SETUP_THEME}"
+python3 - <<'PY' "${WORKSPACE}" "${OVERLAY_DIR}" "${MODERN_SETUP_DEMO_DRIVER_SAMPLE}" "${MODERN_SETUP_THEME}" "${MODERN_SETUP_DISPLAY_ENGINE}"
 from pathlib import Path
 import sys
 
@@ -42,6 +43,7 @@ workspace = Path(sys.argv[1])
 overlay = Path(sys.argv[2])
 enable_driver_sample = sys.argv[3] != "0"
 theme_name = sys.argv[4].strip().lower()
+display_engine = sys.argv[5].strip().lower()
 theme_pcd = {
     "orange": "0x00",
     "aorus": "0x00",
@@ -50,6 +52,10 @@ theme_pcd = {
 }.get(theme_name)
 if theme_pcd is None:
     raise SystemExit(f"Unsupported MODERN_SETUP_THEME={theme_name!r}; use orange or red")
+if display_engine not in {"modern", "native"}:
+    raise SystemExit(
+        f"Unsupported MODERN_SETUP_DISPLAY_ENGINE={display_engine!r}; use modern or native"
+    )
 
 modern_display_component = "  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
 modern_display_fdf_inf = "INF  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
@@ -73,27 +79,30 @@ dsc = dsc.replace(
     1,
 )
 if "ModernUiEngineLib|ModernSetupPkg" not in dsc:
-    dsc = dsc.replace("[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + library_block, 1)
-dsc = dsc.replace(
-    "  CustomizedDisplayLib             | MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf",
-    "  CustomizedDisplayLib             | ModernSetupPkg/Library/ModernUiCustomizedDisplayLib/ModernUiCustomizedDisplayLib.inf",
-    1,
-)
-dsc = dsc.replace(
-    "  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf",
-    modern_display_component,
-    1,
-)
+    if display_engine == "modern":
+        dsc = dsc.replace("[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + library_block, 1)
+if display_engine == "modern":
+    dsc = dsc.replace(
+        "  CustomizedDisplayLib             | MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf",
+        "  CustomizedDisplayLib             | ModernSetupPkg/Library/ModernUiCustomizedDisplayLib/ModernUiCustomizedDisplayLib.inf",
+        1,
+    )
+    dsc = dsc.replace(
+        "  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf",
+        modern_display_component,
+        1,
+    )
 if enable_driver_sample and driver_sample_component not in dsc:
     dsc = dsc.replace(
         "  MdeModulePkg/Application/UiApp/UiApp.inf {",
         driver_sample_component + "\n  MdeModulePkg/Application/UiApp/UiApp.inf {",
         1,
     )
-dsc += (
-    "\n[PcdsFixedAtBuild]\n"
-    f"  gModernSetupPkgTokenSpaceGuid.PcdModernSetupTheme|{theme_pcd}\n"
-)
+if display_engine == "modern":
+    dsc += (
+        "\n[PcdsFixedAtBuild]\n"
+        f"  gModernSetupPkgTokenSpaceGuid.PcdModernSetupTheme|{theme_pcd}\n"
+    )
 (overlay / "LoongArchVirtQemuModernSetup.dsc").write_text(dsc)
 
 fdf_path = workspace / "OvmfPkg/LoongArchVirt/LoongArchVirtQemu.fdf"
@@ -108,11 +117,12 @@ fdf = fdf.replace(
     "!include OvmfPkg/LoongArchVirt/VarStore.fdf.inc",
     1,
 )
-fdf = fdf.replace(
-    "INF  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf",
-    modern_display_fdf_inf,
-    1,
-)
+if display_engine == "modern":
+    fdf = fdf.replace(
+        "INF  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf",
+        modern_display_fdf_inf,
+        1,
+    )
 if enable_driver_sample and driver_sample_fdf_inf not in fdf:
     fdf = fdf.replace(
         "INF  MdeModulePkg/Application/UiApp/UiApp.inf",
@@ -124,6 +134,7 @@ PY
 
 echo "Generated: ${OVERLAY_DIR}/LoongArchVirtQemuModernSetup.dsc"
 echo "Generated: ${OVERLAY_DIR}/LoongArchVirtQemuModernSetup.fdf"
+echo "DisplayEngine: ${MODERN_SETUP_DISPLAY_ENGINE}"
 
 if [[ "${GENERATE_ONLY}" == "1" ]]; then
   exit 0

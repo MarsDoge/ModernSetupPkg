@@ -31,6 +31,13 @@ mode theme.
 The same graphics stack also renders native FormBrowser pages; edk2 still owns
 HII/VFR/IFR parsing, GUID formset discovery, callbacks, and variable writes.
 
+For v0.5, the main validation focus is compatibility evidence: the same
+UiApp/FormBrowser pages can be built with either native `DisplayEngineDxe` or
+`ModernDisplayEngineDxe` by setting
+`MODERN_SETUP_DISPLAY_ENGINE=native|modern`. See
+[`Docs/CompatibilityMatrix.md`](Docs/CompatibilityMatrix.md) and
+[`Docs/BeforeAfter.md`](Docs/BeforeAfter.md).
+
 ## Current Scope
 
 - GOP-based rendering through `ModernUiRendererLib`
@@ -174,6 +181,8 @@ edk2 workspace
     |   +-- Assets/Fonts
     |   +-- Scripts/generate-font-glyphs.py
     |   +-- Docs/DEVELOPMENT.md
+    |   +-- Docs/CompatibilityMatrix.md
+    |   +-- Docs/BeforeAfter.md
     |   +-- CHANGELOG.md
     |   +-- LICENSE
     |

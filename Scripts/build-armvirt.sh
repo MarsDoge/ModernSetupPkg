@@ -13,6 +13,8 @@ TARGET="${TARGET:-DEBUG}"
 JOBS="${JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
 MODERN_SETUP_DEMO_DRIVER_SAMPLE="${MODERN_SETUP_DEMO_DRIVER_SAMPLE:-1}"
 MODERN_SETUP_THEME="${MODERN_SETUP_THEME:-orange}"
+MODERN_SETUP_DISPLAY_ENGINE="${MODERN_SETUP_DISPLAY_ENGINE:-modern}"
+GENERATE_ONLY="${GENERATE_ONLY:-0}"
 OVERLAY_DIR="${WORKSPACE}/Build/ModernSetupPkgOverlay"
 
 export PATH="/opt/homebrew/bin:/opt/homebrew/opt/llvm/bin:/opt/homebrew/opt/lld/bin:${PATH}"
@@ -32,7 +34,7 @@ fi
 
 mkdir -p "${OVERLAY_DIR}"
 
-python3 - <<'PY' "${WORKSPACE}" "${OVERLAY_DIR}" "${MODERN_SETUP_DEMO_DRIVER_SAMPLE}" "${MODERN_SETUP_THEME}"
+python3 - <<'PY' "${WORKSPACE}" "${OVERLAY_DIR}" "${MODERN_SETUP_DEMO_DRIVER_SAMPLE}" "${MODERN_SETUP_THEME}" "${MODERN_SETUP_DISPLAY_ENGINE}"
 from pathlib import Path
 import re
 import sys
@@ -41,6 +43,7 @@ workspace = Path(sys.argv[1])
 overlay = Path(sys.argv[2])
 enable_driver_sample = sys.argv[3] != "0"
 theme_name = sys.argv[4].strip().lower()
+display_engine = sys.argv[5].strip().lower()
 theme_pcd = {
     "orange": "0x00",
     "aorus": "0x00",
@@ -49,6 +52,10 @@ theme_pcd = {
 }.get(theme_name)
 if theme_pcd is None:
     raise SystemExit(f"Unsupported MODERN_SETUP_THEME={theme_name!r}; use orange or red")
+if display_engine not in {"modern", "native"}:
+    raise SystemExit(
+        f"Unsupported MODERN_SETUP_DISPLAY_ENGINE={display_engine!r}; use modern or native"
+    )
 
 modern_display_component = "  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
 modern_display_fdf_inf = "  INF ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
@@ -72,27 +79,30 @@ dsc = dsc.replace(
     "  FLASH_DEFINITION               = Build/ModernSetupPkgOverlay/ArmVirtQemuModernSetup.fdf",
 )
 if "ModernUiEngineLib|ModernSetupPkg" not in dsc:
-    dsc = dsc.replace("[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + library_block, 1)
-dsc = dsc.replace(
-    "  CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf",
-    "  CustomizedDisplayLib|ModernSetupPkg/Library/ModernUiCustomizedDisplayLib/ModernUiCustomizedDisplayLib.inf",
-    1,
-)
-dsc = dsc.replace(
-    "  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf",
-    modern_display_component,
-    1,
-)
+    if display_engine == "modern":
+        dsc = dsc.replace("[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + library_block, 1)
+if display_engine == "modern":
+    dsc = dsc.replace(
+        "  CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf",
+        "  CustomizedDisplayLib|ModernSetupPkg/Library/ModernUiCustomizedDisplayLib/ModernUiCustomizedDisplayLib.inf",
+        1,
+    )
+    dsc = dsc.replace(
+        "  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf",
+        modern_display_component,
+        1,
+    )
 if enable_driver_sample and driver_sample_component not in dsc:
     dsc = dsc.replace(
         "  MdeModulePkg/Application/UiApp/UiApp.inf {",
         driver_sample_component + "\n  MdeModulePkg/Application/UiApp/UiApp.inf {",
         1,
     )
-dsc += (
-    "\n[PcdsFixedAtBuild]\n"
-    f"  gModernSetupPkgTokenSpaceGuid.PcdModernSetupTheme|{theme_pcd}\n"
-)
+if display_engine == "modern":
+    dsc += (
+        "\n[PcdsFixedAtBuild]\n"
+        f"  gModernSetupPkgTokenSpaceGuid.PcdModernSetupTheme|{theme_pcd}\n"
+    )
 (overlay / "ArmVirtQemuModernSetup.dsc").write_text(dsc)
 
 fdf = (workspace / "ArmVirtPkg/ArmVirtQemu.fdf").read_text()
@@ -106,11 +116,12 @@ fdf = fdf.replace(
 
 fv = (workspace / "ArmVirtPkg/ArmVirtQemuFvMain.fdf.inc").read_text()
 fv = fv.replace("!include ArmVirtRules.fdf.inc", "!include ArmVirtPkg/ArmVirtRules.fdf.inc")
-fv = fv.replace(
-    "  INF MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf",
-    modern_display_fdf_inf,
-    1,
-)
+if display_engine == "modern":
+    fv = fv.replace(
+        "  INF MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf",
+        modern_display_fdf_inf,
+        1,
+    )
 if enable_driver_sample and driver_sample_fdf_inf not in fv:
     fv = fv.replace(
         "  INF MdeModulePkg/Application/UiApp/UiApp.inf",
@@ -119,6 +130,14 @@ if enable_driver_sample and driver_sample_fdf_inf not in fv:
     )
 (overlay / "ArmVirtQemuModernSetupFvMain.fdf.inc").write_text(fv)
 PY
+
+echo "Generated: ${OVERLAY_DIR}/ArmVirtQemuModernSetup.dsc"
+echo "Generated: ${OVERLAY_DIR}/ArmVirtQemuModernSetup.fdf"
+echo "DisplayEngine: ${MODERN_SETUP_DISPLAY_ENGINE}"
+
+if [[ "${GENERATE_ONLY}" == "1" ]]; then
+  exit 0
+fi
 
 cd "${WORKSPACE}"
 

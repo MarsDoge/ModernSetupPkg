@@ -42,6 +42,16 @@ Tests
   `ModernSetupApp` or custom HII bridge libraries.
 - Static LoongArchVirt overlay validation that the default path uses native
   UiApp plus `ModernDisplayEngineDxe`.
+- Manual before/after validation by rebuilding the same overlay with
+  `MODERN_SETUP_DISPLAY_ENGINE=native` and `MODERN_SETUP_DISPLAY_ENGINE=modern`.
+
+## Compatibility Documentation
+
+- `Docs/CompatibilityMatrix.md` tracks platform, FormBrowser surface, and IFR
+  question coverage.
+- `Docs/BeforeAfter.md` describes how to capture native edk2 DisplayEngine
+  screenshots and matching ModernDisplayEngine screenshots from the same HII
+  pages.
 
 ## Planned Coverage
 

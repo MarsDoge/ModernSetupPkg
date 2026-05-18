@@ -27,6 +27,14 @@ For overlay verification without the DriverSample HII demo driver:
 MODERN_SETUP_DEMO_DRIVER_SAMPLE=0 ModernSetupPkg/Scripts/build-armvirt.sh
 ```
 
+For before/after comparison, build the same ArmVirt overlay with the native edk2
+DisplayEngine first, then rebuild with the ModernDisplayEngine path:
+
+```sh
+MODERN_SETUP_DISPLAY_ENGINE=native ModernSetupPkg/Scripts/build-armvirt.sh
+MODERN_SETUP_DISPLAY_ENGINE=modern ModernSetupPkg/Scripts/build-armvirt.sh
+```
+
 Expected result:
 
 - Build exits successfully.
@@ -34,6 +42,11 @@ Expected result:
 - `Build/ArmVirtQemu-AArch64/DEBUG_CLANGDWARF/FV/QEMU_VARS.fd` exists.
 - The default build firmware image contains `ModernDisplayEngineDxe`, native
   `UiApp`, and `DriverSample`.
+- With `MODERN_SETUP_DISPLAY_ENGINE=native`, the generated overlay keeps
+  `MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf` and does not
+  inject `ModernDisplayEngineDxe`.
+- With `MODERN_SETUP_DISPLAY_ENGINE=modern`, the generated overlay replaces
+  edk2 `DisplayEngineDxe` with `ModernDisplayEngineDxe`.
 - `ModernUiEngineLib` is included in the default DisplayEngine library path.
 - The generated ArmVirt overlay does not reference `ModernSetupApp`,
   `ModernUiHiiBridgeLib`, `ModernUiPageAdapterLib`, or `ModernUiStringLib`.
@@ -122,6 +135,15 @@ Expected result:
   `DisplayEngineDxe`.
 - F9/F10 default/save flows and Esc discard/exit confirmation work without
   ASSERTs or stale graphics.
+
+## Before / After Checks
+
+- Build and capture FrontPage with `MODERN_SETUP_DISPLAY_ENGINE=native`.
+- Rebuild and capture the same FrontPage with `MODERN_SETUP_DISPLAY_ENGINE=modern`.
+- Repeat for Device Manager, DriverSample first page, and a one-of or confirm
+  popup.
+- Confirm row titles, form titles, and navigation behavior match between the two
+  builds; only the drawing style should differ.
 
 ## Standard Front-Page App Checks
 

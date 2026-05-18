@@ -106,6 +106,8 @@ this file as both a release log and a lightweight development progress record.
   with native UiApp plus `ModernDisplayEngineDxe`.
 - LoongArchVirtQemu manual validation guide covering GCC toolchain checks,
   graphics boot, Device Manager, DriverSample, and FormBrowser compatibility.
+- v0.5 compatibility documentation, including `Docs/CompatibilityMatrix.md`
+  and `Docs/BeforeAfter.md`.
 
 ### Changed
 
@@ -170,6 +172,9 @@ this file as both a release log and a lightweight development progress record.
 - Added the `setup-v0.4-dashboard.png` GitHub showcase capture.
 - `ModernUiEngineLib` right-rail platform strings now follow the build
   architecture, including LOONGARCH64, instead of hardcoding ArmVirt labels.
+- ArmVirt and LoongArchVirt overlay builds now support
+  `MODERN_SETUP_DISPLAY_ENGINE=native|modern` so native edk2 DisplayEngine and
+  ModernDisplayEngine can be compared from the same HII pages.
 
 ### Fixed
 
