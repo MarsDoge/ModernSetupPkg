@@ -40,8 +40,9 @@ Tests
   summary, and FormBrowser2 handoff.
 - Manual `ModernSetupApp` productization checks against
   `Docs/ProductizationFeatureMatrix.md`, currently covering dashboard, boot,
-  devices/HII, security, and exit while firmware update, diagnostics/logs, and
-  management remain planned provider areas.
+  devices/HII, security, firmware update, diagnostics/logs, management, and
+  exit. The firmware, diagnostics, and management pages are read-only provider
+  summaries in this phase.
 - Static overlay validation that the default path does not reference
   `ModernSetupApp` or custom HII bridge libraries.
 - Static LoongArchVirt overlay validation that the default path uses native

@@ -1,0 +1,36 @@
+## @file
+# Firmware lifecycle summary provider for ModernSetupApp.
+#
+# Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
+# Author: MarsDoge (Dongyan Qian)
+# Open source: https://github.com/MarsDoge/ModernSetupPkg
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = ModernUiFirmwareDataLib
+  FILE_GUID                      = 4DF761B9-79B6-4CB7-8F63-C7F9C2B5A5C8
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.1
+  LIBRARY_CLASS                  = ModernUiFirmwareDataLib|UEFI_APPLICATION
+
+[Sources]
+  ModernUiFirmwareDataLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  ModernSetupPkg/ModernSetupPkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  PrintLib
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
+
+[Protocols]
+  gEfiCapsuleArchProtocolGuid
+
+[Guids]
+  gEfiCapsuleReportGuid

@@ -115,6 +115,9 @@ this file as both a release log and a lightweight development progress record.
 - `Docs/ProductizationFeatureMatrix.md`, defining the cross-architecture
   standard front-page App roadmap for desktop, workstation, server, embedded,
   appliance, x86, ARM, RISC-V, and LoongArch targets.
+- `ModernUiFirmwareDataLib`, `ModernUiDiagnosticsDataLib`, and
+  `ModernUiManagementDataLib` read-only providers for the standard front-page
+  App productization track.
 
 ### Changed
 
@@ -176,6 +179,9 @@ this file as both a release log and a lightweight development progress record.
 - `ModernSetupApp` dashboard now uses a system overview layout with hardware
   monitor and selectable Quick Access cards for Boot, Devices/HII, and Secure
   Boot.
+- `ModernSetupApp` now includes Firmware, Diagnostics, and Management pages
+  backed by provider libraries while keeping real setup policy in native
+  FormBrowser/HII pages.
 - Added the `setup-v0.4-dashboard.png` GitHub showcase capture.
 - `ModernUiEngineLib` right-rail platform strings now follow the build
   architecture, including LOONGARCH64, instead of hardcoding ArmVirt labels.

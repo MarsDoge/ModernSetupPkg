@@ -32,6 +32,9 @@
   ModernUiBootDataLib|Include/ModernUi/ModernUiBootData.h
   ModernUiDeviceDataLib|Include/ModernUi/ModernUiDeviceData.h
   ModernUiSecurityDataLib|Include/ModernUi/ModernUiSecurityData.h
+  ModernUiFirmwareDataLib|Include/ModernUi/ModernUiFirmwareData.h
+  ModernUiDiagnosticsDataLib|Include/ModernUi/ModernUiDiagnosticsData.h
+  ModernUiManagementDataLib|Include/ModernUi/ModernUiManagementData.h
   ModernUiInputLib|Include/ModernUi/ModernUiInput.h
   ModernUiStringLib|Include/ModernUi/ModernUiString.h
   ModernUiHiiBridgeLib|Include/ModernUi/ModernUiHiiBridge.h

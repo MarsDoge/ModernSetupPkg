@@ -62,6 +62,8 @@ real setup pages on native FormBrowser.
   FormBrowser stack
 - A standalone `ModernSetupApp` standard front-page shell that uses shared
   engine surfaces and opens real HII/VFR pages through native FormBrowser2
+- Read-only App providers for firmware lifecycle, diagnostics/table inventory,
+  and server/remote management capability summaries
 - ArmVirtQemu overlay scripts that keep upstream `ArmVirtPkg` files unchanged
 - LoongArchVirtQemu overlay scripts that keep upstream `OvmfPkg/LoongArchVirt`
   files unchanged
@@ -165,6 +167,8 @@ edk2 workspace
     |   +-- Application/ModernSetupApp
     |   +-- ModernUiPlatformDataLib / ModernUiBootDataLib
     |   +-- ModernUiDeviceDataLib / ModernUiSecurityDataLib
+    |   +-- ModernUiFirmwareDataLib / ModernUiDiagnosticsDataLib
+    |   +-- ModernUiManagementDataLib
     |   +-- ModernUiInputLib / ModernUiStringLib
     |   +-- ModernUiHiiBridgeLib / ModernUiPageAdapterLib (debug only)
     |

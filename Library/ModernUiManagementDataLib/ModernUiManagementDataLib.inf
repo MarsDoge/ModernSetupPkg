@@ -1,0 +1,34 @@
+## @file
+# Server and remote management summary provider for ModernSetupApp.
+#
+# Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
+# Author: MarsDoge (Dongyan Qian)
+# Open source: https://github.com/MarsDoge/ModernSetupPkg
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = ModernUiManagementDataLib
+  FILE_GUID                      = 58B75959-0942-418A-9D47-952423954A41
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.1
+  LIBRARY_CLASS                  = ModernUiManagementDataLib|UEFI_APPLICATION
+
+[Sources]
+  ModernUiManagementDataLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  ModernSetupPkg/ModernSetupPkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  UefiBootServicesTableLib
+
+[Protocols]
+  gEfiRedfishDiscoverProtocolGuid
+  gEfiSmbiosProtocolGuid
+  gIpmiProtocolGuid

@@ -39,9 +39,9 @@ open the owning HII form through `EFI_FORM_BROWSER2_PROTOCOL.SendForm()`.
 | Boot | Boot inventory and launch entry. | `BootOrder`, visible `Boot####`, active/hidden state, launch selected option. | Boot Maintenance HII pages for editing and advanced policy. | Basic implemented. |
 | Devices / HII | Entry point to platform setup pages and device inventory. | HII formsets, driver/device path rows, Driver Health entry, inventory rows. | Each driver formset via FormBrowser2. | Basic implemented. |
 | Security | Read-only security posture. | Secure Boot, Setup Mode, PK/KEK/db/dbx state, TPM/TCG/TCM presence when available. | Security HII pages and platform policy drivers. | Secure Boot implemented; TPM pending. |
-| Firmware Update | Firmware lifecycle entry point. | Capsule support, firmware version, recovery/update entry, last update state when available. | Capsule/update HII or platform update app. | Planned. |
-| Diagnostics / Logs | Bring-up and service visibility. | POST/log summary, error count, ACPI/SMBIOS presence, memory map summary, test hooks. | Platform diagnostics HII or service app. | Planned. |
-| Management | Server/remote management summary. | BMC/IPMI/Redfish presence, management NIC, host interface, remote update support. | BMC/IPMI/Redfish platform drivers. | Planned. |
+| Firmware Update | Firmware lifecycle entry point. | Capsule support, firmware version, recovery/update entry, last update state when available. | Capsule/update HII or platform update app. | Basic read-only implemented. |
+| Diagnostics / Logs | Bring-up and service visibility. | POST/log summary, error count, ACPI/SMBIOS presence, memory map summary, test hooks. | Platform diagnostics HII or service app. | Basic read-only implemented. |
+| Management | Server/remote management summary. | BMC/IPMI/Redfish presence, management NIC, host interface, remote update support. | BMC/IPMI/Redfish platform drivers. | Basic read-only implemented. |
 | Exit | Session and shell control. | Continue, reset, native UiApp, language, theme, app/version info. | Native FormBrowser save/discard where needed. | Basic implemented. |
 
 ## Cross-Architecture Capability Targets
@@ -71,9 +71,9 @@ open the owning HII form through `EFI_FORM_BROWSER2_PROTOCOL.SendForm()`.
 | `ModernUiBootDataLib` | Boot option enumeration and launch. | Show visible `Boot####`; launch selected option. | Show empty state or returned `EFI_STATUS`. |
 | `ModernUiDeviceDataLib` | HII formset/device entry discovery. | List HII entries and open forms through FormBrowser2. | Keep row read-only and show `EFI_STATUS`. |
 | `ModernUiSecurityDataLib` | Secure Boot and key database state. | Read standard variables as read-only. | Show `Unknown`; no writes. |
-| `ModernUiFirmwareDataLib` | Capsule/update/recovery status. | Detect capsule/update capability and firmware version metadata. | Show `N/A`; open native update path when present. |
-| `ModernUiDiagnosticsDataLib` | POST/log/platform health summary. | Count available log/diagnostic providers and expose entry points. | Show `N/A`; no persistent changes. |
-| `ModernUiManagementDataLib` | BMC/IPMI/Redfish/server management summary. | Detect management protocols and show presence/state. | Hide on non-server platforms or show `N/A`. |
+| `ModernUiFirmwareDataLib` | Capsule/update/recovery status. | Detect capsule runtime services, capsule architectural protocol, and capsule report presence. | Show `N/A`; open native update path when present. |
+| `ModernUiDiagnosticsDataLib` | POST/log/platform health summary. | Show ACPI/SMBIOS presence, memory map count, handle count, and configuration table count. | Show `N/A`; no persistent changes. |
+| `ModernUiManagementDataLib` | BMC/IPMI/Redfish/server management summary. | Detect IPMI protocol, Redfish discover protocol, and SMBIOS management host interface. | Hide on non-server platforms or show `N/A`. |
 
 ## Completion Criteria
 

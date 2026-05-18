@@ -31,8 +31,11 @@
   MemoryAllocationLib
   ModernUiBootDataLib
   ModernUiDeviceDataLib
+  ModernUiDiagnosticsDataLib
   ModernUiEngineLib
+  ModernUiFirmwareDataLib
   ModernUiInputLib
+  ModernUiManagementDataLib
   ModernUiPlatformDataLib
   ModernUiRendererLib
   ModernUiSecurityDataLib

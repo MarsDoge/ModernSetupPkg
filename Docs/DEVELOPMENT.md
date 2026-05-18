@@ -109,10 +109,10 @@ Future architecture and IBV adaptation should prefer these layers:
 - `ModernUiSecurityDataLib` for Secure Boot and related security state.
 - `ModernUiDeviceDataLib` should expose FormBrowser entry points, not decoded
   IFR controls.
-- Future App provider libraries should follow the same split:
-  `ModernUiFirmwareDataLib` for capsule/update state,
-  `ModernUiDiagnosticsDataLib` for logs and bring-up health, and
-  `ModernUiManagementDataLib` for BMC/IPMI/Redfish-style management summaries.
+- App provider libraries follow the same split: `ModernUiFirmwareDataLib` for
+  capsule/update state, `ModernUiDiagnosticsDataLib` for logs and bring-up
+  health, and `ModernUiManagementDataLib` for BMC/IPMI/Redfish-style management
+  summaries.
 
 The current prototype does not have all of these libraries yet. When code starts
 to grow around one of these responsibilities, add or extend the matching shared

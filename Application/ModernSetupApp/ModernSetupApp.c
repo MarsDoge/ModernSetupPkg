@@ -21,8 +21,11 @@
 
 #include <ModernUi/ModernUiBootData.h>
 #include <ModernUi/ModernUiDeviceData.h>
+#include <ModernUi/ModernUiDiagnosticsData.h>
+#include <ModernUi/ModernUiFirmwareData.h>
 #include <ModernUi/ModernUiInput.h>
 #include <ModernUi/ModernUiEngine.h>
+#include <ModernUi/ModernUiManagementData.h>
 #include <ModernUi/ModernUiPlatformData.h>
 #include <ModernUi/ModernUiRenderer.h>
 #include <ModernUi/ModernUiSecurityData.h>
@@ -46,6 +49,9 @@ typedef enum {
   PageBoot,
   PageDevices,
   PageSecurity,
+  PageFirmware,
+  PageDiagnostics,
+  PageManagement,
   PageExit,
   PageMax
 } SETUP_PAGE;
@@ -66,6 +72,9 @@ STATIC CONST PAGE_DESCRIPTOR  mPages[] = {
   { PageBoot,      ModernUiStringPageBoot,      ModernUiStringPageBootHint      },
   { PageDevices,   ModernUiStringPageDevices,   ModernUiStringPageDevicesHint   },
   { PageSecurity,  ModernUiStringPageSecurity,  ModernUiStringPageSecurityHint  },
+  { PageFirmware,  ModernUiStringPageFirmware,  ModernUiStringPageFirmwareHint  },
+  { PageDiagnostics, ModernUiStringPageDiagnostics, ModernUiStringPageDiagnosticsHint },
+  { PageManagement, ModernUiStringPageManagement, ModernUiStringPageManagementHint },
   { PageExit,      ModernUiStringPageExit,      ModernUiStringPageExitHint      }
 };
 
@@ -632,6 +641,74 @@ DrawDashboardTile (
 }
 
 /**
+  Return localized capability text for a boolean provider state.
+
+  @param[in] Present  TRUE when the capability is available.
+
+  @return Non-NULL localized capability text.
+**/
+STATIC
+CONST CHAR16 *
+CapabilityText (
+  IN BOOLEAN  Present
+  )
+{
+  return Present ? ModernUiGetString (ModernUiStringAvailable) : ModernUiGetString (ModernUiStringNotAvailable);
+}
+
+/**
+  Draw a provider summary page with one section and a row list.
+
+  @param[in] Ui        Initialized render context. Must not be NULL.
+  @param[in] Theme     Theme token table. Must not be NULL.
+  @param[in] Focus     Current focus area.
+  @param[in] Section   Section title text. Must not be NULL.
+  @param[in] Labels    Row label array. Must not be NULL when RowCount is nonzero.
+  @param[in] Values    Row value array. Must not be NULL when RowCount is nonzero.
+  @param[in] RowCount  Number of rows in Labels and Values.
+**/
+STATIC
+VOID
+DrawProviderSummaryPage (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus,
+  IN CONST CHAR16              *Section,
+  IN CONST CHAR16              **Labels,
+  IN CONST CHAR16              **Values,
+  IN UINTN                     RowCount
+  )
+{
+  MODERN_UI_RECT  Content;
+  MODERN_UI_RECT  Panel;
+  UINTN           Index;
+  UINTN           RowY;
+
+  Content = ContentRect (Ui);
+  Panel   = (MODERN_UI_RECT){ Content.X, Content.Y, Content.Width, MIN (Content.Height, 340) };
+
+  DrawDashboardSection (Ui, Theme, Panel, Section, TRUE);
+  ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
+
+  for (Index = 0; Index < RowCount; Index++) {
+    RowY = Panel.Y + 58 + (Index * 34);
+    if ((RowY + 24) > (Panel.Y + Panel.Height)) {
+      break;
+    }
+
+    DrawDashboardInfoRow (
+      Ui,
+      Theme,
+      Panel.X + 22,
+      RowY,
+      Panel.Width - 44,
+      Labels[Index],
+      Values[Index]
+      );
+  }
+}
+
+/**
   Draw the Dashboard page.
 
   @param[in] Ui     Initialized render context. Must not be NULL.
@@ -923,6 +1000,146 @@ DrawSecurity (
 }
 
 /**
+  Draw the Firmware page with read-only update and capsule state.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] Focus  Current focus area.
+**/
+STATIC
+VOID
+DrawFirmware (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus
+  )
+{
+  MODERN_UI_FIRMWARE_SUMMARY  Summary;
+  CONST CHAR16                *Labels[5];
+  CONST CHAR16                *Values[5];
+
+  if (EFI_ERROR (ModernUiFirmwareDataGetSummary (&Summary))) {
+    ZeroMem (&Summary, sizeof (Summary));
+    StrCpyS (Summary.Vendor, ARRAY_SIZE (Summary.Vendor), ModernUiGetString (ModernUiStringUnknown));
+    StrCpyS (Summary.Revision, ARRAY_SIZE (Summary.Revision), ModernUiGetString (ModernUiStringUnknown));
+  }
+
+  Labels[0] = ModernUiGetString (ModernUiStringFirmwareVendor);
+  Values[0] = Summary.Vendor;
+  Labels[1] = ModernUiGetString (ModernUiStringFirmwareRevision);
+  Values[1] = Summary.Revision;
+  Labels[2] = ModernUiGetString (ModernUiStringCapsuleRuntime);
+  Values[2] = CapabilityText (Summary.CapsuleRuntimeServices);
+  Labels[3] = ModernUiGetString (ModernUiStringCapsuleProtocol);
+  Values[3] = CapabilityText (Summary.CapsuleArchProtocol);
+  Labels[4] = ModernUiGetString (ModernUiStringCapsuleReport);
+  Values[4] = Summary.CapsuleReportPresent ? ModernUiGetString (ModernUiStringPresent) : ModernUiGetString (ModernUiStringNotAvailable);
+
+  DrawProviderSummaryPage (
+    Ui,
+    Theme,
+    Focus,
+    ModernUiGetString (ModernUiStringFirmwareUpdate),
+    Labels,
+    Values,
+    ARRAY_SIZE (Labels)
+    );
+}
+
+/**
+  Draw the Diagnostics page with read-only bring-up and table state.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] Focus  Current focus area.
+**/
+STATIC
+VOID
+DrawDiagnostics (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus
+  )
+{
+  MODERN_UI_DIAGNOSTICS_SUMMARY  Summary;
+  CHAR16                         MemoryMap[48];
+  CHAR16                         Handles[48];
+  CHAR16                         Tables[48];
+  CONST CHAR16                   *Labels[5];
+  CONST CHAR16                   *Values[5];
+
+  if (EFI_ERROR (ModernUiDiagnosticsDataGetSummary (&Summary))) {
+    ZeroMem (&Summary, sizeof (Summary));
+  }
+
+  UnicodeSPrint (MemoryMap, sizeof (MemoryMap), L"%u", Summary.MemoryDescriptorCount);
+  UnicodeSPrint (Handles, sizeof (Handles), L"%u", Summary.HandleCount);
+  UnicodeSPrint (Tables, sizeof (Tables), L"%u", Summary.ConfigurationTableCount);
+
+  Labels[0] = ModernUiGetString (ModernUiStringAcpiTables);
+  Values[0] = CapabilityText (Summary.AcpiPresent);
+  Labels[1] = ModernUiGetString (ModernUiStringSmbiosTables);
+  Values[1] = CapabilityText (Summary.SmbiosPresent);
+  Labels[2] = ModernUiGetString (ModernUiStringMemoryMap);
+  Values[2] = MemoryMap;
+  Labels[3] = ModernUiGetString (ModernUiStringDxeHandles);
+  Values[3] = Handles;
+  Labels[4] = ModernUiGetString (ModernUiStringConfigurationTables);
+  Values[4] = Tables;
+
+  DrawProviderSummaryPage (
+    Ui,
+    Theme,
+    Focus,
+    ModernUiGetString (ModernUiStringDiagnosticsLogs),
+    Labels,
+    Values,
+    ARRAY_SIZE (Labels)
+    );
+}
+
+/**
+  Draw the Management page with read-only BMC/IPMI/Redfish state.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] Focus  Current focus area.
+**/
+STATIC
+VOID
+DrawManagement (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus
+  )
+{
+  MODERN_UI_MANAGEMENT_SUMMARY  Summary;
+  CONST CHAR16                  *Labels[3];
+  CONST CHAR16                  *Values[3];
+
+  if (EFI_ERROR (ModernUiManagementDataGetSummary (&Summary))) {
+    ZeroMem (&Summary, sizeof (Summary));
+  }
+
+  Labels[0] = ModernUiGetString (ModernUiStringIpmi);
+  Values[0] = CapabilityText (Summary.IpmiProtocolPresent);
+  Labels[1] = ModernUiGetString (ModernUiStringRedfish);
+  Values[1] = CapabilityText (Summary.RedfishDiscoverPresent);
+  Labels[2] = ModernUiGetString (ModernUiStringManagementInterface);
+  Values[2] = CapabilityText (Summary.SmbiosManagementInterfacePresent);
+
+  DrawProviderSummaryPage (
+    Ui,
+    Theme,
+    Focus,
+    ModernUiGetString (ModernUiStringManagement),
+    Labels,
+    Values,
+    ARRAY_SIZE (Labels)
+    );
+}
+
+/**
   Draw the Exit page and selected action.
 
   @param[in] Ui        Initialized render context. Must not be NULL.
@@ -1162,6 +1379,15 @@ DrawPage (
       break;
     case PageSecurity:
       DrawSecurity (Ui, Theme, Focus);
+      break;
+    case PageFirmware:
+      DrawFirmware (Ui, Theme, Focus);
+      break;
+    case PageDiagnostics:
+      DrawDiagnostics (Ui, Theme, Focus);
+      break;
+    case PageManagement:
+      DrawManagement (Ui, Theme, Focus);
       break;
     case PageExit:
       DrawExit (Ui, Theme, Focus, ExitSelection);
