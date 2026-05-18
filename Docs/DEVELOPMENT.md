@@ -62,6 +62,10 @@ Use this shape:
   language/theme state, dashboard composition, boot selection, and entry points,
   but it must not parse IFR, evaluate VFR conditions, call ConfigAccess
   directly, or write HII varstores.
+- New App-facing product features must first be categorized in
+  `Docs/ProductizationFeatureMatrix.md`. If a feature is platform-private or
+  policy-heavy, the App should expose a summary or entry point and hand control
+  to the owning HII page.
 - App entries for real setup pages must use `EFI_FORM_BROWSER2_PROTOCOL.SendForm()`.
   That keeps GUID formset handling, callbacks, defaults, validation, and
   variable routing inside native edk2 FormBrowser.
@@ -105,6 +109,10 @@ Future architecture and IBV adaptation should prefer these layers:
 - `ModernUiSecurityDataLib` for Secure Boot and related security state.
 - `ModernUiDeviceDataLib` should expose FormBrowser entry points, not decoded
   IFR controls.
+- Future App provider libraries should follow the same split:
+  `ModernUiFirmwareDataLib` for capsule/update state,
+  `ModernUiDiagnosticsDataLib` for logs and bring-up health, and
+  `ModernUiManagementDataLib` for BMC/IPMI/Redfish-style management summaries.
 
 The current prototype does not have all of these libraries yet. When code starts
 to grow around one of these responsibilities, add or extend the matching shared

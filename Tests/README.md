@@ -38,6 +38,10 @@ Tests
 - Manual `ModernSetupApp` front-page validation from the ESP path, including
   dashboard, dynamic boot entries, HII formset entry enumeration, security
   summary, and FormBrowser2 handoff.
+- Manual `ModernSetupApp` productization checks against
+  `Docs/ProductizationFeatureMatrix.md`, currently covering dashboard, boot,
+  devices/HII, security, and exit while firmware update, diagnostics/logs, and
+  management remain planned provider areas.
 - Static overlay validation that the default path does not reference
   `ModernSetupApp` or custom HII bridge libraries.
 - Static LoongArchVirt overlay validation that the default path uses native
@@ -55,6 +59,8 @@ Tests
 - `Docs/BeforeAfter.md` describes how to capture native edk2 DisplayEngine
   screenshots and matching ModernDisplayEngine screenshots from the same HII
   pages.
+- `Docs/ProductizationFeatureMatrix.md` tracks standard App feature coverage
+  across x86, ARM, RISC-V, and LoongArch product classes.
 
 ## Planned Coverage
 

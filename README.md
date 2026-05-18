@@ -42,6 +42,12 @@ The repository now includes scripted ArmVirt before/after captures for
 FrontPage, Device Manager, DriverSample first page, and DriverSample one-of
 popup through `Scripts/capture-armvirt.sh`.
 
+The next App track is cross-architecture productization rather than
+architecture-specific demos. `Docs/ProductizationFeatureMatrix.md` records the
+common desktop, workstation, server, embedded, and appliance front-page
+capabilities that should be filled in through provider libraries while keeping
+real setup pages on native FormBrowser.
+
 ## Current Scope
 
 - GOP-based rendering through `ModernUiRendererLib`
@@ -187,6 +193,7 @@ edk2 workspace
     |   +-- Docs/DEVELOPMENT.md
     |   +-- Docs/CompatibilityMatrix.md
     |   +-- Docs/BeforeAfter.md
+    |   +-- Docs/ProductizationFeatureMatrix.md
     |   +-- CHANGELOG.md
     |   +-- LICENSE
     |
@@ -251,6 +258,13 @@ architecture targets. It owns high-level navigation and summary pages only:
 dashboard, boot list, HII/device entry list, security overview, exit, language,
 and theme controls.
 
+The productization target is documented in
+[`Docs/ProductizationFeatureMatrix.md`](Docs/ProductizationFeatureMatrix.md).
+New App features should first fit one of those common provider-backed areas:
+platform inventory, boot, devices/HII entry points, security posture, firmware
+update, diagnostics/logs, management, or exit/session control. Platform-private
+configuration remains in the owning HII formset.
+
 The app must share `ModernUiEngineLib` for visual surfaces. App code may own
 front-page data, navigation state, and language switching, but should not grow a
 second tab, row, popup, or footer renderer. It also must not parse VFR/IFR, call
@@ -277,6 +291,8 @@ Real VFR/IFR pages should continue through native edk2 FormBrowser and
 
 - `Docs/DEVELOPMENT.md` defines coding rules, function comment requirements,
   architecture boundaries, and extension points.
+- `Docs/ProductizationFeatureMatrix.md` defines the cross-architecture App
+  feature roadmap and provider boundaries.
 - `CHANGELOG.md` records development progress, user-visible changes, and planned
   version work.
 - `Tests/README.md` defines the test layout and current validation scope.

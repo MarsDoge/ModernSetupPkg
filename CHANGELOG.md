@@ -112,6 +112,9 @@ this file as both a release log and a lightweight development progress record.
   DisplayEngine and ModernDisplayEngine paths.
 - v0.5 before/after ArmVirt screenshot set covering FrontPage, Device Manager,
   DriverSample first page, and DriverSample one-of popup.
+- `Docs/ProductizationFeatureMatrix.md`, defining the cross-architecture
+  standard front-page App roadmap for desktop, workstation, server, embedded,
+  appliance, x86, ARM, RISC-V, and LoongArch targets.
 
 ### Changed
 
