@@ -849,7 +849,7 @@ GetHelpTextColor (
   VOID
   )
 {
-  return HELP_TEXT | FIELD_BACKGROUND;
+  return EFI_LIGHTGRAY | FIELD_BACKGROUND;
 }
 
 /**

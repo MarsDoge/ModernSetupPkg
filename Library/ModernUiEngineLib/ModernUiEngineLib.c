@@ -437,7 +437,7 @@ ModernUiEngineDrawFooter (
     return EFI_INVALID_PARAMETER;
   }
 
-  Status = ModernUiFillRect (Context, Rect, Theme->SurfaceRaised);
+  Status = ModernUiFillRect (Context, Rect, Theme->BackgroundBlack);
   if (EFI_ERROR (Status)) {
     return Status;
   }
@@ -447,8 +447,19 @@ ModernUiEngineDrawFooter (
     return Status;
   }
 
+  if (Rect.Height > 2) {
+    Status = ModernUiFillRect (
+               Context,
+               (MODERN_UI_RECT){ Rect.X, Rect.Y + 1, Rect.Width, 1 },
+               ModernUiBlendColor (Theme->BackgroundBlack, Theme->AccentOrange, 25)
+               );
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+  }
+
   if ((StatusText != NULL) && (StatusText[0] != CHAR_NULL)) {
-    return ModernUiDrawText (Context, Rect.X + 24, Rect.Y + 10, StatusText, Theme->Warning, Theme->SurfaceRaised);
+    return ModernUiDrawText (Context, Rect.X + 24, Rect.Y + 10, StatusText, Theme->Warning, Theme->BackgroundBlack);
   }
 
   return EFI_SUCCESS;
@@ -547,6 +558,26 @@ ModernUiEngineDrawPage (
     Status = ModernUiFillRect (Context, Model->Layout.Content, Theme->Surface);
     if (EFI_ERROR (Status)) {
       return Status;
+    }
+
+    if ((Model->Layout.Content.Width > 4) && (Model->Layout.Content.Height > 4)) {
+      Status = ModernUiStrokeRect (
+                 Context,
+                 Model->Layout.Content,
+                 ModernUiBlendColor (Theme->Border, Theme->AccentOrange, 18)
+                 );
+      if (EFI_ERROR (Status)) {
+        return Status;
+      }
+
+      Status = ModernUiFillRect (
+                 Context,
+                 (MODERN_UI_RECT){ Model->Layout.Content.X, Model->Layout.Content.Y, Model->Layout.Content.Width, 1 },
+                 ModernUiBlendColor (Theme->AccentOrange, Theme->BackgroundBlack, 20)
+                 );
+      if (EFI_ERROR (Status)) {
+        return Status;
+      }
     }
   }
 

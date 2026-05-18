@@ -191,6 +191,9 @@ this file as both a release log and a lightweight development progress record.
   with form-factor, boot-mode, and provider availability fields, shows
   Boot#### category/hidden/device-path summaries, and reports TCG2/TrEE
   protocol presence on the Security page.
+- DisplayEngine visual treatment now uses a darker selected-row band, softer
+  help text, a unified black footer strip, and a subtle content-frame accent to
+  reduce the raw text-mode feel of native FormBrowser pages.
 - Added the `setup-v0.4-dashboard.png` GitHub showcase capture.
 - `ModernUiEngineLib` right-rail platform strings now follow the build
   architecture, including LOONGARCH64, instead of hardcoding ArmVirt labels.

@@ -1077,7 +1077,7 @@ ModernUiGetSelectableRowBackground (
   }
 
   if (Selected) {
-    RowColor = ModernUiBlendColor (Theme->SelectedBand, Theme->AccentOrange, 35);
+    RowColor = ModernUiBlendColor (Theme->BackgroundBlack, Theme->SelectedBand, 74);
   } else if (Action || Subtitle) {
     RowColor = Theme->SurfaceRaised;
   } else {
@@ -1139,7 +1139,7 @@ ModernUiDrawSelectableRow (
       Status = ModernUiFillRect (
                  Context,
                  (MODERN_UI_RECT){ Rect.X + 6, Rect.Y + 3, Rect.Width - 6, Rect.Height - 6 },
-                 ModernUiBlendColor (Theme->SelectedBand, Theme->AccentOrange, 24)
+                 ModernUiBlendColor (RowColor, Theme->AccentOrange, 18)
                  );
       if (EFI_ERROR (Status)) {
         return Status;
@@ -1149,7 +1149,7 @@ ModernUiDrawSelectableRow (
     Status = ModernUiFillRect (
                Context,
                (MODERN_UI_RECT){ Rect.X, Rect.Y, Rect.Width, 2 },
-               Theme->GlowOrange
+               ModernUiBlendColor (Theme->AccentYellow, Theme->AccentOrange, 45)
                );
     if (EFI_ERROR (Status)) {
       return Status;
@@ -1158,7 +1158,7 @@ ModernUiDrawSelectableRow (
     Status = ModernUiFillRect (
                Context,
                (MODERN_UI_RECT){ Rect.X, Rect.Y + Rect.Height - 3, Rect.Width, 2 },
-               Theme->AccentOrange
+               ModernUiBlendColor (Theme->AccentOrange, Theme->SelectedBand, 35)
                );
     if (EFI_ERROR (Status)) {
       return Status;
@@ -1182,7 +1182,7 @@ ModernUiDrawSelectableRow (
       return ModernUiFillRect (
                Context,
                (MODERN_UI_RECT){ Rect.X + 8, Rect.Y + 2, Rect.Width - 8, 1 },
-               ModernUiBlendColor (Theme->AccentYellow, Theme->AccentOrange, 55)
+               ModernUiBlendColor (Theme->AccentYellow, Theme->AccentOrange, 45)
                );
     }
 

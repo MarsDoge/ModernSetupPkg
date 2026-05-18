@@ -262,12 +262,12 @@ ModernDisplayBackground (
   Theme = ModernUiGetTheme ();
   switch ((Attribute >> 4) & 0x07) {
     case EFI_RED:
-      return Theme->SelectedBand;
+      return ModernUiGetSelectableRowBackground (TRUE, FALSE, FALSE, FALSE, Theme);
     case EFI_BLUE:
       return Theme->SurfaceRaised;
     case EFI_CYAN:
     case EFI_LIGHTBLUE:
-      return Theme->SelectedBand;
+      return ModernUiGetSelectableRowBackground (TRUE, FALSE, FALSE, FALSE, Theme);
     case EFI_BLACK:
       return Theme->BackgroundBlack;
     case EFI_LIGHTGRAY:
