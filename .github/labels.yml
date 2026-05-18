@@ -1,0 +1,38 @@
+# GitHub labels for ModernSetupPkg. Import with a label sync tool if desired.
+
+- name: area/core-api
+  color: "5319e7"
+  description: Public headers, DEC entries, LibraryClasses, GUIDs, or PCDs
+- name: area/renderer
+  color: "1d76db"
+  description: Renderer, theme, layout, input, or shared UI engine
+- name: area/display-engine
+  color: "0052cc"
+  description: DisplayEngine and native FormBrowser compatibility
+- name: area/app-provider
+  color: "0e8a16"
+  description: ModernSetupApp shell or provider/data libraries
+- name: area/hii-bridge
+  color: "b60205"
+  description: Experimental HII bridge work
+- name: area/platform-ci
+  color: "c2e0c6"
+  description: Scripts, tests, platform integration, CI, or release flow
+- name: api-change
+  color: "fbca04"
+  description: Public API or DEC compatibility impact
+- name: compat
+  color: "d4c5f9"
+  description: Compatibility behavior or migration impact
+- name: documentation
+  color: "0075ca"
+  description: Documentation-only changes
+- name: module-request
+  color: "bfdadc"
+  description: Proposed module, boundary, or ownership change
+- name: bug
+  color: "d73a4a"
+  description: Something is not working as expected
+- name: question
+  color: "d876e3"
+  description: Usage, design, or contribution question

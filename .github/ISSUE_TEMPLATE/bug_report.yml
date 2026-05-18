@@ -1,0 +1,46 @@
+name: Bug report
+description: Report a build, runtime, UI, compatibility, or documentation bug.
+title: "[bug] "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the issue and expected behavior.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - core-api
+        - renderer/theme/ui-engine
+        - display-engine
+        - app/provider
+        - hii-bridge
+        - platform-ci
+        - docs
+        - not sure
+    validations:
+      required: false
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Build ...
+        2. Boot ...
+        3. Open ...
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: edk2 base, target platform, compiler, QEMU/hardware details, or N/A.
+      placeholder: ArmVirtQemu, GCC5, QEMU version, host OS...
+    validations:
+      required: false

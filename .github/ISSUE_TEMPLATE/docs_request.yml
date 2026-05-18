@@ -1,0 +1,28 @@
+name: Docs request
+description: Suggest an improvement to docs, examples, or contributor guidance.
+title: "[docs] "
+labels:
+  - documentation
+body:
+  - type: textarea
+    id: page
+    attributes:
+      label: Page or topic
+      description: Which document or topic needs work?
+      placeholder: Docs/DEVELOPMENT.md validation matrix
+    validations:
+      required: true
+  - type: textarea
+    id: request
+    attributes:
+      label: Requested change
+      description: What should be clarified, added, or corrected?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Links, screenshots, commands, or N/A.
+    validations:
+      required: false

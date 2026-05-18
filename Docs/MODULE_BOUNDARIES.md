@@ -1,0 +1,46 @@
+<!--
+Copyright (c) 2026, MarsDoge. All rights reserved.
+Author: MarsDoge (Dongyan Qian)
+Open source: https://github.com/MarsDoge/ModernSetupPkg
+SPDX-License-Identifier: BSD-2-Clause-Patent
+-->
+
+# Module Boundaries
+
+ModernSetupPkg is easiest to maintain when each layer keeps a small, concrete contract. Internal implementation can change freely, but public headers, DEC entries, and cross-layer behavior should remain stable unless the affected owners review the change.
+
+## Stable contracts
+
+- Public headers: `Include/ModernUi/*.h`.
+- Package metadata: `ModernSetupPkg.dec`.
+- Public `LibraryClass` names, GUIDs, and PCDs.
+- Provider data-model semantics, renderer/theme tokens, engine draw models, and DisplayEngine compatibility behavior.
+
+## Layer rules
+
+| Layer | May do | Must not do |
+| --- | --- | --- |
+| Renderer/theme | Draw primitives, text/glyphs, colors, theme tokens, safe backend abstraction | Parse HII/IFR, enumerate providers, own app navigation, own FormBrowser policy |
+| UI engine/layout/input | Convert typed models into reusable layout, rows, popups, footers, and UI events | Read Boot#### directly, write varstores, hard-code platform policy |
+| DisplayEngine path | Preserve edk2 DisplayEngine/FormBrowser behavior while using modern rendering pieces | Replace FormBrowser semantics, bypass ConfigAccess/callbacks, invent app-only policy |
+| App shell | Own front-page navigation, dashboard composition, language/theme state, and `SendForm()` entry points | Parse IFR, evaluate VFR conditions, call ConfigAccess directly, write HII varstores |
+| Providers | Expose typed summaries and FormBrowser entry points from platform/firmware data | Draw UI, choose layout/theme, own app navigation policy |
+| HII bridge | Stay isolated as experimental parser/adapter research | Become the default compatibility path, force writes, treat unsupported opcodes as safe |
+| Platform/CI | Build scripts, overlays, QEMU/manual validation, release packaging | Hide behavior changes inside scripts or docs-only PRs |
+
+## What not to do
+
+- App code must not parse IFR or write HII varstores. Real setup pages should enter native FormBrowser with `EFI_FORM_BROWSER2_PROTOCOL.SendForm()`.
+- Providers must not draw UI. They return data and entry points; renderer/engine/app decide presentation.
+- Renderer code must not own FormBrowser policy. It draws what higher layers ask it to draw.
+- DisplayEngine changes must preserve native HII semantics unless the compatibility impact is explicitly reviewed.
+- HII bridge code is experimental-only. Unsupported constructs should fail closed or render read-only/fallback rows.
+- Platform-specific policy belongs in LibraryClass instances, PCDs, or overlays, not shared UI core.
+
+## Contract-first workflow
+
+1. If a change touches `Include/ModernUi/*.h` or `ModernSetupPkg.dec`, describe the public contract before wiring consumers to it.
+2. Use append-only changes for shared structs/enums whenever possible.
+3. Request core-api review for public contracts and affected owner review for implementations.
+4. Add validation notes that match the changed layer; QEMU unavailable is acceptable if the reason is stated.
+5. Update `CHANGELOG.md` when behavior, build flow, public API, platform support, or compatibility changes.

@@ -1,0 +1,21 @@
+name: Question
+description: Ask a usage, design, or contribution question.
+title: "[question] "
+labels:
+  - question
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What are you trying to understand or decide?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What have you tried or read? N/A is fine.
+      placeholder: I read Docs/MODULE_BOUNDARIES.md and want to know where this feature belongs.
+    validations:
+      required: false
