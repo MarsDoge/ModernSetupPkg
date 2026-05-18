@@ -118,6 +118,11 @@ this file as both a release log and a lightweight development progress record.
 - `ModernUiFirmwareDataLib`, `ModernUiDiagnosticsDataLib`, and
   `ModernUiManagementDataLib` read-only providers for the standard front-page
   App productization track.
+- `Docs/IbvAndPlatformSetupSurvey.md`, documenting public IBV/IFV vendors,
+  OEM/ODM reference boundaries, form-factor setup surfaces, and common
+  front-page/App capability areas.
+- `ModernUiPowerDataLib` and `ModernUiPerformanceDataLib` read-only providers
+  for power/thermal and performance/tuning capability summaries.
 
 ### Changed
 
@@ -182,6 +187,10 @@ this file as both a release log and a lightweight development progress record.
 - `ModernSetupApp` now includes Firmware, Diagnostics, and Management pages
   backed by provider libraries while keeping real setup policy in native
   FormBrowser/HII pages.
+- `ModernSetupApp` now includes Power and Performance pages, extends Dashboard
+  with form-factor, boot-mode, and provider availability fields, shows
+  Boot#### category/hidden/device-path summaries, and reports TCG2/TrEE
+  protocol presence on the Security page.
 - Added the `setup-v0.4-dashboard.png` GitHub showcase capture.
 - `ModernUiEngineLib` right-rail platform strings now follow the build
   architecture, including LOONGARCH64, instead of hardcoding ArmVirt labels.

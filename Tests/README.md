@@ -41,8 +41,9 @@ Tests
 - Manual `ModernSetupApp` productization checks against
   `Docs/ProductizationFeatureMatrix.md`, currently covering dashboard, boot,
   devices/HII, security, firmware update, diagnostics/logs, management, and
-  exit. The firmware, diagnostics, and management pages are read-only provider
-  summaries in this phase.
+  power/thermal, performance/tuning, and exit. The firmware, diagnostics,
+  management, power, and performance pages are read-only provider summaries in
+  this phase.
 - Static overlay validation that the default path does not reference
   `ModernSetupApp` or custom HII bridge libraries.
 - Static LoongArchVirt overlay validation that the default path uses native
@@ -62,6 +63,8 @@ Tests
   pages.
 - `Docs/ProductizationFeatureMatrix.md` tracks standard App feature coverage
   across x86, ARM, RISC-V, and LoongArch product classes.
+- `Docs/IbvAndPlatformSetupSurvey.md` records the public IBV/OEM/form-factor
+  survey used to decide common App surfaces.
 
 ## Planned Coverage
 

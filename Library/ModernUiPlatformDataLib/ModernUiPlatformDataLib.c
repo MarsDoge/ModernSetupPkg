@@ -9,11 +9,13 @@
 **/
 
 #include <Uefi.h>
+#include <IndustryStandard/SmBios.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/PrintLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
+#include <Protocol/Smbios.h>
 #include <ModernUi/ModernUiPlatformData.h>
 
 /**
@@ -111,6 +113,117 @@ GetMemorySizeMb (
   return EFI_SUCCESS;
 }
 
+/**
+  Convert an SMBIOS chassis type to a product form factor string.
+
+  @param[in] ChassisType  SMBIOS Type 3 chassis type field.
+
+  @return Non-NULL UCS-2 form factor name.
+**/
+STATIC
+CONST CHAR16 *
+GetFormFactorName (
+  IN UINT8  ChassisType
+  )
+{
+  switch (ChassisType & 0x7F) {
+    case MiscChassisTypeDeskTop:
+    case MiscChassisTypeLowProfileDesktop:
+    case MiscChassisTypeMiniTower:
+    case MiscChassisTypeTower:
+      return L"Desktop";
+    case MiscChassisTypePortable:
+    case MiscChassisTypeLapTop:
+    case MiscChassisTypeNotebook:
+    case MiscChassisTypeSubNotebook:
+    case MiscChassisConvertible:
+    case MiscChassisDetachable:
+      return L"Laptop / 2-in-1";
+    case MiscChassisTypeAllInOne:
+      return L"All-in-one";
+    case MiscChassisTypeSpaceSaving:
+    case MiscChassisTypeSealedCasePc:
+    case MiscChassisMiniPc:
+    case MiscChassisStickPc:
+      return L"Mini PC";
+    case MiscChassisTypeMainServerChassis:
+    case MiscChassisTypeRackMountChassis:
+    case MiscChassisBlade:
+    case MiscChassisBladeEnclosure:
+      return L"Server";
+    case MiscChassisIoTGateway:
+    case MiscChassisEmbeddedPc:
+    case MiscChassisTypeHandHeld:
+      return L"Embedded / appliance";
+    default:
+      return L"UEFI platform";
+  }
+}
+
+/**
+  Read the platform form factor from SMBIOS Type 3 when available.
+
+  @param[out] Buffer  Destination buffer. Must not be NULL.
+  @param[in]  Count   Number of CHAR16 entries in Buffer.
+**/
+STATIC
+VOID
+GetSmbiosFormFactor (
+  OUT CHAR16  *Buffer,
+  IN  UINTN   Count
+  )
+{
+  EFI_STATUS              Status;
+  EFI_SMBIOS_PROTOCOL     *Smbios;
+  EFI_SMBIOS_HANDLE       Handle;
+  EFI_SMBIOS_TABLE_HEADER *Record;
+  EFI_SMBIOS_TYPE         Type;
+
+  if ((Buffer == NULL) || (Count == 0)) {
+    return;
+  }
+
+  UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"UEFI platform");
+  Smbios = NULL;
+  Status = gBS->LocateProtocol (&gEfiSmbiosProtocolGuid, NULL, (VOID **)&Smbios);
+  if (EFI_ERROR (Status) || (Smbios == NULL)) {
+    return;
+  }
+
+  Handle = SMBIOS_HANDLE_PI_RESERVED;
+  Type   = SMBIOS_TYPE_SYSTEM_ENCLOSURE;
+  Record = NULL;
+  Status = Smbios->GetNext (Smbios, &Handle, &Type, &Record, NULL);
+  if (!EFI_ERROR (Status) && (Record != NULL)) {
+    UnicodeSPrint (
+      Buffer,
+      Count * sizeof (CHAR16),
+      L"%s",
+      GetFormFactorName (((SMBIOS_TABLE_TYPE3 *)Record)->Type)
+      );
+  }
+}
+
+/**
+  Return the boot mode label for the current application context.
+
+  @param[out] Buffer  Destination buffer. Must not be NULL.
+  @param[in]  Count   Number of CHAR16 entries in Buffer.
+**/
+STATIC
+VOID
+GetBootModeName (
+  OUT CHAR16  *Buffer,
+  IN  UINTN   Count
+  )
+{
+  if ((Buffer == NULL) || (Count == 0)) {
+    return;
+  }
+
+  UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"UEFI");
+}
+
 EFI_STATUS
 EFIAPI
 ModernUiPlatformDataGetSummary (
@@ -133,6 +246,8 @@ ModernUiPlatformDataGetSummary (
   UnicodeSPrint (Summary->FirmwareRevision, sizeof (Summary->FirmwareRevision), L"0x%08x", gST->FirmwareRevision);
   UnicodeSPrint (Summary->Architecture, sizeof (Summary->Architecture), L"%s", GetArchitectureName ());
   UnicodeSPrint (Summary->Platform, sizeof (Summary->Platform), L"UEFI platform");
+  GetSmbiosFormFactor (Summary->FormFactor, ARRAY_SIZE (Summary->FormFactor));
+  GetBootModeName (Summary->BootMode, ARRAY_SIZE (Summary->BootMode));
 
   Status = GetMemorySizeMb (&Summary->MemorySizeMb);
   if (EFI_ERROR (Status)) {

@@ -12,7 +12,10 @@
 #include <Guid/GlobalVariable.h>
 #include <Guid/ImageAuthentication.h>
 #include <Library/BaseMemoryLib.h>
+#include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
+#include <Protocol/Tcg2Protocol.h>
+#include <Protocol/TrEEProtocol.h>
 #include <ModernUi/ModernUiSecurityData.h>
 
 /**
@@ -81,6 +84,35 @@ ReadVariablePresence (
   return ModernUiSecurityStateUnknown;
 }
 
+/**
+  Return whether a protocol is present on any handle.
+
+  @param[in] ProtocolGuid  Protocol GUID to locate. Must not be NULL.
+
+  @return Present, absent, or unknown state.
+**/
+STATIC
+MODERN_UI_SECURITY_STATE
+ReadProtocolPresence (
+  IN CONST EFI_GUID  *ProtocolGuid
+  )
+{
+  EFI_STATUS  Status;
+  VOID        *Protocol;
+
+  if (ProtocolGuid == NULL) {
+    return ModernUiSecurityStateUnknown;
+  }
+
+  Protocol = NULL;
+  Status = gBS->LocateProtocol ((EFI_GUID *)ProtocolGuid, NULL, &Protocol);
+  if (!EFI_ERROR (Status)) {
+    return ModernUiSecurityStatePresent;
+  }
+
+  return (Status == EFI_NOT_FOUND) ? ModernUiSecurityStateAbsent : ModernUiSecurityStateUnknown;
+}
+
 EFI_STATUS
 EFIAPI
 ModernUiSecurityDataGetSummary (
@@ -98,5 +130,7 @@ ModernUiSecurityDataGetSummary (
   Summary->KeyExchangeKey       = ReadVariablePresence (EFI_KEY_EXCHANGE_KEY_NAME, &gEfiGlobalVariableGuid);
   Summary->SignatureDb          = ReadVariablePresence (EFI_IMAGE_SECURITY_DATABASE, &gEfiImageSecurityDatabaseGuid);
   Summary->ForbiddenSignatureDb = ReadVariablePresence (EFI_IMAGE_SECURITY_DATABASE1, &gEfiImageSecurityDatabaseGuid);
+  Summary->Tcg2Protocol         = ReadProtocolPresence (&gEfiTcg2ProtocolGuid);
+  Summary->TreeProtocol         = ReadProtocolPresence (&gEfiTrEEProtocolGuid);
   return EFI_SUCCESS;
 }

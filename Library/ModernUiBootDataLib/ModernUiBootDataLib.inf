@@ -29,6 +29,7 @@
   BaseMemoryLib
   DevicePathLib
   MemoryAllocationLib
+  PrintLib
   UefiBootManagerLib
   UefiBootServicesTableLib
 

@@ -25,8 +25,13 @@
 
 [LibraryClasses]
   BaseMemoryLib
+  UefiBootServicesTableLib
   UefiRuntimeServicesTableLib
 
 [Guids]
   gEfiGlobalVariableGuid
   gEfiImageSecurityDatabaseGuid
+
+[Protocols]
+  gEfiTcg2ProtocolGuid
+  gEfiTrEEProtocolGuid

@@ -13,6 +13,7 @@
 #include <Library/BaseMemoryLib.h>
 #include <Library/DevicePathLib.h>
 #include <Library/MemoryAllocationLib.h>
+#include <Library/PrintLib.h>
 #include <Library/UefiBootManagerLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Protocol/LoadedImage.h>
@@ -76,26 +77,97 @@ IsCurrentApplicationBootOption (
 }
 
 /**
-  Return whether a Boot Manager load option should be shown.
+  Return whether a Boot Manager load option should be exposed by the front page.
 
   @param[in] CurrentImageHandle  Current app image handle. May be NULL.
   @param[in] BootOption          Boot option to inspect. Must not be NULL.
 
-  @retval TRUE   Option is visible.
-  @retval FALSE  Option is hidden, NULL, or points at the current app.
+  @retval TRUE   Option is a platform boot entry.
+  @retval FALSE  Option is NULL or points at the current app.
 **/
 STATIC
 BOOLEAN
-IsVisibleBootOption (
+ShouldExposeBootOption (
   IN EFI_HANDLE                         CurrentImageHandle OPTIONAL,
   IN CONST EFI_BOOT_MANAGER_LOAD_OPTION *BootOption
   )
 {
-  if ((BootOption == NULL) || ((BootOption->Attributes & LOAD_OPTION_HIDDEN) != 0)) {
+  if (BootOption == NULL) {
     return FALSE;
   }
 
   return (BOOLEAN)!IsCurrentApplicationBootOption (CurrentImageHandle, BootOption->FilePath);
+}
+
+/**
+  Format the UEFI load option category into a short user-visible label.
+
+  @param[in]  Attributes  Boot option attributes.
+  @param[out] Buffer      Destination text buffer. Must not be NULL.
+  @param[in]  BufferCount Number of CHAR16 elements in Buffer.
+**/
+STATIC
+VOID
+FormatBootCategory (
+  IN  UINT32  Attributes,
+  OUT CHAR16  *Buffer,
+  IN  UINTN   BufferCount
+  )
+{
+  UINT32  Category;
+
+  if ((Buffer == NULL) || (BufferCount == 0)) {
+    return;
+  }
+
+  Category = Attributes & LOAD_OPTION_CATEGORY;
+  switch (Category) {
+    case LOAD_OPTION_CATEGORY_BOOT:
+      StrCpyS (Buffer, BufferCount, L"Boot");
+      break;
+    case LOAD_OPTION_CATEGORY_APP:
+      StrCpyS (Buffer, BufferCount, L"App");
+      break;
+    default:
+      UnicodeSPrint (Buffer, BufferCount * sizeof (CHAR16), L"Category 0x%04x", Category);
+      break;
+  }
+}
+
+/**
+  Format one boot option device path into a bounded single-line summary.
+
+  @param[in]  FilePath    Device path to format. May be NULL.
+  @param[out] Buffer      Destination text buffer. Must not be NULL.
+  @param[in]  BufferCount Number of CHAR16 elements in Buffer.
+**/
+STATIC
+VOID
+FormatBootDevicePathSummary (
+  IN  EFI_DEVICE_PATH_PROTOCOL  *FilePath OPTIONAL,
+  OUT CHAR16                    *Buffer,
+  IN  UINTN                     BufferCount
+  )
+{
+  CHAR16  *Text;
+
+  if ((Buffer == NULL) || (BufferCount == 0)) {
+    return;
+  }
+
+  if (FilePath == NULL) {
+    StrCpyS (Buffer, BufferCount, L"(no device path)");
+    return;
+  }
+
+  Text = ConvertDevicePathToText (FilePath, TRUE, TRUE);
+  if (Text == NULL) {
+    StrCpyS (Buffer, BufferCount, L"(device path unavailable)");
+    return;
+  }
+
+  StrnCpyS (Buffer, BufferCount, Text, BufferCount - 1);
+  FreePool (Text);
 }
 
 EFI_STATUS
@@ -127,7 +199,7 @@ ModernUiBootDataGetOptions (
 
   VisibleCount = 0;
   for (Index = 0; Index < BootOptionCount; Index++) {
-    if (IsVisibleBootOption (CurrentImageHandle, &BootOptions[Index])) {
+    if (ShouldExposeBootOption (CurrentImageHandle, &BootOptions[Index])) {
       VisibleCount++;
     }
   }
@@ -145,13 +217,24 @@ ModernUiBootDataGetOptions (
 
   ResultIndex = 0;
   for (Index = 0; Index < BootOptionCount; Index++) {
-    if (!IsVisibleBootOption (CurrentImageHandle, &BootOptions[Index])) {
+    if (!ShouldExposeBootOption (CurrentImageHandle, &BootOptions[Index])) {
       continue;
     }
 
     Result[ResultIndex].OptionNumber = BootOptions[Index].OptionNumber;
     Result[ResultIndex].Attributes   = BootOptions[Index].Attributes;
     Result[ResultIndex].Active       = (BOOLEAN)((BootOptions[Index].Attributes & LOAD_OPTION_ACTIVE) != 0);
+    Result[ResultIndex].Hidden       = (BOOLEAN)((BootOptions[Index].Attributes & LOAD_OPTION_HIDDEN) != 0);
+    FormatBootCategory (
+      BootOptions[Index].Attributes,
+      Result[ResultIndex].Category,
+      ARRAY_SIZE (Result[ResultIndex].Category)
+      );
+    FormatBootDevicePathSummary (
+      BootOptions[Index].FilePath,
+      Result[ResultIndex].FilePathSummary,
+      ARRAY_SIZE (Result[ResultIndex].FilePathSummary)
+      );
     if (BootOptions[Index].Description != NULL) {
       StrnCpyS (
         Result[ResultIndex].Description,

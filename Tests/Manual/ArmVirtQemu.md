@@ -160,12 +160,18 @@ Expected result:
 - Boot `ModernSetupApp` from the ESP with `APP=1` or through Boot Manager with
   `DUAL_APP=1`.
 - Dashboard shows firmware vendor/revision, display mode, boot option count,
-  architecture, memory size, and Secure Boot summary without ASSERTs.
-- Boot page lists dynamic visible `Boot####` entries from `BootOrder` and can
-  launch the selected option.
-- Devices page lists HII formset entries. Selecting an entry opens native
+  architecture, form factor, boot mode, memory size, Secure Boot summary, and
+  provider availability without ASSERTs.
+- Boot page lists dynamic `Boot####` entries from `BootOrder`, including
+  active/hidden state, category, and a device-path summary, and can launch the
+  selected option.
+- Devices page groups HII-capable entries from generic device inventory.
+  Selecting an HII entry opens native
   FormBrowser via `EFI_FORM_BROWSER2_PROTOCOL.SendForm()`; the app must not
   show the old self-parsed HII bridge page.
 - Security page shows Secure Boot, Setup Mode, PK, KEK, db, and dbx as
-  read-only state.
+- read-only state, plus TCG2/TrEE protocol presence.
+- Firmware, Diagnostics, Management, Power, and Performance pages render
+  read-only provider state and show `N/A`/`Unknown` instead of ASSERTing when a
+  platform provider is absent.
 - Exit page language switching and fallback to classic UiApp still work.

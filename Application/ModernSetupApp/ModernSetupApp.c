@@ -26,7 +26,9 @@
 #include <ModernUi/ModernUiInput.h>
 #include <ModernUi/ModernUiEngine.h>
 #include <ModernUi/ModernUiManagementData.h>
+#include <ModernUi/ModernUiPerformanceData.h>
 #include <ModernUi/ModernUiPlatformData.h>
+#include <ModernUi/ModernUiPowerData.h>
 #include <ModernUi/ModernUiRenderer.h>
 #include <ModernUi/ModernUiSecurityData.h>
 #include <ModernUi/ModernUiString.h>
@@ -52,6 +54,8 @@ typedef enum {
   PageFirmware,
   PageDiagnostics,
   PageManagement,
+  PagePower,
+  PagePerformance,
   PageExit,
   PageMax
 } SETUP_PAGE;
@@ -75,11 +79,26 @@ STATIC CONST PAGE_DESCRIPTOR  mPages[] = {
   { PageFirmware,  ModernUiStringPageFirmware,  ModernUiStringPageFirmwareHint  },
   { PageDiagnostics, ModernUiStringPageDiagnostics, ModernUiStringPageDiagnosticsHint },
   { PageManagement, ModernUiStringPageManagement, ModernUiStringPageManagementHint },
+  { PagePower, ModernUiStringPagePower, ModernUiStringPagePowerHint },
+  { PagePerformance, ModernUiStringPagePerformance, ModernUiStringPagePerformanceHint },
   { PageExit,      ModernUiStringPageExit,      ModernUiStringPageExitHint      }
 };
 
 STATIC BOOLEAN         mLanguageDropdownOpen;
 STATIC UINTN           mLanguageDropdownSelection;
+
+/**
+  Calculate the main content rectangle for the current resolution.
+
+  @param[in] Ui  Initialized render context. Must not be NULL.
+
+  @return Content rectangle in screen coordinates.
+**/
+STATIC
+MODERN_UI_RECT
+ContentRect (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui
+  );
 
 /**
   Return TRUE when the Dashboard has enough vertical space for Quick Access.
@@ -311,7 +330,14 @@ GetPageSelectableCount (
     case PageDashboard:
       return DashboardQuickAccessVisible (Ui) ? 3 : 0;
     case PageBoot:
-      return MIN (GetBootCount (), MAX_BOOT_ROWS);
+      {
+        MODERN_UI_RECT  Panel;
+        UINTN           MaxRows;
+
+        Panel   = ContentRect (Ui);
+        MaxRows = (Panel.Height > 96) ? ((Panel.Height - 92) / 58) : 0;
+        return MIN (GetBootCount (), MIN (MaxRows, MAX_BOOT_ROWS));
+      }
     case PageDevices:
       return GetVisibleDeviceCount ();
     case PageExit:
@@ -657,6 +683,33 @@ CapabilityText (
 }
 
 /**
+  Return localized text for one security provider state.
+
+  @param[in] State  Security state to render.
+
+  @return Non-NULL localized status text.
+**/
+STATIC
+CONST CHAR16 *
+SecurityStateText (
+  IN MODERN_UI_SECURITY_STATE  State
+  )
+{
+  switch (State) {
+    case ModernUiSecurityStatePresent:
+      return ModernUiGetString (ModernUiStringPresent);
+    case ModernUiSecurityStateAbsent:
+      return ModernUiGetString (ModernUiStringAbsent);
+    case ModernUiSecurityStateEnabled:
+      return ModernUiGetString (ModernUiStringEnabled);
+    case ModernUiSecurityStateDisabled:
+      return ModernUiGetString (ModernUiStringDisabled);
+    default:
+      return ModernUiGetString (ModernUiStringUnknown);
+  }
+}
+
+/**
   Draw a provider summary page with one section and a row list.
 
   @param[in] Ui        Initialized render context. Must not be NULL.
@@ -745,6 +798,9 @@ DrawDashboard (
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  PanelBackground;
   MODERN_UI_PLATFORM_SUMMARY  Platform;
   MODERN_UI_SECURITY_SUMMARY  Security;
+  MODERN_UI_FIRMWARE_SUMMARY  Firmware;
+  MODERN_UI_DIAGNOSTICS_SUMMARY  Diagnostics;
+  MODERN_UI_MANAGEMENT_SUMMARY  Management;
 
   Content = ContentRect (Ui);
   PanelBackground = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
@@ -757,9 +813,23 @@ DrawDashboard (
     StrCpyS (Platform.FirmwareRevision, ARRAY_SIZE (Platform.FirmwareRevision), L"Unknown");
     StrCpyS (Platform.Architecture, ARRAY_SIZE (Platform.Architecture), L"Unknown");
     StrCpyS (Platform.Platform, ARRAY_SIZE (Platform.Platform), L"Unknown");
+    StrCpyS (Platform.FormFactor, ARRAY_SIZE (Platform.FormFactor), L"Unknown");
+    StrCpyS (Platform.BootMode, ARRAY_SIZE (Platform.BootMode), L"Unknown");
   }
 
   ModernUiSecurityDataGetSummary (&Security);
+  if (EFI_ERROR (ModernUiFirmwareDataGetSummary (&Firmware))) {
+    ZeroMem (&Firmware, sizeof (Firmware));
+  }
+
+  if (EFI_ERROR (ModernUiDiagnosticsDataGetSummary (&Diagnostics))) {
+    ZeroMem (&Diagnostics, sizeof (Diagnostics));
+  }
+
+  if (EFI_ERROR (ModernUiManagementDataGetSummary (&Management))) {
+    ZeroMem (&Management, sizeof (Management));
+  }
+
   UnicodeSPrint (MemoryText, sizeof (MemoryText), L"%lu MB", Platform.MemorySizeMb);
   UnicodeSPrint (ArchitectureText, sizeof (ArchitectureText), L"%s", Platform.Architecture);
   UnicodeSPrint (
@@ -787,11 +857,11 @@ DrawDashboard (
   DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 58, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringFirmwareVendor), Platform.FirmwareVendor);
   DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 90, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringFirmwareRevision), Platform.FirmwareRevision);
   DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 122, SystemPanel.Width - 44, L"Platform", Platform.Platform);
-  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 154, SystemPanel.Width - 44, L"Architecture", ArchitectureText);
-  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 186, SystemPanel.Width - 44, L"Memory", MemoryText);
-  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 218, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringDisplay), Resolution);
+  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 154, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringFormFactor), Platform.FormFactor);
+  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 186, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringBootMode), Platform.BootMode);
+  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 218, SystemPanel.Width - 44, L"Memory", MemoryText);
   if (TopHeight >= 260) {
-    DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 250, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringBootOptions), BootCount);
+    DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 250, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringDisplay), Resolution);
   }
 
   if (MonitorPanel.Width > 0) {
@@ -800,9 +870,12 @@ DrawDashboard (
     DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 88, MonitorPanel.Width - 44, L"Architecture", ArchitectureText);
     DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 120, MonitorPanel.Width - 44, L"Provider", L"UEFI");
     ModernUiFillRect (Ui, (MODERN_UI_RECT){ MonitorPanel.X + 22, MonitorPanel.Y + 154, MonitorPanel.Width - 44, 1 }, Theme->Border);
-    ModernUiDrawText (Ui, MonitorPanel.X + 22, MonitorPanel.Y + 178, L"Memory", Theme->WarningText, PanelBackground);
-    DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 208, MonitorPanel.Width - 44, L"Size", MemoryText);
-    DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 240, MonitorPanel.Width - 44, L"Voltage", L"N/A");
+    ModernUiDrawText (Ui, MonitorPanel.X + 22, MonitorPanel.Y + 178, L"Providers", Theme->WarningText, PanelBackground);
+    DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 208, MonitorPanel.Width - 44, ModernUiGetString (ModernUiStringFirmwareUpdate), CapabilityText (Firmware.CapsuleRuntimeServices || Firmware.CapsuleArchProtocol));
+    DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 240, MonitorPanel.Width - 44, ModernUiGetString (ModernUiStringDiagnosticsLogs), CapabilityText (Diagnostics.AcpiPresent || Diagnostics.SmbiosPresent));
+    if (TopHeight >= 300) {
+      DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 272, MonitorPanel.Width - 44, ModernUiGetString (ModernUiStringManagement), CapabilityText (Management.IpmiProtocolPresent || Management.RedfishDiscoverPresent || Management.SmbiosManagementInterfacePresent));
+    }
   }
 
   if (QuickPanel.Height > 110) {
@@ -841,11 +914,13 @@ DrawBoot (
   UINTN                         Index;
   UINTN                         Y;
   CHAR16                        Line[160];
+  CHAR16                        Value[96];
   CONST CHAR16                  *State;
   BOOLEAN                       IsSelected;
   MODERN_UI_RECT                Panel;
   UINTN                         RowX;
   UINTN                         RowWidth;
+  UINTN                         MaxRows;
   MODERN_UI_ROW_MODEL           RowModel;
 
   Panel = ContentRect (Ui);
@@ -862,25 +937,43 @@ DrawBoot (
     return;
   }
 
-  for (Index = 0; (Index < BootOptionCount) && (Index < MAX_BOOT_ROWS); Index++) {
-    Y           = Panel.Y + 62 + Index * 38;
+  MaxRows = (Panel.Height > 96) ? ((Panel.Height - 92) / 58) : 0;
+  MaxRows = MIN (MaxRows, MAX_BOOT_ROWS);
+  for (Index = 0; (Index < BootOptionCount) && (Index < MaxRows); Index++) {
+    Y           = Panel.Y + 62 + Index * 58;
     State       = BootOptions[Index].Active ? ModernUiGetString (ModernUiStringActive) : ModernUiGetString (ModernUiStringInactive);
     IsSelected  = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
     UnicodeSPrint (
       Line,
       sizeof (Line),
-      L"%02u  Boot%04x  %s  %s",
+      L"%02u  Boot%04x  %s",
       Index + 1,
       BootOptions[Index].OptionNumber,
-      State,
       BootOptions[Index].Description
       );
-    RowModel.Rect      = (MODERN_UI_RECT){ RowX, Y - 8, RowWidth, 32 };
+    UnicodeSPrint (
+      Value,
+      sizeof (Value),
+      L"%s%s%s",
+      State,
+      BootOptions[Index].Hidden ? L" / Hidden / " : L" / ",
+      BootOptions[Index].Category
+      );
+    RowModel.Rect      = (MODERN_UI_RECT){ RowX, Y - 8, RowWidth, 42 };
     RowModel.Prompt    = Line;
-    RowModel.Value     = NULL;
+    RowModel.Value     = Value;
     RowModel.Role      = IsSelected ? ModernUiRowSelected : ModernUiRowNormal;
-    RowModel.ValueType = ModernUiValueNone;
+    RowModel.ValueType = ModernUiValueText;
     ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
+    ModernUiDrawTextFit (
+      Ui,
+      RowX + 20,
+      Y + 18,
+      RowWidth - 40,
+      BootOptions[Index].FilePathSummary,
+      Theme->MutedText,
+      IsSelected ? Theme->SelectedBand : Theme->Surface
+      );
   }
 
   if (BootOptionCount == 0) {
@@ -911,7 +1004,9 @@ DrawDevices (
   MODERN_UI_DEVICE_ENTRY    *Entries;
   UINTN                     EntryCount;
   UINTN                     Index;
+  UINTN                     HiiCount;
   CHAR16                    Line[168];
+  CHAR16                    Summary[96];
   BOOLEAN                   IsSelected;
   MODERN_UI_RECT            Panel;
   UINTN                     RowX;
@@ -931,14 +1026,22 @@ DrawDevices (
     return;
   }
 
-  ModernUiDrawTextFormatted (Ui, Panel.X + 20, Panel.Y + 20, Theme->MutedText, Theme->Surface, ModernUiGetString (ModernUiStringHandleCountFormat), EntryCount);
+  HiiCount = 0;
+  for (Index = 0; Index < EntryCount; Index++) {
+    if (Entries[Index].HasForm) {
+      HiiCount++;
+    }
+  }
+
+  UnicodeSPrint (Summary, sizeof (Summary), L"%u entries (%u HII, %u device)", EntryCount, HiiCount, EntryCount - HiiCount);
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, Summary, Theme->MutedText, Theme->Surface);
 
   for (Index = 0; (Index < EntryCount) && (Index < MAX_DEVICE_ROWS); Index++) {
     UnicodeSPrint (Line, sizeof (Line), L"%02u  %s", Index + 1, Entries[Index].Title);
     IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
     RowModel.Rect      = (MODERN_UI_RECT){ RowX, Panel.Y + 54 + Index * 36, RowWidth, 30 };
     RowModel.Prompt    = Line;
-    RowModel.Value     = Entries[Index].HasForm ? L">" : L"-";
+    RowModel.Value     = Entries[Index].HasForm ? L"HII >" : L"Device";
     RowModel.Role      = IsSelected ? ModernUiRowSelected : ModernUiRowNormal;
     RowModel.ValueType = Entries[Index].HasForm ? ModernUiValueAction : ModernUiValueText;
     ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
@@ -975,6 +1078,8 @@ DrawSecurity (
   CONST CHAR16    *KekText;
   CONST CHAR16    *DbText;
   CONST CHAR16    *DbxText;
+  CONST CHAR16    *Tcg2Text;
+  CONST CHAR16    *TreeText;
 
   if (EFI_ERROR (ModernUiSecurityDataGetSummary (&Summary))) {
     ZeroMem (&Summary, sizeof (Summary));
@@ -984,10 +1089,12 @@ DrawSecurity (
                    ((Summary.SecureBoot == ModernUiSecurityStateDisabled) ? ModernUiGetString (ModernUiStringDisabled) : L"Unknown");
   SetupModeText = (Summary.SetupMode == ModernUiSecurityStateEnabled) ? ModernUiGetString (ModernUiStringEnabled) :
                   ((Summary.SetupMode == ModernUiSecurityStateDisabled) ? ModernUiGetString (ModernUiStringDisabled) : L"Unknown");
-  PkText  = (Summary.PlatformKey == ModernUiSecurityStatePresent) ? L"Present" : ((Summary.PlatformKey == ModernUiSecurityStateAbsent) ? L"Absent" : L"Unknown");
-  KekText = (Summary.KeyExchangeKey == ModernUiSecurityStatePresent) ? L"Present" : ((Summary.KeyExchangeKey == ModernUiSecurityStateAbsent) ? L"Absent" : L"Unknown");
-  DbText  = (Summary.SignatureDb == ModernUiSecurityStatePresent) ? L"Present" : ((Summary.SignatureDb == ModernUiSecurityStateAbsent) ? L"Absent" : L"Unknown");
-  DbxText = (Summary.ForbiddenSignatureDb == ModernUiSecurityStatePresent) ? L"Present" : ((Summary.ForbiddenSignatureDb == ModernUiSecurityStateAbsent) ? L"Absent" : L"Unknown");
+  PkText   = SecurityStateText (Summary.PlatformKey);
+  KekText  = SecurityStateText (Summary.KeyExchangeKey);
+  DbText   = SecurityStateText (Summary.SignatureDb);
+  DbxText  = SecurityStateText (Summary.ForbiddenSignatureDb);
+  Tcg2Text = SecurityStateText (Summary.Tcg2Protocol);
+  TreeText = SecurityStateText (Summary.TreeProtocol);
   Panel = ContentRect (Ui);
   ModernUiDrawPanel (Ui, Panel, Theme);
   ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
@@ -996,7 +1103,8 @@ DrawSecurity (
   ModernUiDrawTextFormatted (Ui, Panel.X + 20, Panel.Y + 104, Theme->MutedText, Theme->Surface, L"Setup Mode: %s", SetupModeText);
   ModernUiDrawTextFormatted (Ui, Panel.X + 20, Panel.Y + 136, Theme->MutedText, Theme->Surface, L"PK: %s    KEK: %s", PkText, KekText);
   ModernUiDrawTextFormatted (Ui, Panel.X + 20, Panel.Y + 168, Theme->MutedText, Theme->Surface, L"db: %s    dbx: %s", DbText, DbxText);
-  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 220, ModernUiGetString (ModernUiStringSecurityReadOnly), Theme->MutedText, Theme->Surface);
+  ModernUiDrawTextFormatted (Ui, Panel.X + 20, Panel.Y + 200, Theme->MutedText, Theme->Surface, L"TCG2: %s    TrEE: %s", Tcg2Text, TreeText);
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 252, ModernUiGetString (ModernUiStringSecurityReadOnly), Theme->MutedText, Theme->Surface);
 }
 
 /**
@@ -1133,6 +1241,97 @@ DrawManagement (
     Theme,
     Focus,
     ModernUiGetString (ModernUiStringManagement),
+    Labels,
+    Values,
+    ARRAY_SIZE (Labels)
+    );
+}
+
+/**
+  Draw the Power page with read-only ACPI and thermal provider state.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] Focus  Current focus area.
+**/
+STATIC
+VOID
+DrawPower (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus
+  )
+{
+  MODERN_UI_POWER_SUMMARY  Summary;
+  CONST CHAR16             *Labels[5];
+  CONST CHAR16             *Values[5];
+
+  if (EFI_ERROR (ModernUiPowerDataGetSummary (&Summary))) {
+    ZeroMem (&Summary, sizeof (Summary));
+    StrCpyS (Summary.ChassisThermalState, ARRAY_SIZE (Summary.ChassisThermalState), ModernUiGetString (ModernUiStringUnknown));
+  }
+
+  Labels[0] = ModernUiGetString (ModernUiStringAcpiTablesProvider);
+  Values[0] = CapabilityText (Summary.AcpiTablePresent);
+  Labels[1] = ModernUiGetString (ModernUiStringAcpiSdtProtocol);
+  Values[1] = CapabilityText (Summary.AcpiSdtProtocolPresent);
+  Labels[2] = ModernUiGetString (ModernUiStringChassisThermalState);
+  Values[2] = Summary.ChassisThermalState;
+  Labels[3] = ModernUiGetString (ModernUiStringPowerSupply);
+  Values[3] = CapabilityText (Summary.SmbiosPowerSupplyPresent);
+  Labels[4] = ModernUiGetString (ModernUiStringSmbiosTables);
+  Values[4] = CapabilityText (Summary.SmbiosChassisPresent);
+
+  DrawProviderSummaryPage (
+    Ui,
+    Theme,
+    Focus,
+    ModernUiGetString (ModernUiStringPowerThermal),
+    Labels,
+    Values,
+    ARRAY_SIZE (Labels)
+    );
+}
+
+/**
+  Draw the Performance page with read-only tuning provider availability.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] Focus  Current focus area.
+**/
+STATIC
+VOID
+DrawPerformance (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus
+  )
+{
+  MODERN_UI_PERFORMANCE_SUMMARY  Summary;
+  CONST CHAR16                   *Labels[5];
+  CONST CHAR16                   *Values[5];
+
+  if (EFI_ERROR (ModernUiPerformanceDataGetSummary (&Summary))) {
+    ZeroMem (&Summary, sizeof (Summary));
+  }
+
+  Labels[0] = ModernUiGetString (ModernUiStringProcessorInventory);
+  Values[0] = CapabilityText (Summary.ProcessorInventoryPresent);
+  Labels[1] = ModernUiGetString (ModernUiStringMemoryInventory);
+  Values[1] = CapabilityText (Summary.MemoryInventoryPresent);
+  Labels[2] = ModernUiGetString (ModernUiStringCpuIo2);
+  Values[2] = CapabilityText (Summary.CpuIo2ProtocolPresent);
+  Labels[3] = ModernUiGetString (ModernUiStringVirtualizationPolicy);
+  Values[3] = CapabilityText (Summary.VirtualizationPolicyEntryPresent);
+  Labels[4] = ModernUiGetString (ModernUiStringRasPolicy);
+  Values[4] = CapabilityText (Summary.RasPolicyEntryPresent);
+
+  DrawProviderSummaryPage (
+    Ui,
+    Theme,
+    Focus,
+    ModernUiGetString (ModernUiStringPerformanceTuning),
     Labels,
     Values,
     ARRAY_SIZE (Labels)
@@ -1388,6 +1587,12 @@ DrawPage (
       break;
     case PageManagement:
       DrawManagement (Ui, Theme, Focus);
+      break;
+    case PagePower:
+      DrawPower (Ui, Theme, Focus);
+      break;
+    case PagePerformance:
+      DrawPerformance (Ui, Theme, Focus);
       break;
     case PageExit:
       DrawExit (Ui, Theme, Focus, ExitSelection);

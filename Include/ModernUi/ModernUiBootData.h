@@ -14,16 +14,20 @@
 #include <Uefi.h>
 
 #define MODERN_UI_BOOT_DESCRIPTION_MAX  160
+#define MODERN_UI_BOOT_PATH_MAX         160
 
 typedef struct {
   UINT16     OptionNumber;
   UINT32     Attributes;
   BOOLEAN    Active;
+  BOOLEAN    Hidden;
+  CHAR16     Category[32];
   CHAR16     Description[MODERN_UI_BOOT_DESCRIPTION_MAX];
+  CHAR16     FilePathSummary[MODERN_UI_BOOT_PATH_MAX];
 } MODERN_UI_BOOT_OPTION;
 
 /**
-  Enumerate visible Boot#### options.
+  Enumerate Boot#### options.
 
   @param[in]  CurrentImageHandle  Optional current app image handle used to
                                   hide the app's own boot option. May be NULL.

@@ -28,6 +28,8 @@ typedef struct {
   MODERN_UI_SECURITY_STATE    KeyExchangeKey;
   MODERN_UI_SECURITY_STATE    SignatureDb;
   MODERN_UI_SECURITY_STATE    ForbiddenSignatureDb;
+  MODERN_UI_SECURITY_STATE    Tcg2Protocol;
+  MODERN_UI_SECURITY_STATE    TreeProtocol;
 } MODERN_UI_SECURITY_SUMMARY;
 
 /**

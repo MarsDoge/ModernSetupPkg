@@ -36,7 +36,9 @@
   ModernUiFirmwareDataLib
   ModernUiInputLib
   ModernUiManagementDataLib
+  ModernUiPerformanceDataLib
   ModernUiPlatformDataLib
+  ModernUiPowerDataLib
   ModernUiRendererLib
   ModernUiSecurityDataLib
   ModernUiStringLib

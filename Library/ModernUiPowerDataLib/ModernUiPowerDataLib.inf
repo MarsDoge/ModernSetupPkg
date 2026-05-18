@@ -1,5 +1,5 @@
 ## @file
-# Platform summary provider for ModernSetupApp.
+# Power and thermal summary provider for ModernSetupApp.
 #
 # Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
 # Author: MarsDoge (Dongyan Qian)
@@ -10,25 +10,28 @@
 
 [Defines]
   INF_VERSION                    = 0x00010005
-  BASE_NAME                      = ModernUiPlatformDataLib
-  FILE_GUID                      = 9C30E3A3-F776-4700-96ED-0F4C906E3DE3
+  BASE_NAME                      = ModernUiPowerDataLib
+  FILE_GUID                      = 60F4B7D0-CB2C-46E6-8F0E-9F30B7F56113
   MODULE_TYPE                    = BASE
   VERSION_STRING                 = 0.1
-  LIBRARY_CLASS                  = ModernUiPlatformDataLib|UEFI_APPLICATION
+  LIBRARY_CLASS                  = ModernUiPowerDataLib|UEFI_APPLICATION
 
 [Sources]
-  ModernUiPlatformDataLib.c
+  ModernUiPowerDataLib.c
 
 [Packages]
   MdePkg/MdePkg.dec
   ModernSetupPkg/ModernSetupPkg.dec
 
 [LibraryClasses]
+  BaseLib
   BaseMemoryLib
-  MemoryAllocationLib
   PrintLib
   UefiBootServicesTableLib
-  UefiRuntimeServicesTableLib
 
 [Protocols]
+  gEfiAcpiSdtProtocolGuid
   gEfiSmbiosProtocolGuid
+
+[Guids]
+  gEfiAcpi20TableGuid

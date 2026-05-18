@@ -111,8 +111,9 @@ Future architecture and IBV adaptation should prefer these layers:
   IFR controls.
 - App provider libraries follow the same split: `ModernUiFirmwareDataLib` for
   capsule/update state, `ModernUiDiagnosticsDataLib` for logs and bring-up
-  health, and `ModernUiManagementDataLib` for BMC/IPMI/Redfish-style management
-  summaries.
+  health, `ModernUiManagementDataLib` for BMC/IPMI/Redfish-style management
+  summaries, `ModernUiPowerDataLib` for power/thermal provider state, and
+  `ModernUiPerformanceDataLib` for CPU/memory/tuning entry availability.
 
 The current prototype does not have all of these libraries yet. When code starts
 to grow around one of these responsibilities, add or extend the matching shared

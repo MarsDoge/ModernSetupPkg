@@ -35,14 +35,38 @@ open the owning HII form through `EFI_FORM_BROWSER2_PROTOCOL.SendForm()`.
 
 | Page | Common purpose | App should show | Complex settings owner | Current status |
 | --- | --- | --- | --- | --- |
-| Dashboard | First-glance platform state. | Firmware vendor/revision, architecture, platform name, memory, display mode, boot count, Secure Boot state, HII/device count. | App data providers. | Basic implemented. |
-| Boot | Boot inventory and launch entry. | `BootOrder`, visible `Boot####`, active/hidden state, launch selected option. | Boot Maintenance HII pages for editing and advanced policy. | Basic implemented. |
+| Dashboard | First-glance platform state. | Firmware vendor/revision, architecture, form factor, boot mode, platform name, memory, display mode, boot count, Secure Boot state, HII/device count, provider availability. | App data providers. | Basic implemented. |
+| Boot | Boot inventory and launch entry. | `BootOrder`, `Boot####`, active/hidden state, category, device-path summary, launch selected option. | Boot Maintenance HII pages for editing and advanced policy. | Basic implemented. |
 | Devices / HII | Entry point to platform setup pages and device inventory. | HII formsets, driver/device path rows, Driver Health entry, inventory rows. | Each driver formset via FormBrowser2. | Basic implemented. |
-| Security | Read-only security posture. | Secure Boot, Setup Mode, PK/KEK/db/dbx state, TPM/TCG/TCM presence when available. | Security HII pages and platform policy drivers. | Secure Boot implemented; TPM pending. |
+| Security | Read-only security posture. | Secure Boot, Setup Mode, PK/KEK/db/dbx state, TPM/TCG/TCM presence when available. | Security HII pages and platform policy drivers. | Basic implemented. |
 | Firmware Update | Firmware lifecycle entry point. | Capsule support, firmware version, recovery/update entry, last update state when available. | Capsule/update HII or platform update app. | Basic read-only implemented. |
 | Diagnostics / Logs | Bring-up and service visibility. | POST/log summary, error count, ACPI/SMBIOS presence, memory map summary, test hooks. | Platform diagnostics HII or service app. | Basic read-only implemented. |
 | Management | Server/remote management summary. | BMC/IPMI/Redfish presence, management NIC, host interface, remote update support. | BMC/IPMI/Redfish platform drivers. | Basic read-only implemented. |
+| Power / Thermal | Power and cooling visibility. | ACPI table/protocol state, chassis thermal state, power supply record presence. | Platform fan, battery, thermal, and power-policy HII. | Basic read-only implemented. |
+| Performance / Tuning | CPU/memory and tuning entry visibility. | Processor inventory, memory inventory, CPU I/O protocol, virtualization/RAS policy entry availability. | Platform performance, overclocking, NUMA/RAS, PCIe policy HII. | Basic read-only implemented. |
 | Exit | Session and shell control. | Continue, reset, native UiApp, language, theme, app/version info. | Native FormBrowser save/discard where needed. | Basic implemented. |
+
+## Form-Factor Feature Matrix
+
+Legend: `Display` means App can show a read-only status directly; `Entry` means
+App should expose a native FormBrowser/HII entry; `Native` means the feature is
+owned by platform HII and should not be implemented in the App.
+
+| Capability | Desktop / workstation | Laptop / 2-in-1 | AIO / NUC / mini PC | Server | Embedded / tablet |
+| --- | --- | --- | --- | --- | --- |
+| Firmware and platform summary | Display | Display | Display | Display | Display |
+| Boot inventory and launch | Display | Display | Display | Display | Display |
+| Boot order editing | Entry | Entry | Entry | Entry | Entry |
+| Device and HII entries | Display + Entry | Display + Entry | Display + Entry | Display + Entry | Display + Entry |
+| Secure Boot and TPM posture | Display + Entry | Display + Entry | Display + Entry | Display + Entry | Display + Entry |
+| Key management and TPM physical presence | Native | Native | Native | Native | Native |
+| Capsule/update/recovery | Display + Entry | Display + Entry | Display + Entry | Display + Entry | Display + Entry |
+| Diagnostics/log summary | Display + Entry | Display + Entry | Display + Entry | Display + Entry | Display + Entry |
+| BMC/IPMI/Redfish management | N/A | N/A | N/A | Display + Entry | Platform-dependent |
+| Power/thermal status | Display + Entry | Display + Entry | Display + Entry | Display + Entry | Display + Entry |
+| Battery and adapter policy | N/A | Native | N/A | N/A | Platform-dependent |
+| Performance/tuning policy | Entry | Entry | Entry | Entry | Platform-dependent |
+| RAS/NUMA/PCIe policy | Platform-dependent | N/A | Platform-dependent | Native | Platform-dependent |
 
 ## Cross-Architecture Capability Targets
 
@@ -56,10 +80,10 @@ open the owning HII form through `EFI_FORM_BROWSER2_PROTOCOL.SendForm()`.
 | HII formset entries | Yes | Yes | Yes | Yes | Enumerate HII handles and open with FormBrowser2. |
 | Secure Boot state | Yes | Yes | Yes | Yes when implemented | Read standard UEFI variables only. |
 | TPM / TCG / TCM | Common on PC/server | Platform-dependent | Platform-dependent | Platform-dependent | Detect protocol/presence; display `N/A` when absent. |
-| SMBIOS summary | Common | Common on server | Optional | Optional | Planned provider; display `N/A` when absent. |
-| ACPI / device tree | ACPI common | ACPI or DT | ACPI or DT | ACPI or DT | Planned provider; summarize presence only. |
+| SMBIOS summary | Common | Common on server | Optional | Optional | Basic provider support; display `N/A` when absent. |
+| ACPI / device tree | ACPI common | ACPI or DT | ACPI or DT | ACPI or DT | Basic ACPI presence summary; device-tree detail remains future work. |
 | PCI / USB / NVMe inventory | Common | Platform-dependent | Platform-dependent | Platform-dependent | Use handle/device-path inventory; do not hard-code buses. |
-| BMC / IPMI / Redfish | Server common | Server common | Optional | Server/product dependent | Planned provider; hide or `N/A` on client platforms. |
+| BMC / IPMI / Redfish | Server common | Server common | Optional | Server/product dependent | Basic provider support; hide or `N/A` on client platforms. |
 | Capsule update | Common | Platform-dependent | Platform-dependent | Platform-dependent | Detect capsule/update support; hand off to native page/app. |
 | RAS / NUMA / PCIe policy | Server/workstation | Server | Emerging | Server/product dependent | Never implement policy in App; open owning HII formset. |
 
@@ -68,12 +92,14 @@ open the owning HII form through `EFI_FORM_BROWSER2_PROTOCOL.SendForm()`.
 | Provider | Responsibility | Minimum v1 behavior | Failure behavior |
 | --- | --- | --- | --- |
 | `ModernUiPlatformDataLib` | Firmware, architecture, memory, display, platform name. | Fill dashboard strings and memory summary. | Show `Unknown` or `N/A`; never ASSERT. |
-| `ModernUiBootDataLib` | Boot option enumeration and launch. | Show visible `Boot####`; launch selected option. | Show empty state or returned `EFI_STATUS`. |
+| `ModernUiBootDataLib` | Boot option enumeration and launch. | Show `Boot####` active/hidden/category/path summary; launch selected option. | Show empty state or returned `EFI_STATUS`. |
 | `ModernUiDeviceDataLib` | HII formset/device entry discovery. | List HII entries and open forms through FormBrowser2. | Keep row read-only and show `EFI_STATUS`. |
-| `ModernUiSecurityDataLib` | Secure Boot and key database state. | Read standard variables as read-only. | Show `Unknown`; no writes. |
+| `ModernUiSecurityDataLib` | Secure Boot, key database, and TCG protocol state. | Read standard variables and protocol presence as read-only. | Show `Unknown`; no writes. |
 | `ModernUiFirmwareDataLib` | Capsule/update/recovery status. | Detect capsule runtime services, capsule architectural protocol, and capsule report presence. | Show `N/A`; open native update path when present. |
 | `ModernUiDiagnosticsDataLib` | POST/log/platform health summary. | Show ACPI/SMBIOS presence, memory map count, handle count, and configuration table count. | Show `N/A`; no persistent changes. |
 | `ModernUiManagementDataLib` | BMC/IPMI/Redfish/server management summary. | Detect IPMI protocol, Redfish discover protocol, and SMBIOS management host interface. | Hide on non-server platforms or show `N/A`. |
+| `ModernUiPowerDataLib` | Power and thermal capability summary. | Detect ACPI table/protocol state, SMBIOS chassis thermal state, and power supply record presence. | Show `N/A`; no persistent changes. |
+| `ModernUiPerformanceDataLib` | Performance/tuning capability summary. | Detect CPU/memory inventory, CPU I/O protocol, virtualization policy entry availability, and RAS entry availability. | Show `N/A`; no persistent changes. |
 
 ## Completion Criteria
 
