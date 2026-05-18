@@ -15,12 +15,14 @@ policy into the UI core.
 ## New contributor quickstart
 
 1. Identify the area you are changing in `Docs/AGENT_OWNERSHIP.md`.
-2. Check `Docs/MODULE_BOUNDARIES.md` before moving behavior between layers.
-3. If you touch `Include/ModernUi/*.h` or `ModernSetupPkg.dec`, follow
+2. Check `Docs/ISSUE_BACKLOG.md` for seeded multi-agent work, expected labels,
+   and validation notes before opening or claiming a governance issue.
+3. Check `Docs/MODULE_BOUNDARIES.md` before moving behavior between layers.
+4. If you touch `Include/ModernUi/*.h` or `ModernSetupPkg.dec`, follow
    `Docs/API_COMPATIBILITY.md` and request Core API review.
-4. Keep changes focused. Docs-only and small script fixes should not need the
+5. Keep changes focused. Docs-only and small script fixes should not need the
    full firmware checklist; mark unrelated PR-template items as N/A.
-5. Record validation in the PR. If QEMU or a platform target is unavailable,
+6. Record validation in the PR. If QEMU or a platform target is unavailable,
    say so and describe the closest validation you did run.
 
 ## Function Contracts
@@ -136,6 +138,8 @@ directly.
 Phase 1 collaboration scaffolding lives in:
 
 - `Docs/AGENT_OWNERSHIP.md` for module owners, labels, and review gates.
+- `Docs/ISSUE_BACKLOG.md` for initial issue seeds, owner/agent routing,
+  validation expectations, PR2/PR3/PR4 sequencing, and manual label sync notes.
 - `Docs/MODULE_BOUNDARIES.md` for stable contracts and dependency rules.
 - `Docs/API_COMPATIBILITY.md` for public API, DEC, and deprecation policy.
 
