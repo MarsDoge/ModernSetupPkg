@@ -14,6 +14,9 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase 3 `ModernSetupApp` provider health summary derived from the app-private
+  provider snapshot, with Dashboard health/coverage rendering, Diagnostics first
+  issue details, and smoke validation for the health boundary.
 - Phase 2 `ModernSetupApp` provider snapshot boundary for Dashboard/provider
   summary pages, with smoke validation that presentation modules do not bypass
   the app-private read-only provider contract.

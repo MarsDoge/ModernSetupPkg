@@ -451,31 +451,47 @@ DrawDiagnostics (
   IN SETUP_FOCUS               Focus
   )
 {
-  MODERN_SETUP_PROVIDER_SNAPSHOT    Providers;
-  MODERN_UI_DIAGNOSTICS_SUMMARY     *Summary;
-  CHAR16                            MemoryMap[48];
-  CHAR16                            Handles[48];
-  CHAR16                            Tables[48];
-  CONST CHAR16                      *Labels[5];
-  CONST CHAR16                      *Values[5];
+  MODERN_SETUP_PROVIDER_SNAPSHOT        Providers;
+  MODERN_SETUP_PROVIDER_HEALTH_SUMMARY  ProviderHealth;
+  MODERN_UI_DIAGNOSTICS_SUMMARY         *Summary;
+  CHAR16                                MemoryMap[48];
+  CHAR16                                Handles[48];
+  CHAR16                                Tables[48];
+  CHAR16                                ProviderCoverage[48];
+  CHAR16                                ProviderIssue[96];
+  CONST CHAR16                          *Labels[8];
+  CONST CHAR16                          *Values[8];
 
   ModernSetupGetProviderSnapshot (&Providers);
+  ModernSetupGetProviderHealthSummary (&Providers, &ProviderHealth);
   Summary = &Providers.Diagnostics;
 
   UnicodeSPrint (MemoryMap, sizeof (MemoryMap), L"%u", Summary->MemoryDescriptorCount);
   UnicodeSPrint (Handles, sizeof (Handles), L"%u", Summary->HandleCount);
   UnicodeSPrint (Tables, sizeof (Tables), L"%u", Summary->ConfigurationTableCount);
+  UnicodeSPrint (ProviderCoverage, sizeof (ProviderCoverage), L"%u/%u ready", ProviderHealth.ReadyProviders, ProviderHealth.TotalProviders);
+  if (ProviderHealth.State == ModernSetupProviderHealthReady) {
+    UnicodeSPrint (ProviderIssue, sizeof (ProviderIssue), L"None");
+  } else {
+    UnicodeSPrint (ProviderIssue, sizeof (ProviderIssue), L"%s (%r)", ProviderHealth.FirstIssueName, ProviderHealth.FirstIssueStatus);
+  }
 
-  Labels[0] = ModernUiGetString (ModernUiStringAcpiTables);
-  Values[0] = CapabilityText (Summary->AcpiPresent);
-  Labels[1] = ModernUiGetString (ModernUiStringSmbiosTables);
-  Values[1] = CapabilityText (Summary->SmbiosPresent);
-  Labels[2] = ModernUiGetString (ModernUiStringMemoryMap);
-  Values[2] = MemoryMap;
-  Labels[3] = ModernUiGetString (ModernUiStringDxeHandles);
-  Values[3] = Handles;
-  Labels[4] = ModernUiGetString (ModernUiStringConfigurationTables);
-  Values[4] = Tables;
+  Labels[0] = L"Provider Health";
+  Values[0] = ModernSetupGetProviderHealthStateText (ProviderHealth.State);
+  Labels[1] = L"Provider Coverage";
+  Values[1] = ProviderCoverage;
+  Labels[2] = L"Provider Issue";
+  Values[2] = ProviderIssue;
+  Labels[3] = ModernUiGetString (ModernUiStringAcpiTables);
+  Values[3] = CapabilityText (Summary->AcpiPresent);
+  Labels[4] = ModernUiGetString (ModernUiStringSmbiosTables);
+  Values[4] = CapabilityText (Summary->SmbiosPresent);
+  Labels[5] = ModernUiGetString (ModernUiStringMemoryMap);
+  Values[5] = MemoryMap;
+  Labels[6] = ModernUiGetString (ModernUiStringDxeHandles);
+  Values[6] = Handles;
+  Labels[7] = ModernUiGetString (ModernUiStringConfigurationTables);
+  Values[7] = Tables;
 
   DrawProviderSummaryPage (
     Ui,

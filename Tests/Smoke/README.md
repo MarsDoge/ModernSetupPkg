@@ -38,6 +38,9 @@ The smoke harness currently checks:
 - Dashboard/provider summary pages consume read-only provider data through the
   app-private `ModernSetupAppProvider.c` snapshot instead of calling provider
   summary LibraryClasses directly from presentation modules.
+- Provider health/readiness is derived in `ModernSetupAppProvider.c`, rendered by
+  Dashboard, and included in Diagnostics without adding public API or coupling to
+  experimental HII bridge/page adapter paths.
 
 Use this as the first validation for docs, ownership, script, and static overlay
 changes. It complements, but does not replace, manual QEMU checks for firmware UI

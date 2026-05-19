@@ -122,22 +122,6 @@ DrawDashboardTile (
 
 
 /**
-  Return localized capability text for a Dashboard boolean provider state.
-
-  @param[in] Present  TRUE when the capability is available.
-
-  @return Non-NULL localized capability text.
-**/
-STATIC
-CONST CHAR16 *
-DashboardCapabilityText (
-  IN BOOLEAN  Present
-  )
-{
-  return Present ? ModernUiGetString (ModernUiStringAvailable) : ModernUiGetString (ModernUiStringNotAvailable);
-}
-
-/**
   Draw the Dashboard page.
 
   @param[in] Ui     Initialized render context. Must not be NULL.
@@ -159,6 +143,8 @@ ModernSetupDrawDashboard (
   CHAR16  MemoryText[48];
   CHAR16  SecurityText[48];
   CHAR16  ArchitectureText[96];
+  CHAR16  ProviderCountText[48];
+  CHAR16  ProviderIssueText[96];
   MODERN_UI_RECT  Content;
   MODERN_UI_RECT  SystemPanel;
   MODERN_UI_RECT  MonitorPanel;
@@ -171,7 +157,8 @@ ModernSetupDrawDashboard (
   UINTN           CardGap;
   UINTN           TopHeight;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  PanelBackground;
-  MODERN_SETUP_PROVIDER_SNAPSHOT  Providers;
+  MODERN_SETUP_PROVIDER_SNAPSHOT        Providers;
+  MODERN_SETUP_PROVIDER_HEALTH_SUMMARY  ProviderHealth;
 
   Content = ModernSetupContentRect (Ui);
   PanelBackground = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
@@ -179,6 +166,7 @@ ModernSetupDrawDashboard (
   UnicodeSPrint (BootCount, sizeof (BootCount), ModernUiGetString (ModernUiStringBootCountFormat), ModernSetupGetBootCount ());
   UnicodeSPrint (DeviceCount, sizeof (DeviceCount), L"%u entries", ModernSetupGetVisibleDeviceCount ());
   ModernSetupGetProviderSnapshot (&Providers);
+  ModernSetupGetProviderHealthSummary (&Providers, &ProviderHealth);
 
   UnicodeSPrint (MemoryText, sizeof (MemoryText), L"%lu MB", Providers.Platform.MemorySizeMb);
   UnicodeSPrint (ArchitectureText, sizeof (ArchitectureText), L"%s", Providers.Platform.Architecture);
@@ -189,6 +177,12 @@ ModernSetupDrawDashboard (
     (Providers.Security.SecureBoot == ModernUiSecurityStateEnabled) ? ModernUiGetString (ModernUiStringEnabled) :
     ((Providers.Security.SecureBoot == ModernUiSecurityStateDisabled) ? ModernUiGetString (ModernUiStringDisabled) : ModernUiGetString (ModernUiStringUnknown))
     );
+  UnicodeSPrint (ProviderCountText, sizeof (ProviderCountText), L"%u/%u ready", ProviderHealth.ReadyProviders, ProviderHealth.TotalProviders);
+  if (ProviderHealth.State == ModernSetupProviderHealthReady) {
+    UnicodeSPrint (ProviderIssueText, sizeof (ProviderIssueText), L"All providers ready");
+  } else {
+    UnicodeSPrint (ProviderIssueText, sizeof (ProviderIssueText), L"%s unavailable", ProviderHealth.FirstIssueName);
+  }
 
   TopHeight   = (Content.Height >= 460) ? 300 : 232;
   QuickY      = Content.Y + TopHeight + 16;
@@ -222,10 +216,12 @@ ModernSetupDrawDashboard (
     DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 120, MonitorPanel.Width - 44, L"Provider", L"UEFI");
     ModernUiFillRect (Ui, (MODERN_UI_RECT){ MonitorPanel.X + 22, MonitorPanel.Y + 154, MonitorPanel.Width - 44, 1 }, Theme->Border);
     ModernUiDrawText (Ui, MonitorPanel.X + 22, MonitorPanel.Y + 178, L"Providers", Theme->WarningText, PanelBackground);
-    DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 208, MonitorPanel.Width - 44, ModernUiGetString (ModernUiStringFirmwareUpdate), DashboardCapabilityText (Providers.Firmware.CapsuleRuntimeServices || Providers.Firmware.CapsuleArchProtocol));
-    DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 240, MonitorPanel.Width - 44, ModernUiGetString (ModernUiStringDiagnosticsLogs), DashboardCapabilityText (Providers.Diagnostics.AcpiPresent || Providers.Diagnostics.SmbiosPresent));
+    DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 208, MonitorPanel.Width - 44, L"Health", ModernSetupGetProviderHealthStateText (ProviderHealth.State));
+    if (TopHeight >= 270) {
+      DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 240, MonitorPanel.Width - 44, L"Coverage", ProviderCountText);
+    }
     if (TopHeight >= 300) {
-      DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 272, MonitorPanel.Width - 44, ModernUiGetString (ModernUiStringManagement), DashboardCapabilityText (Providers.Management.IpmiProtocolPresent || Providers.Management.RedfishDiscoverPresent || Providers.Management.SmbiosManagementInterfacePresent));
+      DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 272, MonitorPanel.Width - 44, L"First issue", ProviderIssueText);
     }
   }
 

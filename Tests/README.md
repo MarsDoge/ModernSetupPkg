@@ -54,9 +54,9 @@ Tests
   `Tests/Smoke/smoke_validate.py`, covering shell syntax, overlay generation
   dry runs, native/modern overlay separation, default overlay exclusion of
   `ModernSetupApp` and experimental HII bridge paths, `ModernSetupApp.inf`
-  source coverage, app-internal Dashboard/FormBrowser boundary checks, and the
-  app-private provider snapshot boundary for read-only summary pages without
-  edk2 or QEMU.
+  source coverage, app-internal Dashboard/FormBrowser boundary checks, the
+  app-private provider snapshot boundary for read-only summary pages, and derived
+  Dashboard/Diagnostics provider health summary coverage without edk2 or QEMU.
 - Manual before/after validation by rebuilding the same overlay with
   `MODERN_SETUP_DISPLAY_ENGINE=native` and `MODERN_SETUP_DISPLAY_ENGINE=modern`.
 - Scripted ArmVirt before/after capture through
