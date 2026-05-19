@@ -35,6 +35,9 @@ The smoke harness currently checks:
 - `ModernSetupApp` keeps Dashboard drawing in `ModernSetupAppDashboard.c`, calls
   it from `ModernSetupAppPages.c`, and avoids direct experimental HII bridge,
   page adapter, or ConfigAccess coupling in app sources.
+- Dashboard/provider summary pages consume read-only provider data through the
+  app-private `ModernSetupAppProvider.c` snapshot instead of calling provider
+  summary LibraryClasses directly from presentation modules.
 
 Use this as the first validation for docs, ownership, script, and static overlay
 changes. It complements, but does not replace, manual QEMU checks for firmware UI

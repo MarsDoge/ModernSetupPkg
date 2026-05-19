@@ -55,6 +55,24 @@ PROHIBITED_APP_SOURCE_TOKENS = (
     "ExtractConfig",
     "RouteConfig",
 )
+APP_PROVIDER_SUMMARY_TOKENS = (
+    "ModernUiPlatformDataGetSummary",
+    "ModernUiSecurityDataGetSummary",
+    "ModernUiFirmwareDataGetSummary",
+    "ModernUiDiagnosticsDataGetSummary",
+    "ModernUiManagementDataGetSummary",
+    "ModernUiPowerDataGetSummary",
+    "ModernUiPerformanceDataGetSummary",
+)
+APP_PROVIDER_SNAPSHOT_FIELDS = (
+    "Platform",
+    "Security",
+    "Firmware",
+    "Diagnostics",
+    "Management",
+    "Power",
+    "Performance",
+)
 
 
 class SmokeFailure(Exception):
@@ -293,6 +311,7 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
     inf_sources = parse_inf_sources(root / MODERN_SETUP_APP_INF)
     dashboard = app_dir / "ModernSetupAppDashboard.c"
     pages = app_dir / "ModernSetupAppPages.c"
+    provider = app_dir / "ModernSetupAppProvider.c"
 
     if not dashboard.exists():
         raise SmokeFailure("ModernSetupAppDashboard.c is missing")
@@ -300,6 +319,10 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
         raise SmokeFailure("ModernSetupAppDashboard.c is not listed in ModernSetupApp.inf [Sources]")
     if not pages.exists():
         raise SmokeFailure("ModernSetupAppPages.c is missing")
+    if not provider.exists():
+        raise SmokeFailure("ModernSetupAppProvider.c is missing")
+    if "ModernSetupAppProvider.c" not in inf_sources:
+        raise SmokeFailure("ModernSetupAppProvider.c is not listed in ModernSetupApp.inf [Sources]")
 
     definition_locations: list[str] = []
     for source in sorted(app_dir.glob("ModernSetupApp*.c")):
@@ -309,6 +332,22 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
         for token in PROHIBITED_APP_SOURCE_TOKENS:
             if token in body:
                 raise SmokeFailure(f"{source.relative_to(root)} directly references prohibited app boundary token: {token}")
+        for token in APP_PROVIDER_SUMMARY_TOKENS:
+            if token in body and source.name != "ModernSetupAppProvider.c":
+                raise SmokeFailure(
+                    f"{source.relative_to(root)} bypasses ModernSetupAppProvider.c for provider summary token: {token}"
+                )
+        if source.name != "ModernSetupAppProvider.c" and "MODERN_SETUP_PROVIDER_SNAPSHOT" in body:
+            direct_provider_field = re.compile(
+                rf"(?<!Providers\.)\b({'|'.join(APP_PROVIDER_SNAPSHOT_FIELDS)})\s*\."
+            )
+            for line_number, line in enumerate(body.splitlines(), start=1):
+                match = direct_provider_field.search(line)
+                if match:
+                    raise SmokeFailure(
+                        f"{source.relative_to(root)}:{line_number} uses stale direct provider field "
+                        f"'{match.group(1)}.'; use MODERN_SETUP_PROVIDER_SNAPSHOT (Providers.{match.group(1)}.)"
+                    )
 
     if definition_locations != ["ModernSetupAppDashboard.c"]:
         raise SmokeFailure(
@@ -321,6 +360,13 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
         raise SmokeFailure("ModernSetupAppPages.c does not call ModernSetupDrawDashboard")
     if c_function_definition_count(pages_body, "ModernSetupDrawDashboard"):
         raise SmokeFailure("ModernSetupAppPages.c must call, not define, ModernSetupDrawDashboard")
+
+    provider_body = strip_c_comments(provider.read_text(encoding="utf-8"))
+    if c_function_definition_count(provider_body, "ModernSetupGetProviderSnapshot") != 1:
+        raise SmokeFailure("ModernSetupAppProvider.c must define ModernSetupGetProviderSnapshot exactly once")
+    for token in APP_PROVIDER_SUMMARY_TOKENS:
+        if token not in provider_body:
+            raise SmokeFailure(f"ModernSetupAppProvider.c missing provider summary call: {token}")
 
     return ["PASS ModernSetupApp module boundary checks"]
 

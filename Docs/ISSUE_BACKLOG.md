@@ -99,11 +99,37 @@ Phase 1 is complete when:
 4. The smoke harness validates `Application/ModernSetupApp/ModernSetupApp*.c` coverage in `ModernSetupApp.inf` `[Sources]` and verifies the Dashboard/Page boundary.
 5. `Tests/README.md` and `Tests/Smoke/README.md` describe the new static app ownership checks.
 
+## Phase 2 app/provider contract hardening
+
+Current app/provider acceptance target:
+
+- Title: `phase2(app): harden dashboard/provider read-only summary contract`.
+- Route: App shell and provider agents, with platform-ci for smoke validation.
+- Labels: `area/app-provider`, `area/platform-ci` when mirrored to GitHub.
+- Scope: centralize dashboard and provider summary collection behind an
+  app-private snapshot helper, preserve provider LibraryClass read-only surfaces,
+  and add static smoke checks so presentation modules do not bypass that helper.
+- Non-goals: no public API/DEC change, no provider model expansion, no native
+  FormBrowser behavior change, and no direct HII varstore or setup-page writes in
+  the app.
+- Expected validation: `python3 Tests/Smoke/smoke_validate.py`,
+  `git diff --check origin/main...HEAD`, and PR notes that QEMU/manual firmware
+  UI validation is optional unless visual behavior is changed.
+
+Phase 2 is complete when:
+
+1. Dashboard/provider summary presentation code uses an app-owned snapshot helper
+   instead of each page duplicating provider fallback handling.
+2. Provider collection remains read-only and routed through existing provider
+   LibraryClasses.
+3. `ModernSetupApp` continues to avoid experimental HII bridge/page adapter and
+   native setup mutation paths.
+4. Smoke validation checks the app provider boundary and INF source coverage.
+
 ## Later backlog themes
 
 Keep later work grouped by feature phase rather than creating one issue per file move:
 
-- App/provider contract hardening for dashboard summaries and read-only provider surfaces.
 - DisplayEngine/FormBrowser compatibility checklist and native setup-page coverage.
 - Core API surface inventory when public headers, DEC entries, GUIDs, PCDs, or LibraryClasses change.
 - Renderer/theme/layout validation once shared visual contracts or layout libraries change.

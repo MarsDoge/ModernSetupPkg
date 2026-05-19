@@ -71,6 +71,23 @@ typedef struct {
   MODERN_UI_STRING_ID  Hint;
 } PAGE_DESCRIPTOR;
 
+typedef struct {
+  MODERN_UI_PLATFORM_SUMMARY       Platform;
+  MODERN_UI_SECURITY_SUMMARY       Security;
+  MODERN_UI_FIRMWARE_SUMMARY       Firmware;
+  MODERN_UI_DIAGNOSTICS_SUMMARY    Diagnostics;
+  MODERN_UI_MANAGEMENT_SUMMARY     Management;
+  MODERN_UI_POWER_SUMMARY          Power;
+  MODERN_UI_PERFORMANCE_SUMMARY    Performance;
+  EFI_STATUS                       PlatformStatus;
+  EFI_STATUS                       SecurityStatus;
+  EFI_STATUS                       FirmwareStatus;
+  EFI_STATUS                       DiagnosticsStatus;
+  EFI_STATUS                       ManagementStatus;
+  EFI_STATUS                       PowerStatus;
+  EFI_STATUS                       PerformanceStatus;
+} MODERN_SETUP_PROVIDER_SNAPSHOT;
+
 extern EFI_HANDLE  mModernSetupImageHandle;
 extern BOOLEAN     mModernSetupLanguageDropdownOpen;
 extern UINTN       mModernSetupLanguageDropdownSelection;
@@ -115,6 +132,11 @@ ModernSetupDrawDashboard (
   IN CONST MODERN_UI_THEME     *Theme,
   IN SETUP_FOCUS               Focus,
   IN UINTN                     Selection
+  );
+
+EFI_STATUS
+ModernSetupGetProviderSnapshot (
+  OUT MODERN_SETUP_PROVIDER_SNAPSHOT  *Snapshot
   );
 
 VOID

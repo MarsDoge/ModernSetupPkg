@@ -14,6 +14,9 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase 2 `ModernSetupApp` provider snapshot boundary for Dashboard/provider
+  summary pages, with smoke validation that presentation modules do not bypass
+  the app-private read-only provider contract.
 - Phase 1 `ModernSetupApp` ownership readiness docs and smoke validation for app
   INF source coverage plus Dashboard module boundary checks.
 - Private repository bootstrap under `MarsDoge/ModernSetupPkg`.
