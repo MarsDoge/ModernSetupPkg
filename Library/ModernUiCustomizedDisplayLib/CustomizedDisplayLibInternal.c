@@ -541,7 +541,7 @@ ModernDisplayDrawPageChrome (
     ZeroMem (&EngineLayout.RightRail, sizeof (EngineLayout.RightRail));
   }
 
-  PageModel.Layout        = EngineLayout;
+  CopyMem (&PageModel.Layout, &EngineLayout, sizeof (PageModel.Layout));
   PageModel.Rect          = EngineLayout.Header;
   PageModel.Tabs          = Tabs;
   PageModel.TabCount      = ARRAY_SIZE (Tabs);
