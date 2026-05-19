@@ -52,8 +52,10 @@ Tests
   UiApp plus `ModernDisplayEngineDxe`.
 - Lightweight scripted smoke validation through
   `Tests/Smoke/smoke_validate.py`, covering shell syntax, overlay generation
-  dry runs, native/modern overlay separation, and default overlay exclusion of
-  `ModernSetupApp` and experimental HII bridge paths without edk2 or QEMU.
+  dry runs, native/modern overlay separation, default overlay exclusion of
+  `ModernSetupApp` and experimental HII bridge paths, `ModernSetupApp.inf`
+  source coverage, and app-internal Dashboard/FormBrowser boundary checks
+  without edk2 or QEMU.
 - Manual before/after validation by rebuilding the same overlay with
   `MODERN_SETUP_DISPLAY_ENGINE=native` and `MODERN_SETUP_DISPLAY_ENGINE=modern`.
 - Scripted ArmVirt before/after capture through

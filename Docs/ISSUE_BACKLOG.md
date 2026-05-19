@@ -7,9 +7,9 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 # Issue Backlog and Agent Routing
 
-This backlog is the lightweight landing page for multi-agent work. It records issue seeds that are useful to open or claim later, but it is not a substitute for maintainer judgment. Keep issues focused, route them through `Docs/AGENT_OWNERSHIP.md`, and prefer small PRs that can be validated independently.
+This backlog is the lightweight landing page for multi-agent work. It records issue seeds that are useful to open or claim later, but it is not a substitute for maintainer judgment. Keep issues focused, route them through `Docs/AGENT_OWNERSHIP.md`, and prefer phase-sized PRs that can be validated as one coherent ownership or feature slice instead of scattering tiny mechanical PRs.
 
-Do not create GitHub issues from this file automatically unless a maintainer asks for that explicitly. When an issue is opened, copy the relevant seed, apply the matching labels from `.github/labels.yml`, and link back to this document if the issue is part of the PR2/PR3/PR4 sequence.
+Do not create GitHub issues from this file automatically unless a maintainer asks for that explicitly. When an issue is opened, copy the relevant phase/theme, apply the matching labels from `.github/labels.yml`, and link back to this document if the issue is part of a tracked phase.
 
 ## Label and template sync
 
@@ -80,61 +80,32 @@ Every opened issue should state the lightest useful validation before implementa
 | App/provider | App smoke path or provider contract check; real setup page entries still use `SendForm()` |
 | Platform/scripts | Script dry run or syntax review, named target platform, generated-file impact stated |
 
-## PR sequence
+## Phase 1 app ownership readiness
 
-- PR2: Governance landing and backlog. Align labels and issue templates, add this backlog, and document low-friction manual label sync.
-- PR3: Contributor intake cleanup. Open or refine the first real GitHub issues from these seeds, then update module request guidance based on maintainer feedback.
-- PR4: Validation scaffolding. Add safe checks that can run without private infrastructure, such as documentation linting, YAML validation, and focused script dry runs.
+Current app/provider acceptance target:
 
-Keep PR2/PR3/PR4 docs/tooling-oriented unless a maintainer explicitly expands the scope.
+- Title: `phase1(app): 建立 ModernSetupApp 多代理模块边界与 smoke 校验`.
+- Route: App shell and provider agents, with platform-ci for smoke validation.
+- Labels: `area/app-provider`, `area/platform-ci`, `documentation`, `module-request` when mirrored to GitHub.
+- Scope: keep the Dashboard extraction as the app-internal module boundary example, document the `ModernSetupApp` internal module map, and add smoke checks that make future app source additions update `ModernSetupApp.inf` and preserve app/FormBrowser boundaries.
+- Non-goals: no UI behavior change, no public API/DEC change, no DisplayEngine/HII workflow change, no provider model expansion, and no additional page-by-page splits for Boot, Devices, or provider summary pages.
+- Expected validation: `python3 Tests/Smoke/smoke_validate.py`, `git diff --check origin/main...HEAD`, and PR notes that QEMU/manual firmware UI validation is N/A for this ownership/readiness phase.
 
-## Initial issue seeds
+Phase 1 is complete when:
 
-### Seed: Core API surface inventory
+1. `Docs/AGENT_OWNERSHIP.md` identifies the `ModernSetupApp` modules: app entry, Chrome, Dashboard, Pages, and Actions.
+2. The ownership rules state that the app does not parse IFR, does not implement ConfigAccess, and does not write HII varstores directly.
+3. Real setup pages continue to route through FormBrowser2/`SendForm()`.
+4. The smoke harness validates `Application/ModernSetupApp/ModernSetupApp*.c` coverage in `ModernSetupApp.inf` `[Sources]` and verifies the Dashboard/Page boundary.
+5. `Tests/README.md` and `Tests/Smoke/README.md` describe the new static app ownership checks.
 
-- Route: Core API agent.
-- Labels: `area/core-api`, `documentation`, `api-change` if public contract changes are proposed.
-- Goal: Inventory public headers and DEC entries, then identify which contracts need stability notes, versioning, or deprecation guidance.
-- Expected validation: Header/DEC review and docs sanity. No firmware build required for inventory-only work.
+## Later backlog themes
 
-### Seed: Renderer and engine responsibility map
+Keep later work grouped by feature phase rather than creating one issue per file move:
 
-- Route: Renderer/theme/UI engine agents.
-- Labels: `area/renderer`, `documentation`.
-- Goal: Map renderer, theme, layout, input, and engine responsibilities so future page work lands in the right library.
-- Expected validation: Docs sanity and cross-check against `Docs/MODULE_BOUNDARIES.md`.
-
-### Seed: DisplayEngine compatibility checklist
-
-- Route: DisplayEngine compatibility agent.
-- Labels: `area/display-engine`, `compat`, `documentation`.
-- Goal: Draft a checklist for native FormBrowser compatibility, fallback behavior, and prohibited ConfigAccess/varstore bypasses.
-- Expected validation: Docs sanity and owner review. QEMU/manual validation is N/A until behavior changes are proposed.
-
-### Seed: App/provider dashboard contract plan
-
-- Route: App shell and provider agents.
-- Labels: `area/app-provider`, `module-request`.
-- Goal: Propose focused provider contracts for dashboard summaries without moving platform policy into `ModernSetupApp`.
-- Expected validation: Boundary review, affected public model notes, and app smoke plan if code follows.
-
-### Seed: Experimental HII bridge safety notes
-
-- Route: Experimental HII bridge agent.
-- Labels: `area/hii-bridge`, `compat`, `documentation`.
-- Goal: Document unsupported opcode, varstore, callback, expression, localization, and fail-closed/read-only behavior expectations.
-- Expected validation: Docs sanity and DisplayEngine/Core API cross-review if promotion is discussed.
-
-### Seed: Platform CI validation catalog
-
-- Route: Platform/CI/release agent.
-- Labels: `area/platform-ci`, `documentation`.
-- Goal: Catalog safe local checks for docs, YAML, scripts, and generated-file impact without requiring private infrastructure.
-- Expected validation: Run the documented local commands where available and record unavailable tools.
-
-### Seed: Label and issue template drift check
-
-- Route: Docs/governance through platform-ci.
-- Labels: `area/docs`, `documentation`, `module-request` if template fields change.
-- Goal: Keep `.github/labels.yml`, issue templates, ownership docs, and this backlog synchronized.
-- Expected validation: YAML parse, markdown sanity, privacy scan, and `git diff --check`.
+- App/provider contract hardening for dashboard summaries and read-only provider surfaces.
+- DisplayEngine/FormBrowser compatibility checklist and native setup-page coverage.
+- Core API surface inventory when public headers, DEC entries, GUIDs, PCDs, or LibraryClasses change.
+- Renderer/theme/layout validation once shared visual contracts or layout libraries change.
+- Experimental HII bridge promotion only after explicit core-api and display-engine review.
+- Platform CI validation catalog for checks that can run without private firmware infrastructure.
