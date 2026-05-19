@@ -88,6 +88,21 @@ typedef struct {
   EFI_STATUS                       PerformanceStatus;
 } MODERN_SETUP_PROVIDER_SNAPSHOT;
 
+typedef enum {
+  ModernSetupProviderHealthReady = 0,
+  ModernSetupProviderHealthDegraded,
+  ModernSetupProviderHealthNotReady
+} MODERN_SETUP_PROVIDER_HEALTH_STATE;
+
+typedef struct {
+  MODERN_SETUP_PROVIDER_HEALTH_STATE  State;
+  UINTN                               TotalProviders;
+  UINTN                               ReadyProviders;
+  UINTN                               UnavailableProviders;
+  EFI_STATUS                          FirstIssueStatus;
+  CONST CHAR16                        *FirstIssueName;
+} MODERN_SETUP_PROVIDER_HEALTH_SUMMARY;
+
 extern EFI_HANDLE  mModernSetupImageHandle;
 extern BOOLEAN     mModernSetupLanguageDropdownOpen;
 extern UINTN       mModernSetupLanguageDropdownSelection;
@@ -137,6 +152,17 @@ ModernSetupDrawDashboard (
 EFI_STATUS
 ModernSetupGetProviderSnapshot (
   OUT MODERN_SETUP_PROVIDER_SNAPSHOT  *Snapshot
+  );
+
+EFI_STATUS
+ModernSetupGetProviderHealthSummary (
+  IN  CONST MODERN_SETUP_PROVIDER_SNAPSHOT  *Snapshot,
+  OUT MODERN_SETUP_PROVIDER_HEALTH_SUMMARY  *Health
+  );
+
+CONST CHAR16 *
+ModernSetupGetProviderHealthStateText (
+  IN MODERN_SETUP_PROVIDER_HEALTH_STATE  State
   );
 
 VOID

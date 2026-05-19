@@ -67,6 +67,97 @@ InitializeProviderSnapshotDefaults (
   SetUnknownText (Snapshot->Power.ChassisThermalState, ARRAY_SIZE (Snapshot->Power.ChassisThermalState));
 }
 
+typedef struct {
+  CONST CHAR16  *Name;
+  EFI_STATUS    Status;
+} MODERN_SETUP_PROVIDER_STATUS_ENTRY;
+
+/**
+  Return stable display text for an aggregate provider health state.
+
+  @param[in] State  Aggregate health state.
+
+  @return Non-NULL display text owned by the app.
+**/
+CONST CHAR16 *
+ModernSetupGetProviderHealthStateText (
+  IN MODERN_SETUP_PROVIDER_HEALTH_STATE  State
+  )
+{
+  switch (State) {
+    case ModernSetupProviderHealthReady:
+      return L"Ready";
+    case ModernSetupProviderHealthDegraded:
+      return L"Degraded";
+    case ModernSetupProviderHealthNotReady:
+    default:
+      return L"Not Ready";
+  }
+}
+
+/**
+  Derive a compact app-private readiness summary from provider snapshot statuses.
+
+  The summary is intentionally read-only and derived only from app-owned snapshot
+  status fields. It lets presentation code show whether provider-backed data is
+  complete, partially degraded, or unavailable without bypassing the provider
+  snapshot boundary.
+
+  @param[in]  Snapshot  Provider snapshot to summarize. Must not be NULL.
+  @param[out] Health    Health summary to fill. Must not be NULL.
+
+  @retval EFI_SUCCESS            Health summary was filled.
+  @retval EFI_INVALID_PARAMETER  Snapshot or Health is NULL.
+**/
+EFI_STATUS
+ModernSetupGetProviderHealthSummary (
+  IN  CONST MODERN_SETUP_PROVIDER_SNAPSHOT  *Snapshot,
+  OUT MODERN_SETUP_PROVIDER_HEALTH_SUMMARY  *Health
+  )
+{
+  MODERN_SETUP_PROVIDER_STATUS_ENTRY  Entries[7];
+  UINTN                               Index;
+
+  if ((Snapshot == NULL) || (Health == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Entries[0] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"Platform",    Snapshot->PlatformStatus };
+  Entries[1] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"Security",    Snapshot->SecurityStatus };
+  Entries[2] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"Firmware",    Snapshot->FirmwareStatus };
+  Entries[3] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"Diagnostics", Snapshot->DiagnosticsStatus };
+  Entries[4] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"Management",  Snapshot->ManagementStatus };
+  Entries[5] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"Power",       Snapshot->PowerStatus };
+  Entries[6] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"Performance", Snapshot->PerformanceStatus };
+
+  ZeroMem (Health, sizeof (*Health));
+  Health->TotalProviders       = ARRAY_SIZE (Entries);
+  Health->FirstIssueStatus     = EFI_SUCCESS;
+  Health->FirstIssueName       = L"None";
+
+  for (Index = 0; Index < ARRAY_SIZE (Entries); Index++) {
+    if (EFI_ERROR (Entries[Index].Status)) {
+      Health->UnavailableProviders++;
+      if (Health->FirstIssueStatus == EFI_SUCCESS) {
+        Health->FirstIssueStatus = Entries[Index].Status;
+        Health->FirstIssueName   = Entries[Index].Name;
+      }
+    } else {
+      Health->ReadyProviders++;
+    }
+  }
+
+  if (Health->ReadyProviders == Health->TotalProviders) {
+    Health->State = ModernSetupProviderHealthReady;
+  } else if (Health->ReadyProviders == 0) {
+    Health->State = ModernSetupProviderHealthNotReady;
+  } else {
+    Health->State = ModernSetupProviderHealthDegraded;
+  }
+
+  return EFI_SUCCESS;
+}
+
 /**
   Collect one normalized read-only app provider snapshot.
 

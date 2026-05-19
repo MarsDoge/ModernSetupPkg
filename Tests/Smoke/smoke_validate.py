@@ -17,7 +17,9 @@ side invariants that are useful for multi-agent maintenance:
   experimental HII bridge path;
 * ModernSetupApp INF sources stay synchronized with app source files; and
 * ModernSetupApp module boundaries keep dashboard drawing in its app module
-  without direct experimental HII bridge or ConfigAccess coupling.
+  without direct experimental HII bridge or ConfigAccess coupling;
+* provider health/readiness remains app-private and derived from the provider
+  snapshot boundary; and
 * overlay generation works against tiny synthetic edk2 source fixtures.
 """
 
@@ -364,9 +366,25 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
     provider_body = strip_c_comments(provider.read_text(encoding="utf-8"))
     if c_function_definition_count(provider_body, "ModernSetupGetProviderSnapshot") != 1:
         raise SmokeFailure("ModernSetupAppProvider.c must define ModernSetupGetProviderSnapshot exactly once")
+    if c_function_definition_count(provider_body, "ModernSetupGetProviderHealthSummary") != 1:
+        raise SmokeFailure("ModernSetupAppProvider.c must define ModernSetupGetProviderHealthSummary exactly once")
+    if c_function_definition_count(provider_body, "ModernSetupGetProviderHealthStateText") != 1:
+        raise SmokeFailure("ModernSetupAppProvider.c must define ModernSetupGetProviderHealthStateText exactly once")
     for token in APP_PROVIDER_SUMMARY_TOKENS:
         if token not in provider_body:
             raise SmokeFailure(f"ModernSetupAppProvider.c missing provider summary call: {token}")
+    if "MODERN_SETUP_PROVIDER_HEALTH_SUMMARY" not in provider_body:
+        raise SmokeFailure("ModernSetupAppProvider.c missing app-private provider health summary derivation")
+
+    dashboard_body = strip_c_comments(dashboard.read_text(encoding="utf-8"))
+    if "ModernSetupGetProviderHealthSummary" not in dashboard_body:
+        raise SmokeFailure("ModernSetupAppDashboard.c must render health derived from the provider snapshot")
+    if "ModernSetupGetProviderHealthStateText" not in dashboard_body:
+        raise SmokeFailure("ModernSetupAppDashboard.c must show provider health state text")
+    if "ProviderHealth." not in dashboard_body:
+        raise SmokeFailure("ModernSetupAppDashboard.c must consume the app-private provider health summary")
+    if "Provider Health" not in pages_body:
+        raise SmokeFailure("ModernSetupAppPages.c diagnostics summary must include provider health details")
 
     return ["PASS ModernSetupApp module boundary checks"]
 

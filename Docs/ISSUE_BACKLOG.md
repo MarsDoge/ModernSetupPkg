@@ -126,6 +126,35 @@ Phase 2 is complete when:
    native setup mutation paths.
 4. Smoke validation checks the app provider boundary and INF source coverage.
 
+## Phase 3 app/provider dashboard usefulness
+
+Current app/provider acceptance target:
+
+- Title: `phase3(app): add provider health summary to dashboard and diagnostics`.
+- Route: App shell and provider agents, with platform-ci for smoke validation.
+- Labels: `area/app-provider`, `area/platform-ci` when mirrored to GitHub.
+- Scope: derive an app-private read-only provider health/readiness summary from
+  the existing provider snapshot, render compact health/coverage information in
+  Dashboard, add diagnostics detail for degraded provider collection, and extend
+  smoke checks so presentation code continues to consume the snapshot boundary.
+- Non-goals: no public API/DEC/GUID/PCD change, no IFR parsing, no ConfigAccess
+  implementation, no HII varstore writes, and no coupling to the experimental
+  HII bridge or page adapter.
+- Expected validation: `python3 Tests/Smoke/smoke_validate.py`,
+  `git diff --check origin/main...HEAD`, and PR notes that QEMU/manual firmware
+  UI validation is recommended for visual review but was not required for the
+  host-side boundary change.
+
+Phase 3 is complete when:
+
+1. Dashboard shows whether provider-backed app data is ready, degraded, or not
+   ready, including provider coverage from the existing snapshot statuses.
+2. Diagnostics exposes enough provider health detail to identify the first
+   degraded/unavailable provider without adding a new public API.
+3. The health summary remains app-private and read-only.
+4. Smoke validation enforces the health summary boundary alongside existing app
+   provider snapshot checks.
+
 ## Later backlog themes
 
 Keep later work grouped by feature phase rather than creating one issue per file move:
