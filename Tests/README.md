@@ -19,6 +19,7 @@ Tests
 |   +-- ArmVirtQemu.md       Manual graphics, input, and navigation checks.
 |   +-- LoongArchVirtQemu.md Manual LoongArchVirt build and graphics checks.
 |   +-- OvmfX64Qemu.md       Manual OVMF X64 build and graphics checks.
+|   +-- RiscVVirtQemu.md     Manual RiscVVirt build validation notes.
 |
 +-- Smoke
 |   |
@@ -36,6 +37,9 @@ Tests
 - OVMF X64 overlay generation and local build validation through
   `Scripts/build-ovmf-x64.sh`, including native/modern DisplayEngine overlay
   selection for before/after comparison.
+- RiscVVirtQemu RISCV64 overlay generation and local build validation through
+  `Scripts/build-riscvvirt.sh`; full compile requires an external RISC-V
+  GCC/binutils cross toolchain and graphical QEMU validation is not active yet.
 - Manual QEMU graphics validation through `Scripts/run-armvirt.sh`.
 - Manual OVMF X64 QEMU graphics validation through
   `Scripts/run-ovmf-x64.sh`; this path is local/manual validation and is not
@@ -57,6 +61,8 @@ Tests
   `ModernSetupApp` or custom HII bridge libraries.
 - Static LoongArchVirt overlay validation that the default path uses native
   UiApp plus `ModernDisplayEngineDxe`.
+- Static RiscVVirt overlay validation that native/modern DisplayEngine overlays
+  can be generated without pulling in the experimental App/HII bridge path.
 - Lightweight scripted smoke validation through
   `Tests/Smoke/smoke_validate.py`, covering shell syntax, overlay generation
   dry runs, native/modern overlay separation, default overlay exclusion of

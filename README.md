@@ -9,9 +9,9 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 ModernSetupPkg is an experimental edk2 package for a modern GOP-based UEFI setup
 graphics engine and standard front-page shell. It keeps edk2 HII/FormBrowser
-semantics intact while validating the shared engine on ArmVirtQemu and
-LoongArchVirtQemu, with other architectures and platform classes treated as
-future extension targets.
+semantics intact while validating the shared engine on ArmVirtQemu,
+LoongArchVirtQemu, OVMF X64, and RiscVVirtQemu build/script paths, with other
+platform classes treated as future extension targets.
 
 The UI intentionally uses only open source edk2 interfaces and original visual
 assets. Commercial IBV firmware screens are treated only as visual and
@@ -70,6 +70,8 @@ real setup pages on native FormBrowser.
   files unchanged
 - OVMF X64 overlay scripts that keep upstream `OvmfPkg` files unchanged and
   provide a local/manual QEMU validation path
+- RiscVVirtQemu overlay scripts that keep upstream `OvmfPkg/RiscVVirt` files
+  unchanged and provide RISCV64 build/script validation
 - Development rules for function contracts, multi-architecture extension points,
   and IBV-friendly adaptation
 
@@ -195,6 +197,10 @@ edk2 workspace
     |   |
     |   +-- Scripts/build-ovmf-x64.sh
     |   |
+    |   +-- Scripts/build-riscvvirt.sh
+    |   |   |
+    |   |   +-- RISCV64 overlay/build validation; QEMU run is future work
+    |   |
     |   +-- Scripts/run-ovmf-x64.sh
     |       |
     |       +-- QEMU OVMF X64 graphics validation
@@ -217,6 +223,7 @@ edk2 workspace
         +-- Manual/ArmVirtQemu.md
         +-- Manual/LoongArchVirtQemu.md
         +-- Manual/OvmfX64Qemu.md
+        +-- Manual/RiscVVirtQemu.md
         +-- Smoke       (planned)
         +-- Unit        (planned)
 ```
@@ -380,6 +387,33 @@ To inspect the generated OVMF X64 overlay without compiling firmware:
 ```sh
 GENERATE_ONLY=1 ModernSetupPkg/Scripts/build-ovmf-x64.sh
 ```
+
+Build RiscVVirtQemu from the same edk2 workspace:
+
+```sh
+export GCC_RISCV64_PREFIX=riscv64-linux-gnu-
+ModernSetupPkg/Scripts/build-riscvvirt.sh
+```
+
+The RiscVVirt build path requires a RISC-V GCC/binutils cross toolchain; the
+script checks for `${GCC_RISCV64_PREFIX}gcc` and
+`${GCC_RISCV64_PREFIX}objcopy` before compiling.
+
+For RISCV64 before/after DisplayEngine overlay generation or build validation:
+
+```sh
+MODERN_SETUP_DISPLAY_ENGINE=native ModernSetupPkg/Scripts/build-riscvvirt.sh
+MODERN_SETUP_DISPLAY_ENGINE=modern ModernSetupPkg/Scripts/build-riscvvirt.sh
+```
+
+To inspect the generated RiscVVirt overlay without a RISC-V cross toolchain:
+
+```sh
+GENERATE_ONLY=1 ModernSetupPkg/Scripts/build-riscvvirt.sh
+```
+
+The RiscVVirt path is build/script validation only in this phase; no graphical
+QEMU RISC-V run helper is provided yet.
 
 The renderer asks GOP for a larger display mode during initialization. If the
 firmware exposes a suitable mode, it switches away from small 800x600 defaults
