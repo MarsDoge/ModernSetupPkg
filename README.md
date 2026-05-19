@@ -68,6 +68,8 @@ real setup pages on native FormBrowser.
 - ArmVirtQemu overlay scripts that keep upstream `ArmVirtPkg` files unchanged
 - LoongArchVirtQemu overlay scripts that keep upstream `OvmfPkg/LoongArchVirt`
   files unchanged
+- OVMF X64 overlay scripts that keep upstream `OvmfPkg` files unchanged and
+  provide a local/manual QEMU validation path
 - Development rules for function contracts, multi-architecture extension points,
   and IBV-friendly adaptation
 
@@ -188,8 +190,14 @@ edk2 workspace
     |   +-- Scripts/build-loongarchvirt.sh
     |   |
     |   +-- Scripts/run-loongarchvirt.sh
+    |   |   |
+    |   |   +-- QEMU LoongArchVirt graphics validation
+    |   |
+    |   +-- Scripts/build-ovmf-x64.sh
+    |   |
+    |   +-- Scripts/run-ovmf-x64.sh
     |       |
-    |       +-- QEMU LoongArchVirt graphics validation
+    |       +-- QEMU OVMF X64 graphics validation
     |
     +-- Project records
     |   |
@@ -208,6 +216,7 @@ edk2 workspace
         |
         +-- Manual/ArmVirtQemu.md
         +-- Manual/LoongArchVirtQemu.md
+        +-- Manual/OvmfX64Qemu.md
         +-- Smoke       (planned)
         +-- Unit        (planned)
 ```
@@ -353,6 +362,25 @@ available:
 GENERATE_ONLY=1 ModernSetupPkg/Scripts/build-loongarchvirt.sh
 ```
 
+Build OVMF X64 from the same edk2 workspace:
+
+```sh
+ModernSetupPkg/Scripts/build-ovmf-x64.sh
+```
+
+For X64 OVMF before/after DisplayEngine comparison:
+
+```sh
+MODERN_SETUP_DISPLAY_ENGINE=native ModernSetupPkg/Scripts/build-ovmf-x64.sh
+MODERN_SETUP_DISPLAY_ENGINE=modern ModernSetupPkg/Scripts/build-ovmf-x64.sh
+```
+
+To inspect the generated OVMF X64 overlay without compiling firmware:
+
+```sh
+GENERATE_ONLY=1 ModernSetupPkg/Scripts/build-ovmf-x64.sh
+```
+
 The renderer asks GOP for a larger display mode during initialization. If the
 firmware exposes a suitable mode, it switches away from small 800x600 defaults
 to at least 1024x768.
@@ -379,6 +407,16 @@ GRAPHICS=1 RESET_VARS=1 ModernSetupPkg/Scripts/run-loongarchvirt.sh
 The LoongArch run path uses native UiApp plus ModernDisplayEngine, matching the
 default ArmVirt compatibility path. It does not boot `ModernSetupApp` by
 default.
+
+Run OVMF X64 with graphics:
+
+```sh
+GRAPHICS=1 RESET_VARS=1 ModernSetupPkg/Scripts/run-ovmf-x64.sh
+```
+
+The OVMF X64 path is currently a local/manual QEMU validation path, not a CI
+gate. It uses native UiApp plus ModernDisplayEngine in the default modern build
+and supports native/modern DisplayEngine before/after rebuilds.
 
 To boot the experimental front-page App on LoongArch, build a LoongArch ESP and
 attach it explicitly:
