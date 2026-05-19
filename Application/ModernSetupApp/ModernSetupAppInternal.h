@@ -45,6 +45,10 @@
 #define SCREEN_MARGIN      24
 #define MAX_BOOT_ROWS      9
 #define MAX_DEVICE_ROWS    9
+#define DASHBOARD_QUICK_CARD_COUNT  6
+#define DASHBOARD_QUICK_CARD_TOP    48
+#define DASHBOARD_QUICK_CARD_BOTTOM 10
+#define DASHBOARD_QUICK_VALUE_MIN_HEIGHT  36
 
 typedef enum {
   PageDashboard = 0,
@@ -102,6 +106,17 @@ typedef struct {
   EFI_STATUS                          FirstIssueStatus;
   CONST CHAR16                        *FirstIssueName;
 } MODERN_SETUP_PROVIDER_HEALTH_SUMMARY;
+
+typedef struct {
+  BOOLEAN         Visible;
+  MODERN_UI_RECT  Panel;
+  UINTN           CardsPerRow;
+  UINTN           Rows;
+  UINTN           CardGap;
+  UINTN           CardTop;
+  UINTN           CardHeight;
+  UINTN           CardWidth;
+} MODERN_SETUP_DASHBOARD_QUICK_GRID;
 
 extern EFI_HANDLE  mModernSetupImageHandle;
 extern BOOLEAN     mModernSetupLanguageDropdownOpen;
@@ -211,6 +226,12 @@ UINTN
 ModernSetupGetPageSelectableCount (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN SETUP_PAGE                Page
+  );
+
+BOOLEAN
+ModernSetupGetDashboardQuickGrid (
+  IN  MODERN_UI_RENDER_CONTEXT           *Ui,
+  OUT MODERN_SETUP_DASHBOARD_QUICK_GRID  *Grid
   );
 
 EFI_STATUS

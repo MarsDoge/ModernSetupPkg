@@ -15,29 +15,67 @@ STATIC CONST EFI_GUID  mUiAppGuid = { 0x462CAA21, 0x7614, 0x4503, { 0x83, 0x6E, 
 BOOLEAN         mModernSetupLanguageDropdownOpen;
 UINTN           mModernSetupLanguageDropdownSelection;
 
-STATIC
+/**
+  Calculate the visible Dashboard Quick Access grid from the same layout
+  contract used by drawing and keyboard navigation.
+
+  @param[in]  Ui    Initialized render context. Must not be NULL.
+  @param[out] Grid  Receives the Quick Access panel and card metrics.
+
+  @retval TRUE   Quick Access cards are visible/selectable.
+  @retval FALSE  Quick Access cards do not fit in the current content rect.
+**/
 BOOLEAN
-DashboardQuickAccessVisible (
-  IN MODERN_UI_RENDER_CONTEXT  *Ui
+ModernSetupGetDashboardQuickGrid (
+  IN  MODERN_UI_RENDER_CONTEXT           *Ui,
+  OUT MODERN_SETUP_DASHBOARD_QUICK_GRID  *Grid
   )
 {
   MODERN_UI_RECT  Content;
   UINTN           TopHeight;
+  UINTN           QuickY;
   UINTN           QuickHeight;
+  UINTN           CardAreaWidth;
+  UINTN           MaxRows;
 
-  if (Ui == NULL) {
+  if ((Ui == NULL) || (Grid == NULL)) {
     return FALSE;
   }
 
-  Content     = (MODERN_UI_RECT){
-                  SCREEN_MARGIN,
-                  TOP_BAR_HEIGHT + TAB_BAR_HEIGHT + PAGE_TITLE_HEIGHT,
-                  Ui->Width - (SCREEN_MARGIN * 2),
-                  Ui->Height - TOP_BAR_HEIGHT - TAB_BAR_HEIGHT - PAGE_TITLE_HEIGHT - FOOTER_HEIGHT - SCREEN_MARGIN
-                };
+  ZeroMem (Grid, sizeof (*Grid));
+  Content     = ModernSetupContentRect (Ui);
   TopHeight   = (Content.Height >= 460) ? 300 : 232;
+  QuickY      = Content.Y + TopHeight + 16;
   QuickHeight = (Content.Height > (TopHeight + 16)) ? (Content.Height - TopHeight - 16) : 0;
-  return (BOOLEAN)(QuickHeight > 110);
+  if (QuickHeight <= 110) {
+    return FALSE;
+  }
+
+  Grid->Visible    = TRUE;
+  Grid->Panel      = (MODERN_UI_RECT){ Content.X, QuickY, Content.Width, QuickHeight };
+  Grid->CardGap    = 14;
+  Grid->CardTop    = DASHBOARD_QUICK_CARD_TOP;
+  CardAreaWidth    = (Grid->Panel.Width > 40) ? (Grid->Panel.Width - 40) : Grid->Panel.Width;
+  MaxRows          = (Grid->Panel.Height > (DASHBOARD_QUICK_CARD_TOP + DASHBOARD_QUICK_VALUE_MIN_HEIGHT + DASHBOARD_QUICK_CARD_BOTTOM)) ?
+                     ((Grid->Panel.Height - DASHBOARD_QUICK_CARD_TOP - DASHBOARD_QUICK_CARD_BOTTOM + Grid->CardGap) / (DASHBOARD_QUICK_VALUE_MIN_HEIGHT + Grid->CardGap)) :
+                     1;
+  MaxRows          = MAX (1, MIN (DASHBOARD_QUICK_CARD_COUNT, MaxRows));
+  Grid->CardsPerRow = (DASHBOARD_QUICK_CARD_COUNT + MaxRows - 1) / MaxRows;
+  if ((Grid->Panel.Width >= 760) && (Grid->CardsPerRow < 3)) {
+    Grid->CardsPerRow = 3;
+  } else if ((Grid->Panel.Width >= 500) && (Grid->CardsPerRow < 2)) {
+    Grid->CardsPerRow = 2;
+  }
+
+  Grid->CardsPerRow = MIN (DASHBOARD_QUICK_CARD_COUNT, Grid->CardsPerRow);
+  Grid->Rows        = (DASHBOARD_QUICK_CARD_COUNT + Grid->CardsPerRow - 1) / Grid->CardsPerRow;
+  Grid->CardWidth   = (CardAreaWidth > (Grid->CardGap * (Grid->CardsPerRow - 1))) ?
+                      ((CardAreaWidth - (Grid->CardGap * (Grid->CardsPerRow - 1))) / Grid->CardsPerRow) :
+                      MAX (1, CardAreaWidth / Grid->CardsPerRow);
+  Grid->CardHeight  = (Grid->Panel.Height > (Grid->CardTop + DASHBOARD_QUICK_CARD_BOTTOM + (Grid->CardGap * (Grid->Rows - 1)))) ?
+                      ((Grid->Panel.Height - Grid->CardTop - DASHBOARD_QUICK_CARD_BOTTOM - (Grid->CardGap * (Grid->Rows - 1))) / Grid->Rows) :
+                      DASHBOARD_QUICK_VALUE_MIN_HEIGHT;
+  return TRUE;
 }
 
 /**
@@ -228,7 +266,11 @@ ModernSetupGetPageSelectableCount (
 {
   switch (Page) {
     case PageDashboard:
-      return DashboardQuickAccessVisible (Ui) ? 3 : 0;
+      {
+        MODERN_SETUP_DASHBOARD_QUICK_GRID  Grid;
+
+        return ModernSetupGetDashboardQuickGrid (Ui, &Grid) ? DASHBOARD_QUICK_CARD_COUNT : 0;
+      }
     case PageBoot:
       {
         MODERN_UI_RECT  Panel;

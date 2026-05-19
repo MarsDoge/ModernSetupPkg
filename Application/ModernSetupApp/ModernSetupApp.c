@@ -41,6 +41,7 @@ UefiMain (
   UINTN                     ExitSelection;
   UINTN                     Selection;
   UINTN                     SelectableCount;
+  MODERN_SETUP_DASHBOARD_QUICK_GRID  DashboardGrid;
   CHAR16                    StatusMessage[96];
   BOOLEAN                   Redraw;
 
@@ -82,7 +83,11 @@ UefiMain (
         if ((Focus == SetupFocusContent) && (Page == PageExit) && mModernSetupLanguageDropdownOpen) {
           mModernSetupLanguageDropdownSelection = (mModernSetupLanguageDropdownSelection == 0) ? 1 : 0;
         } else if ((Focus == SetupFocusContent) && (Page == PageDashboard)) {
-          Focus = SetupFocusNav;
+          if (ModernSetupGetDashboardQuickGrid (&Ui, &DashboardGrid) && (DashboardSelection >= DashboardGrid.CardsPerRow)) {
+            DashboardSelection -= DashboardGrid.CardsPerRow;
+          } else {
+            Focus = SetupFocusNav;
+          }
         } else if (Focus == SetupFocusContent) {
           SelectableCount = ModernSetupGetPageSelectableCount (&Ui, Page);
           if (SelectableCount > 0) {
@@ -100,6 +105,10 @@ UefiMain (
         } else if (Focus == SetupFocusNav) {
           if (ModernSetupGetPageSelectableCount (&Ui, Page) > 0) {
             Focus = SetupFocusContent;
+          }
+        } else if (Page == PageDashboard) {
+          if (ModernSetupGetDashboardQuickGrid (&Ui, &DashboardGrid) && ((DashboardSelection + DashboardGrid.CardsPerRow) < DASHBOARD_QUICK_CARD_COUNT)) {
+            DashboardSelection += DashboardGrid.CardsPerRow;
           }
         } else {
           SelectableCount = ModernSetupGetPageSelectableCount (&Ui, Page);
@@ -121,7 +130,11 @@ UefiMain (
         if ((Focus == SetupFocusContent) && (Page == PageExit) && mModernSetupLanguageDropdownOpen) {
           mModernSetupLanguageDropdownOpen = FALSE;
         } else if ((Focus == SetupFocusContent) && (Page == PageDashboard)) {
-          DashboardSelection = (DashboardSelection == 0) ? 2 : (DashboardSelection - 1);
+          if (ModernSetupGetDashboardQuickGrid (&Ui, &DashboardGrid) && ((DashboardSelection % DashboardGrid.CardsPerRow) > 0)) {
+            DashboardSelection--;
+          } else if (!DashboardGrid.Visible) {
+            DashboardSelection = (DashboardSelection == 0) ? (DASHBOARD_QUICK_CARD_COUNT - 1) : (DashboardSelection - 1);
+          }
         } else if (Focus == SetupFocusNav) {
           Page = (Page == 0) ? (PageMax - 1) : (Page - 1);
           mModernSetupLanguageDropdownOpen = FALSE;
@@ -137,7 +150,13 @@ UefiMain (
           Page = (Page + 1) % PageMax;
           mModernSetupLanguageDropdownOpen = FALSE;
         } else if (Page == PageDashboard) {
-          DashboardSelection = (DashboardSelection + 1) % 3;
+          if (ModernSetupGetDashboardQuickGrid (&Ui, &DashboardGrid)) {
+            if ((((DashboardSelection % DashboardGrid.CardsPerRow) + 1) < DashboardGrid.CardsPerRow) && ((DashboardSelection + 1) < DASHBOARD_QUICK_CARD_COUNT)) {
+              DashboardSelection++;
+            }
+          } else {
+            DashboardSelection = (DashboardSelection + 1) % DASHBOARD_QUICK_CARD_COUNT;
+          }
           StatusMessage[0] = L'\0';
         } else {
           mModernSetupLanguageDropdownOpen = FALSE;
@@ -173,8 +192,17 @@ UefiMain (
           } else if (DashboardSelection == 1) {
             Page  = PageDevices;
             Focus = SetupFocusContent;
+          } else if (DashboardSelection == 2) {
+            Page  = PageDiagnostics;
+            Focus = SetupFocusNav;
+          } else if (DashboardSelection == 3) {
+            Page  = PageFirmware;
+            Focus = SetupFocusNav;
+          } else if (DashboardSelection == 4) {
+            Page  = PagePower;
+            Focus = SetupFocusNav;
           } else {
-            Page  = PageSecurity;
+            Page  = PagePerformance;
             Focus = SetupFocusNav;
           }
 

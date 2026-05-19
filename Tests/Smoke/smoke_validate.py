@@ -19,7 +19,9 @@ side invariants that are useful for multi-agent maintenance:
 * ModernSetupApp module boundaries keep dashboard drawing in its app module
   without direct experimental HII bridge or ConfigAccess coupling;
 * provider health/readiness remains app-private and derived from the provider
-  snapshot boundary; and
+  snapshot boundary;
+* the Dashboard quick-card expansion stays backed by provider snapshots and a
+  single app-private selectable-card count; and
 * overlay generation works against tiny synthetic edk2 source fixtures.
 """
 
@@ -74,6 +76,14 @@ APP_PROVIDER_SNAPSHOT_FIELDS = (
     "Management",
     "Power",
     "Performance",
+)
+DASHBOARD_EXPANDED_CARD_TOKENS = (
+    "Provider Health",
+    "Firmware",
+    "Power / Thermal",
+    "Performance",
+    "BootDetailText",
+    "DeviceDetailText",
 )
 
 
@@ -377,12 +387,38 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
         raise SmokeFailure("ModernSetupAppProvider.c missing app-private provider health summary derivation")
 
     dashboard_body = strip_c_comments(dashboard.read_text(encoding="utf-8"))
+    app_body = strip_c_comments((app_dir / "ModernSetupApp.c").read_text(encoding="utf-8"))
+    actions_body = strip_c_comments((app_dir / "ModernSetupAppActions.c").read_text(encoding="utf-8"))
     if "ModernSetupGetProviderHealthSummary" not in dashboard_body:
         raise SmokeFailure("ModernSetupAppDashboard.c must render health derived from the provider snapshot")
     if "ModernSetupGetProviderHealthStateText" not in dashboard_body:
         raise SmokeFailure("ModernSetupAppDashboard.c must show provider health state text")
     if "ProviderHealth." not in dashboard_body:
         raise SmokeFailure("ModernSetupAppDashboard.c must consume the app-private provider health summary")
+    internal_body = strip_c_comments((app_dir / "ModernSetupAppInternal.h").read_text(encoding="utf-8"))
+    count_match = re.search(r"#define\s+DASHBOARD_QUICK_CARD_COUNT\s+(\d+)", internal_body)
+    if count_match is None:
+        raise SmokeFailure("ModernSetupAppInternal.h missing DASHBOARD_QUICK_CARD_COUNT")
+    if int(count_match.group(1)) < 6:
+        raise SmokeFailure("Dashboard quick-card expansion must expose at least six cards")
+    if "DASHBOARD_QUICK_CARD_COUNT" not in dashboard_body:
+        raise SmokeFailure("ModernSetupAppDashboard.c must layout cards from DASHBOARD_QUICK_CARD_COUNT")
+    if "DASHBOARD_QUICK_VALUE_MIN_HEIGHT" not in dashboard_body:
+        raise SmokeFailure("ModernSetupAppDashboard.c must keep Dashboard card values visible in compact layouts")
+    if "ModernSetupGetDashboardQuickGrid" not in actions_body or "MODERN_SETUP_DASHBOARD_QUICK_GRID" not in internal_body:
+        raise SmokeFailure("Dashboard quick-card layout must use a shared grid helper contract")
+    if "DashboardSelection >= DashboardGrid.CardsPerRow" not in app_body:
+        raise SmokeFailure("Dashboard Up navigation must move by grid row before returning to navigation")
+    if "DashboardSelection + DashboardGrid.CardsPerRow" not in app_body:
+        raise SmokeFailure("Dashboard Down navigation must move by grid row")
+    for token in DASHBOARD_EXPANDED_CARD_TOKENS:
+        if token not in dashboard_body:
+            raise SmokeFailure(f"ModernSetupAppDashboard.c missing expanded Dashboard card token: {token}")
+    for provider_field in ("Firmware", "Power", "Performance", "Diagnostics"):
+        if f"Providers.{provider_field}." not in dashboard_body:
+            raise SmokeFailure(
+                f"ModernSetupAppDashboard.c expanded cards must use provider snapshot field: Providers.{provider_field}."
+            )
     if "Provider Health" not in pages_body:
         raise SmokeFailure("ModernSetupAppPages.c diagnostics summary must include provider health details")
 

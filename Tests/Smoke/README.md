@@ -41,6 +41,9 @@ The smoke harness currently checks:
 - Provider health/readiness is derived in `ModernSetupAppProvider.c`, rendered by
   Dashboard, and included in Diagnostics without adding public API or coupling to
   experimental HII bridge/page adapter paths.
+- The expanded Dashboard card set uses one app-private selectable-card count and
+  remains backed by the normalized provider snapshot for firmware, diagnostics,
+  power/thermal, and performance details.
 
 Use this as the first validation for docs, ownership, script, and static overlay
 changes. It complements, but does not replace, manual QEMU checks for firmware UI
