@@ -20,7 +20,7 @@ Use ownership to answer three questions:
 | core-api | Core API agent | `Include/ModernUi/*.h`, `ModernSetupPkg.dec` | Public structs, enums, function contracts, LibraryClasses, GUIDs, PCDs | Any header/DEC change also needs the affected implementation owner |
 | renderer/theme/ui-engine | Renderer/theme/UI engine agents | `Library/ModernUiRendererLib/`, `Library/ModernUiThemeLib/`, `Library/ModernUiEngineLib/`, `Library/ModernUiInputLib/`, `Library/ModernUiPageAdapterLib/`, matching headers | Drawing primitives, theme tokens, layout models, input events, page adapters | Public model changes need core-api; DisplayEngine/App shared behavior needs those owners |
 | display-engine | DisplayEngine compatibility agent | `Universal/ModernDisplayEngineDxe/`, `Library/ModernUiCustomizedDisplayLib/` | Native edk2 DisplayEngine/FormBrowser rendering and compatibility behavior | UI model changes need renderer/theme/ui-engine; public hooks need core-api |
-| app/provider | App shell and provider agents | `Application/ModernSetupApp/`, `Library/ModernUi*DataLib/`, provider/data headers | Front-page shell, dashboards, navigation, typed read-only summaries, FormBrowser entry points | Real setup-page behavior needs display-engine/FormBrowser review; public provider models need core-api |
+| app/provider | App shell and provider agents | `Application/ModernSetupApp/`, `Library/ModernUi*DataLib/`, provider/data headers | Front-page shell, dashboards, navigation, typed read-only summaries, FormBrowser entry points, PCIe policy summary hints | Real setup-page behavior needs display-engine/FormBrowser review; public provider models need core-api |
 | hii-bridge | Experimental HII bridge agent | `Library/ModernUiHiiBridgeLib/`, `Include/ModernUi/ModernUiHiiBridge.h` | Experimental HII interpretation research | Promotion beyond experimental needs core-api and display-engine review |
 | platform-ci | Platform/CI/release agent | `Scripts/`, `Tests/`, `Experimental/`, `*.dsc`, docs, `.github/`, release notes | Build scripts, QEMU/manual validation, package integration, maintainer docs | Script or DSC changes that hide behavior changes need affected code owner review |
 | docs | Docs/governance route through platform-ci | `Docs/`, `.github/ISSUE_TEMPLATE/`, `.github/labels.yml`, `.github/PULL_REQUEST_TEMPLATE.md` | Contributor docs, issue backlog, ownership routing, issue templates, label metadata | Policy changes that affect a stable code contract need that logical owner review |
@@ -45,6 +45,10 @@ ModernSetupApp boundary rules:
 - Experimental HII bridge and page adapter headers/libraries stay out of `Application/ModernSetupApp/` unless an explicit promotion is reviewed by core-api and display-engine owners.
 - When adding an app `.c` file matching `Application/ModernSetupApp/ModernSetupApp*.c`, update `Application/ModernSetupApp/ModernSetupApp.inf` `[Sources]` in the same PR and run `python3 Tests/Smoke/smoke_validate.py`.
 - App-internal refactors should preserve public API/DEC contracts unless the PR explicitly routes through core-api.
+- PCIe policy summaries from `ModernUiPcieDataLib` are read-only capability and
+  native HII entry hints. ReBAR, Above 4G decoding, SR-IOV, ASPM, bifurcation,
+  hot-plug, ACS/ARI, IOMMU, and BAR resource policy changes remain owned by
+  platform HII/FormBrowser flows, not App/provider code.
 
 ## Practical routing
 

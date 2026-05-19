@@ -73,6 +73,44 @@ APP_PROVIDER_SUMMARY_TOKENS = (
     "ModernUiPowerDataGetSummary",
     "ModernUiPerformanceDataGetSummary",
 )
+PCIE_PROVIDER_SUMMARY_TOKEN = "ModernUiPcieDataGetSummary"
+PCIE_PROVIDER_REQUIRED_FILES = (
+    Path("Include") / "ModernUi" / "ModernUiPcieData.h",
+    Path("Library") / "ModernUiPcieDataLib" / "ModernUiPcieDataLib.c",
+    Path("Library") / "ModernUiPcieDataLib" / "ModernUiPcieDataLib.inf",
+)
+PCIE_FORBIDDEN_MUTATION_TOKENS = (
+    "SetVariable",
+    "RouteConfig",
+    "ExtractConfig",
+    "HiiSetBrowserData",
+    "HiiUpdateForm",
+    "EFI_HII_CONFIG_ACCESS_PROTOCOL",
+    "SetBarAttributes",
+)
+PCIE_DOC_KEYWORDS = (
+    "pcie",
+    "pci express",
+    "rebar",
+    "resizable bar",
+    "above4g",
+    "above 4g",
+    "sr-iov",
+    "sriov",
+    "aspm",
+    "bifurcation",
+)
+PCIE_DOC_FORBIDDEN_CLAIM_PATTERNS = (
+    re.compile(r"\b(edit|edits|editing|modify|modifies|modifying|write|writes|writing|toggle|toggles|toggling)\b", re.IGNORECASE),
+)
+PCIE_DOC_REQUIRED_FILES = (
+    Path("Docs") / "ISSUE_BACKLOG.md",
+    Path("Docs") / "AGENT_OWNERSHIP.md",
+    Path("Docs") / "ProductizationFeatureMatrix.md",
+    Path("Docs") / "IbvAndPlatformSetupSurvey.md",
+    Path("README.md"),
+    Path("CHANGELOG.md"),
+)
 APP_PROVIDER_SNAPSHOT_FIELDS = (
     "Platform",
     "Security",
@@ -490,6 +528,84 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
     return ["PASS ModernSetupApp module boundary checks"]
 
 
+def check_pcie_provider_foundation(root: Path) -> list[str]:
+    for relative in PCIE_PROVIDER_REQUIRED_FILES:
+        if not (root / relative).exists():
+            raise SmokeFailure(f"missing PCIe provider foundation file: {relative}")
+
+    header = root / "Include" / "ModernUi" / "ModernUiPcieData.h"
+    lib_c = root / "Library" / "ModernUiPcieDataLib" / "ModernUiPcieDataLib.c"
+    lib_inf = root / "Library" / "ModernUiPcieDataLib" / "ModernUiPcieDataLib.inf"
+    dec = root / "ModernSetupPkg.dec"
+    experimental_dsc = root / "Experimental" / "ModernSetupApp.dsc"
+    app_inf = root / MODERN_SETUP_APP_INF
+
+    assert_contains(header, "MODERN_UI_PCIE_SUMMARY")
+    assert_contains(header, PCIE_PROVIDER_SUMMARY_TOKEN)
+    assert_contains(lib_c, "#include <ModernUi/ModernUiPcieData.h>")
+    assert_contains(lib_c, PCIE_PROVIDER_SUMMARY_TOKEN)
+    assert_contains(lib_inf, "BASE_NAME                      = ModernUiPcieDataLib")
+    assert_contains(lib_inf, "LIBRARY_CLASS                  = ModernUiPcieDataLib|UEFI_APPLICATION")
+    assert_contains(dec, "ModernUiPcieDataLib|Include/ModernUi/ModernUiPcieData.h")
+    assert_contains(experimental_dsc, "ModernUiPcieDataLib|ModernSetupPkg/Library/ModernUiPcieDataLib/ModernUiPcieDataLib.inf")
+    assert_contains(experimental_dsc, "ModernSetupPkg/Library/ModernUiPcieDataLib/ModernUiPcieDataLib.inf")
+    if app_inf.exists():
+        assert_contains(app_inf, "ModernUiPcieDataLib")
+
+    for source in (lib_c, header):
+        body = strip_c_comments(source.read_text(encoding="utf-8"))
+        for token in PCIE_FORBIDDEN_MUTATION_TOKENS:
+            if token in body:
+                raise SmokeFailure(f"{source.relative_to(root)} contains prohibited PCIe mutation token: {token}")
+
+    app_dir = root / MODERN_SETUP_APP_DIR
+    for source in sorted(app_dir.glob("ModernSetupApp*.c")):
+        body = strip_c_comments(source.read_text(encoding="utf-8"))
+        if PCIE_PROVIDER_SUMMARY_TOKEN in body and source.name != "ModernSetupAppProvider.c":
+            raise SmokeFailure(
+                f"{source.relative_to(root)} bypasses ModernSetupAppProvider.c for PCIe provider summary"
+            )
+        if re.search(r"\b(Pcie|PCIe|PciExpress|ReBAR|ResizableBar|Above4G|Sriov|SRIOV|ASPM|Bifurcation)\b", body):
+            for token in PCIE_FORBIDDEN_MUTATION_TOKENS:
+                if token in body:
+                    raise SmokeFailure(f"{source.relative_to(root)} contains prohibited app PCIe mutation token: {token}")
+
+    return ["PASS PCIe provider foundation wiring and read-only boundary checks"]
+
+
+def check_pcie_docs_language(root: Path) -> list[str]:
+    missing_docs = [str(path) for path in PCIE_DOC_REQUIRED_FILES if not (root / path).exists()]
+    if missing_docs:
+        raise SmokeFailure("missing PCIe documentation files: " + ", ".join(missing_docs))
+
+    required_markers = {
+        Path("Docs") / "ISSUE_BACKLOG.md": "Phase 7 PCIe policy provider foundation",
+        Path("Docs") / "AGENT_OWNERSHIP.md": "PCIe policy summary",
+        Path("Docs") / "ProductizationFeatureMatrix.md": "ModernUiPcieDataLib",
+        Path("Docs") / "IbvAndPlatformSetupSurvey.md": "PCIe policy",
+        Path("README.md"): "ModernUiPcieDataLib",
+        Path("CHANGELOG.md"): "ModernUiPcieDataLib",
+    }
+    for relative, marker in required_markers.items():
+        assert_contains(root / relative, marker)
+
+    for relative in PCIE_DOC_REQUIRED_FILES:
+        path = root / relative
+        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            normalized = line.lower()
+            if not any(keyword in normalized for keyword in PCIE_DOC_KEYWORDS):
+                continue
+            if "remain" in normalized and ("native" in normalized or "hii" in normalized or "formbrowser" in normalized):
+                continue
+            for pattern in PCIE_DOC_FORBIDDEN_CLAIM_PATTERNS:
+                if pattern.search(line):
+                    raise SmokeFailure(
+                        f"{relative}:{line_number} may claim App-owned PCIe mutation instead of read-only/entry behavior: {line.strip()}"
+                    )
+
+    return ["PASS PCIe docs read-only/capability/entry language checks"]
+
+
 def check_overlay_generation(root: Path) -> list[str]:
     bash = shutil.which("bash")
     if bash is None:
@@ -572,6 +688,8 @@ def main() -> int:
         messages.extend(check_shell_syntax(root))
         messages.extend(check_modern_setup_app_inf_sources(root))
         messages.extend(check_modern_setup_app_module_boundaries(root))
+        messages.extend(check_pcie_provider_foundation(root))
+        messages.extend(check_pcie_docs_language(root))
         messages.extend(check_static_overlay_script_contracts(root))
         messages.extend(check_overlay_generation(root))
     except SmokeFailure as exc:

@@ -37,6 +37,7 @@
   ModernUiManagementDataLib|Include/ModernUi/ModernUiManagementData.h
   ModernUiPowerDataLib|Include/ModernUi/ModernUiPowerData.h
   ModernUiPerformanceDataLib|Include/ModernUi/ModernUiPerformanceData.h
+  ModernUiPcieDataLib|Include/ModernUi/ModernUiPcieData.h
   ModernUiInputLib|Include/ModernUi/ModernUiInput.h
   ModernUiStringLib|Include/ModernUi/ModernUiString.h
   ModernUiHiiBridgeLib|Include/ModernUi/ModernUiHiiBridge.h

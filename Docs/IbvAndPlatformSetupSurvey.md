@@ -36,7 +36,7 @@ firmware stack.
 | Desktop / workstation | Firmware version, CPU, memory, storage, PCIe, graphics, fans, Secure Boot, boot entries. | Boot order, Secure Boot, TPM, virtualization, PCIe policy, fan/power profile, firmware update. | Show dashboard, boot, devices, security, firmware, diagnostics, performance, and power summary. Open policy pages through FormBrowser. |
 | Laptop / 2-in-1 | Firmware version, battery/adapter, display, touch/input, storage, wireless, TPM, Secure Boot. | Boot order, Secure Boot, TPM, virtualization, battery/power behavior, wake policy, camera/wireless toggles. | Show power/thermal and security posture. Device-specific toggles stay in HII pages. |
 | All-in-one / NUC / mini PC | Firmware version, CPU, memory, storage, display, network, fan/thermal, boot entries. | Boot order, PXE, Secure Boot, TPM, thermal/acoustic profile, wake-on-LAN. | Show compact dashboard plus boot, network/device, security, firmware update, and thermal provider state. |
-| Server | Firmware, CPU topology, memory topology, PCIe/NVMe, BMC/IPMI/Redfish, RAS, TPM, Secure Boot. | Boot policy, UEFI network boot, RAS, NUMA, PCIe bifurcation, SR-IOV, TPM, BMC/Redfish, system profile. | Show inventory and management capability summaries. RAS, BMC, PCIe, and security policy stay in HII/provider pages. |
+| Server | Firmware, CPU topology, memory topology, PCIe/NVMe, BMC/IPMI/Redfish, RAS, TPM, Secure Boot. | Boot policy, UEFI network boot, RAS, NUMA, PCIe bifurcation, SR-IOV, TPM, BMC/Redfish, system profile. | Show inventory and management capability summaries plus read-only PCIe policy entry hints. RAS, BMC, PCIe, and security policy stay in HII/provider pages. |
 | Embedded / industrial / tablet appliance | Firmware version, boot source, recovery state, display/input, storage, network, secure state. | Boot source, recovery, firmware update, secure state, watchdog, serial/console, device enablement. | Show minimal safe state and recovery/update entry points. Board policy stays in platform HII. |
 
 ## Common Setup Surfaces
@@ -52,6 +52,7 @@ firmware stack.
 | Management | IPMI, Redfish Discover, SMBIOS Type 38/42 presence. | BMC/IPMI/Redfish configuration. | BMC, Redfish, or server management HII. |
 | Power / Thermal | ACPI table/protocol presence, SMBIOS chassis thermal state, power supply record presence. | Fan curves, acoustic profile, battery behavior, power policy. | Platform power/thermal HII. |
 | Performance / Tuning | CPU/memory inventory presence, CPU I/O protocol presence, virtualization/RAS policy entry availability. | Overclocking, CPU policy, memory timing, NUMA/RAS, PCIe policy. | Platform performance/tuning HII. |
+| PCIe Policy | PCIe controller/root-bridge/endpoint inventory, protocol presence, and capability hints for ReBAR, Above 4G, SR-IOV, ASPM, bifurcation, hot-plug, ACS/ARI, and IOMMU. | Native PCIe policy formset entry. | Platform PCIe policy HII through FormBrowser; actual policy changes remain native owned. |
 | Exit | Continue, reset, language, native UiApp fallback. | Save/discard where the native browser owns state. | Native FormBrowser save/discard/default handling. |
 
 ## Reference Links

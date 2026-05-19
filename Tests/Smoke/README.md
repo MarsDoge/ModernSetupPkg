@@ -20,8 +20,8 @@ python3 Tests/Smoke/smoke_validate.py
 The smoke harness currently checks:
 
 - `bash -n` syntax for `Scripts/*.sh` when `bash` is available.
-- ArmVirt and LoongArchVirt overlay generation in `GENERATE_ONLY=1` mode against
-  small synthetic edk2 source fixtures.
+- ArmVirt, LoongArchVirt, OVMF X64, and RiscVVirt overlay generation in
+  `GENERATE_ONLY=1` mode against small synthetic edk2 source fixtures.
 - Overlay writes remain under `Build/ModernSetupPkgOverlay`.
 - `MODERN_SETUP_DISPLAY_ENGINE=native` output stays on the native edk2
   DisplayEngine/UiApp path.
@@ -44,6 +44,16 @@ The smoke harness currently checks:
 - The expanded Dashboard card set uses one app-private selectable-card count and
   remains backed by the normalized provider snapshot for firmware, diagnostics,
   power/thermal, and performance details.
+- Phase 7 PCIe provider foundation files are present and wired through the public
+  header, library INF/C source, DEC LibraryClass, Experimental App DSC, and App
+  INF LibraryClass mapping when the App consumes provider libraries.
+- `ModernUiPcieDataGetSummary()` is allowed only at the app-private provider
+  boundary, and PCIe provider/App PCIe code is checked for absence of setup
+  mutation tokens such as ConfigAccess routes, HII browser writes, form updates,
+  variable writes, and BAR attribute programming.
+- PCIe docs must describe read-only capability summaries and native HII entry
+  hints; real ReBAR, Above 4G, SR-IOV, ASPM, and bifurcation policy changes
+  remain platform HII/FormBrowser-owned.
 
 Use this as the first validation for docs, ownership, script, and static overlay
 changes. It complements, but does not replace, manual QEMU checks for firmware UI

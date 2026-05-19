@@ -186,6 +186,43 @@ Phase 4 is complete when:
 4. Smoke validation checks the expanded card tokens and provider snapshot
    backing in addition to existing app/provider boundaries.
 
+## Phase 7 PCIe policy provider foundation
+
+Current app/provider acceptance target:
+
+- Title: `phase7(app): add PCIe policy provider foundation`.
+- Route: App shell and provider agents for the read-only provider, core-api for
+  the new `ModernUiPcieDataLib` header/DEC surface, and platform-ci for smoke
+  validation.
+- Labels: `area/app-provider`, `area/core-api`, `area/platform-ci`,
+  `documentation` when mirrored to GitHub.
+- Scope: add a read-only PCIe capability summary and native HII entry hints for
+  controller/root-bridge inventory, ReBAR, Above 4G decoding, SR-IOV, ASPM,
+  bifurcation, hot-plug, ACS/ARI, and IOMMU visibility. Wire the provider into
+  the experimental App DSC and keep smoke checks focused on provider wiring,
+  app-provider call boundaries, and mutation-token exclusion.
+- Non-goals: actual ReBAR, Above 4G, SR-IOV, ASPM, bifurcation, hot-plug, ACS,
+  ARI, or IOMMU policy edits remain platform HII/FormBrowser-owned. PCIe
+  varstores, ConfigAccess callbacks, BAR programming, and HII form lifecycles
+  remain native HII/FormBrowser-owned, outside the App/provider layer.
+- Expected validation: `python3 Tests/Smoke/smoke_validate.py`,
+  `git diff --check origin/main...HEAD`, and PR notes that QEMU/manual firmware
+  UI validation is not required unless a visual or platform run path changes.
+
+Phase 7 is complete when:
+
+1. `ModernUiPcieDataLib` has a public header, library implementation/INF, DEC
+   LibraryClass entry, Experimental DSC mapping/component, and App INF
+   LibraryClass wiring where the App consumes the provider set.
+2. The provider reports read-only capability and native HII entry hints only.
+3. `ModernSetupApp` calls `ModernUiPcieDataGetSummary()` only from
+   `ModernSetupAppProvider.c` when the App snapshot consumes PCIe data.
+4. Smoke validation rejects PCIe-provider or App PCIe code that uses setup
+   mutation tokens such as ConfigAccess routes, HII browser writes, variable
+   writes, form updates, or BAR attribute programming.
+5. Productization docs state that PCIe policy pages and any real policy changes
+   remain native platform HII/FormBrowser responsibility.
+
 ## Later backlog themes
 
 Keep later work grouped by feature phase rather than creating one issue per file move:
