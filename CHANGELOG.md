@@ -14,6 +14,9 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- RiscVVirtQemu RISCV64 overlay build-validation path through
+  `Scripts/build-riscvvirt.sh`, with native/modern DisplayEngine generation,
+  smoke dry-run coverage, and manual build-validation documentation.
 - Phase 4 `ModernSetupApp` Dashboard card expansion with six provider-backed
   Quick Access/status cards for boot readiness, device visibility, provider
   health, firmware lifecycle, power/thermal, and performance inventory, plus

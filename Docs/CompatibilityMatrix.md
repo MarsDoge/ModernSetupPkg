@@ -27,6 +27,7 @@ operate the forms that edk2 has already prepared.
 | ArmVirtQemu AARCH64 | UiApp + ModernDisplayEngine | ESP `BOOTAA64.EFI` | Active | Primary macOS/Apple Silicon validation target. |
 | LoongArchVirtQemu LOONGARCH64 | UiApp + ModernDisplayEngine | ESP `BOOTLOONGARCH64.EFI` | Active | QEMU may fall back to `-bios`; variable persistence depends on pflash support. |
 | X64 / OVMF | UiApp + ModernDisplayEngine overlay | Not wired | Manual | Local `Scripts/build-ovmf-x64.sh` and `Scripts/run-ovmf-x64.sh` path supports native/modern DisplayEngine builds and manual QEMU validation; not CI-active yet. |
+| RiscVVirtQemu RISCV64 | UiApp + ModernDisplayEngine overlay | Not wired | Build/script validation | Local `Scripts/build-riscvvirt.sh` generates native/modern overlays and can run a RISCV64 build with an external RISC-V GCC toolchain; no active graphical UI validation yet. |
 | Real boards | Not validated | Not validated | Planned | Needs GOP, input, FV space, HII, and boot-time validation. |
 
 ## FormBrowser Surface Coverage
