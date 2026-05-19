@@ -171,47 +171,23 @@ ModernSetupDrawDashboard (
   UINTN           CardGap;
   UINTN           TopHeight;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  PanelBackground;
-  MODERN_UI_PLATFORM_SUMMARY  Platform;
-  MODERN_UI_SECURITY_SUMMARY  Security;
-  MODERN_UI_FIRMWARE_SUMMARY  Firmware;
-  MODERN_UI_DIAGNOSTICS_SUMMARY  Diagnostics;
-  MODERN_UI_MANAGEMENT_SUMMARY  Management;
+  MODERN_SETUP_PROVIDER_SNAPSHOT  Providers;
 
   Content = ModernSetupContentRect (Ui);
   PanelBackground = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
   UnicodeSPrint (Resolution, sizeof (Resolution), L"%u x %u", Ui->Width, Ui->Height);
   UnicodeSPrint (BootCount, sizeof (BootCount), ModernUiGetString (ModernUiStringBootCountFormat), ModernSetupGetBootCount ());
   UnicodeSPrint (DeviceCount, sizeof (DeviceCount), L"%u entries", ModernSetupGetVisibleDeviceCount ());
-  if (EFI_ERROR (ModernUiPlatformDataGetSummary (&Platform))) {
-    ZeroMem (&Platform, sizeof (Platform));
-    StrCpyS (Platform.FirmwareVendor, ARRAY_SIZE (Platform.FirmwareVendor), L"Unknown");
-    StrCpyS (Platform.FirmwareRevision, ARRAY_SIZE (Platform.FirmwareRevision), L"Unknown");
-    StrCpyS (Platform.Architecture, ARRAY_SIZE (Platform.Architecture), L"Unknown");
-    StrCpyS (Platform.Platform, ARRAY_SIZE (Platform.Platform), L"Unknown");
-    StrCpyS (Platform.FormFactor, ARRAY_SIZE (Platform.FormFactor), L"Unknown");
-    StrCpyS (Platform.BootMode, ARRAY_SIZE (Platform.BootMode), L"Unknown");
-  }
+  ModernSetupGetProviderSnapshot (&Providers);
 
-  ModernUiSecurityDataGetSummary (&Security);
-  if (EFI_ERROR (ModernUiFirmwareDataGetSummary (&Firmware))) {
-    ZeroMem (&Firmware, sizeof (Firmware));
-  }
-
-  if (EFI_ERROR (ModernUiDiagnosticsDataGetSummary (&Diagnostics))) {
-    ZeroMem (&Diagnostics, sizeof (Diagnostics));
-  }
-
-  if (EFI_ERROR (ModernUiManagementDataGetSummary (&Management))) {
-    ZeroMem (&Management, sizeof (Management));
-  }
-
-  UnicodeSPrint (MemoryText, sizeof (MemoryText), L"%lu MB", Platform.MemorySizeMb);
-  UnicodeSPrint (ArchitectureText, sizeof (ArchitectureText), L"%s", Platform.Architecture);
+  UnicodeSPrint (MemoryText, sizeof (MemoryText), L"%lu MB", Providers.Platform.MemorySizeMb);
+  UnicodeSPrint (ArchitectureText, sizeof (ArchitectureText), L"%s", Providers.Platform.Architecture);
   UnicodeSPrint (
     SecurityText,
     sizeof (SecurityText),
     L"%s",
-    (Security.SecureBoot == ModernUiSecurityStateEnabled) ? ModernUiGetString (ModernUiStringEnabled) : ModernUiGetString (ModernUiStringDisabled)
+    (Providers.Security.SecureBoot == ModernUiSecurityStateEnabled) ? ModernUiGetString (ModernUiStringEnabled) :
+    ((Providers.Security.SecureBoot == ModernUiSecurityStateDisabled) ? ModernUiGetString (ModernUiStringDisabled) : ModernUiGetString (ModernUiStringUnknown))
     );
 
   TopHeight   = (Content.Height >= 460) ? 300 : 232;
@@ -229,11 +205,11 @@ ModernSetupDrawDashboard (
   QuickPanel = (MODERN_UI_RECT){ Content.X, QuickY, Content.Width, QuickHeight };
   DrawDashboardSection (Ui, Theme, SystemPanel, L"System Information", TRUE);
   ModernUiDrawFocusFrame (Ui, SystemPanel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
-  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 58, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringFirmwareVendor), Platform.FirmwareVendor);
-  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 90, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringFirmwareRevision), Platform.FirmwareRevision);
-  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 122, SystemPanel.Width - 44, L"Platform", Platform.Platform);
-  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 154, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringFormFactor), Platform.FormFactor);
-  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 186, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringBootMode), Platform.BootMode);
+  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 58, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringFirmwareVendor), Providers.Platform.FirmwareVendor);
+  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 90, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringFirmwareRevision), Providers.Platform.FirmwareRevision);
+  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 122, SystemPanel.Width - 44, L"Platform", Providers.Platform.Platform);
+  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 154, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringFormFactor), Providers.Platform.FormFactor);
+  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 186, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringBootMode), Providers.Platform.BootMode);
   DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 218, SystemPanel.Width - 44, L"Memory", MemoryText);
   if (TopHeight >= 260) {
     DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 250, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringDisplay), Resolution);
@@ -246,10 +222,10 @@ ModernSetupDrawDashboard (
     DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 120, MonitorPanel.Width - 44, L"Provider", L"UEFI");
     ModernUiFillRect (Ui, (MODERN_UI_RECT){ MonitorPanel.X + 22, MonitorPanel.Y + 154, MonitorPanel.Width - 44, 1 }, Theme->Border);
     ModernUiDrawText (Ui, MonitorPanel.X + 22, MonitorPanel.Y + 178, L"Providers", Theme->WarningText, PanelBackground);
-    DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 208, MonitorPanel.Width - 44, ModernUiGetString (ModernUiStringFirmwareUpdate), DashboardCapabilityText (Firmware.CapsuleRuntimeServices || Firmware.CapsuleArchProtocol));
-    DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 240, MonitorPanel.Width - 44, ModernUiGetString (ModernUiStringDiagnosticsLogs), DashboardCapabilityText (Diagnostics.AcpiPresent || Diagnostics.SmbiosPresent));
+    DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 208, MonitorPanel.Width - 44, ModernUiGetString (ModernUiStringFirmwareUpdate), DashboardCapabilityText (Providers.Firmware.CapsuleRuntimeServices || Providers.Firmware.CapsuleArchProtocol));
+    DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 240, MonitorPanel.Width - 44, ModernUiGetString (ModernUiStringDiagnosticsLogs), DashboardCapabilityText (Providers.Diagnostics.AcpiPresent || Providers.Diagnostics.SmbiosPresent));
     if (TopHeight >= 300) {
-      DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 272, MonitorPanel.Width - 44, ModernUiGetString (ModernUiStringManagement), DashboardCapabilityText (Management.IpmiProtocolPresent || Management.RedfishDiscoverPresent || Management.SmbiosManagementInterfacePresent));
+      DrawDashboardInfoRow (Ui, Theme, MonitorPanel.X + 22, MonitorPanel.Y + 272, MonitorPanel.Width - 44, ModernUiGetString (ModernUiStringManagement), DashboardCapabilityText (Providers.Management.IpmiProtocolPresent || Providers.Management.RedfishDiscoverPresent || Providers.Management.SmbiosManagementInterfacePresent));
     }
   }
 
@@ -262,6 +238,6 @@ ModernSetupDrawDashboard (
     QuickCard.X += CardWidth + CardGap;
     DrawDashboardTile (Ui, Theme, QuickCard, L"Devices / HII", DeviceCount, TRUE, (BOOLEAN)((Focus == SetupFocusContent) && (Selection == 1)));
     QuickCard.X += CardWidth + CardGap;
-    DrawDashboardTile (Ui, Theme, QuickCard, ModernUiGetString (ModernUiStringSecureBoot), SecurityText, (BOOLEAN)(Security.SecureBoot == ModernUiSecurityStateEnabled), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == 2)));
+    DrawDashboardTile (Ui, Theme, QuickCard, ModernUiGetString (ModernUiStringSecureBoot), SecurityText, (BOOLEAN)(Providers.Security.SecureBoot == ModernUiSecurityStateEnabled), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == 2)));
   }
 }

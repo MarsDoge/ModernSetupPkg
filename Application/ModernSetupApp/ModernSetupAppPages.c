@@ -354,9 +354,10 @@ DrawSecurity (
   IN SETUP_FOCUS               Focus
   )
 {
-  MODERN_UI_SECURITY_SUMMARY  Summary;
-  MODERN_UI_RECT  Panel;
-  CONST CHAR16    *SecureBootText;
+  MODERN_SETUP_PROVIDER_SNAPSHOT  Providers;
+  MODERN_UI_SECURITY_SUMMARY       *Summary;
+  MODERN_UI_RECT                   Panel;
+  CONST CHAR16                     *SecureBootText;
   CONST CHAR16    *SetupModeText;
   CONST CHAR16    *PkText;
   CONST CHAR16    *KekText;
@@ -365,25 +366,24 @@ DrawSecurity (
   CONST CHAR16    *Tcg2Text;
   CONST CHAR16    *TreeText;
 
-  if (EFI_ERROR (ModernUiSecurityDataGetSummary (&Summary))) {
-    ZeroMem (&Summary, sizeof (Summary));
-  }
+  ModernSetupGetProviderSnapshot (&Providers);
+  Summary = &Providers.Security;
 
-  SecureBootText = (Summary.SecureBoot == ModernUiSecurityStateEnabled) ? ModernUiGetString (ModernUiStringEnabled) :
-                   ((Summary.SecureBoot == ModernUiSecurityStateDisabled) ? ModernUiGetString (ModernUiStringDisabled) : L"Unknown");
-  SetupModeText = (Summary.SetupMode == ModernUiSecurityStateEnabled) ? ModernUiGetString (ModernUiStringEnabled) :
-                  ((Summary.SetupMode == ModernUiSecurityStateDisabled) ? ModernUiGetString (ModernUiStringDisabled) : L"Unknown");
-  PkText   = SecurityStateText (Summary.PlatformKey);
-  KekText  = SecurityStateText (Summary.KeyExchangeKey);
-  DbText   = SecurityStateText (Summary.SignatureDb);
-  DbxText  = SecurityStateText (Summary.ForbiddenSignatureDb);
-  Tcg2Text = SecurityStateText (Summary.Tcg2Protocol);
-  TreeText = SecurityStateText (Summary.TreeProtocol);
+  SecureBootText = (Summary->SecureBoot == ModernUiSecurityStateEnabled) ? ModernUiGetString (ModernUiStringEnabled) :
+                   ((Summary->SecureBoot == ModernUiSecurityStateDisabled) ? ModernUiGetString (ModernUiStringDisabled) : ModernUiGetString (ModernUiStringUnknown));
+  SetupModeText = (Summary->SetupMode == ModernUiSecurityStateEnabled) ? ModernUiGetString (ModernUiStringEnabled) :
+                  ((Summary->SetupMode == ModernUiSecurityStateDisabled) ? ModernUiGetString (ModernUiStringDisabled) : ModernUiGetString (ModernUiStringUnknown));
+  PkText   = SecurityStateText (Summary->PlatformKey);
+  KekText  = SecurityStateText (Summary->KeyExchangeKey);
+  DbText   = SecurityStateText (Summary->SignatureDb);
+  DbxText  = SecurityStateText (Summary->ForbiddenSignatureDb);
+  Tcg2Text = SecurityStateText (Summary->Tcg2Protocol);
+  TreeText = SecurityStateText (Summary->TreeProtocol);
   Panel = ModernSetupContentRect (Ui);
   ModernUiDrawPanel (Ui, Panel, Theme);
   ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
   ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 24, ModernUiGetString (ModernUiStringSecureBoot), Theme->MutedText, Theme->Surface);
-  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 64, SecureBootText, (Summary.SecureBoot == ModernUiSecurityStateEnabled) ? Theme->Success : Theme->Warning, Theme->Surface);
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 64, SecureBootText, (Summary->SecureBoot == ModernUiSecurityStateEnabled) ? Theme->Success : Theme->Warning, Theme->Surface);
   ModernUiDrawTextFormatted (Ui, Panel.X + 20, Panel.Y + 104, Theme->MutedText, Theme->Surface, L"Setup Mode: %s", SetupModeText);
   ModernUiDrawTextFormatted (Ui, Panel.X + 20, Panel.Y + 136, Theme->MutedText, Theme->Surface, L"PK: %s    KEK: %s", PkText, KekText);
   ModernUiDrawTextFormatted (Ui, Panel.X + 20, Panel.Y + 168, Theme->MutedText, Theme->Surface, L"db: %s    dbx: %s", DbText, DbxText);
@@ -406,26 +406,24 @@ DrawFirmware (
   IN SETUP_FOCUS               Focus
   )
 {
-  MODERN_UI_FIRMWARE_SUMMARY  Summary;
-  CONST CHAR16                *Labels[5];
-  CONST CHAR16                *Values[5];
+  MODERN_SETUP_PROVIDER_SNAPSHOT  Providers;
+  MODERN_UI_FIRMWARE_SUMMARY      *Summary;
+  CONST CHAR16                    *Labels[5];
+  CONST CHAR16                    *Values[5];
 
-  if (EFI_ERROR (ModernUiFirmwareDataGetSummary (&Summary))) {
-    ZeroMem (&Summary, sizeof (Summary));
-    StrCpyS (Summary.Vendor, ARRAY_SIZE (Summary.Vendor), ModernUiGetString (ModernUiStringUnknown));
-    StrCpyS (Summary.Revision, ARRAY_SIZE (Summary.Revision), ModernUiGetString (ModernUiStringUnknown));
-  }
+  ModernSetupGetProviderSnapshot (&Providers);
+  Summary = &Providers.Firmware;
 
   Labels[0] = ModernUiGetString (ModernUiStringFirmwareVendor);
-  Values[0] = Summary.Vendor;
+  Values[0] = Summary->Vendor;
   Labels[1] = ModernUiGetString (ModernUiStringFirmwareRevision);
-  Values[1] = Summary.Revision;
+  Values[1] = Summary->Revision;
   Labels[2] = ModernUiGetString (ModernUiStringCapsuleRuntime);
-  Values[2] = CapabilityText (Summary.CapsuleRuntimeServices);
+  Values[2] = CapabilityText (Summary->CapsuleRuntimeServices);
   Labels[3] = ModernUiGetString (ModernUiStringCapsuleProtocol);
-  Values[3] = CapabilityText (Summary.CapsuleArchProtocol);
+  Values[3] = CapabilityText (Summary->CapsuleArchProtocol);
   Labels[4] = ModernUiGetString (ModernUiStringCapsuleReport);
-  Values[4] = Summary.CapsuleReportPresent ? ModernUiGetString (ModernUiStringPresent) : ModernUiGetString (ModernUiStringNotAvailable);
+  Values[4] = Summary->CapsuleReportPresent ? ModernUiGetString (ModernUiStringPresent) : ModernUiGetString (ModernUiStringNotAvailable);
 
   DrawProviderSummaryPage (
     Ui,
@@ -453,25 +451,25 @@ DrawDiagnostics (
   IN SETUP_FOCUS               Focus
   )
 {
-  MODERN_UI_DIAGNOSTICS_SUMMARY  Summary;
-  CHAR16                         MemoryMap[48];
-  CHAR16                         Handles[48];
-  CHAR16                         Tables[48];
-  CONST CHAR16                   *Labels[5];
-  CONST CHAR16                   *Values[5];
+  MODERN_SETUP_PROVIDER_SNAPSHOT    Providers;
+  MODERN_UI_DIAGNOSTICS_SUMMARY     *Summary;
+  CHAR16                            MemoryMap[48];
+  CHAR16                            Handles[48];
+  CHAR16                            Tables[48];
+  CONST CHAR16                      *Labels[5];
+  CONST CHAR16                      *Values[5];
 
-  if (EFI_ERROR (ModernUiDiagnosticsDataGetSummary (&Summary))) {
-    ZeroMem (&Summary, sizeof (Summary));
-  }
+  ModernSetupGetProviderSnapshot (&Providers);
+  Summary = &Providers.Diagnostics;
 
-  UnicodeSPrint (MemoryMap, sizeof (MemoryMap), L"%u", Summary.MemoryDescriptorCount);
-  UnicodeSPrint (Handles, sizeof (Handles), L"%u", Summary.HandleCount);
-  UnicodeSPrint (Tables, sizeof (Tables), L"%u", Summary.ConfigurationTableCount);
+  UnicodeSPrint (MemoryMap, sizeof (MemoryMap), L"%u", Summary->MemoryDescriptorCount);
+  UnicodeSPrint (Handles, sizeof (Handles), L"%u", Summary->HandleCount);
+  UnicodeSPrint (Tables, sizeof (Tables), L"%u", Summary->ConfigurationTableCount);
 
   Labels[0] = ModernUiGetString (ModernUiStringAcpiTables);
-  Values[0] = CapabilityText (Summary.AcpiPresent);
+  Values[0] = CapabilityText (Summary->AcpiPresent);
   Labels[1] = ModernUiGetString (ModernUiStringSmbiosTables);
-  Values[1] = CapabilityText (Summary.SmbiosPresent);
+  Values[1] = CapabilityText (Summary->SmbiosPresent);
   Labels[2] = ModernUiGetString (ModernUiStringMemoryMap);
   Values[2] = MemoryMap;
   Labels[3] = ModernUiGetString (ModernUiStringDxeHandles);
@@ -505,20 +503,20 @@ DrawManagement (
   IN SETUP_FOCUS               Focus
   )
 {
-  MODERN_UI_MANAGEMENT_SUMMARY  Summary;
-  CONST CHAR16                  *Labels[3];
-  CONST CHAR16                  *Values[3];
+  MODERN_SETUP_PROVIDER_SNAPSHOT  Providers;
+  MODERN_UI_MANAGEMENT_SUMMARY    *Summary;
+  CONST CHAR16                    *Labels[3];
+  CONST CHAR16                    *Values[3];
 
-  if (EFI_ERROR (ModernUiManagementDataGetSummary (&Summary))) {
-    ZeroMem (&Summary, sizeof (Summary));
-  }
+  ModernSetupGetProviderSnapshot (&Providers);
+  Summary = &Providers.Management;
 
   Labels[0] = ModernUiGetString (ModernUiStringIpmi);
-  Values[0] = CapabilityText (Summary.IpmiProtocolPresent);
+  Values[0] = CapabilityText (Summary->IpmiProtocolPresent);
   Labels[1] = ModernUiGetString (ModernUiStringRedfish);
-  Values[1] = CapabilityText (Summary.RedfishDiscoverPresent);
+  Values[1] = CapabilityText (Summary->RedfishDiscoverPresent);
   Labels[2] = ModernUiGetString (ModernUiStringManagementInterface);
-  Values[2] = CapabilityText (Summary.SmbiosManagementInterfacePresent);
+  Values[2] = CapabilityText (Summary->SmbiosManagementInterfacePresent);
 
   DrawProviderSummaryPage (
     Ui,
@@ -546,25 +544,24 @@ DrawPower (
   IN SETUP_FOCUS               Focus
   )
 {
-  MODERN_UI_POWER_SUMMARY  Summary;
-  CONST CHAR16             *Labels[5];
-  CONST CHAR16             *Values[5];
+  MODERN_SETUP_PROVIDER_SNAPSHOT  Providers;
+  MODERN_UI_POWER_SUMMARY         *Summary;
+  CONST CHAR16                    *Labels[5];
+  CONST CHAR16                    *Values[5];
 
-  if (EFI_ERROR (ModernUiPowerDataGetSummary (&Summary))) {
-    ZeroMem (&Summary, sizeof (Summary));
-    StrCpyS (Summary.ChassisThermalState, ARRAY_SIZE (Summary.ChassisThermalState), ModernUiGetString (ModernUiStringUnknown));
-  }
+  ModernSetupGetProviderSnapshot (&Providers);
+  Summary = &Providers.Power;
 
   Labels[0] = ModernUiGetString (ModernUiStringAcpiTablesProvider);
-  Values[0] = CapabilityText (Summary.AcpiTablePresent);
+  Values[0] = CapabilityText (Summary->AcpiTablePresent);
   Labels[1] = ModernUiGetString (ModernUiStringAcpiSdtProtocol);
-  Values[1] = CapabilityText (Summary.AcpiSdtProtocolPresent);
+  Values[1] = CapabilityText (Summary->AcpiSdtProtocolPresent);
   Labels[2] = ModernUiGetString (ModernUiStringChassisThermalState);
-  Values[2] = Summary.ChassisThermalState;
+  Values[2] = Summary->ChassisThermalState;
   Labels[3] = ModernUiGetString (ModernUiStringPowerSupply);
-  Values[3] = CapabilityText (Summary.SmbiosPowerSupplyPresent);
+  Values[3] = CapabilityText (Summary->SmbiosPowerSupplyPresent);
   Labels[4] = ModernUiGetString (ModernUiStringSmbiosTables);
-  Values[4] = CapabilityText (Summary.SmbiosChassisPresent);
+  Values[4] = CapabilityText (Summary->SmbiosChassisPresent);
 
   DrawProviderSummaryPage (
     Ui,
@@ -592,24 +589,24 @@ DrawPerformance (
   IN SETUP_FOCUS               Focus
   )
 {
-  MODERN_UI_PERFORMANCE_SUMMARY  Summary;
-  CONST CHAR16                   *Labels[5];
-  CONST CHAR16                   *Values[5];
+  MODERN_SETUP_PROVIDER_SNAPSHOT    Providers;
+  MODERN_UI_PERFORMANCE_SUMMARY     *Summary;
+  CONST CHAR16                      *Labels[5];
+  CONST CHAR16                      *Values[5];
 
-  if (EFI_ERROR (ModernUiPerformanceDataGetSummary (&Summary))) {
-    ZeroMem (&Summary, sizeof (Summary));
-  }
+  ModernSetupGetProviderSnapshot (&Providers);
+  Summary = &Providers.Performance;
 
   Labels[0] = ModernUiGetString (ModernUiStringProcessorInventory);
-  Values[0] = CapabilityText (Summary.ProcessorInventoryPresent);
+  Values[0] = CapabilityText (Summary->ProcessorInventoryPresent);
   Labels[1] = ModernUiGetString (ModernUiStringMemoryInventory);
-  Values[1] = CapabilityText (Summary.MemoryInventoryPresent);
+  Values[1] = CapabilityText (Summary->MemoryInventoryPresent);
   Labels[2] = ModernUiGetString (ModernUiStringCpuIo2);
-  Values[2] = CapabilityText (Summary.CpuIo2ProtocolPresent);
+  Values[2] = CapabilityText (Summary->CpuIo2ProtocolPresent);
   Labels[3] = ModernUiGetString (ModernUiStringVirtualizationPolicy);
-  Values[3] = CapabilityText (Summary.VirtualizationPolicyEntryPresent);
+  Values[3] = CapabilityText (Summary->VirtualizationPolicyEntryPresent);
   Labels[4] = ModernUiGetString (ModernUiStringRasPolicy);
-  Values[4] = CapabilityText (Summary.RasPolicyEntryPresent);
+  Values[4] = CapabilityText (Summary->RasPolicyEntryPresent);
 
   DrawProviderSummaryPage (
     Ui,
