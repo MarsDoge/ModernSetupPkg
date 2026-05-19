@@ -29,6 +29,12 @@ The smoke harness currently checks:
   shared Modern UI libraries.
 - Default firmware overlay outputs do not reference `ModernSetupApp`,
   `ModernUiHiiBridgeLib`, or `ModernUiPageAdapterLib`.
+- `Application/ModernSetupApp/ModernSetupApp*.c` files are covered by
+  `Application/ModernSetupApp/ModernSetupApp.inf` `[Sources]`, and every listed
+  app `.c` source exists.
+- `ModernSetupApp` keeps Dashboard drawing in `ModernSetupAppDashboard.c`, calls
+  it from `ModernSetupAppPages.c`, and avoids direct experimental HII bridge,
+  page adapter, or ConfigAccess coupling in app sources.
 
 Use this as the first validation for docs, ownership, script, and static overlay
 changes. It complements, but does not replace, manual QEMU checks for firmware UI

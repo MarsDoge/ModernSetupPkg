@@ -110,6 +110,14 @@ ModernSetupDrawPageTitle (
   );
 
 VOID
+ModernSetupDrawDashboard (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus,
+  IN UINTN                     Selection
+  );
+
+VOID
 ModernSetupDrawCurrentPage (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,

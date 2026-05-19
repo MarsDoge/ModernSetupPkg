@@ -14,6 +14,8 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase 1 `ModernSetupApp` ownership readiness docs and smoke validation for app
+  INF source coverage plus Dashboard module boundary checks.
 - Private repository bootstrap under `MarsDoge/ModernSetupPkg`.
 - BSD-2-Clause-Patent licensing.
 - Standalone edk2 package metadata: `ModernSetupPkg.dec` and

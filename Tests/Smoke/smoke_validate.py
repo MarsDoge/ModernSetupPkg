@@ -14,7 +14,10 @@ side invariants that are useful for multi-agent maintenance:
 * build-overlay scripts keep generated files under Build/ModernSetupPkgOverlay;
 * native and modern DisplayEngine overlay paths remain separated;
 * default firmware overlay generators do not pull in ModernSetupApp or the
-  experimental HII bridge path; and
+  experimental HII bridge path;
+* ModernSetupApp INF sources stay synchronized with app source files; and
+* ModernSetupApp module boundaries keep dashboard drawing in its app module
+  without direct experimental HII bridge or ConfigAccess coupling.
 * overlay generation works against tiny synthetic edk2 source fixtures.
 """
 
@@ -39,6 +42,18 @@ PROHIBITED_DEFAULT_OVERLAY_TOKENS = (
     "ModernUiPageAdapterLib",
     "ModernUiHiiBridge.h",
     "ModernUiPageAdapter.h",
+)
+MODERN_SETUP_APP_DIR = Path("Application") / "ModernSetupApp"
+MODERN_SETUP_APP_INF = MODERN_SETUP_APP_DIR / "ModernSetupApp.inf"
+PROHIBITED_APP_SOURCE_TOKENS = (
+    "ModernUiHiiBridge.h",
+    "ModernUiPageAdapter.h",
+    "ModernUiHiiBridgeLib",
+    "ModernUiPageAdapterLib",
+    "EFI_HII_CONFIG_ACCESS_PROTOCOL",
+    "ConfigAccess",
+    "ExtractConfig",
+    "RouteConfig",
 )
 
 
@@ -216,6 +231,100 @@ def assert_not_contains_any(path: Path, needles: Iterable[str]) -> None:
             raise SmokeFailure(f"{path} contains prohibited text: {needle}")
 
 
+def strip_c_comments(text: str) -> str:
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+    text = re.sub(r"//.*", "", text)
+    return text
+
+
+def parse_inf_sources(inf: Path) -> list[str]:
+    sources: list[str] = []
+    in_sources = False
+    for raw_line in inf.read_text(encoding="utf-8").splitlines():
+        line = raw_line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            section_names = [part.strip().lower() for part in line[1:-1].split(",")]
+            in_sources = any(name.startswith("sources") for name in section_names)
+            continue
+        if in_sources:
+            sources.append(line.split()[0])
+    return sources
+
+
+def check_modern_setup_app_inf_sources(root: Path) -> list[str]:
+    app_dir = root / MODERN_SETUP_APP_DIR
+    inf = root / MODERN_SETUP_APP_INF
+    if not app_dir.exists():
+        raise SmokeFailure(f"missing ModernSetupApp directory: {app_dir}")
+    if not inf.exists():
+        raise SmokeFailure(f"missing ModernSetupApp INF: {inf}")
+
+    app_sources = sorted(path.name for path in app_dir.glob("ModernSetupApp*.c"))
+    inf_sources = parse_inf_sources(inf)
+    inf_c_sources = sorted(source for source in inf_sources if source.endswith(".c"))
+
+    missing_from_inf = sorted(set(app_sources) - set(inf_c_sources))
+    if missing_from_inf:
+        raise SmokeFailure(
+            "ModernSetupApp .c sources missing from INF [Sources]: " + ", ".join(missing_from_inf)
+        )
+
+    missing_files = sorted(source for source in inf_c_sources if not (app_dir / source).exists())
+    if missing_files:
+        raise SmokeFailure(
+            "ModernSetupApp INF [Sources] lists missing .c files: " + ", ".join(missing_files)
+        )
+
+    return ["PASS ModernSetupApp INF source coverage"]
+
+
+def c_function_definition_count(text: str, function_name: str) -> int:
+    pattern = re.compile(
+        rf"(^|\n)\s*(?:STATIC\s+)?[A-Z_][A-Z0-9_\s\*]+\s+{re.escape(function_name)}\s*\([^;]*?\)\s*\{{",
+        re.DOTALL,
+    )
+    return len(pattern.findall(text))
+
+
+def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
+    app_dir = root / MODERN_SETUP_APP_DIR
+    inf_sources = parse_inf_sources(root / MODERN_SETUP_APP_INF)
+    dashboard = app_dir / "ModernSetupAppDashboard.c"
+    pages = app_dir / "ModernSetupAppPages.c"
+
+    if not dashboard.exists():
+        raise SmokeFailure("ModernSetupAppDashboard.c is missing")
+    if "ModernSetupAppDashboard.c" not in inf_sources:
+        raise SmokeFailure("ModernSetupAppDashboard.c is not listed in ModernSetupApp.inf [Sources]")
+    if not pages.exists():
+        raise SmokeFailure("ModernSetupAppPages.c is missing")
+
+    definition_locations: list[str] = []
+    for source in sorted(app_dir.glob("ModernSetupApp*.c")):
+        body = strip_c_comments(source.read_text(encoding="utf-8"))
+        if c_function_definition_count(body, "ModernSetupDrawDashboard"):
+            definition_locations.append(source.name)
+        for token in PROHIBITED_APP_SOURCE_TOKENS:
+            if token in body:
+                raise SmokeFailure(f"{source.relative_to(root)} directly references prohibited app boundary token: {token}")
+
+    if definition_locations != ["ModernSetupAppDashboard.c"]:
+        raise SmokeFailure(
+            "ModernSetupDrawDashboard must be defined only in ModernSetupAppDashboard.c; found: "
+            + (", ".join(definition_locations) if definition_locations else "none")
+        )
+
+    pages_body = strip_c_comments(pages.read_text(encoding="utf-8"))
+    if "ModernSetupDrawDashboard" not in pages_body:
+        raise SmokeFailure("ModernSetupAppPages.c does not call ModernSetupDrawDashboard")
+    if c_function_definition_count(pages_body, "ModernSetupDrawDashboard"):
+        raise SmokeFailure("ModernSetupAppPages.c must call, not define, ModernSetupDrawDashboard")
+
+    return ["PASS ModernSetupApp module boundary checks"]
+
+
 def check_overlay_generation(root: Path) -> list[str]:
     bash = shutil.which("bash")
     if bash is None:
@@ -292,6 +401,8 @@ def main() -> int:
         root = require_repo_root(args.repo_root)
         messages: list[str] = []
         messages.extend(check_shell_syntax(root))
+        messages.extend(check_modern_setup_app_inf_sources(root))
+        messages.extend(check_modern_setup_app_module_boundaries(root))
         messages.extend(check_static_overlay_script_contracts(root))
         messages.extend(check_overlay_generation(root))
     except SmokeFailure as exc:

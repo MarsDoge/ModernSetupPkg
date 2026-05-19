@@ -25,6 +25,26 @@ Use ownership to answer three questions:
 | platform-ci | Platform/CI/release agent | `Scripts/`, `Tests/`, `Experimental/`, `*.dsc`, docs, `.github/`, release notes | Build scripts, QEMU/manual validation, package integration, maintainer docs | Script or DSC changes that hide behavior changes need affected code owner review |
 | docs | Docs/governance route through platform-ci | `Docs/`, `.github/ISSUE_TEMPLATE/`, `.github/labels.yml`, `.github/PULL_REQUEST_TEMPLATE.md` | Contributor docs, issue backlog, ownership routing, issue templates, label metadata | Policy changes that affect a stable code contract need that logical owner review |
 
+## ModernSetupApp internal module map
+
+`Application/ModernSetupApp/` is owned as one app shell. Keep page ownership coarse enough for phase-sized PRs; do not split every page into a separate PR unless the behavior or validation scope requires it.
+
+| Module | Primary role | Route guidance |
+| --- | --- | --- |
+| `ModernSetupApp.c` | UEFI application entry, top-level state loop, shared app lifetime wiring | Route shell lifecycle, protocol lookup, and main-loop changes through app/provider; cross-review display-engine when FormBrowser launch behavior changes |
+| `ModernSetupAppChrome.c` | App frame, tabs, footer/status chrome, common drawing shell | Route visual shell/chrome changes through app/provider; cross-review renderer/theme only for shared drawing or token contract changes |
+| `ModernSetupAppDashboard.c` | Dashboard-only drawing and dashboard card layout | Keep `ModernSetupDrawDashboard()` defined here; route dashboard summary presentation through app/provider |
+| `ModernSetupAppPages.c` | Existing page drawing and page dispatch for Boot, Devices, Security, provider summaries, and Exit | Keep current pages together for now; real setup entries must hand off to FormBrowser/`SendForm()` instead of implementing IFR behavior in the app |
+| `ModernSetupAppActions.c` | App actions such as boot option launch, language selection, and setup handoff helpers | Route behavior-affecting actions through app/provider; cross-review display-engine/FormBrowser for setup-page handoff changes |
+
+ModernSetupApp boundary rules:
+
+- `ModernSetupApp` may compose provider summaries and launch native setup pages, but it must not parse IFR, implement ConfigAccess callbacks, or write HII varstores directly.
+- Real setup pages remain owned by native FormBrowser/DisplayEngine paths and should be opened through FormBrowser2/`SendForm()` handoff.
+- Experimental HII bridge and page adapter headers/libraries stay out of `Application/ModernSetupApp/` unless an explicit promotion is reviewed by core-api and display-engine owners.
+- When adding an app `.c` file matching `Application/ModernSetupApp/ModernSetupApp*.c`, update `Application/ModernSetupApp/ModernSetupApp.inf` `[Sources]` in the same PR and run `python3 Tests/Smoke/smoke_validate.py`.
+- App-internal refactors should preserve public API/DEC contracts unless the PR explicitly routes through core-api.
+
 ## Practical routing
 
 - Docs-only changes may be reviewed by any maintainer; tag the logical owner only if the doc changes a contract.
