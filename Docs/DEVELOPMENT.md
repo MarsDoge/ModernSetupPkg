@@ -148,6 +148,17 @@ behavior, provider contracts, or experimental HII bridge surfaces.
 
 ## Validation matrix
 
+Start with the lightweight smoke harness when a change touches scripts, overlay
+logic, governance docs, or default/native/modern path separation:
+
+```sh
+python3 Tests/Smoke/smoke_validate.py
+```
+
+The smoke harness does not require an edk2 checkout, firmware toolchain, or QEMU.
+It checks shell syntax where possible and runs overlay-generation dry runs
+against synthetic edk2 fixtures.
+
 Use the lightest validation that proves the changed area. Mark unrelated items
 as N/A in the PR.
 

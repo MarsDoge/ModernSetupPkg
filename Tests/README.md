@@ -19,7 +19,9 @@ Tests
 |   +-- ArmVirtQemu.md       Manual graphics, input, and navigation checks.
 |   +-- LoongArchVirtQemu.md Manual LoongArchVirt build and graphics checks.
 |
-+-- Smoke                  Planned scripted build/boot smoke tests.
++-- Smoke
+|   |
+|   +-- smoke_validate.py  Lightweight host-side repository invariant checks.
 |
 +-- Unit                   Planned host-testable provider and layout tests.
 ```
@@ -48,6 +50,10 @@ Tests
   `ModernSetupApp` or custom HII bridge libraries.
 - Static LoongArchVirt overlay validation that the default path uses native
   UiApp plus `ModernDisplayEngineDxe`.
+- Lightweight scripted smoke validation through
+  `Tests/Smoke/smoke_validate.py`, covering shell syntax, overlay generation
+  dry runs, native/modern overlay separation, and default overlay exclusion of
+  `ModernSetupApp` and experimental HII bridge paths without edk2 or QEMU.
 - Manual before/after validation by rebuilding the same overlay with
   `MODERN_SETUP_DISPLAY_ENGINE=native` and `MODERN_SETUP_DISPLAY_ENGINE=modern`.
 - Scripted ArmVirt before/after capture through
@@ -65,6 +71,20 @@ Tests
   across x86, ARM, RISC-V, and LoongArch product classes.
 - `Docs/IbvAndPlatformSetupSurvey.md` records the public IBV/OEM/form-factor
   survey used to decide common App surfaces.
+
+## Lightweight Smoke Validation
+
+Run the host-side smoke harness from the repository root before opening PRs that
+touch scripts, overlay generation, governance docs, or default/native/modern
+path separation:
+
+```sh
+python3 Tests/Smoke/smoke_validate.py
+```
+
+The harness uses tiny synthetic edk2 source fixtures and `GENERATE_ONLY=1` to
+validate overlay behavior. It does not require an edk2 checkout, firmware
+toolchains, or QEMU.
 
 ## Planned Coverage
 
