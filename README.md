@@ -313,6 +313,12 @@ ModernSetupPkg/Scripts/build-modern-app.sh
 APP=1 GRAPHICS=1 RESET_VARS=1 ACCEL=hvf ModernSetupPkg/Scripts/run-armvirt.sh
 ```
 
+The app build script defaults to `ARCH=AARCH64` and `TOOL_CHAIN_TAG=CLANGDWARF`.
+It also accepts `ARCH=X64` for an OVMF-compatible app build. Run it from an
+edk2 workspace checkout or set `WORKSPACE=/path/to/edk2`; when the package is
+checked out next to that workspace instead of under it, the script adds the
+package parent to `PACKAGES_PATH` for this invocation.
+
 Do not use the experimental HII bridge as a platform setup compatibility layer.
 Real VFR/IFR pages should continue through native edk2 FormBrowser and
 `ModernDisplayEngineDxe`.

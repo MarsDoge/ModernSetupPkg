@@ -8,17 +8,114 @@
 set -euo pipefail
 
 PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKSPACE="${WORKSPACE:-$(cd "${PKG_DIR}/.." && pwd)}"
+PKG_PARENT="$(cd "${PKG_DIR}/.." && pwd)"
+
+DetectWorkspace() {
+  if [[ -n "${WORKSPACE:-}" ]]; then
+    printf '%s\n' "${WORKSPACE}"
+    return
+  fi
+
+  if [[ -d "${PKG_PARENT}/MdePkg" && -d "${PKG_PARENT}/BaseTools" ]]; then
+    printf '%s\n' "${PKG_PARENT}"
+    return
+  fi
+
+  if [[ -d "${PKG_PARENT}/edk2/MdePkg" && -d "${PKG_PARENT}/edk2/BaseTools" ]]; then
+    printf '%s\n' "${PKG_PARENT}/edk2"
+    return
+  fi
+
+  printf '%s\n' "${PKG_PARENT}"
+}
+
+ClangSupportsArch() {
+  local Dir="$1"
+
+  case "${ARCH}" in
+    AARCH64)
+      "${Dir}/clang" -print-targets 2>/dev/null | grep -Eq '^[[:space:]]*aarch64[[:space:]]'
+      ;;
+    X64)
+      "${Dir}/clang" -print-targets 2>/dev/null | grep -Eq '^[[:space:]]*x86-64[[:space:]]'
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
+HasLldForClangDir() {
+  local Dir="$1"
+
+  [[ -x "${Dir}/ld.lld" ]] || [[ -x /opt/homebrew/opt/lld/bin/ld.lld ]]
+}
+
+FindClangBin() {
+  local Dir
+  local Clang
+
+  if [[ -n "${CLANGDWARF_BIN:-}" ]]; then
+    printf '%s\n' "${CLANGDWARF_BIN%/}/"
+    return
+  fi
+
+  for Dir in \
+    /opt/homebrew/opt/llvm/bin \
+    /usr/lib/llvm-*/bin \
+    /usr/bin \
+    /opt/rocm/llvm/bin \
+    /usr/local/opt/llvm/bin; do
+    if [[ -x "${Dir}/clang" && -x "${Dir}/llvm-objcopy" && -x "${Dir}/llvm-ar" ]] && ClangSupportsArch "${Dir}" && HasLldForClangDir "${Dir}"; then
+      printf '%s/\n' "${Dir}"
+      return
+    fi
+  done
+
+  if Clang="$(command -v clang 2>/dev/null)"; then
+    Dir="$(dirname "${Clang}")"
+    if [[ -x "${Dir}/llvm-objcopy" && -x "${Dir}/llvm-ar" ]] && ClangSupportsArch "${Dir}" && HasLldForClangDir "${Dir}"; then
+      printf '%s/\n' "${Dir}"
+      return
+    fi
+  fi
+
+  printf '%s\n' ""
+}
+
+AppendPackagePath() {
+  local PathEntry="$1"
+  local Existing
+
+  IFS=':' read -r -a Existing <<< "${PACKAGES_PATH:-}"
+  for Existing in "${Existing[@]}"; do
+    if [[ "${Existing}" == "${PathEntry}" ]]; then
+      return
+    fi
+  done
+
+  if [[ -n "${PACKAGES_PATH:-}" ]]; then
+    PACKAGES_PATH="${PACKAGES_PATH}:${PathEntry}"
+  else
+    PACKAGES_PATH="${PathEntry}"
+  fi
+}
+
+WORKSPACE="$(DetectWorkspace)"
 TARGET="${TARGET:-DEBUG}"
 ARCH="${ARCH:-AARCH64}"
 JOBS="${JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)}"
 APP_ESP="${WORKSPACE}/Build/ModernSetupAppEsp"
 
+# Keep Homebrew LLVM/LLD discoverable on macOS, but do not force those paths as
+# the CLANGDWARF tool root on Linux hosts with clang installed elsewhere.
 export PATH="/opt/homebrew/bin:/opt/homebrew/opt/llvm/bin:/opt/homebrew/opt/lld/bin:${PATH}"
-export CLANGDWARF_BIN="${CLANGDWARF_BIN:-/opt/homebrew/opt/llvm/bin/}"
-export WORKSPACE
 
 case "${ARCH}" in
+  X64)
+    TOOL_CHAIN_TAG="${TOOL_CHAIN_TAG:-CLANGDWARF}"
+    BOOT_FILE="BOOTX64.EFI"
+    ;;
   AARCH64)
     TOOL_CHAIN_TAG="${TOOL_CHAIN_TAG:-CLANGDWARF}"
     BOOT_FILE="BOOTAA64.EFI"
@@ -38,21 +135,44 @@ case "${ARCH}" in
     BOOT_FILE="BOOTLOONGARCH64.EFI"
     ;;
   *)
-    echo "Unsupported ARCH='${ARCH}'. Use ARCH=AARCH64 or ARCH=LOONGARCH64." >&2
+    echo "Unsupported ARCH='${ARCH}'. Use ARCH=X64, ARCH=AARCH64, or ARCH=LOONGARCH64." >&2
     exit 1
     ;;
 esac
 
+if [[ "${TOOL_CHAIN_TAG}" == "CLANGDWARF" ]]; then
+  CLANGDWARF_BIN="$(FindClangBin)"
+  if [[ -z "${CLANGDWARF_BIN}" ]]; then
+    echo "Unable to find clang, llvm-objcopy, llvm-ar, and ld.lld for CLANGDWARF ${ARCH}." >&2
+    echo "Set CLANGDWARF_BIN=/path/to/llvm/bin/ with a clang/lld build that supports ${ARCH}, then retry." >&2
+    exit 1
+  fi
+  if ! HasLldForClangDir "${CLANGDWARF_BIN%/}"; then
+    echo "CLANGDWARF_BIN does not provide ld.lld and no Homebrew lld was found: ${CLANGDWARF_BIN}" >&2
+    exit 1
+  fi
+  export CLANGDWARF_BIN
+  export CLANG_BIN="${CLANG_BIN:-${CLANGDWARF_BIN}}"
+  export PATH="${CLANGDWARF_BIN%/}:${PATH}"
+fi
+
+export WORKSPACE
+
+if [[ "$(cd "${PKG_DIR}" && pwd)" != "${WORKSPACE}/ModernSetupPkg" ]]; then
+  AppendPackagePath "${PKG_PARENT}"
+  export PACKAGES_PATH
+fi
+
 APP_EFI="${WORKSPACE}/Build/ModernSetupPkgExperimental/${TARGET}_${TOOL_CHAIN_TAG}/${ARCH}/ModernSetupApp.efi"
 
-if [[ ! -d "${WORKSPACE}/MdePkg" || ! -d "${WORKSPACE}/ArmVirtPkg" ]]; then
+if [[ ! -d "${WORKSPACE}/MdePkg" || ! -d "${WORKSPACE}/BaseTools" ]]; then
   echo "WORKSPACE does not look like an edk2 checkout: ${WORKSPACE}" >&2
+  echo "Set WORKSPACE to the edk2 checkout root, for example: WORKSPACE=/path/to/edk2 $0" >&2
   exit 1
 fi
 
-if [[ "$(cd "${PKG_DIR}" && pwd)" != "${WORKSPACE}/ModernSetupPkg" ]]; then
-  echo "ModernSetupPkg should be checked out at ${WORKSPACE}/ModernSetupPkg" >&2
-  echo "Current package path: ${PKG_DIR}" >&2
+if [[ ! -d "${WORKSPACE}/ArmVirtPkg" ]]; then
+  echo "WORKSPACE is missing ArmVirtPkg: ${WORKSPACE}" >&2
   exit 1
 fi
 
