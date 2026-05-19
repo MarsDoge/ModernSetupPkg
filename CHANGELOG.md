@@ -14,6 +14,10 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase 4 `ModernSetupApp` Dashboard card expansion with six provider-backed
+  Quick Access/status cards for boot readiness, device visibility, provider
+  health, firmware lifecycle, power/thermal, and performance inventory, plus
+  smoke validation for the expanded card set.
 - Phase 3 `ModernSetupApp` provider health summary derived from the app-private
   provider snapshot, with Dashboard health/coverage rendering, Diagnostics first
   issue details, and smoke validation for the health boundary.

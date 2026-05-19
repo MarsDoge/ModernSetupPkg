@@ -155,6 +155,37 @@ Phase 3 is complete when:
 4. Smoke validation enforces the health summary boundary alongside existing app
    provider snapshot checks.
 
+## Phase 4 Dashboard card content expansion
+
+Current app/provider acceptance target:
+
+- Title: `phase4(app): expand Dashboard card content from provider snapshots`.
+- Route: App shell and provider agents, with platform-ci for smoke validation.
+- Labels: `area/app-provider`, `area/platform-ci` when mirrored to GitHub.
+- Scope: expand Dashboard Quick Access/status cards from the initial three tiles
+  into a richer provider-backed card set covering boot readiness, device
+  visibility, provider health, firmware lifecycle, power/thermal, and
+  performance inventory. Keep the content derived from the existing app-private
+  provider snapshot and read-only provider LibraryClasses.
+- Non-goals: no public API/DEC/GUID/PCD change, no IFR parsing, no ConfigAccess
+  implementation, no HII varstore writes, and no coupling to experimental HII
+  bridge/page adapter code.
+- Expected validation: `python3 Tests/Smoke/smoke_validate.py`,
+  `git diff --check origin/main...HEAD`, and PR notes that QEMU/manual firmware
+  UI validation is recommended for visual review but not required by the
+  host-side smoke harness.
+
+Phase 4 is complete when:
+
+1. Dashboard exposes at least six useful cards and keeps navigation count in one
+   app-private constant.
+2. Expanded cards use the normalized provider snapshot fields rather than
+   calling provider LibraryClasses from presentation modules.
+3. Narrow or short content areas degrade without obvious card overflow by
+   increasing cards-per-row and reducing optional detail rows.
+4. Smoke validation checks the expanded card tokens and provider snapshot
+   backing in addition to existing app/provider boundaries.
+
 ## Later backlog themes
 
 Keep later work grouped by feature phase rather than creating one issue per file move:
