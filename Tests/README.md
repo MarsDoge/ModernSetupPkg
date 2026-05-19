@@ -18,6 +18,7 @@ Tests
 |   |
 |   +-- ArmVirtQemu.md       Manual graphics, input, and navigation checks.
 |   +-- LoongArchVirtQemu.md Manual LoongArchVirt build and graphics checks.
+|   +-- OvmfX64Qemu.md       Manual OVMF X64 build and graphics checks.
 |
 +-- Smoke
 |   |
@@ -32,7 +33,13 @@ Tests
 - LoongArchVirtQemu LOONGARCH64 overlay generation through
   `Scripts/build-loongarchvirt.sh`; full compile requires an external
   LoongArch GCC/binutils cross toolchain.
+- OVMF X64 overlay generation and local build validation through
+  `Scripts/build-ovmf-x64.sh`, including native/modern DisplayEngine overlay
+  selection for before/after comparison.
 - Manual QEMU graphics validation through `Scripts/run-armvirt.sh`.
+- Manual OVMF X64 QEMU graphics validation through
+  `Scripts/run-ovmf-x64.sh`; this path is local/manual validation and is not
+  CI-active yet.
 - Manual native UiApp/FormBrowser navigation validation through
   `ModernDisplayEngineDxe`.
 - Manual DriverSample validation through edk2 Device Manager/FormBrowser in the
@@ -60,6 +67,8 @@ Tests
   Dashboard quick-card set without edk2 or QEMU.
 - Manual before/after validation by rebuilding the same overlay with
   `MODERN_SETUP_DISPLAY_ENGINE=native` and `MODERN_SETUP_DISPLAY_ENGINE=modern`.
+- Manual X64 OVMF viewport checks at 800x600, 1024x768, and 1280x800 where the
+  selected QEMU/GOP combination exposes those modes.
 - Scripted ArmVirt before/after capture through
   `Scripts/capture-armvirt.sh`, currently covering FrontPage, Device Manager,
   DriverSample first page, and a DriverSample one-of popup.

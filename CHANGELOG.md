@@ -135,6 +135,10 @@ this file as both a release log and a lightweight development progress record.
   front-page/App capability areas.
 - `ModernUiPowerDataLib` and `ModernUiPerformanceDataLib` read-only providers
   for power/thermal and performance/tuning capability summaries.
+- X64 OVMF overlay build and local QEMU validation path through
+  `Scripts/build-ovmf-x64.sh`, `Scripts/run-ovmf-x64.sh`, and
+  `Tests/Manual/OvmfX64Qemu.md`, including native/modern DisplayEngine rebuilds
+  for manual before/after checks. This path is not CI-active yet.
 
 ### Changed
 

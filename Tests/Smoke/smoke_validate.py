@@ -39,7 +39,7 @@ from typing import Iterable
 
 
 REPO_MARKERS = ("ModernSetupPkg.dec", "Scripts", "Tests")
-BUILD_SCRIPTS = ("build-armvirt.sh", "build-loongarchvirt.sh")
+BUILD_SCRIPTS = ("build-armvirt.sh", "build-loongarchvirt.sh", "build-ovmf-x64.sh")
 PROHIBITED_DEFAULT_OVERLAY_TOKENS = (
     "ModernSetupApp",
     "ModernUiHiiBridgeLib",
@@ -228,6 +228,30 @@ INF  MdeModulePkg/Application/UiApp/UiApp.inf
     )
 
 
+def ovmf_x64_fixture(workspace: Path) -> None:
+    (workspace / "MdePkg").mkdir(parents=True, exist_ok=True)
+    write(
+        workspace / "OvmfPkg" / "OvmfPkgX64.dsc",
+        """[Defines]
+  FLASH_DEFINITION               = OvmfPkg/OvmfPkgX64.fdf
+
+[LibraryClasses.common]
+  CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf
+
+[Components]
+  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
+  MdeModulePkg/Application/UiApp/UiApp.inf {
+  }
+""",
+    )
+    write(
+        workspace / "OvmfPkg" / "OvmfPkgX64.fdf",
+        """INF  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
+INF  MdeModulePkg/Application/UiApp/UiApp.inf
+""",
+    )
+
+
 def symlink_or_copy_repo(root: Path, link_path: Path) -> None:
     try:
         os.symlink(root, link_path, target_is_directory=True)
@@ -242,6 +266,11 @@ def generated_files_for(platform: str, workspace: Path) -> tuple[Path, ...]:
             overlay / "ArmVirtQemuModernSetup.dsc",
             overlay / "ArmVirtQemuModernSetup.fdf",
             overlay / "ArmVirtQemuModernSetupFvMain.fdf.inc",
+        )
+    if platform == "ovmf-x64":
+        return (
+            overlay / "OvmfX64ModernSetup.dsc",
+            overlay / "OvmfX64ModernSetup.fdf",
         )
     return (
         overlay / "LoongArchVirtQemuModernSetup.dsc",
@@ -438,10 +467,12 @@ def check_overlay_generation(root: Path) -> list[str]:
         symlink_or_copy_repo(root, workspace / "ModernSetupPkg")
         armvirt_fixture(workspace)
         loongarch_fixture(workspace)
+        ovmf_x64_fixture(workspace)
 
         cases = (
             ("armvirt", "build-armvirt.sh", "ArmVirtQemuModernSetup.dsc"),
             ("loongarch", "build-loongarchvirt.sh", "LoongArchVirtQemuModernSetup.dsc"),
+            ("ovmf-x64", "build-ovmf-x64.sh", "OvmfX64ModernSetup.dsc"),
         )
         for platform, script_name, dsc_name in cases:
             script = workspace / "ModernSetupPkg" / "Scripts" / script_name
