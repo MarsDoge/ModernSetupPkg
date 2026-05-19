@@ -18,6 +18,9 @@
 
 [Sources]
   ModernSetupApp.c
+  ModernSetupAppActions.c
+  ModernSetupAppChrome.c
+  ModernSetupAppPages.c
 
 [Packages]
   MdePkg/MdePkg.dec

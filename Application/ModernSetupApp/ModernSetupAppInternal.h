@@ -1,0 +1,191 @@
+/** @file
+  Modern setup application internal declarations.
+
+  Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
+  Author: MarsDoge (Dongyan Qian)
+  Open source: https://github.com/MarsDoge/ModernSetupPkg
+
+  SPDX-License-Identifier: BSD-2-Clause-Patent
+**/
+
+#ifndef MODERN_SETUP_APP_INTERNAL_H_
+#define MODERN_SETUP_APP_INTERNAL_H_
+
+#include <Uefi.h>
+#include <Library/BaseMemoryLib.h>
+#include <Library/DevicePathLib.h>
+#include <Library/MemoryAllocationLib.h>
+#include <Library/PrintLib.h>
+#include <Library/UefiBootManagerLib.h>
+#include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
+#include <Protocol/LoadedImage.h>
+
+#include <ModernUi/ModernUiBootData.h>
+#include <ModernUi/ModernUiDeviceData.h>
+#include <ModernUi/ModernUiDiagnosticsData.h>
+#include <ModernUi/ModernUiFirmwareData.h>
+#include <ModernUi/ModernUiInput.h>
+#include <ModernUi/ModernUiEngine.h>
+#include <ModernUi/ModernUiManagementData.h>
+#include <ModernUi/ModernUiPerformanceData.h>
+#include <ModernUi/ModernUiPlatformData.h>
+#include <ModernUi/ModernUiPowerData.h>
+#include <ModernUi/ModernUiRenderer.h>
+#include <ModernUi/ModernUiSecurityData.h>
+#include <ModernUi/ModernUiString.h>
+#include <ModernUi/ModernUiTheme.h>
+
+#define CARD_GAP           16
+#define TOP_BAR_HEIGHT     54
+#define TAB_BAR_HEIGHT     54
+#define PAGE_TITLE_HEIGHT  64
+#define FOOTER_HEIGHT      36
+#define SCREEN_MARGIN      24
+#define MAX_BOOT_ROWS      9
+#define MAX_DEVICE_ROWS    9
+
+typedef enum {
+  PageDashboard = 0,
+  PageBoot,
+  PageDevices,
+  PageSecurity,
+  PageFirmware,
+  PageDiagnostics,
+  PageManagement,
+  PagePower,
+  PagePerformance,
+  PageExit,
+  PageMax
+} SETUP_PAGE;
+
+typedef enum {
+  SetupFocusNav = 0,
+  SetupFocusContent
+} SETUP_FOCUS;
+
+typedef struct {
+  SETUP_PAGE           Page;
+  MODERN_UI_STRING_ID  Title;
+  MODERN_UI_STRING_ID  Hint;
+} PAGE_DESCRIPTOR;
+
+extern EFI_HANDLE  mModernSetupImageHandle;
+extern BOOLEAN     mModernSetupLanguageDropdownOpen;
+extern UINTN       mModernSetupLanguageDropdownSelection;
+
+MODERN_UI_RECT
+ModernSetupContentRect (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui
+  );
+
+VOID
+ModernSetupDrawHeader (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme
+  );
+
+VOID
+ModernSetupDrawTabs (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_PAGE                Page,
+  IN SETUP_FOCUS               Focus
+  );
+
+VOID
+ModernSetupDrawFooter (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus,
+  IN CONST CHAR16              *StatusMessage
+  );
+
+VOID
+ModernSetupDrawPageTitle (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_PAGE                Page
+  );
+
+VOID
+ModernSetupDrawCurrentPage (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_PAGE                Page,
+  IN SETUP_FOCUS               Focus,
+  IN UINTN                     DashboardSelection,
+  IN UINTN                     BootSelection,
+  IN UINTN                     DeviceSelection,
+  IN UINTN                     ExitSelection,
+  IN CONST CHAR16              *StatusMessage
+  );
+
+UINTN
+ModernSetupGetPageSelection (
+  IN SETUP_PAGE  Page,
+  IN UINTN       DashboardSelection,
+  IN UINTN       BootSelection,
+  IN UINTN       DeviceSelection,
+  IN UINTN       ExitSelection
+  );
+
+VOID
+ModernSetupSetPageSelection (
+  IN     SETUP_PAGE  Page,
+  IN     UINTN       Selection,
+  IN OUT UINTN       *DashboardSelection,
+  IN OUT UINTN       *BootSelection,
+  IN OUT UINTN       *DeviceSelection,
+  IN OUT UINTN       *ExitSelection
+  );
+
+UINTN
+ModernSetupGetBootCount (
+  VOID
+  );
+
+UINTN
+ModernSetupGetVisibleDeviceCount (
+  VOID
+  );
+
+UINTN
+ModernSetupGetPageSelectableCount (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN SETUP_PAGE                Page
+  );
+
+EFI_STATUS
+ModernSetupLaunchSelectedBootOption (
+  IN UINTN  Selection
+  );
+
+EFI_STATUS
+ModernSetupOpenSelectedDeviceEntry (
+  IN UINTN  Selection
+  );
+
+VOID
+ModernSetupHandleLanguageSelectorEnter (
+  OUT CHAR16  *StatusMessage,
+  IN  UINTN   StatusSize
+  );
+
+EFI_STATUS
+ModernSetupLaunchUiAppFallback (
+  IN EFI_HANDLE  ImageHandle
+  );
+
+CONST CHAR16 *
+ModernSetupGetLanguageOptionName (
+  IN UINTN  Selection
+  );
+
+UINTN
+ModernSetupGetActiveLanguageSelection (
+  VOID
+  );
+
+#endif
