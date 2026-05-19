@@ -44,6 +44,7 @@ open the owning HII form through `EFI_FORM_BROWSER2_PROTOCOL.SendForm()`.
 | Management | Server/remote management summary. | BMC/IPMI/Redfish presence, management NIC, host interface, remote update support. | BMC/IPMI/Redfish platform drivers. | Basic read-only implemented. |
 | Power / Thermal | Power and cooling visibility. | ACPI table/protocol state, chassis thermal state, power supply record presence. | Platform fan, battery, thermal, and power-policy HII. | Basic read-only implemented. |
 | Performance / Tuning | CPU/memory and tuning entry visibility. | Processor inventory, memory inventory, CPU I/O protocol, virtualization/RAS policy entry availability. | Platform performance, overclocking, NUMA/RAS, PCIe policy HII. | Basic read-only implemented. |
+| PCIe Policy | PCIe inventory and policy-entry visibility. | Controller/root-bridge/endpoint counts, protocol presence, and read-only capability hints for ReBAR, Above 4G, SR-IOV, ASPM, bifurcation, hot-plug, ACS/ARI, and IOMMU. | Platform PCIe policy HII and native FormBrowser pages. | Basic read-only foundation implemented. |
 | Exit | Session and shell control. | Continue, reset, native UiApp, language, theme, app/version info. | Native FormBrowser save/discard where needed. | Basic implemented. |
 
 ## Form-Factor Feature Matrix
@@ -67,6 +68,7 @@ owned by platform HII and should not be implemented in the App.
 | Battery and adapter policy | N/A | Native | N/A | N/A | Platform-dependent |
 | Performance/tuning policy | Entry | Entry | Entry | Entry | Platform-dependent |
 | RAS/NUMA/PCIe policy | Platform-dependent | N/A | Platform-dependent | Native | Platform-dependent |
+| PCIe capability summary and native policy entry hints | Display + Entry | Platform-dependent | Display + Entry | Display + Entry | Platform-dependent |
 
 ## Cross-Architecture Capability Targets
 
@@ -86,6 +88,7 @@ owned by platform HII and should not be implemented in the App.
 | BMC / IPMI / Redfish | Server common | Server common | Optional | Server/product dependent | Basic provider support; hide or `N/A` on client platforms. |
 | Capsule update | Common | Platform-dependent | Platform-dependent | Platform-dependent | Detect capsule/update support; hand off to native page/app. |
 | RAS / NUMA / PCIe policy | Server/workstation | Server | Emerging | Server/product dependent | Never implement policy in App; open owning HII formset. |
+| PCIe inventory and policy-entry hints | Common | Platform-dependent | Emerging | Server/product dependent | Show read-only capability summary from `ModernUiPcieDataLib`; actual PCIe policy changes remain native HII/FormBrowser-owned. |
 
 ## Provider Roadmap
 
@@ -100,6 +103,7 @@ owned by platform HII and should not be implemented in the App.
 | `ModernUiManagementDataLib` | BMC/IPMI/Redfish/server management summary. | Detect IPMI protocol, Redfish discover protocol, and SMBIOS management host interface. | Hide on non-server platforms or show `N/A`. |
 | `ModernUiPowerDataLib` | Power and thermal capability summary. | Detect ACPI table/protocol state, SMBIOS chassis thermal state, and power supply record presence. | Show `N/A`; no persistent changes. |
 | `ModernUiPerformanceDataLib` | Performance/tuning capability summary. | Detect CPU/memory inventory, CPU I/O protocol, virtualization policy entry availability, and RAS entry availability. | Show `N/A`; no persistent changes. |
+| `ModernUiPcieDataLib` | PCIe capability summary and native policy entry hints. | Detect controller/root-bridge/endpoint inventory, PCIe protocol presence, and read-only hints for ReBAR, Above 4G, SR-IOV, ASPM, bifurcation, hot-plug, ACS/ARI, and IOMMU policy entries. | Show `N/A`; actual PCIe policy changes remain platform HII/FormBrowser-owned. |
 
 ## Completion Criteria
 

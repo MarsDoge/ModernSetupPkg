@@ -42,6 +42,7 @@
   ModernUiInputLib
   ModernUiManagementDataLib
   ModernUiPerformanceDataLib
+  ModernUiPcieDataLib
   ModernUiPlatformDataLib
   ModernUiPowerDataLib
   ModernUiRendererLib

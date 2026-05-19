@@ -55,8 +55,8 @@ Tests
   `Docs/ProductizationFeatureMatrix.md`, currently covering dashboard, boot,
   devices/HII, security, firmware update, diagnostics/logs, management, and
   power/thermal, performance/tuning, and exit. The firmware, diagnostics,
-  management, power, and performance pages are read-only provider summaries in
-  this phase.
+  management, power, performance, and PCIe policy-entry pages are read-only
+  provider summaries in this phase.
 - Static overlay validation that the default path does not reference
   `ModernSetupApp` or custom HII bridge libraries.
 - Static LoongArchVirt overlay validation that the default path uses native
@@ -68,9 +68,10 @@ Tests
   dry runs, native/modern overlay separation, default overlay exclusion of
   `ModernSetupApp` and experimental HII bridge paths, `ModernSetupApp.inf`
   source coverage, app-internal Dashboard/FormBrowser boundary checks, the
-  app-private provider snapshot boundary for read-only summary pages, and derived
-  Dashboard/Diagnostics provider health summary coverage plus the expanded
-  Dashboard quick-card set without edk2 or QEMU.
+  app-private provider snapshot boundary for read-only summary pages, derived
+  Dashboard/Diagnostics provider health summary coverage, the expanded Dashboard
+  quick-card set, and the Phase 7 PCIe provider foundation wiring/read-only
+  mutation-token boundary without edk2 or QEMU.
 - Manual before/after validation by rebuilding the same overlay with
   `MODERN_SETUP_DISPLAY_ENGINE=native` and `MODERN_SETUP_DISPLAY_ENGINE=modern`.
 - Manual X64 OVMF viewport checks at 800x600, 1024x768, and 1280x800 where the

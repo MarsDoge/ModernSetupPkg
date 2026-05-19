@@ -14,6 +14,10 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- `ModernUiPcieDataLib` read-only PCIe capability and native policy-entry
+  summary foundation for controller/root-bridge inventory, protocol presence,
+  ReBAR, Above 4G, SR-IOV, ASPM, bifurcation, hot-plug, ACS/ARI, and IOMMU
+  hints, with smoke validation for provider wiring and mutation-token exclusion.
 - RiscVVirtQemu RISCV64 overlay build-validation path through
   `Scripts/build-riscvvirt.sh`, with native/modern DisplayEngine generation,
   smoke dry-run coverage, and manual build-validation documentation.

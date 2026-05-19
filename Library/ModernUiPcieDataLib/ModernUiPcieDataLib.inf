@@ -1,0 +1,41 @@
+## @file
+# Read-only PCIe policy and capability summary provider for ModernSetupApp.
+#
+# Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
+# Author: MarsDoge (Dongyan Qian)
+# Open source: https://github.com/MarsDoge/ModernSetupPkg
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = ModernUiPcieDataLib
+  FILE_GUID                      = B15D48C4-57F0-4BF4-B8F4-9B3E4376BA7B
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.1
+  LIBRARY_CLASS                  = ModernUiPcieDataLib|UEFI_APPLICATION
+
+[Sources]
+  ModernUiPcieDataLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  ModernSetupPkg/ModernSetupPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  HiiLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+  UefiHiiServicesLib
+
+[Protocols]
+  gEdkiiIoMmuProtocolGuid
+  gEfiPciEnumerationCompleteProtocolGuid
+  gEfiPciHotPlugInitProtocolGuid
+  gEfiPciHotPlugRequestProtocolGuid
+  gEfiPciIoProtocolGuid
+  gEfiPciRootBridgeIoProtocolGuid

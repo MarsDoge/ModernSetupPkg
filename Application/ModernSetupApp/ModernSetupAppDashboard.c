@@ -207,6 +207,7 @@ ModernSetupDrawDashboard (
   CHAR16  PowerDetailText[96];
   CHAR16  PerformanceValueText[64];
   CHAR16  PerformanceDetailText[96];
+  CHAR16  PciePolicyText[96];
   CHAR16  BootDetailText[96];
   CHAR16  DeviceDetailText[96];
   MODERN_UI_RECT  Content;
@@ -266,15 +267,28 @@ ModernSetupDrawDashboard (
   UnicodeSPrint (
     PerformanceValueText,
     sizeof (PerformanceValueText),
-    DashboardAnyCapability (Providers.Performance.ProcessorInventoryPresent, Providers.Performance.MemoryInventoryPresent) ? L"Inventory ready" : L"Limited data"
+    !EFI_ERROR (Providers.PcieStatus) ? L"CPU / Memory / PCIe" :
+    (DashboardAnyCapability (Providers.Performance.ProcessorInventoryPresent, Providers.Performance.MemoryInventoryPresent) ? L"Inventory ready" : L"Limited data")
     );
   UnicodeSPrint (
-    PerformanceDetailText,
-    sizeof (PerformanceDetailText),
-    L"CPU %s / Mem %s",
-    DashboardPresenceText (Providers.Performance.ProcessorInventoryPresent),
-    DashboardPresenceText (Providers.Performance.MemoryInventoryPresent)
+    PciePolicyText,
+    sizeof (PciePolicyText),
+    L"PCIe ReBAR %s / 4G %s / SR-IOV %s",
+    DashboardPresenceText (Providers.Pcie.ResizeBarPolicyEntryPresent),
+    DashboardPresenceText (Providers.Pcie.Above4GPolicyEntryPresent),
+    DashboardPresenceText (Providers.Pcie.SriovPolicyEntryPresent)
     );
+  if (!EFI_ERROR (Providers.PcieStatus)) {
+    UnicodeSPrint (PerformanceDetailText, sizeof (PerformanceDetailText), L"%s", PciePolicyText);
+  } else {
+    UnicodeSPrint (
+      PerformanceDetailText,
+      sizeof (PerformanceDetailText),
+      L"CPU %s / Mem %s",
+      DashboardPresenceText (Providers.Performance.ProcessorInventoryPresent),
+      DashboardPresenceText (Providers.Performance.MemoryInventoryPresent)
+      );
+  }
   UnicodeSPrint (BootDetailText, sizeof (BootDetailText), L"Mode %s / Secure %s", Providers.Platform.BootMode, SecurityText);
   UnicodeSPrint (DeviceDetailText, sizeof (DeviceDetailText), L"%u handles / %u tables", Providers.Diagnostics.HandleCount, Providers.Diagnostics.ConfigurationTableCount);
 

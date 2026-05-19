@@ -63,8 +63,8 @@ real setup pages on native FormBrowser.
 - A standalone `ModernSetupApp` standard front-page shell that uses shared
   engine surfaces and opens real HII/VFR pages through native FormBrowser2
 - Read-only App providers for firmware lifecycle, diagnostics/table inventory,
-  server/remote management, power/thermal, and performance/tuning capability
-  summaries
+  server/remote management, power/thermal, performance/tuning capability, and
+  PCIe capability/policy-entry summaries
 - ArmVirtQemu overlay scripts that keep upstream `ArmVirtPkg` files unchanged
 - LoongArchVirtQemu overlay scripts that keep upstream `OvmfPkg/LoongArchVirt`
   files unchanged
@@ -174,7 +174,7 @@ edk2 workspace
     |   +-- ModernUiDeviceDataLib / ModernUiSecurityDataLib
     |   +-- ModernUiFirmwareDataLib / ModernUiDiagnosticsDataLib
     |   +-- ModernUiManagementDataLib / ModernUiPowerDataLib
-    |   +-- ModernUiPerformanceDataLib
+    |   +-- ModernUiPerformanceDataLib / ModernUiPcieDataLib
     |   +-- ModernUiInputLib / ModernUiStringLib
     |   +-- ModernUiHiiBridgeLib / ModernUiPageAdapterLib (debug only)
     |
@@ -280,8 +280,8 @@ portable open source shell for desktop, laptop, server, tablet, and future
 architecture targets. It owns high-level navigation and summary pages only:
 dashboard, boot list, HII/device entry list, security overview, firmware
 update status, diagnostics inventory, management availability, power/thermal
-state, performance/tuning entry availability, exit, language, and theme
-controls.
+state, performance/tuning entry availability, PCIe capability and native policy
+entry hints, exit, language, and theme controls.
 
 The productization target is documented in
 [`Docs/IbvAndPlatformSetupSurvey.md`](Docs/IbvAndPlatformSetupSurvey.md) and
@@ -290,7 +290,10 @@ New App features should first fit one of those common provider-backed areas:
 platform inventory, boot, devices/HII entry points, security posture, firmware
 update, diagnostics/logs, management, power/thermal, performance/tuning, or
 exit/session control. Platform-private configuration remains in the owning HII
-formset.
+formset. `ModernUiPcieDataLib` follows the same rule for PCIe: it reports a
+read-only capability summary and native entry hints, while real ReBAR, Above 4G,
+SR-IOV, ASPM, bifurcation, hot-plug, ACS/ARI, IOMMU, and BAR resource policy
+changes remain in platform HII/FormBrowser ownership.
 
 The app must share `ModernUiEngineLib` for visual surfaces. App code may own
 front-page data, navigation state, and language switching, but should not grow a

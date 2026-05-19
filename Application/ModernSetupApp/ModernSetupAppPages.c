@@ -607,11 +607,15 @@ DrawPerformance (
 {
   MODERN_SETUP_PROVIDER_SNAPSHOT    Providers;
   MODERN_UI_PERFORMANCE_SUMMARY     *Summary;
-  CONST CHAR16                      *Labels[5];
-  CONST CHAR16                      *Values[5];
+  MODERN_UI_PCIE_SUMMARY            *Pcie;
+  CHAR16                            PcieInventory[64];
+  CHAR16                            PciePolicy[96];
+  CONST CHAR16                      *Labels[8];
+  CONST CHAR16                      *Values[8];
 
   ModernSetupGetProviderSnapshot (&Providers);
   Summary = &Providers.Performance;
+  Pcie    = &Providers.Pcie;
 
   Labels[0] = ModernUiGetString (ModernUiStringProcessorInventory);
   Values[0] = CapabilityText (Summary->ProcessorInventoryPresent);
@@ -623,6 +627,27 @@ DrawPerformance (
   Values[3] = CapabilityText (Summary->VirtualizationPolicyEntryPresent);
   Labels[4] = ModernUiGetString (ModernUiStringRasPolicy);
   Values[4] = CapabilityText (Summary->RasPolicyEntryPresent);
+  UnicodeSPrint (
+    PcieInventory,
+    sizeof (PcieInventory),
+    L"%u endpoints / %u bridges",
+    Pcie->EndpointCount,
+    Pcie->BridgeCount
+    );
+  UnicodeSPrint (
+    PciePolicy,
+    sizeof (PciePolicy),
+    L"ReBAR %s / Above 4G %s / SR-IOV %s",
+    CapabilityText (Pcie->ResizeBarPolicyEntryPresent),
+    CapabilityText (Pcie->Above4GPolicyEntryPresent),
+    CapabilityText (Pcie->SriovPolicyEntryPresent)
+    );
+  Labels[5] = L"PCIe Policy";
+  Values[5] = EFI_ERROR (Providers.PcieStatus) ? ModernUiGetString (ModernUiStringNotAvailable) : CapabilityText (Pcie->PciePolicyEntryPresent);
+  Labels[6] = L"ReBAR / Above 4G / SR-IOV";
+  Values[6] = EFI_ERROR (Providers.PcieStatus) ? ModernUiGetString (ModernUiStringNotAvailable) : PciePolicy;
+  Labels[7] = L"PCIe Inventory";
+  Values[7] = EFI_ERROR (Providers.PcieStatus) ? ModernUiGetString (ModernUiStringNotAvailable) : PcieInventory;
 
   DrawProviderSummaryPage (
     Ui,

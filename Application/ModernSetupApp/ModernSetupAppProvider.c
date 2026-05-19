@@ -55,6 +55,7 @@ InitializeProviderSnapshotDefaults (
   Snapshot->ManagementStatus  = EFI_NOT_READY;
   Snapshot->PowerStatus       = EFI_NOT_READY;
   Snapshot->PerformanceStatus = EFI_NOT_READY;
+  Snapshot->PcieStatus        = EFI_NOT_READY;
 
   SetUnknownText (Snapshot->Platform.FirmwareVendor, ARRAY_SIZE (Snapshot->Platform.FirmwareVendor));
   SetUnknownText (Snapshot->Platform.FirmwareRevision, ARRAY_SIZE (Snapshot->Platform.FirmwareRevision));
@@ -115,7 +116,7 @@ ModernSetupGetProviderHealthSummary (
   OUT MODERN_SETUP_PROVIDER_HEALTH_SUMMARY  *Health
   )
 {
-  MODERN_SETUP_PROVIDER_STATUS_ENTRY  Entries[7];
+  MODERN_SETUP_PROVIDER_STATUS_ENTRY  Entries[8];
   UINTN                               Index;
 
   if ((Snapshot == NULL) || (Health == NULL)) {
@@ -129,6 +130,7 @@ ModernSetupGetProviderHealthSummary (
   Entries[4] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"Management",  Snapshot->ManagementStatus };
   Entries[5] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"Power",       Snapshot->PowerStatus };
   Entries[6] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"Performance", Snapshot->PerformanceStatus };
+  Entries[7] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"PCIe Policy", Snapshot->PcieStatus };
 
   ZeroMem (Health, sizeof (*Health));
   Health->TotalProviders       = ARRAY_SIZE (Entries);
@@ -183,6 +185,7 @@ ModernSetupGetProviderSnapshot (
   MODERN_UI_MANAGEMENT_SUMMARY    Management;
   MODERN_UI_POWER_SUMMARY         Power;
   MODERN_UI_PERFORMANCE_SUMMARY   Performance;
+  MODERN_UI_PCIE_SUMMARY          Pcie;
 
   if (Snapshot == NULL) {
     return EFI_INVALID_PARAMETER;
@@ -223,6 +226,11 @@ ModernSetupGetProviderSnapshot (
   Snapshot->PerformanceStatus = ModernUiPerformanceDataGetSummary (&Performance);
   if (!EFI_ERROR (Snapshot->PerformanceStatus)) {
     CopyMem (&Snapshot->Performance, &Performance, sizeof (Snapshot->Performance));
+  }
+
+  Snapshot->PcieStatus = ModernUiPcieDataGetSummary (&Pcie);
+  if (!EFI_ERROR (Snapshot->PcieStatus)) {
+    CopyMem (&Snapshot->Pcie, &Pcie, sizeof (Snapshot->Pcie));
   }
 
   return EFI_SUCCESS;
