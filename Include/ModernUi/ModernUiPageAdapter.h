@@ -26,9 +26,9 @@ typedef struct {
   UINT32                    Version;
   MODERN_UI_RENDER_CONTEXT  *Ui;
   CONST MODERN_UI_THEME     *Theme;
-  MODERN_UI_HII_MODEL       *HiiModel;
+  MODERN_UI_HII_VIEW        *HiiView;
   MODERN_UI_HII_FORMSET     *FormSet;
-  MODERN_UI_HII_FORM        *Form;
+  MODERN_UI_HII_PAGE        *Page;
   EFI_FORM_ID               FormId;
   UINTN                     Selection;
   UINTN                     Scroll;
