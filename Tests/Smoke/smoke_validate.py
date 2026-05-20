@@ -711,6 +711,32 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
         raise SmokeFailure("ModernSetupAppDashboard.c must layout cards from DASHBOARD_QUICK_CARD_COUNT")
     if "DASHBOARD_QUICK_VALUE_MIN_HEIGHT" not in dashboard_body:
         raise SmokeFailure("ModernSetupAppDashboard.c must keep Dashboard card values visible in compact layouts")
+    layout_defines = {
+        match.group(1): int(match.group(2))
+        for match in re.finditer(
+            r"#define\s+(DASHBOARD_(?:SECTION_TITLE_TOP|QUICK_CARD_TOP|QUICK_CARD_GAP|QUICK_GROUP_LABEL_OFFSET))\s+(\d+)",
+            internal_body,
+        )
+    }
+    for layout_token in (
+        "DASHBOARD_SECTION_TITLE_TOP",
+        "DASHBOARD_QUICK_CARD_TOP",
+        "DASHBOARD_QUICK_CARD_GAP",
+        "DASHBOARD_QUICK_GROUP_LABEL_OFFSET",
+    ):
+        if layout_token not in layout_defines:
+            raise SmokeFailure(f"ModernSetupAppInternal.h missing Dashboard layout constant: {layout_token}")
+    if "DASHBOARD_SECTION_TITLE_TOP" not in dashboard_body or "DASHBOARD_QUICK_GROUP_LABEL_OFFSET" not in dashboard_body:
+        raise SmokeFailure("ModernSetupAppDashboard.c must use named Dashboard title/group spacing constants")
+    if layout_defines["DASHBOARD_QUICK_GROUP_LABEL_OFFSET"] < 24:
+        raise SmokeFailure("Dashboard group labels need at least 24px clearance above quick cards")
+    if layout_defines["DASHBOARD_QUICK_CARD_GAP"] - layout_defines["DASHBOARD_QUICK_GROUP_LABEL_OFFSET"] < 8:
+        raise SmokeFailure("Dashboard lower-row group labels need a clear lane below the previous row")
+    if (
+        layout_defines["DASHBOARD_QUICK_CARD_TOP"] - layout_defines["DASHBOARD_QUICK_GROUP_LABEL_OFFSET"]
+        < layout_defines["DASHBOARD_SECTION_TITLE_TOP"] + 24
+    ):
+        raise SmokeFailure("Dashboard group labels must sit clearly below the section title before cards begin")
     if "ModernSetupGetDashboardQuickGrid" not in actions_body or "MODERN_SETUP_DASHBOARD_QUICK_GRID" not in internal_body:
         raise SmokeFailure("Dashboard quick-card layout must use a shared grid helper contract")
     if "ModernSetupGetDashboardCategoryRoute" not in actions_body or "MODERN_SETUP_DASHBOARD_ROUTE" not in internal_body:
