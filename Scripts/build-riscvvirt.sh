@@ -8,7 +8,9 @@
 set -euo pipefail
 
 PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKSPACE="${WORKSPACE:-$(cd "${PKG_DIR}/.." && pwd)}"
+# shellcheck disable=SC1091
+source "${PKG_DIR}/Scripts/edk2-workspace.sh"
+WORKSPACE="$(DetectWorkspace)"
 TARGET="${TARGET:-DEBUG}"
 TOOL_CHAIN_TAG="${TOOL_CHAIN_TAG:-GCC}"
 JOBS="${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
@@ -20,15 +22,10 @@ OVERLAY_DIR="${WORKSPACE}/Build/ModernSetupPkgOverlay"
 
 export WORKSPACE
 export GCC_RISCV64_PREFIX
+ConfigureModernSetupPackagePath
 
-if [[ ! -d "${WORKSPACE}/MdePkg" || ! -d "${WORKSPACE}/OvmfPkg/RiscVVirt" || ! -d "${WORKSPACE}/ModernSetupPkg" ]]; then
-  echo "WORKSPACE does not look like an edk2 checkout with MdePkg, OvmfPkg/RiscVVirt, and ModernSetupPkg: ${WORKSPACE}" >&2
-  exit 1
-fi
-
-if [[ "$(cd "${PKG_DIR}" && pwd)" != "${WORKSPACE}/ModernSetupPkg" ]]; then
-  echo "ModernSetupPkg should be checked out at ${WORKSPACE}/ModernSetupPkg" >&2
-  echo "Current package path: ${PKG_DIR}" >&2
+if [[ ! -d "${WORKSPACE}/MdePkg" || ! -d "${WORKSPACE}/OvmfPkg/RiscVVirt" ]]; then
+  echo "WORKSPACE does not look like an edk2 checkout with MdePkg and OvmfPkg/RiscVVirt: ${WORKSPACE}" >&2
   exit 1
 fi
 

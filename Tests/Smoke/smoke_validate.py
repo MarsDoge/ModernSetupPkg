@@ -22,6 +22,8 @@ side invariants that are useful for multi-agent maintenance:
   snapshot boundary;
 * the Dashboard quick-card expansion stays backed by provider snapshots and a
   single app-private selectable-card count; and
+* the pinned edk2 baseline submodule, bootstrap helper, workspace helper, and
+  baseline docs stay discoverable by smoke tests; and
 * overlay generation works against tiny synthetic edk2 source fixtures.
 """
 
@@ -44,6 +46,12 @@ BUILD_SCRIPTS = (
     "build-loongarchvirt.sh",
     "build-ovmf-x64.sh",
     "build-riscvvirt.sh",
+)
+EDK2_BASELINE_SHA = "b03a21a63e3bd001f52c527e5a57feddb53a690b"
+EDK2_BASELINE_REQUIRED_SCRIPT_REFS = (
+    Path("Scripts") / "build-modern-app.sh",
+    Path("Scripts") / "build-ovmf-x64.sh",
+    Path("Scripts") / "run-ovmf-x64.sh",
 )
 PROHIBITED_DEFAULT_OVERLAY_TOKENS = (
     "ModernSetupApp",
@@ -431,6 +439,58 @@ def assert_not_contains_any(path: Path, needles: Iterable[str]) -> None:
     for needle in needles:
         if needle in text:
             raise SmokeFailure(f"{path} contains prohibited text: {needle}")
+
+
+def check_edk2_baseline_contract(root: Path) -> list[str]:
+    gitmodules = root / ".gitmodules"
+    workspace_helper = root / "Scripts" / "edk2-workspace.sh"
+    bootstrap_helper = root / "Scripts" / "bootstrap-edk2.sh"
+    baseline_doc = root / "Docs" / "BASELINE.md"
+
+    for path in (gitmodules, workspace_helper, bootstrap_helper, baseline_doc):
+        if not path.exists():
+            raise SmokeFailure(f"missing edk2 baseline contract file: {path.relative_to(root)}")
+
+    gitmodules_text = gitmodules.read_text(encoding="utf-8")
+    for token in ("External/edk2", "https://github.com/tianocore/edk2.git"):
+        if token not in gitmodules_text:
+            raise SmokeFailure(f".gitmodules missing edk2 baseline token: {token}")
+
+    workspace_text = workspace_helper.read_text(encoding="utf-8")
+    for token in ("DetectWorkspace", "External/edk2", "ConfigureModernSetupPackagePath"):
+        if token not in workspace_text:
+            raise SmokeFailure(f"Scripts/edk2-workspace.sh missing contract token: {token}")
+
+    bootstrap_text = bootstrap_helper.read_text(encoding="utf-8")
+    for token in (
+        "git submodule update --init -- External/edk2",
+        "submodule update --init --checkout",
+        "OpenSSL",
+        "optional nested",
+        "MbedTLS",
+        "framework",
+        "BUILD_BASETOOLS",
+    ):
+        if token not in bootstrap_text:
+            raise SmokeFailure(f"Scripts/bootstrap-edk2.sh missing contract token: {token}")
+
+    baseline_text = baseline_doc.read_text(encoding="utf-8")
+    baseline_text_lower = baseline_text.lower()
+    for token in (EDK2_BASELINE_SHA, "External/edk2"):
+        if token not in baseline_text:
+            raise SmokeFailure(f"Docs/BASELINE.md missing baseline token: {token}")
+    for token in ("reproducible", "build", "qemu"):
+        if token not in baseline_text_lower:
+            raise SmokeFailure(f"Docs/BASELINE.md missing baseline concept: {token}")
+
+    for relative in EDK2_BASELINE_REQUIRED_SCRIPT_REFS:
+        script = root / relative
+        if not script.exists():
+            raise SmokeFailure(f"missing edk2 workspace consumer script: {relative}")
+        if "edk2-workspace.sh" not in script.read_text(encoding="utf-8"):
+            raise SmokeFailure(f"{relative} does not source/reference edk2-workspace.sh")
+
+    return ["PASS edk2 baseline submodule/docs/script contract"]
 
 
 def strip_c_comments(text: str) -> str:
@@ -914,6 +974,7 @@ def main() -> int:
         messages.extend(check_pcie_provider_foundation(root))
         messages.extend(check_pcie_docs_language(root))
         messages.extend(check_hii_bridge_view_model_boundary(root))
+        messages.extend(check_edk2_baseline_contract(root))
         messages.extend(check_static_overlay_script_contracts(root))
         messages.extend(check_overlay_generation(root))
     except SmokeFailure as exc:
