@@ -114,6 +114,14 @@ typedef enum {
   ModernUiStringBootReturnedFormat,
   ModernUiStringClassicReturnedFormat,
   ModernUiStringGraphicsInitFailedFormat,
+  ModernUiStringGroupBootDevices,
+  ModernUiStringGroupPlatformHealth,
+  ModernUiStringGroupPowerPerformance,
+  ModernUiStringGroupFirmware,
+  ModernUiStringGroupDiagnostics,
+  ModernUiStringGroupManagement,
+  ModernUiStringGroupPower,
+  ModernUiStringGroupPerformance,
   ModernUiStringMax
 } MODERN_UI_STRING_ID;
 

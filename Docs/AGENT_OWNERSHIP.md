@@ -45,6 +45,11 @@ ModernSetupApp boundary rules:
 - Experimental HII bridge and page adapter headers/libraries stay out of `Application/ModernSetupApp/` unless an explicit promotion is reviewed by core-api and display-engine owners.
 - When adding an app `.c` file matching `Application/ModernSetupApp/ModernSetupApp*.c`, update `Application/ModernSetupApp/ModernSetupApp.inf` `[Sources]` in the same PR and run `python3 Tests/Smoke/smoke_validate.py`.
 - App-internal refactors should preserve public API/DEC contracts unless the PR explicitly routes through core-api.
+- Lightweight App information-architecture work may add visual grouping or
+  subsection labels inside existing Dashboard/provider pages, but should retain
+  the current rows, selectable card count, navigation behavior, provider snapshot
+  boundary, and diagnostic Present/Absent/Available/N/A text unless a later
+  cleanup phase explicitly owns that removal.
 - PCIe policy summaries from `ModernUiPcieDataLib` are read-only capability and
   native HII entry hints. ReBAR, Above 4G decoding, SR-IOV, ASPM, bifurcation,
   hot-plug, ACS/ARI, IOMMU, and BAR resource policy changes remain owned by

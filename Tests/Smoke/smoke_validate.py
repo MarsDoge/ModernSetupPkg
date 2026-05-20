@@ -63,6 +63,9 @@ PROHIBITED_APP_SOURCE_TOKENS = (
     "ConfigAccess",
     "ExtractConfig",
     "RouteConfig",
+    "SetVariable",
+    "HiiSetBrowserData",
+    "HiiUpdateForm",
 )
 APP_PROVIDER_SUMMARY_TOKENS = (
     "ModernUiPlatformDataGetSummary",
