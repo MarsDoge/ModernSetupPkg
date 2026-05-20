@@ -36,9 +36,10 @@ Use the fastest level that answers the question being tested, then move upward w
 2. Standalone app build: build the ModernSetupApp against the pinned workspace.
 3. OVMF build: build the OVMF X64 firmware overlay against the pinned workspace.
 4. Headless QEMU: boot the generated firmware in a non-graphical QEMU run where supported.
-5. Graphical screenshot: capture or inspect the setup UI in graphical QEMU.
+5. Scripted OVMF X64 screendump: use `Scripts/capture-ovmf-x64.sh` to boot OVMF with a prepared ESP and collect a QEMU monitor `screendump` PPM/PNG artifact.
+6. Graphical screenshot: capture or inspect the setup UI in graphical QEMU.
 
-Some environments may block QEMU execution because KVM, graphics, firmware variables, or display backends are unavailable. In those cases, keep smoke and build validation reproducible and document the blocked QEMU level in the test notes.
+Some environments may block QEMU execution because KVM, graphics, firmware variables, or display backends are unavailable. In those cases, keep smoke and build validation reproducible and document the blocked QEMU level in the test notes. The screendump helper is the preferred local visual-validation bridge before committing image assets: it keeps mutable OVMF variables under `Build/ModernSetupPkgCapture/OvmfX64`, defaults output to `${TMPDIR:-/tmp}/modernsetup-qemu`, accepts `BOOT_WAIT_SECONDS` and comma-separated `SENDKEY_SEQUENCE` for monitor-driven navigation, and leaves the PPM artifact valid even when PNG conversion tools are unavailable. Set `CAPTURE_OUT_DIR=Assets/Screenshots/manual` only when intentionally collecting screenshot assets for commit.
 
 ## Updating the baseline
 
