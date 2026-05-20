@@ -191,8 +191,8 @@ DrawProviderSummaryPage (
   Content = ModernSetupContentRect (Ui);
   Panel      = (MODERN_UI_RECT){ Content.X, Content.Y, Content.Width, MIN (Content.Height, 430) };
   RowY       = Panel.Y + 58;
-  RowStep    = (Panel.Height < 380) ? 28 : 34;
-  HeaderStep = (Panel.Height < 380) ? 20 : 28;
+  RowStep    = 28;
+  HeaderStep = 20;
 
   DrawProviderSummarySection (Ui, Theme, Panel, Section, TRUE);
   ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
@@ -722,15 +722,21 @@ DrawPerformance (
   MODERN_SETUP_PROVIDER_SNAPSHOT    Providers;
   MODERN_UI_PERFORMANCE_SUMMARY     *Summary;
   MODERN_UI_PCIE_SUMMARY            *Pcie;
+  CONST CHAR16                      *PcieUnavailable;
+  CHAR16                            PcieFabric[64];
   CHAR16                            PcieInventory[64];
-  CHAR16                            PciePolicy[96];
-  CONST CHAR16                      *Labels[8];
-  CONST CHAR16                      *Values[8];
-  CONST CHAR16                      *Groups[8] = { NULL };
+  CHAR16                            PcieNativePolicy[112];
+  CHAR16                            PcieFabricPolicy[112];
+  CHAR16                            PcieIsolation[112];
+  CHAR16                            PcieDeviceCapabilities[96];
+  CONST CHAR16                      *Labels[11];
+  CONST CHAR16                      *Values[11];
+  CONST CHAR16                      *Groups[11] = { NULL };
 
   ModernSetupGetProviderSnapshot (&Providers);
-  Summary = &Providers.Performance;
-  Pcie    = &Providers.Pcie;
+  Summary         = &Providers.Performance;
+  Pcie            = &Providers.Pcie;
+  PcieUnavailable = ModernUiGetString (ModernUiStringNotAvailable);
 
   Labels[0] = ModernUiGetString (ModernUiStringProcessorInventory);
   Groups[0] = ModernUiGetString (ModernUiStringGroupPerformance);
@@ -744,6 +750,13 @@ DrawPerformance (
   Labels[4] = ModernUiGetString (ModernUiStringRasPolicy);
   Values[4] = CapabilityText (Summary->RasPolicyEntryPresent);
   UnicodeSPrint (
+    PcieFabric,
+    sizeof (PcieFabric),
+    L"%u controllers / %u roots",
+    Pcie->ControllerCount,
+    Pcie->RootBridgeCount
+    );
+  UnicodeSPrint (
     PcieInventory,
     sizeof (PcieInventory),
     L"%u endpoints / %u bridges",
@@ -751,20 +764,50 @@ DrawPerformance (
     Pcie->BridgeCount
     );
   UnicodeSPrint (
-    PciePolicy,
-    sizeof (PciePolicy),
+    PcieNativePolicy,
+    sizeof (PcieNativePolicy),
     L"ReBAR %s / Above 4G %s / SR-IOV %s",
     CapabilityText (Pcie->ResizeBarPolicyEntryPresent),
     CapabilityText (Pcie->Above4GPolicyEntryPresent),
     CapabilityText (Pcie->SriovPolicyEntryPresent)
     );
-  Labels[5] = L"PCIe Policy";
+  UnicodeSPrint (
+    PcieFabricPolicy,
+    sizeof (PcieFabricPolicy),
+    L"ASPM %s / Bifurcation %s / Hot Plug %s",
+    CapabilityText (Pcie->AspmPolicyEntryPresent),
+    CapabilityText (Pcie->BifurcationPolicyEntryPresent),
+    CapabilityText (Pcie->HotPlugPolicyEntryPresent)
+    );
+  UnicodeSPrint (
+    PcieIsolation,
+    sizeof (PcieIsolation),
+    L"ACS %s / ARI %s / IOMMU %s",
+    CapabilityText (Pcie->AcsPolicyEntryPresent),
+    CapabilityText (Pcie->AriPolicyEntryPresent),
+    CapabilityText (Pcie->IommuPolicyEntryPresent)
+    );
+  UnicodeSPrint (
+    PcieDeviceCapabilities,
+    sizeof (PcieDeviceCapabilities),
+    L"ReBAR %u / SR-IOV %u / ASPM %u",
+    Pcie->ResizableBarDeviceCount,
+    Pcie->SriovDeviceCount,
+    Pcie->AspmCapableLinkCount
+    );
+  Labels[5] = L"PCIe Fabric";
   Groups[5] = ModernUiGetString (ModernUiStringGroupPowerPerformance);
-  Values[5] = EFI_ERROR (Providers.PcieStatus) ? ModernUiGetString (ModernUiStringNotAvailable) : CapabilityText (Pcie->PciePolicyEntryPresent);
-  Labels[6] = L"ReBAR / Above 4G / SR-IOV";
-  Values[6] = EFI_ERROR (Providers.PcieStatus) ? ModernUiGetString (ModernUiStringNotAvailable) : PciePolicy;
-  Labels[7] = L"PCIe Inventory";
-  Values[7] = EFI_ERROR (Providers.PcieStatus) ? ModernUiGetString (ModernUiStringNotAvailable) : PcieInventory;
+  Values[5] = EFI_ERROR (Providers.PcieStatus) ? PcieUnavailable : PcieFabric;
+  Labels[6] = L"PCIe Inventory";
+  Values[6] = EFI_ERROR (Providers.PcieStatus) ? PcieUnavailable : PcieInventory;
+  Labels[7] = L"Native Policy Entries";
+  Values[7] = EFI_ERROR (Providers.PcieStatus) ? PcieUnavailable : PcieNativePolicy;
+  Labels[8] = L"Fabric Policy Entries";
+  Values[8] = EFI_ERROR (Providers.PcieStatus) ? PcieUnavailable : PcieFabricPolicy;
+  Labels[9] = L"Isolation Entries";
+  Values[9] = EFI_ERROR (Providers.PcieStatus) ? PcieUnavailable : PcieIsolation;
+  Labels[10] = L"Device Capabilities";
+  Values[10] = EFI_ERROR (Providers.PcieStatus) ? PcieUnavailable : PcieDeviceCapabilities;
 
   DrawProviderSummaryPage (
     Ui,

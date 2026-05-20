@@ -91,6 +91,21 @@ PCIE_FORBIDDEN_MUTATION_TOKENS = (
     "EFI_HII_CONFIG_ACCESS_PROTOCOL",
     "SetBarAttributes",
 )
+PCIE_APP_CATALOG_TOKENS = (
+    "Providers.Pcie",
+    "Providers.PcieStatus",
+    "ControllerCount",
+    "RootBridgeCount",
+    "EndpointCount",
+    "BridgeCount",
+    "AspmPolicyEntryPresent",
+    "BifurcationPolicyEntryPresent",
+    "HotPlugPolicyEntryPresent",
+    "IommuPolicyEntryPresent",
+    "ResizableBarDeviceCount",
+    "SriovDeviceCount",
+    "AspmCapableLinkCount",
+)
 PCIE_DOC_KEYWORDS = (
     "pcie",
     "pci express",
@@ -580,6 +595,13 @@ def check_pcie_provider_foundation(root: Path) -> list[str]:
             for token in PCIE_FORBIDDEN_MUTATION_TOKENS:
                 if token in body:
                     raise SmokeFailure(f"{source.relative_to(root)} contains prohibited app PCIe mutation token: {token}")
+
+    pages_body = strip_c_comments((app_dir / "ModernSetupAppPages.c").read_text(encoding="utf-8"))
+    if PCIE_PROVIDER_SUMMARY_TOKEN in pages_body:
+        raise SmokeFailure("ModernSetupAppPages.c must consume Providers.Pcie from the app snapshot, not call PCIe provider summary")
+    for token in PCIE_APP_CATALOG_TOKENS:
+        if token not in pages_body:
+            raise SmokeFailure(f"ModernSetupAppPages.c missing Performance PCIe catalog token: {token}")
 
     return ["PASS PCIe provider foundation wiring and read-only boundary checks"]
 
