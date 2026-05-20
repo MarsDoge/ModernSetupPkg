@@ -14,6 +14,10 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase 10 `ModernSetupApp` Dashboard category landing: the former Quick Access
+  section is now labeled Setup Categories/设置分类, routes through an app-private
+  card-to-page helper, and shows a small localized Open/Enter affordance while
+  preserving Boot/Devices content focus and overview-page navigation focus.
 - `ModernUiPcieDataLib` read-only PCIe capability and native policy-entry
   summary foundation for controller/root-bridge inventory, protocol presence,
   ReBAR, Above 4G, SR-IOV, ASPM, bifurcation, hot-plug, ACS/ARI, and IOMMU

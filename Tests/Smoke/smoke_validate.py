@@ -513,6 +513,14 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
         raise SmokeFailure("ModernSetupAppDashboard.c must keep Dashboard card values visible in compact layouts")
     if "ModernSetupGetDashboardQuickGrid" not in actions_body or "MODERN_SETUP_DASHBOARD_QUICK_GRID" not in internal_body:
         raise SmokeFailure("Dashboard quick-card layout must use a shared grid helper contract")
+    if "ModernSetupGetDashboardCategoryRoute" not in actions_body or "MODERN_SETUP_DASHBOARD_ROUTE" not in internal_body:
+        raise SmokeFailure("Dashboard category landing routes must use the shared helper contract")
+    if "ModernSetupGetDashboardCategoryRoute (DashboardSelection" not in app_body:
+        raise SmokeFailure("Dashboard Enter handling must resolve category landing routes through the shared helper")
+    if "mDashboardCategoryRoutes[DASHBOARD_QUICK_CARD_COUNT]" not in actions_body:
+        raise SmokeFailure("Dashboard category route table must stay aligned with the visible card count")
+    if actions_body.count("SetupFocusContent") < 2 or actions_body.count("SetupFocusNav") < 4:
+        raise SmokeFailure("Dashboard category routes must preserve content focus for Boot/Devices and nav focus for overview pages")
     if "DashboardSelection >= DashboardGrid.CardsPerRow" not in app_body:
         raise SmokeFailure("Dashboard Up navigation must move by grid row before returning to navigation")
     if "DashboardSelection + DashboardGrid.CardsPerRow" not in app_body:

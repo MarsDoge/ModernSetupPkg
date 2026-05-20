@@ -121,6 +121,11 @@ typedef struct {
   UINTN           CardWidth;
 } MODERN_SETUP_DASHBOARD_QUICK_GRID;
 
+typedef struct {
+  SETUP_PAGE   Page;
+  SETUP_FOCUS  Focus;
+} MODERN_SETUP_DASHBOARD_ROUTE;
+
 extern EFI_HANDLE  mModernSetupImageHandle;
 extern BOOLEAN     mModernSetupLanguageDropdownOpen;
 extern UINTN       mModernSetupLanguageDropdownSelection;
@@ -235,6 +240,12 @@ BOOLEAN
 ModernSetupGetDashboardQuickGrid (
   IN  MODERN_UI_RENDER_CONTEXT           *Ui,
   OUT MODERN_SETUP_DASHBOARD_QUICK_GRID  *Grid
+  );
+
+BOOLEAN
+ModernSetupGetDashboardCategoryRoute (
+  IN  UINTN                         Selection,
+  OUT MODERN_SETUP_DASHBOARD_ROUTE  *Route
   );
 
 EFI_STATUS

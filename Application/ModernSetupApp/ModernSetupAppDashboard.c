@@ -122,7 +122,10 @@ DrawDashboardTile (
   }
 
   ModernUiFillRect (Ui, (MODERN_UI_RECT){ Rect.X, Rect.Y, Selected ? 7 : 4, Rect.Height }, (Emphasis || Selected) ? Theme->AccentYellow : Theme->AccentSoft);
-  ModernUiDrawTextFit (Ui, Rect.X + 18, Rect.Y + 8, Rect.Width - 36, Title, Theme->MutedText, TileColor);
+  ModernUiDrawTextFit (Ui, Rect.X + 18, Rect.Y + 8, (Rect.Width >= 160) ? (Rect.Width - 112) : (Rect.Width - 36), Title, Theme->MutedText, TileColor);
+  if (Rect.Width >= 160) {
+    ModernUiDrawTextFit (Ui, Rect.X + Rect.Width - 76, Rect.Y + 8, 58, ModernUiGetString (ModernUiStringOpenEnter), Selected ? Theme->AccentYellow : Theme->MutedText, TileColor);
+  }
   if (Rect.Height >= DASHBOARD_QUICK_VALUE_MIN_HEIGHT) {
     ModernUiDrawTextFit (
       Ui,
@@ -368,7 +371,7 @@ ModernSetupDrawDashboard (
   }
 
   if (Grid.Visible) {
-    DrawDashboardSection (Ui, Theme, QuickPanel, L"Quick Access", FALSE);
+    DrawDashboardSection (Ui, Theme, QuickPanel, ModernUiGetString (ModernUiStringSetupCategories), FALSE);
 
     for (CardIndex = 0; CardIndex < DASHBOARD_QUICK_CARD_COUNT; CardIndex++) {
       CardX     = QuickPanel.X + 20 + ((CardIndex % Grid.CardsPerRow) * (Grid.CardWidth + Grid.CardGap));

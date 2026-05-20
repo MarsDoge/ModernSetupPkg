@@ -42,6 +42,7 @@ UefiMain (
   UINTN                     Selection;
   UINTN                     SelectableCount;
   MODERN_SETUP_DASHBOARD_QUICK_GRID  DashboardGrid;
+  MODERN_SETUP_DASHBOARD_ROUTE       DashboardRoute;
   CHAR16                    StatusMessage[96];
   BOOLEAN                   Redraw;
 
@@ -186,24 +187,9 @@ UefiMain (
           StatusMessage[0] = L'\0';
           Redraw = TRUE;
         } else if (Page == PageDashboard) {
-          if (DashboardSelection == 0) {
-            Page  = PageBoot;
-            Focus = SetupFocusContent;
-          } else if (DashboardSelection == 1) {
-            Page  = PageDevices;
-            Focus = SetupFocusContent;
-          } else if (DashboardSelection == 2) {
-            Page  = PageDiagnostics;
-            Focus = SetupFocusNav;
-          } else if (DashboardSelection == 3) {
-            Page  = PageFirmware;
-            Focus = SetupFocusNav;
-          } else if (DashboardSelection == 4) {
-            Page  = PagePower;
-            Focus = SetupFocusNav;
-          } else {
-            Page  = PagePerformance;
-            Focus = SetupFocusNav;
+          if (ModernSetupGetDashboardCategoryRoute (DashboardSelection, &DashboardRoute)) {
+            Page  = DashboardRoute.Page;
+            Focus = DashboardRoute.Focus;
           }
 
           StatusMessage[0] = L'\0';

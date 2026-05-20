@@ -122,6 +122,8 @@ typedef enum {
   ModernUiStringGroupManagement,
   ModernUiStringGroupPower,
   ModernUiStringGroupPerformance,
+  ModernUiStringSetupCategories,
+  ModernUiStringOpenEnter,
   ModernUiStringMax
 } MODERN_UI_STRING_ID;
 
