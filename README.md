@@ -80,7 +80,10 @@ and setup semantics, while ModernSetup replaces the display engine drawing
 backend. The standard front-page app is intentionally separate from that
 default path: it can present dashboard, boot, device, security, language, and
 theme entry points, but when a real setup page is selected it calls
-`EFI_FORM_BROWSER2_PROTOCOL.SendForm()` instead of parsing IFR itself.
+`EFI_FORM_BROWSER2_PROTOCOL.SendForm()` instead of parsing IFR itself. Broad
+IBV/platform setup domains are tracked as read-only summaries or native HII
+entry points in `Docs/IbvAndPlatformSetupSurvey.md` and
+`Docs/ProductizationFeatureMatrix.md`.
 
 The custom HII bridge remains useful for experiments, but it is not the main
 route for Device Manager, DriverSample, Boot Maintenance, or third-party HII

@@ -283,6 +283,42 @@ Phase 10 is complete when:
 4. Smoke validation covers the helper/route contract without brittle label
    removal checks.
 
+## Future phase seed: setup taxonomy and native-policy guardrails
+
+Potential app/provider acceptance target:
+
+- Title: `phase11(app/docs): 建立 IBV/平台 Setup 分类映射与原生策略边界`.
+- Route: App shell and provider agents for IA/provider mapping, docs/governance
+  for taxonomy wording, with display-engine review only if native FormBrowser
+  entry behavior changes.
+- Labels: `area/app-provider`, `area/docs`, `documentation`, and
+  `module-request` if a future provider/API surface is proposed.
+- Scope: use `Docs/IbvAndPlatformSetupSurvey.md` and
+  `Docs/ProductizationFeatureMatrix.md` as the source checklist for broad
+  setup domains across server/workstation/desktop/laptop/embedded products and
+  x86/Arm/RISC-V/LoongArch architectures. Identify which domains are App
+  read-only summaries, which are native HII entry points, and which need future
+  provider discovery before implementation.
+- Non-goals: no writable setup policy in `ModernSetupApp`, no IFR parsing, no
+  ConfigAccess implementation, no HII varstore writes, no CPU
+  frequency/voltage controls, no memory timing/profile controls, no chipset/SoC
+  policy controls, no fan-curve controls, and PCIe resource policy remains
+  native HII/FormBrowser-owned.
+- Expected validation: markdown sanity, `python3 Tests/Smoke/smoke_validate.py`,
+  `git diff --check`, and PR notes that firmware/QEMU UI validation is N/A for
+  docs-only taxonomy work unless an implementation phase follows.
+
+This phase is complete when:
+
+1. The productization docs keep the App contract clear: read-only summaries and
+   native HII/FormBrowser entry points only.
+2. Each planned setup domain has an explicit owner: existing provider, future
+   read-only provider, or native-only HII/platform firmware.
+3. Product applicability and architecture notes are present for server,
+   workstation, desktop, laptop, embedded, x86, Arm, RISC-V, and LoongArch.
+4. Any future allowlist for App-owned controls is documented as a separate
+   design/review item before code is written.
+
 ## Later backlog themes
 
 Keep later work grouped by feature phase rather than creating one issue per file move:
