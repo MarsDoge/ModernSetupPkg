@@ -38,6 +38,7 @@ UefiMain (
   UINTN                     DashboardSelection;
   UINTN                     BootSelection;
   UINTN                     DeviceSelection;
+  UINTN                     PreferencesSelection;
   UINTN                     ExitSelection;
   UINTN                     Selection;
   UINTN                     SelectableCount;
@@ -45,6 +46,7 @@ UefiMain (
   MODERN_SETUP_DASHBOARD_ROUTE       DashboardRoute;
   CHAR16                    StatusMessage[96];
   BOOLEAN                   Redraw;
+  BOOLEAN                   ResetConfirmationPending;
 
   gBS->SetWatchdogTimer (0, 0, 0, NULL);
   mModernSetupImageHandle = ImageHandle;
@@ -57,6 +59,7 @@ UefiMain (
 
   EfiBootManagerConnectAll ();
   EfiBootManagerRefreshAllBootOption ();
+  ModernUiPreferencesLoad (&mModernSetupPreferences);
   ModernUiInputInit (&Input);
   Theme         = ModernUiGetTheme ();
   Page          = PageDashboard;
@@ -64,19 +67,25 @@ UefiMain (
   DashboardSelection = 0;
   BootSelection = 0;
   DeviceSelection = 0;
+  PreferencesSelection = 0;
   ExitSelection = 0;
   StatusMessage[0] = L'\0';
   Redraw        = TRUE;
+  ResetConfirmationPending = FALSE;
 
   for (;;) {
     if (Redraw) {
-      ModernSetupDrawCurrentPage (&Ui, Theme, Page, Focus, DashboardSelection, BootSelection, DeviceSelection, ExitSelection, StatusMessage);
+      ModernSetupDrawCurrentPage (&Ui, Theme, Page, Focus, DashboardSelection, BootSelection, DeviceSelection, PreferencesSelection, ExitSelection, StatusMessage);
       Redraw = FALSE;
     }
 
     Status = ModernUiReadInput (&Input, &Event);
     if (EFI_ERROR (Status)) {
       continue;
+    }
+
+    if (Event.Type != ModernUiInputEnter) {
+      ResetConfirmationPending = FALSE;
     }
 
     switch (Event.Type) {
@@ -92,9 +101,9 @@ UefiMain (
         } else if (Focus == SetupFocusContent) {
           SelectableCount = ModernSetupGetPageSelectableCount (&Ui, Page);
           if (SelectableCount > 0) {
-            Selection = ModernSetupGetPageSelection (Page, DashboardSelection, BootSelection, DeviceSelection, ExitSelection);
+            Selection = ModernSetupGetPageSelection (Page, DashboardSelection, BootSelection, DeviceSelection, PreferencesSelection, ExitSelection);
             Selection = (Selection == 0) ? (SelectableCount - 1) : (Selection - 1);
-            ModernSetupSetPageSelection (Page, Selection, &DashboardSelection, &BootSelection, &DeviceSelection, &ExitSelection);
+            ModernSetupSetPageSelection (Page, Selection, &DashboardSelection, &BootSelection, &DeviceSelection, &PreferencesSelection, &ExitSelection);
           }
         }
 
@@ -114,9 +123,9 @@ UefiMain (
         } else {
           SelectableCount = ModernSetupGetPageSelectableCount (&Ui, Page);
           if (SelectableCount > 0) {
-            Selection = ModernSetupGetPageSelection (Page, DashboardSelection, BootSelection, DeviceSelection, ExitSelection);
+            Selection = ModernSetupGetPageSelection (Page, DashboardSelection, BootSelection, DeviceSelection, PreferencesSelection, ExitSelection);
             Selection = (Selection + 1) % SelectableCount;
-            ModernSetupSetPageSelection (Page, Selection, &DashboardSelection, &BootSelection, &DeviceSelection, &ExitSelection);
+            ModernSetupSetPageSelection (Page, Selection, &DashboardSelection, &BootSelection, &DeviceSelection, &PreferencesSelection, &ExitSelection);
           }
         }
 
@@ -202,16 +211,29 @@ UefiMain (
           Status = ModernSetupOpenSelectedDeviceEntry (DeviceSelection);
           UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"FormBrowser returned: %r", Status);
           Redraw = TRUE;
+        } else if (Page == PagePreferences) {
+          ModernSetupHandlePreferencesEnter (PreferencesSelection, StatusMessage, sizeof (StatusMessage));
+          Redraw = TRUE;
         } else if (Page == PageExit) {
           if (ExitSelection == 0) {
+            ResetConfirmationPending = FALSE;
             return EFI_SUCCESS;
           } else if (ExitSelection == 1) {
+            ResetConfirmationPending = FALSE;
             Status = ModernSetupLaunchUiAppFallback (ImageHandle);
             UnicodeSPrint (StatusMessage, sizeof (StatusMessage), ModernUiGetString (ModernUiStringClassicReturnedFormat), Status);
             Redraw = TRUE;
           } else if (ExitSelection == 2) {
+            if ((mModernSetupPreferences.ConfirmReset != 0) && !ResetConfirmationPending) {
+              UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"Press Enter again to reset system.");
+              ResetConfirmationPending = TRUE;
+              Redraw = TRUE;
+              break;
+            }
+
             gRT->ResetSystem (EfiResetCold, EFI_SUCCESS, 0, NULL);
           } else {
+            ResetConfirmationPending = FALSE;
             ModernSetupHandleLanguageSelectorEnter (StatusMessage, sizeof (StatusMessage));
             Redraw = TRUE;
           }

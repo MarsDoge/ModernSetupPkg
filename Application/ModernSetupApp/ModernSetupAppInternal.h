@@ -30,6 +30,7 @@
 #include <ModernUi/ModernUiEngine.h>
 #include <ModernUi/ModernUiManagementData.h>
 #include <ModernUi/ModernUiPerformanceData.h>
+#include <ModernUi/ModernUiPreferences.h>
 #include <ModernUi/ModernUiPcieData.h>
 #include <ModernUi/ModernUiPlatformData.h>
 #include <ModernUi/ModernUiPowerData.h>
@@ -61,6 +62,7 @@ typedef enum {
   PageManagement,
   PagePower,
   PagePerformance,
+  PagePreferences,
   PageExit,
   PageMax
 } SETUP_PAGE;
@@ -129,6 +131,7 @@ typedef struct {
 extern EFI_HANDLE  mModernSetupImageHandle;
 extern BOOLEAN     mModernSetupLanguageDropdownOpen;
 extern UINTN       mModernSetupLanguageDropdownSelection;
+extern MODERN_UI_PREFERENCES  mModernSetupPreferences;
 
 MODERN_UI_RECT
 ModernSetupContentRect (
@@ -197,6 +200,7 @@ ModernSetupDrawCurrentPage (
   IN UINTN                     DashboardSelection,
   IN UINTN                     BootSelection,
   IN UINTN                     DeviceSelection,
+  IN UINTN                     PreferencesSelection,
   IN UINTN                     ExitSelection,
   IN CONST CHAR16              *StatusMessage
   );
@@ -207,6 +211,7 @@ ModernSetupGetPageSelection (
   IN UINTN       DashboardSelection,
   IN UINTN       BootSelection,
   IN UINTN       DeviceSelection,
+  IN UINTN       PreferencesSelection,
   IN UINTN       ExitSelection
   );
 
@@ -217,6 +222,7 @@ ModernSetupSetPageSelection (
   IN OUT UINTN       *DashboardSelection,
   IN OUT UINTN       *BootSelection,
   IN OUT UINTN       *DeviceSelection,
+  IN OUT UINTN       *PreferencesSelection,
   IN OUT UINTN       *ExitSelection
   );
 
@@ -260,6 +266,13 @@ ModernSetupOpenSelectedDeviceEntry (
 
 VOID
 ModernSetupHandleLanguageSelectorEnter (
+  OUT CHAR16  *StatusMessage,
+  IN  UINTN   StatusSize
+  );
+
+VOID
+ModernSetupHandlePreferencesEnter (
+  IN  UINTN   Selection,
   OUT CHAR16  *StatusMessage,
   IN  UINTN   StatusSize
   );
