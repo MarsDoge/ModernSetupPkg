@@ -338,13 +338,17 @@ DrawDevices (
   UINTN                     EntryCount;
   UINTN                     Index;
   UINTN                     HiiCount;
+  UINTN                     VisibleHiiCount;
+  UINTN                     VisibleDeviceCount;
+  UINTN                     VisibleRows;
+  UINTN                     RowY;
   CHAR16                    Line[168];
   CHAR16                    Summary[96];
   BOOLEAN                   IsSelected;
   MODERN_UI_RECT            Panel;
   UINTN                     RowX;
   UINTN                     RowWidth;
-  MODERN_UI_ROW_MODEL     RowModel;
+  MODERN_UI_ROW_MODEL       RowModel;
 
   Panel = ModernSetupContentRect (Ui);
   RowX = Panel.X + 20;
@@ -360,24 +364,71 @@ DrawDevices (
   }
 
   HiiCount = 0;
+  VisibleHiiCount = 0;
+  VisibleDeviceCount = 0;
   for (Index = 0; Index < EntryCount; Index++) {
     if (Entries[Index].HasForm) {
       HiiCount++;
+    }
+
+    if (Index < MAX_DEVICE_ROWS) {
+      if (Entries[Index].HasForm) {
+        VisibleHiiCount++;
+      } else {
+        VisibleDeviceCount++;
+      }
     }
   }
 
   UnicodeSPrint (Summary, sizeof (Summary), L"%u entries (%u HII, %u device)", EntryCount, HiiCount, EntryCount - HiiCount);
   ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, Summary, Theme->MutedText, Theme->Surface);
 
-  for (Index = 0; (Index < EntryCount) && (Index < MAX_DEVICE_ROWS); Index++) {
+  RowY = Panel.Y + 54;
+  VisibleRows = 0;
+
+  if (VisibleHiiCount > 0) {
+    DrawProviderSubsectionHeader (Ui, Theme, RowX, RowY, RowWidth, L"HII formsets");
+    RowY += 26;
+  }
+
+  for (Index = 0; (Index < EntryCount) && (Index < MAX_DEVICE_ROWS) && (VisibleRows < MAX_DEVICE_ROWS); Index++) {
+    if (!Entries[Index].HasForm) {
+      continue;
+    }
+
     UnicodeSPrint (Line, sizeof (Line), L"%02u  %s", Index + 1, Entries[Index].Title);
     IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
-    RowModel.Rect      = (MODERN_UI_RECT){ RowX, Panel.Y + 54 + Index * 36, RowWidth, 30 };
+    RowModel.Rect      = (MODERN_UI_RECT){ RowX, RowY, RowWidth, 30 };
     RowModel.Prompt    = Line;
-    RowModel.Value     = Entries[Index].HasForm ? L"HII >" : L"Device";
+    RowModel.Value     = L"HII >";
     RowModel.Role      = IsSelected ? ModernUiRowSelected : ModernUiRowNormal;
-    RowModel.ValueType = Entries[Index].HasForm ? ModernUiValueAction : ModernUiValueText;
+    RowModel.ValueType = ModernUiValueAction;
     ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
+    RowY += 36;
+    VisibleRows++;
+  }
+
+  if ((VisibleDeviceCount > 0) && (VisibleRows < MAX_DEVICE_ROWS)) {
+    RowY += (VisibleHiiCount > 0) ? 6 : 0;
+    DrawProviderSubsectionHeader (Ui, Theme, RowX, RowY, RowWidth, L"Device inventory");
+    RowY += 26;
+  }
+
+  for (Index = 0; (Index < EntryCount) && (Index < MAX_DEVICE_ROWS) && (VisibleRows < MAX_DEVICE_ROWS); Index++) {
+    if (Entries[Index].HasForm) {
+      continue;
+    }
+
+    UnicodeSPrint (Line, sizeof (Line), L"%02u  %s", Index + 1, Entries[Index].Title);
+    IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
+    RowModel.Rect      = (MODERN_UI_RECT){ RowX, RowY, RowWidth, 30 };
+    RowModel.Prompt    = Line;
+    RowModel.Value     = L"Device";
+    RowModel.Role      = IsSelected ? ModernUiRowSelected : ModernUiRowNormal;
+    RowModel.ValueType = ModernUiValueText;
+    ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
+    RowY += 36;
+    VisibleRows++;
   }
 
   if (EntryCount == 0) {
