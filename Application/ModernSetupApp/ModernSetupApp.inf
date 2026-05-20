@@ -39,6 +39,7 @@
   ModernUiDiagnosticsDataLib
   ModernUiEngineLib
   ModernUiFirmwareDataLib
+  ModernUiHiiBridgeLib
   ModernUiInputLib
   ModernUiManagementDataLib
   ModernUiPerformanceDataLib
