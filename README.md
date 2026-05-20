@@ -19,14 +19,13 @@ interaction references.
 
 ## Latest Status
 
-LoongArchVirtQemu now boots the experimental front-page App from a temporary ESP
-and keeps the native edk2 setup path available through `UiApp` plus
-`ModernDisplayEngineDxe`. The current LoongArch capture shows the shared
-`ModernUiEngineLib` dashboard running with Simplified Chinese text, dynamic boot
-entry counts, platform telemetry placeholders, and the black/orange advanced
-mode theme.
+OVMF X64 now has a pinned edk2 baseline, scripted QEMU screendump capture, and a
+live-validated `ModernSetupApp` dashboard. The current OVMF capture shows the
+shared `ModernUiEngineLib` front-page shell with Simplified Chinese text,
+read-only platform summaries, provider health, and the black/orange advanced
+mode theme after the CJK glyph and Dashboard spacing polish.
 
-![ModernSetup LoongArch dashboard](Assets/Screenshots/modern-loongarch-dashboard.png)
+![ModernSetup OVMF X64 dashboard](Assets/Screenshots/modern-ovmf-x64-dashboard-phase18.png)
 
 The same graphics stack also renders native FormBrowser pages; edk2 still owns
 HII/VFR/IFR parsing, GUID formset discovery, callbacks, and variable writes.
@@ -552,6 +551,10 @@ legacy text-only form browser.
 Screenshots for GitHub presentation belong under `Assets/Screenshots/`. Keep
 captures focused on ModernSetup itself, not vendor firmware screens or copied
 assets.
+
+Current OVMF X64 capture:
+
+![ModernSetup OVMF X64 dashboard](Assets/Screenshots/modern-ovmf-x64-dashboard-phase18.png)
 
 Current LoongArch captures:
 
