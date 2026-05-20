@@ -788,9 +788,15 @@ def check_hii_bridge_view_model_boundary(root: Path) -> list[str]:
         "ModernUiHiiBridgeResolveText",
         "Read-only HII preview",
         "preview does not edit settings",
+        "HiiPreviewPolicyReasonText",
+        "Preview:",
+        "Firmware-owned behavior",
+        "Native fallback required",
+        "Unsupported IFR construct",
+        "press Enter for native FormBrowser",
     ):
         if token not in app_pages_text:
-            raise SmokeFailure(f"Devices HII bridge read-only preview missing token: {token}")
+            raise SmokeFailure(f"Devices HII bridge read-only preview missing Phase13/14 token: {token}")
 
     app_main_text = strip_c_comments(app_main.read_text(encoding="utf-8"))
     app_actions_text = strip_c_comments(app_actions.read_text(encoding="utf-8"))
