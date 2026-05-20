@@ -7,7 +7,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 # Productization Feature Matrix
 
-ModernSetup has two productization layers:
+ModernSetup has two XArch productization layers:
 
 ```text
 Standard front-page App
@@ -17,10 +17,16 @@ Native edk2 FormBrowser path
   -> platform/OEM HII pages, callbacks, validation, varstores, and policy
 ```
 
-The App should provide a consistent first screen across x86, ARM, RISC-V, and
-LoongArch products. It must not clone platform setup policy or parse IFR. When a
-setting is platform-specific, the App should show a summary or entry point, then
-open the owning HII form through `EFI_FORM_BROWSER2_PROTOCOL.SendForm()`.
+XArch is ModernSetupPkg's cross-architecture model for keeping one Setup UX, one
+HII/FormBrowser ownership boundary, and one validation vocabulary across X64,
+AARCH64, LOONGARCH64, and RISCV64 targets. XArch does not replace edk2 ARCH
+values; build and product integration still use concrete architecture names.
+
+The App should provide a consistent first screen across x86/X64, ARM/AARCH64,
+RISC-V/RISCV64, and LoongArch/LOONGARCH64 products. It must not clone platform
+setup policy or parse IFR. When a setting is platform-specific, the App should
+show a summary or entry point, then open the owning HII form through
+`EFI_FORM_BROWSER2_PROTOCOL.SendForm()`.
 
 ## Platform Classes
 
@@ -106,9 +112,14 @@ owned by platform HII and should not be implemented in the App.
 | RAS/NUMA/PCIe policy | Platform-dependent | N/A | Platform-dependent | Native | Platform-dependent |
 | PCIe capability summary and native policy entry hints | Display + Entry | Platform-dependent | Display + Entry | Display + Entry | Platform-dependent |
 
-## Cross-Architecture Capability Targets
+## XArch Product Target Capability Matrix
 
-| Capability | x86 | ARM | RISC-V | LoongArch | App policy |
+The rows below keep the concrete architecture family names because product teams,
+edk2 build scripts, and platform packages still use them. The table is the XArch
+view of common App/provider behavior, not a request to hide `ARCH=X64`,
+`ARCH=AARCH64`, `ARCH=RISCV64`, or `ARCH=LOONGARCH64` behind a new build name.
+
+| Capability | x86 / X64 | ARM / AARCH64 | RISC-V / RISCV64 | LoongArch / LOONGARCH64 | App policy |
 | --- | --- | --- | --- | --- | --- |
 | Architecture string | Yes | Yes | Yes | Yes | Show from build/runtime architecture. |
 | Firmware vendor/revision | Yes | Yes | Yes | Yes | Show from `gST->FirmwareVendor` and revision. |

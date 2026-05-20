@@ -7,7 +7,8 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 # Compatibility Matrix
 
-ModernSetupPkg's compatibility target is the native edk2 FormBrowser path:
+ModernSetupPkg's compatibility target is the native edk2 FormBrowser path across
+the XArch model:
 
 ```text
 HII database -> UiApp / SetupBrowserDxe / FormBrowser2
@@ -19,6 +20,32 @@ ModernSetupPkg does not parse IFR, evaluate VFR conditions, call ConfigAccess,
 or write varstores on the default setup path. Those semantics remain owned by
 edk2. This matrix tracks whether the modern DisplayEngine path can draw and
 operate the forms that edk2 has already prepared.
+
+XArch is ModernSetupPkg's cross-architecture architecture model for keeping one
+Setup UX, one HII/FormBrowser ownership boundary, and one validation vocabulary
+across X64, AARCH64, LOONGARCH64, and RISCV64 targets. XArch does not replace
+edk2 ARCH values; build commands and scripts continue to use `ARCH=X64`,
+`ARCH=AARCH64`, `ARCH=LOONGARCH64`, and `ARCH=RISCV64`.
+
+## XArch Target Mapping
+
+| XArch target | edk2 ARCH value | edk2/QEMU platform | Validation level | Notes |
+| --- | --- | --- | --- | --- |
+| X64 / OVMF X64 | `X64` | `OvmfPkg/OvmfPkgX64` | Manual / Captured for current App screenshot | Local `Scripts/build-ovmf-x64.sh`, `Scripts/run-ovmf-x64.sh`, and `Scripts/capture-ovmf-x64.sh` paths support native/modern DisplayEngine builds and manual QEMU validation. |
+| AARCH64 / ArmVirtQemu | `AARCH64` | `ArmVirtPkg/ArmVirtQemu` | Captured / Active | Primary before/after DisplayEngine evidence and primary App bring-up path. |
+| LOONGARCH64 / LoongArchVirtQemu | `LOONGARCH64` | `OvmfPkg/LoongArchVirt/LoongArchVirtQemu` | Active | QEMU may fall back to `-bios`; variable persistence depends on pflash support. |
+| RISCV64 / RiscVVirtQemu | `RISCV64` | `OvmfPkg/RiscVVirt/RiscVVirtQemu` | Build/script validation | Local `Scripts/build-riscvvirt.sh` generates native/modern overlays and can run a RISCV64 build with an external RISC-V GCC toolchain; no active graphical UI validation yet. |
+
+Validation level vocabulary:
+
+- `Captured`: screenshot or screendump evidence exists for the relevant path.
+- `Manual`: local run instructions exist and the path is intended for manual QEMU
+  validation, but it is not a CI gate.
+- `Active`: build/run path exists and is part of current maintainer validation.
+- `Build/script validation`: scripts generate overlays or builds for the target,
+  but graphical UI behavior is not yet validated.
+- `Planned`: target or capability is documented as a future extension and should
+  not be described as validated.
 
 ## Platform Coverage
 
