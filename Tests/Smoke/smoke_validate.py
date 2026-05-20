@@ -962,6 +962,29 @@ def check_hii_bridge_view_model_boundary(root: Path) -> list[str]:
     return ["PASS HII bridge view-model/default-display-policy boundary"]
 
 
+def check_modern_ui_builtin_glyph_subset(root: Path) -> list[str]:
+    string_source = root / "Library" / "ModernUiStringLib" / "ModernUiStringLib.c"
+    glyph_source = root / "Library" / "ModernUiRendererLib" / "ModernUiGlyphs.c"
+
+    strings = string_source.read_text(encoding="utf-8")
+    required_chars: set[str] = set()
+    for match in re.finditer(r'L"((?:[^"\\]|\\.)*)"', strings):
+        required_chars.update(char for char in match.group(1) if ord(char) > 0x7F)
+
+    glyphs = glyph_source.read_text(encoding="utf-8")
+    available_chars = {
+        chr(int(match.group(1), 16))
+        for match in re.finditer(r"\{ 0x([0-9A-Fa-f]{4}),", glyphs)
+    }
+
+    missing_chars = sorted(required_chars - available_chars, key=ord)
+    if missing_chars:
+        missing = "".join(missing_chars)
+        raise SmokeFailure(f"ModernUiGlyphs.c missing built-in glyphs for ModernUiStringLib: {missing}")
+
+    return [f"PASS ModernUiRendererLib built-in glyph subset covers {len(required_chars)} localized string glyphs"]
+
+
 def check_overlay_generation(root: Path) -> list[str]:
     bash = shutil.which("bash")
     if bash is None:
@@ -1048,6 +1071,7 @@ def main() -> int:
         messages.extend(check_pcie_provider_foundation(root))
         messages.extend(check_pcie_docs_language(root))
         messages.extend(check_hii_bridge_view_model_boundary(root))
+        messages.extend(check_modern_ui_builtin_glyph_subset(root))
         messages.extend(check_edk2_baseline_contract(root))
         messages.extend(check_ovmf_capture_helper_contract(root))
         messages.extend(check_static_overlay_script_contracts(root))

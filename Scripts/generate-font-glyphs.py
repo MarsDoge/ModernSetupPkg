@@ -21,7 +21,7 @@ def collect_c_chars(source: Path) -> set[str]:
 
     text = source.read_text(encoding="utf-8")
     chars: set[str] = set()
-    for match in re.finditer(r'L"((?:[^"\\\\]|\\\\.)*)"', text):
+    for match in re.finditer(r'L"((?:[^"\\]|\\.)*)"', text):
         for char in match.group(1):
             if ord(char) > 0x7F:
                 chars.add(char)
