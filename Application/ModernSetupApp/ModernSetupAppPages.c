@@ -822,6 +822,59 @@ DrawPerformance (
 }
 
 /**
+  Draw the app-owned Preferences page.
+
+  @param[in] Ui        Initialized render context. Must not be NULL.
+  @param[in] Theme     Theme token table. Must not be NULL.
+  @param[in] Focus     Current focus area.
+  @param[in] Selected  Selected preference row. Values 0..2 are expected.
+**/
+STATIC
+VOID
+DrawPreferences (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus,
+  IN UINTN                     Selected
+  )
+{
+  CONST CHAR16         *Prompts[3];
+  CONST CHAR16         *Values[3];
+  UINTN                Index;
+  UINTN                Y;
+  BOOLEAN              IsSelected;
+  MODERN_UI_RECT       Panel;
+  UINTN                RowX;
+  UINTN                RowWidth;
+  MODERN_UI_ROW_MODEL  RowModel;
+
+  Prompts[0] = ModernUiGetString (ModernUiStringPreferenceConfirmReset);
+  Values[0]  = (mModernSetupPreferences.ConfirmReset != 0) ? ModernUiGetString (ModernUiStringEnabled) : ModernUiGetString (ModernUiStringDisabled);
+  Prompts[1] = ModernUiGetString (ModernUiStringPreferenceSave);
+  Values[1]  = NULL;
+  Prompts[2] = ModernUiGetString (ModernUiStringPreferenceDefaults);
+  Values[2]  = NULL;
+
+  Panel = ModernSetupContentRect (Ui);
+  RowX = Panel.X + 26;
+  RowWidth = Panel.Width - 52;
+  ModernUiDrawPanel (Ui, Panel, Theme);
+  ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, ModernUiGetString (ModernUiStringPreferencesInstruction), Theme->MutedText, Theme->Surface);
+
+  for (Index = 0; Index < ARRAY_SIZE (Prompts); Index++) {
+    Y = Panel.Y + 72 + Index * 42;
+    IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
+    RowModel.Rect      = (MODERN_UI_RECT){ RowX, Y - 8, RowWidth, 34 };
+    RowModel.Prompt    = Prompts[Index];
+    RowModel.Value     = Values[Index];
+    RowModel.Role      = IsSelected ? ModernUiRowSelected : ((Index >= 1) ? ModernUiRowAction : ModernUiRowNormal);
+    RowModel.ValueType = (Index >= 1) ? ModernUiValueNone : ModernUiValueOneOf;
+    ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
+  }
+}
+
+/**
   Draw the Exit page and selected action.
 
   @param[in] Ui        Initialized render context. Must not be NULL.
@@ -921,6 +974,7 @@ ModernSetupDrawCurrentPage (
   IN UINTN                     DashboardSelection,
   IN UINTN                     BootSelection,
   IN UINTN                     DeviceSelection,
+  IN UINTN                     PreferencesSelection,
   IN UINTN                     ExitSelection,
   IN CONST CHAR16              *StatusMessage
   )
@@ -957,6 +1011,9 @@ ModernSetupDrawCurrentPage (
       break;
     case PagePerformance:
       DrawPerformance (Ui, Theme, Focus);
+      break;
+    case PagePreferences:
+      DrawPreferences (Ui, Theme, Focus, PreferencesSelection);
       break;
     case PageExit:
       DrawExit (Ui, Theme, Focus, ExitSelection);

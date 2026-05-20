@@ -106,6 +106,27 @@ PCIE_APP_CATALOG_TOKENS = (
     "SriovDeviceCount",
     "AspmCapableLinkCount",
 )
+PREFERENCES_REQUIRED_FILES = (
+    Path("Include") / "ModernUi" / "ModernUiPreferences.h",
+    Path("Library") / "ModernUiPreferencesLib" / "ModernUiPreferencesLib.c",
+    Path("Library") / "ModernUiPreferencesLib" / "ModernUiPreferencesLib.inf",
+)
+PREFERENCES_APP_TOKENS = (
+    "ModernUiPreferencesLoad",
+    "ModernUiPreferencesSave",
+    "ModernUiPreferencesResetToDefaults",
+    "mModernSetupPreferences",
+    "ModernSetupAppPreferences",
+)
+PREFERENCES_FORBIDDEN_PLATFORM_TOKENS = (
+    "BootOrder",
+    "Boot####",
+    "SecureBoot",
+    "SetupMode",
+    "Cpu",
+    "Fan",
+    "Chipset",
+)
 PCIE_DOC_KEYWORDS = (
     "pcie",
     "pci express",
@@ -554,6 +575,40 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
     return ["PASS ModernSetupApp module boundary checks"]
 
 
+def check_modern_setup_app_preferences_boundary(root: Path) -> list[str]:
+    for required in PREFERENCES_REQUIRED_FILES:
+        if not (root / required).exists():
+            raise SmokeFailure(f"missing preferences framework file: {required}")
+
+    header_text = (root / PREFERENCES_REQUIRED_FILES[0]).read_text(encoding="utf-8")
+    lib_text = strip_c_comments((root / PREFERENCES_REQUIRED_FILES[1]).read_text(encoding="utf-8"))
+    dec_text = (root / "ModernSetupPkg.dec").read_text(encoding="utf-8")
+    dsc_text = (root / "Experimental" / "ModernSetupApp.dsc").read_text(encoding="utf-8")
+    app_inf_text = (root / MODERN_SETUP_APP_INF).read_text(encoding="utf-8")
+    app_text = "\n".join(
+        strip_c_comments(path.read_text(encoding="utf-8"))
+        for path in sorted((root / MODERN_SETUP_APP_DIR).glob("ModernSetupApp*.c"))
+    )
+    combined = "\n".join((header_text, lib_text, dec_text, dsc_text, app_inf_text, app_text))
+
+    for token in PREFERENCES_APP_TOKENS:
+        if token not in combined:
+            raise SmokeFailure(f"preferences framework missing token: {token}")
+    for token in PREFERENCES_APP_TOKENS[:3]:
+        if token not in app_text:
+            raise SmokeFailure(f"ModernSetupApp UI does not use preferences API: {token}")
+
+    if "EFI_VARIABLE_RUNTIME_ACCESS" in lib_text:
+        raise SmokeFailure("preferences library must not use runtime variable access for app-owned UX preferences")
+    if "SetVariable" not in lib_text or "GetVariable" not in lib_text:
+        raise SmokeFailure("preferences variable IO must be centralized in ModernUiPreferencesLib")
+    for token in PREFERENCES_FORBIDDEN_PLATFORM_TOKENS:
+        if token in lib_text:
+            raise SmokeFailure(f"preferences library references prohibited platform-policy token: {token}")
+
+    return ["PASS ModernSetupApp app-owned preferences boundary"]
+
+
 def check_pcie_provider_foundation(root: Path) -> list[str]:
     for relative in PCIE_PROVIDER_REQUIRED_FILES:
         if not (root / relative).exists():
@@ -721,6 +776,7 @@ def main() -> int:
         messages.extend(check_shell_syntax(root))
         messages.extend(check_modern_setup_app_inf_sources(root))
         messages.extend(check_modern_setup_app_module_boundaries(root))
+        messages.extend(check_modern_setup_app_preferences_boundary(root))
         messages.extend(check_pcie_provider_foundation(root))
         messages.extend(check_pcie_docs_language(root))
         messages.extend(check_static_overlay_script_contracts(root))

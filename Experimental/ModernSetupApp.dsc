@@ -56,6 +56,7 @@
   ModernUiPcieDataLib|ModernSetupPkg/Library/ModernUiPcieDataLib/ModernUiPcieDataLib.inf
   ModernUiRendererLib|ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
   ModernUiInputLib|ModernSetupPkg/Library/ModernUiInputLib/ModernUiInputLib.inf
+  ModernUiPreferencesLib|ModernSetupPkg/Library/ModernUiPreferencesLib/ModernUiPreferencesLib.inf
   ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
   ModernUiStringLib|ModernSetupPkg/Library/ModernUiStringLib/ModernUiStringLib.inf
 
@@ -77,5 +78,6 @@
   ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
   ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
   ModernSetupPkg/Library/ModernUiInputLib/ModernUiInputLib.inf
+  ModernSetupPkg/Library/ModernUiPreferencesLib/ModernUiPreferencesLib.inf
   ModernSetupPkg/Library/ModernUiStringLib/ModernUiStringLib.inf
   ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf

@@ -39,10 +39,12 @@ STATIC CONST CHAR16  *mEnglishStrings[ModernUiStringMax] = {
   L"Tables, logs, and bring-up state",
   L"Management",
   L"Remote and server management",
-  L"Power",
+  L"Power / Thermal",
   L"Power and thermal providers",
   L"Performance",
   L"CPU and memory tuning entries",
+  L"Preferences",
+  L"ModernSetupApp-owned UX preferences",
   L"HII",
   L"DriverSample VFR bridge",
   L"Exit",
@@ -132,7 +134,22 @@ STATIC CONST CHAR16  *mEnglishStrings[ModernUiStringMax] = {
   L"Power",
   L"Performance",
   L"Setup Categories",
-  L"Open / Enter"
+  L"Open / Enter",
+  L"Use Up/Down to select, Enter to toggle app-owned preferences.",
+  L"Theme",
+  L"System",
+  L"Dark",
+  L"Red",
+  L"Dashboard density",
+  L"Comfortable",
+  L"Compact",
+  L"Remember last page",
+  L"Show advanced hints",
+  L"Confirm reset",
+  L"Save preferences",
+  L"Load defaults",
+  L"Preferences saved: %r",
+  L"Preference defaults loaded; save to persist."
 };
 
 STATIC CONST CHAR16  *mSimplifiedChineseStrings[ModernUiStringMax] = {
@@ -156,6 +173,8 @@ STATIC CONST CHAR16  *mSimplifiedChineseStrings[ModernUiStringMax] = {
   L"Power状态",
   L"Performance",
   L"Performance状态",
+  L"偏好设置",
+  L"ModernSetupApp自有界面偏好",
   L"高级设置",
   L"DriverSample VFR桥接",
   L"退出",
@@ -245,7 +264,22 @@ STATIC CONST CHAR16  *mSimplifiedChineseStrings[ModernUiStringMax] = {
   L"电源",
   L"性能",
   L"设置分类",
-  L"打开/回车"
+  L"打开/回车",
+  L"使用上/下选择，回车切换应用自有偏好。",
+  L"主题",
+  L"系统",
+  L"深色",
+  L"红色",
+  L"仪表盘密度",
+  L"舒适",
+  L"紧凑",
+  L"记住上次页面",
+  L"显示高级提示",
+  L"重启前确认",
+  L"保存偏好",
+  L"载入默认值",
+  L"偏好保存结果：%r",
+  L"已载入默认偏好；保存后持久化。"
 };
 
 /**

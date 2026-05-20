@@ -23,6 +23,7 @@ STATIC CONST MODERN_SETUP_DASHBOARD_ROUTE  mDashboardCategoryRoutes[DASHBOARD_QU
 
 BOOLEAN         mModernSetupLanguageDropdownOpen;
 UINTN           mModernSetupLanguageDropdownSelection;
+MODERN_UI_PREFERENCES  mModernSetupPreferences;
 
 /**
   Calculate the visible Dashboard Quick Access grid from the same layout
@@ -169,6 +170,7 @@ ModernSetupGetActiveLanguageSelection (
   @param[in] DashboardSelection Current Dashboard Quick Access selection.
   @param[in] BootSelection    Current Boot page selection.
   @param[in] DeviceSelection  Current Devices page selection.
+  @param[in] PreferencesSelection Current Preferences page selection.
   @param[in] ExitSelection    Current Exit page selection.
 
   @return Selected item index for Page. Pages without selectable rows return 0.
@@ -179,6 +181,7 @@ ModernSetupGetPageSelection (
   IN UINTN       DashboardSelection,
   IN UINTN       BootSelection,
   IN UINTN       DeviceSelection,
+  IN UINTN       PreferencesSelection,
   IN UINTN       ExitSelection
   )
 {
@@ -189,6 +192,8 @@ ModernSetupGetPageSelection (
       return BootSelection;
     case PageDevices:
       return DeviceSelection;
+    case PagePreferences:
+      return PreferencesSelection;
     case PageExit:
       return ExitSelection;
     default:
@@ -205,6 +210,7 @@ ModernSetupGetPageSelection (
                                       Must not be NULL.
   @param[in,out] BootSelection    Boot page selection storage. Must not be NULL.
   @param[in,out] DeviceSelection  Devices page selection storage. Must not be NULL.
+  @param[in,out] PreferencesSelection Preferences page selection storage. Must not be NULL.
   @param[in,out] ExitSelection    Exit page selection storage. Must not be NULL.
 **/
 VOID
@@ -214,6 +220,7 @@ ModernSetupSetPageSelection (
   IN OUT UINTN       *DashboardSelection,
   IN OUT UINTN       *BootSelection,
   IN OUT UINTN       *DeviceSelection,
+  IN OUT UINTN       *PreferencesSelection,
   IN OUT UINTN       *ExitSelection
   )
 {
@@ -226,6 +233,9 @@ ModernSetupSetPageSelection (
       break;
     case PageDevices:
       *DeviceSelection = Selection;
+      break;
+    case PagePreferences:
+      *PreferencesSelection = Selection;
       break;
     case PageExit:
       *ExitSelection = Selection;
@@ -318,6 +328,8 @@ ModernSetupGetPageSelectableCount (
       }
     case PageDevices:
       return ModernSetupGetVisibleDeviceCount ();
+    case PagePreferences:
+      return 3;
     case PageExit:
       return 4;
     default:
@@ -458,6 +470,43 @@ ModernSetupHandleLanguageSelectorEnter (
   mModernSetupLanguageDropdownOpen = FALSE;
 }
 
+/**
+  Toggle or persist one app-owned Preferences row.
+
+  @param[in]  Selection      Preferences row index.
+  @param[out] StatusMessage  Status buffer to update. Must not be NULL.
+  @param[in]  StatusSize     Size of StatusMessage in bytes.
+**/
+VOID
+ModernSetupHandlePreferencesEnter (
+  IN  UINTN   Selection,
+  OUT CHAR16  *StatusMessage,
+  IN  UINTN   StatusSize
+  )
+{
+  EFI_STATUS  Status;
+
+  if ((StatusMessage == NULL) || (StatusSize < sizeof (CHAR16))) {
+    return;
+  }
+
+  StatusMessage[0] = L'\0';
+  switch (Selection) {
+    case 0:
+      mModernSetupPreferences.ConfirmReset = (mModernSetupPreferences.ConfirmReset == 0) ? 1 : 0;
+      break;
+    case 1:
+      Status = ModernUiPreferencesSave (&mModernSetupPreferences);
+      UnicodeSPrint (StatusMessage, StatusSize, ModernUiGetString (ModernUiStringPreferenceSavedFormat), Status);
+      break;
+    case 2:
+      ModernUiPreferencesResetToDefaults (&mModernSetupPreferences);
+      UnicodeSPrint (StatusMessage, StatusSize, ModernUiGetString (ModernUiStringPreferenceDefaultsLoaded));
+      break;
+    default:
+      break;
+  }
+}
 
 /**
   Load and start the classic edk2 UiApp from the same firmware volume.

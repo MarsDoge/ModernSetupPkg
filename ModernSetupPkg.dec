@@ -19,6 +19,9 @@
 
 [Guids]
   gModernSetupPkgTokenSpaceGuid = { 0x6D1B8B66, 0x2C67, 0x4E6B, { 0xA8, 0xB6, 0x43, 0x50, 0x1F, 0xCB, 0x54, 0x6E } }
+  ## App-owned ModernSetupAppPreferences variable namespace. This GUID is
+  #  intentionally not used for platform firmware setup options.
+  gModernSetupAppPreferencesGuid = { 0x3897F7F8, 0x84AF, 0x4DE2, { 0xB2, 0x75, 0xF8, 0x57, 0xA6, 0xC1, 0x59, 0x4E } }
 
 [LibraryClasses]
   # DisplayEngine main path.
@@ -39,6 +42,7 @@
   ModernUiPerformanceDataLib|Include/ModernUi/ModernUiPerformanceData.h
   ModernUiPcieDataLib|Include/ModernUi/ModernUiPcieData.h
   ModernUiInputLib|Include/ModernUi/ModernUiInput.h
+  ModernUiPreferencesLib|Include/ModernUi/ModernUiPreferences.h
   ModernUiStringLib|Include/ModernUi/ModernUiString.h
   ModernUiHiiBridgeLib|Include/ModernUi/ModernUiHiiBridge.h
   ModernUiPageAdapterLib|Include/ModernUi/ModernUiPageAdapter.h
