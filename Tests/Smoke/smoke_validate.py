@@ -52,7 +52,10 @@ EDK2_BASELINE_REQUIRED_SCRIPT_REFS = (
     Path("Scripts") / "build-modern-app.sh",
     Path("Scripts") / "build-ovmf-x64.sh",
     Path("Scripts") / "run-ovmf-x64.sh",
+    Path("Scripts") / "capture-ovmf-x64.sh",
 )
+OVMF_CAPTURE_HELPER = Path("Scripts") / "capture-ovmf-x64.sh"
+OVMF_CAPTURE_DOC = Path("Tests") / "Manual" / "OvmfX64Qemu.md"
 PROHIBITED_DEFAULT_OVERLAY_TOKENS = (
     "ModernSetupApp",
     "ModernUiHiiBridgeLib",
@@ -491,6 +494,77 @@ def check_edk2_baseline_contract(root: Path) -> list[str]:
             raise SmokeFailure(f"{relative} does not source/reference edk2-workspace.sh")
 
     return ["PASS edk2 baseline submodule/docs/script contract"]
+
+
+def check_ovmf_capture_helper_contract(root: Path) -> list[str]:
+    script = root / OVMF_CAPTURE_HELPER
+    baseline_doc = root / "Docs" / "BASELINE.md"
+    manual_doc = root / OVMF_CAPTURE_DOC
+
+    for path in (script, baseline_doc, manual_doc):
+        if not path.exists():
+            raise SmokeFailure(f"missing OVMF capture contract file: {path.relative_to(root)}")
+
+    script_text = script.read_text(encoding="utf-8")
+    required_script_tokens = (
+        "edk2-workspace.sh",
+        "DetectWorkspace",
+        "OVMF_CODE",
+        "OVMF_VARS",
+        "Build/OvmfX64*/",
+        "ESP_DIR",
+        "EFI/BOOT/BOOTX64.EFI",
+        "BOOT_APP",
+        "QEMU_BIN",
+        "CAPTURE_OUT_DIR",
+        "TMPDIR",
+        "CAPTURE_WORK_DIR",
+        "Build/ModernSetupPkgCapture/OvmfX64",
+        "CAPTURE_PREFIX",
+        "^[A-Za-z0-9._-]+$",
+        "CLEANUP_QEMU",
+        "RESET_VARS",
+        "monitor.sock",
+        "serial.log",
+        "-daemonize",
+        "-pidfile",
+        "-display none",
+        "-vga std",
+        "usb-kbd",
+        "BOOT_WAIT_SECONDS",
+        "SENDKEY_SEQUENCE",
+        "screendump",
+        "pnmtopng",
+        "magick",
+        "convert",
+        "sips",
+        "system OVMF",
+        "Secure Boot",
+    )
+    for token in required_script_tokens:
+        if token not in script_text:
+            raise SmokeFailure(f"{OVMF_CAPTURE_HELPER} missing capture helper token: {token}")
+
+    prohibited_fragments = (
+        "SetVariable",
+        "HiiSetBrowserData",
+        "HiiUpdateForm",
+        "rm -rf",
+        "rm -f ${CAPTURE_OUT_DIR}",
+        "rm -f \"${CAPTURE_OUT_DIR}",
+    )
+    for fragment in prohibited_fragments:
+        if fragment in script_text:
+            raise SmokeFailure(f"{OVMF_CAPTURE_HELPER} contains prohibited capture helper fragment: {fragment}")
+
+    docs_text = "\n".join(
+        (baseline_doc.read_text(encoding="utf-8"), manual_doc.read_text(encoding="utf-8"))
+    )
+    for token in ("capture-ovmf-x64.sh", "screendump", "BOOT_WAIT_SECONDS", "SENDKEY_SEQUENCE", "TMPDIR", "Assets/Screenshots/manual"):
+        if token not in docs_text:
+            raise SmokeFailure(f"OVMF capture docs missing token: {token}")
+
+    return ["PASS OVMF X64 QEMU screendump capture helper/docs contract"]
 
 
 def strip_c_comments(text: str) -> str:
@@ -975,6 +1049,7 @@ def main() -> int:
         messages.extend(check_pcie_docs_language(root))
         messages.extend(check_hii_bridge_view_model_boundary(root))
         messages.extend(check_edk2_baseline_contract(root))
+        messages.extend(check_ovmf_capture_helper_contract(root))
         messages.extend(check_static_overlay_script_contracts(root))
         messages.extend(check_overlay_generation(root))
     except SmokeFailure as exc:

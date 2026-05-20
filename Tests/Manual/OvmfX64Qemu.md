@@ -86,6 +86,37 @@ For serial-only debugging:
 GRAPHICS=0 RESET_VARS=1 ModernSetupPkg/Scripts/run-ovmf-x64.sh
 ```
 
+## Scripted screendump capture
+
+Use the Phase16 capture helper for repeatable local visual-validation artifacts without opening a QEMU window:
+
+```sh
+cd /path/to/ModernSetupPkg
+Scripts/capture-ovmf-x64.sh
+```
+
+Defaults:
+
+- Firmware discovery prefers `Build/OvmfX64*/${TARGET}_${TOOL_CHAIN_TAG}/FV/OVMF_CODE.fd` and `OVMF_VARS.fd` under the detected edk2 workspace.
+- If the workspace build is unavailable, set `OVMF_CODE=/path/to/OVMF_CODE.fd` and `OVMF_VARS=/path/to/OVMF_VARS.fd`; system OVMF is a last-resort fallback and may reject unsigned `BOOTX64.EFI` when Secure Boot policy is enabled.
+- The ESP defaults to `${WORKSPACE}/Build/ModernSetupAppEsp` and must contain `EFI/BOOT/BOOTX64.EFI`; set `ESP_DIR=/path/to/esp` for another app image or `BOOT_APP=0` for firmware-only capture.
+- Output defaults to `${TMPDIR:-/tmp}/modernsetup-qemu`; transient QEMU files, the monitor socket, serial log, mutable vars file, and intermediate PPM live under `Build/ModernSetupPkgCapture/OvmfX64`. Set `CAPTURE_OUT_DIR=Assets/Screenshots/manual` only when intentionally collecting screenshot assets for commit.
+- `CAPTURE_PREFIX` is used as a filename stem and must contain only letters, digits, dot, underscore, and hyphen; slashes, backslashes, `..`, and empty values are rejected.
+- `RESET_VARS=1` copies a fresh `OVMF_VARS.fd` before capture; `RESET_VARS=0` reuses the mutable vars file in the capture work directory.
+
+Useful overrides:
+
+```sh
+BOOT_WAIT_SECONDS=10 \
+SENDKEY_SEQUENCE=esc,down,ret \
+CAPTURE_PREFIX=edk2-frontpage \
+Scripts/capture-ovmf-x64.sh
+```
+
+The helper starts `qemu-system-x86_64` headless with `-display none`, `-vga std`, USB keyboard/tablet input, a Unix HMP monitor socket, a pidfile, and a serial log. The Python monitor driver waits for `BOOT_WAIT_SECONDS`, optionally sends the comma-separated `SENDKEY_SEQUENCE`, runs QEMU monitor `screendump`, then quits QEMU. The canonical artifact is PPM; the helper also creates PNG opportunistically with Python Pillow, `pnmtopng`, ImageMagick `magick`/`convert`, or `sips` when available.
+
+Recent local validation reached the ModernSetupApp front page at 1280x800 using a local edk2 OVMF build and ESP. The visible title was `现代UEFI设置工具`, the page showed `高级模式`, and several CJK glyphs rendered as boxes. A system OVMF fallback booted but reported Access Denied for the unsigned `BOOTX64.EFI`, so prefer the local edk2 OVMF build for app captures.
+
 Expected result:
 
 - QEMU opens an X64 OVMF graphical window when `GRAPHICS=1`.
