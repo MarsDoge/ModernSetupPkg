@@ -7,11 +7,14 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 # ModernSetupPkg
 
-ModernSetupPkg is an experimental edk2 package for a modern GOP-based UEFI setup
-graphics engine and standard front-page shell. It keeps edk2 HII/FormBrowser
-semantics intact while validating the shared engine on ArmVirtQemu,
-LoongArchVirtQemu, OVMF X64, and RiscVVirtQemu build/script paths, with other
-platform classes treated as future extension targets.
+ModernSetupPkg is an experimental XArch edk2 package for a modern GOP-based UEFI
+setup graphics engine and standard front-page shell. XArch is the project's
+cross-architecture model for keeping one Setup UX, one HII/FormBrowser ownership
+boundary, and one validation vocabulary across X64, AARCH64, LOONGARCH64, and
+RISCV64 targets. It keeps edk2 HII/FormBrowser semantics intact while validating
+the shared engine on OVMF X64, ArmVirtQemu, LoongArchVirtQemu, and RiscVVirtQemu
+build/script paths, with other platform classes treated as future extension
+targets.
 
 The UI intentionally uses only open source edk2 interfaces and original visual
 assets. Commercial IBV firmware screens are treated only as visual and
@@ -20,17 +23,18 @@ interaction references.
 ## Latest Status
 
 OVMF X64 now has a pinned edk2 baseline, scripted QEMU screendump capture, and a
-live-validated `ModernSetupApp` dashboard. The current OVMF capture shows the
-shared `ModernUiEngineLib` front-page shell with Simplified Chinese text,
-read-only platform summaries, provider health, and the black/orange advanced
-mode theme after the CJK glyph and Dashboard spacing polish.
+local/manual `ModernSetupApp` dashboard validation path. The current OVMF
+capture shows the shared XArch `ModernUiEngineLib` front-page shell with
+Simplified Chinese text, read-only platform summaries, provider health, and the
+black/orange advanced-mode theme after the CJK glyph and Dashboard spacing
+polish.
 
 ![ModernSetup OVMF X64 dashboard](Assets/Screenshots/modern-ovmf-x64-dashboard-phase18.png)
 
 The same graphics stack also renders native FormBrowser pages; edk2 still owns
 HII/VFR/IFR parsing, GUID formset discovery, callbacks, and variable writes.
 
-For v0.5, the main validation focus is compatibility evidence: the same
+For v0.5, the main XArch validation focus is compatibility evidence: the same
 UiApp/FormBrowser pages can be built with either native `DisplayEngineDxe` or
 `ModernDisplayEngineDxe` by setting
 `MODERN_SETUP_DISPLAY_ENGINE=native|modern`. See
@@ -41,11 +45,11 @@ The repository now includes scripted ArmVirt before/after captures for
 FrontPage, Device Manager, DriverSample first page, and DriverSample one-of
 popup through `Scripts/capture-armvirt.sh`.
 
-The next App track is cross-architecture productization rather than
-architecture-specific demos. `Docs/ProductizationFeatureMatrix.md` records the
-common desktop, workstation, server, embedded, and appliance front-page
-capabilities that should be filled in through provider libraries while keeping
-real setup pages on native FormBrowser.
+The next App track is XArch productization rather than architecture-specific
+demos. `Docs/XArch.md` defines the target model and validation vocabulary, and
+`Docs/ProductizationFeatureMatrix.md` records the common desktop, workstation,
+server, embedded, and appliance front-page capabilities that should be filled in
+through provider libraries while keeping real setup pages on native FormBrowser.
 
 ## Current Scope
 
@@ -64,6 +68,8 @@ real setup pages on native FormBrowser.
 - Read-only App providers for firmware lifecycle, diagnostics/table inventory,
   server/remote management, power/thermal, performance/tuning capability, and
   PCIe capability/policy-entry summaries
+- XArch documentation for X64, AARCH64, LOONGARCH64, and RISCV64 target mapping,
+  validation vocabulary, and ownership boundaries
 - ArmVirtQemu overlay scripts that keep upstream `ArmVirtPkg` files unchanged
 - LoongArchVirtQemu overlay scripts that keep upstream `OvmfPkg/LoongArchVirt`
   files unchanged
@@ -71,7 +77,7 @@ real setup pages on native FormBrowser.
   provide a local/manual QEMU validation path
 - RiscVVirtQemu overlay scripts that keep upstream `OvmfPkg/RiscVVirt` files
   unchanged and provide RISCV64 build/script validation
-- Development rules for function contracts, multi-architecture extension points,
+- Development rules for function contracts, XArch extension points,
   and IBV-friendly adaptation
 
 The default ArmVirt path is now compatibility-first: edk2 still owns HII parsing
@@ -213,6 +219,7 @@ edk2 workspace
     |   +-- Assets/Fonts
     |   +-- Scripts/generate-font-glyphs.py
     |   +-- Docs/DEVELOPMENT.md
+    |   +-- Docs/XArch.md
     |   +-- Docs/CompatibilityMatrix.md
     |   +-- Docs/BeforeAfter.md
     |   +-- Docs/IbvAndPlatformSetupSurvey.md
@@ -278,7 +285,7 @@ ModernSetupApp
 ## Standard Front-Page App
 
 `ModernSetupApp` is an opt-in standard firmware front page. It is meant to be a
-portable open source shell for desktop, laptop, server, tablet, and future
+portable open source XArch shell for desktop, laptop, server, tablet, and future
 architecture targets. It owns high-level navigation and summary pages only:
 dashboard, boot list, HII/device entry list, security overview, firmware
 update status, diagnostics inventory, management availability, power/thermal
@@ -329,7 +336,9 @@ Real VFR/IFR pages should continue through native edk2 FormBrowser and
 
 - `Docs/DEVELOPMENT.md` defines coding rules, function comment requirements,
   architecture boundaries, and extension points.
-- `Docs/ProductizationFeatureMatrix.md` defines the cross-architecture App
+- `Docs/XArch.md` defines the XArch model, concrete target mapping, validation
+  vocabulary, maturity table, and ownership boundaries.
+- `Docs/ProductizationFeatureMatrix.md` defines the XArch App
   feature roadmap and provider boundaries.
 - `Docs/IbvAndPlatformSetupSurvey.md` records the public IBV/OEM/platform-form
   setup surface survey used to decide common App pages.

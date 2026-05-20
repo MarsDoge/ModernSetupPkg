@@ -208,6 +208,13 @@ DASHBOARD_EXPANDED_CARD_TOKENS = (
     "BootDetailText",
     "DeviceDetailText",
 )
+XARCH_DOC_REQUIRED_FILES = (
+    Path("Docs") / "XArch.md",
+    Path("README.md"),
+    Path("Docs") / "CompatibilityMatrix.md",
+    Path("Docs") / "ProductizationFeatureMatrix.md",
+)
+XARCH_ARCH_TOKENS = ("X64", "AARCH64", "LOONGARCH64", "RISCV64")
 
 
 class SmokeFailure(Exception):
@@ -442,6 +449,22 @@ def assert_not_contains_any(path: Path, needles: Iterable[str]) -> None:
     for needle in needles:
         if needle in text:
             raise SmokeFailure(f"{path} contains prohibited text: {needle}")
+
+
+def check_xarch_docs_contract(root: Path) -> list[str]:
+    for relative in XARCH_DOC_REQUIRED_FILES:
+        if not (root / relative).exists():
+            raise SmokeFailure(f"missing XArch docs contract file: {relative}")
+
+    for relative in XARCH_DOC_REQUIRED_FILES:
+        assert_contains(root / relative, "XArch")
+
+    xarch_doc = root / "Docs" / "XArch.md"
+    for token in XARCH_ARCH_TOKENS:
+        assert_contains(xarch_doc, token)
+    assert_contains(xarch_doc, "XArch does not replace edk2 ARCH values")
+
+    return ["PASS XArch docs/model static contract"]
 
 
 def check_edk2_baseline_contract(root: Path) -> list[str]:
@@ -1100,6 +1123,7 @@ def main() -> int:
         messages.extend(check_modern_ui_builtin_glyph_subset(root))
         messages.extend(check_edk2_baseline_contract(root))
         messages.extend(check_ovmf_capture_helper_contract(root))
+        messages.extend(check_xarch_docs_contract(root))
         messages.extend(check_static_overlay_script_contracts(root))
         messages.extend(check_overlay_generation(root))
     except SmokeFailure as exc:
