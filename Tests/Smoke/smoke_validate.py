@@ -55,9 +55,7 @@ PROHIBITED_DEFAULT_OVERLAY_TOKENS = (
 MODERN_SETUP_APP_DIR = Path("Application") / "ModernSetupApp"
 MODERN_SETUP_APP_INF = MODERN_SETUP_APP_DIR / "ModernSetupApp.inf"
 PROHIBITED_APP_SOURCE_TOKENS = (
-    "ModernUiHiiBridge.h",
     "ModernUiPageAdapter.h",
-    "ModernUiHiiBridgeLib",
     "ModernUiPageAdapterLib",
     "EFI_HII_CONFIG_ACCESS_PROTOCOL",
     "ConfigAccess",
@@ -731,6 +729,9 @@ def check_hii_bridge_view_model_boundary(root: Path) -> list[str]:
     source = root / "Library" / "ModernUiHiiBridgeLib" / "ModernUiHiiBridgeLib.c"
     inf = root / "Library" / "ModernUiHiiBridgeLib" / "ModernUiHiiBridgeLib.inf"
     device_data = root / "Library" / "ModernUiDeviceDataLib" / "ModernUiDeviceDataLib.c"
+    app_pages = root / MODERN_SETUP_APP_DIR / "ModernSetupAppPages.c"
+    app_main = root / MODERN_SETUP_APP_DIR / "ModernSetupApp.c"
+    app_actions = root / MODERN_SETUP_APP_DIR / "ModernSetupAppActions.c"
 
     for path in (header, source, inf):
         if not path.exists():
@@ -779,6 +780,32 @@ def check_hii_bridge_view_model_boundary(root: Path) -> list[str]:
     for token in ("ModernUiDeviceDataOpenEntry", "gEfiFormBrowser2ProtocolGuid", "SendForm"):
         if token not in device_text:
             raise SmokeFailure(f"native DeviceData/FormBrowser fallback missing token: {token}")
+
+    app_pages_text = strip_c_comments(app_pages.read_text(encoding="utf-8"))
+    for token in (
+        "MODERN_UI_HII_VIEW",
+        "ModernUiHiiBridgeBuildView",
+        "ModernUiHiiBridgeResolveText",
+        "Read-only HII preview",
+        "preview does not edit settings",
+    ):
+        if token not in app_pages_text:
+            raise SmokeFailure(f"Devices HII bridge read-only preview missing token: {token}")
+
+    app_main_text = strip_c_comments(app_main.read_text(encoding="utf-8"))
+    app_actions_text = strip_c_comments(app_actions.read_text(encoding="utf-8"))
+    if "ModernSetupOpenSelectedDeviceEntry (DeviceSelection" not in app_main_text:
+        raise SmokeFailure("Devices Enter handling must continue through ModernSetupOpenSelectedDeviceEntry(DeviceSelection)")
+    if "ModernUiDeviceDataOpenEntry" not in app_actions_text:
+        raise SmokeFailure("ModernSetupAppActions.c must keep native DeviceData open path")
+
+    app_bridge_text = "\n".join(
+        strip_c_comments(path.read_text(encoding="utf-8"))
+        for path in sorted((root / MODERN_SETUP_APP_DIR).glob("ModernSetupApp*.c"))
+    )
+    for token in HII_BRIDGE_FORBIDDEN_WRITE_TOKENS:
+        if token in app_bridge_text:
+            raise SmokeFailure(f"ModernSetupApp HII preview contains prohibited write/path token: {token}")
 
     renderer_paths = [
         root / "Include" / "ModernUi" / "ModernUiRenderer.h",

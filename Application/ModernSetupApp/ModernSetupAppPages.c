@@ -10,6 +10,8 @@
 
 #include "ModernSetupAppInternal.h"
 
+#include <ModernUi/ModernUiHiiBridge.h>
+
 /**
   Draw one provider-summary label/value row.
 
@@ -316,6 +318,234 @@ DrawBoot (
   ModernUiBootDataFreeOptions (BootOptions, BootOptionCount);
 }
 
+STATIC
+CONST CHAR16 *
+HiiPreviewDisplayKindText (
+  IN MODERN_UI_DISPLAY_KIND  Kind
+  )
+{
+  switch (Kind) {
+    case ModernUiDisplayText:
+      return L"Text";
+    case ModernUiDisplaySubtitle:
+      return L"Subtitle";
+    case ModernUiDisplayLink:
+      return L"Link";
+    case ModernUiDisplayToggle:
+      return L"Toggle";
+    case ModernUiDisplayChoice:
+      return L"Choice";
+    case ModernUiDisplayNumeric:
+      return L"Numeric";
+    case ModernUiDisplayString:
+      return L"String";
+    case ModernUiDisplayPassword:
+      return L"Password";
+    case ModernUiDisplayAction:
+      return L"Action";
+    case ModernUiDisplayDate:
+      return L"Date";
+    case ModernUiDisplayTime:
+      return L"Time";
+    case ModernUiDisplayNativeOnly:
+      return L"Native only";
+    case ModernUiDisplayUnsupported:
+      return L"Unsupported";
+    default:
+      return L"Info";
+  }
+}
+
+STATIC
+CONST CHAR16 *
+HiiPreviewEditPolicyText (
+  IN MODERN_UI_EDIT_POLICY  Policy
+  )
+{
+  switch (Policy) {
+    case ModernUiEditReadOnly:
+      return L"read-only";
+    case ModernUiEditNavigate:
+      return L"opens native";
+    case ModernUiEditToggle:
+    case ModernUiEditChoose:
+    case ModernUiEditInput:
+    case ModernUiEditActivate:
+      return L"native edit";
+    case ModernUiEditNativeOnly:
+      return L"native only";
+    default:
+      return L"view only";
+  }
+}
+
+STATIC
+CONST CHAR16 *
+HiiPreviewResolveText (
+  IN  CONST MODERN_UI_TEXT_REF  *TextRef,
+  OUT CHAR16                    *Buffer,
+  IN  UINTN                     BufferChars,
+  IN  CONST CHAR16              *Fallback
+  )
+{
+  if ((Buffer == NULL) || (BufferChars == 0)) {
+    return Fallback;
+  }
+
+  Buffer[0] = L'\0';
+  if ((TextRef != NULL) && !EFI_ERROR (ModernUiHiiBridgeResolveText (TextRef, Buffer, BufferChars)) && (Buffer[0] != L'\0')) {
+    return Buffer;
+  }
+
+  return Fallback;
+}
+
+STATIC
+MODERN_UI_HII_FORMSET *
+HiiPreviewFindFormSet (
+  IN MODERN_UI_HII_VIEW              *View,
+  IN CONST MODERN_UI_DEVICE_ENTRY    *Entry
+  )
+{
+  UINTN  Index;
+
+  if ((View == NULL) || (Entry == NULL)) {
+    return NULL;
+  }
+
+  for (Index = 0; Index < View->FormSetCount; Index++) {
+    if ((View->FormSets[Index].Source.HiiHandle == Entry->HiiHandle) &&
+        CompareGuid (&View->FormSets[Index].Source.FormSetGuid, &Entry->FormSetGuid))
+    {
+      return &View->FormSets[Index];
+    }
+  }
+
+  return NULL;
+}
+
+STATIC
+VOID
+DrawHiiReadOnlyPreview (
+  IN MODERN_UI_RENDER_CONTEXT       *Ui,
+  IN CONST MODERN_UI_THEME          *Theme,
+  IN MODERN_UI_RECT                 Rect,
+  IN CONST MODERN_UI_DEVICE_ENTRY   *Entry
+  )
+{
+  EFI_STATUS                     Status;
+  MODERN_UI_HII_VIEW             View;
+  MODERN_UI_HII_FORMSET          *FormSet;
+  MODERN_UI_HII_PAGE             *Page;
+  MODERN_UI_HII_ITEM             *Item;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background;
+  UINTN                          Index;
+  UINTN                          RowY;
+  UINTN                          MaxItems;
+  CHAR16                         Title[128];
+  CHAR16                         Help[128];
+  CHAR16                         PageTitle[128];
+  CHAR16                         Prompt[128];
+  CHAR16                         Value[128];
+
+  if ((Entry == NULL) || !Entry->HasForm || (Rect.Width < 180) || (Rect.Height < 120)) {
+    return;
+  }
+
+  Background = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
+  DrawProviderSummarySection (Ui, Theme, Rect, L"Read-only HII preview", TRUE);
+  ModernUiDrawTextFit (
+    Ui,
+    Rect.X + 18,
+    Rect.Y + 40,
+    Rect.Width - 36,
+    L"Enter opens native FormBrowser; preview does not edit settings.",
+    Theme->MutedText,
+    Background
+    );
+
+  Status = ModernUiHiiBridgeBuildView (&View, &Entry->FormSetGuid, 1);
+  if (EFI_ERROR (Status)) {
+    ModernUiDrawTextFormatted (Ui, Rect.X + 18, Rect.Y + 76, Theme->Warning, Background, L"Preview unavailable: %r", Status);
+    return;
+  }
+
+  FormSet = HiiPreviewFindFormSet (&View, Entry);
+  if (FormSet == NULL) {
+    ModernUiDrawText (Ui, Rect.X + 18, Rect.Y + 76, L"No normalized preview for this formset.", Theme->Warning, Background);
+    ModernUiHiiBridgeClearView (&View);
+    return;
+  }
+
+  RowY = Rect.Y + 76;
+  ModernUiDrawTextFit (
+    Ui,
+    Rect.X + 18,
+    RowY,
+    Rect.Width - 36,
+    HiiPreviewResolveText (&FormSet->Title, Title, ARRAY_SIZE (Title), Entry->Title),
+    Theme->Text,
+    Background
+    );
+  RowY += 24;
+
+  if (HiiPreviewResolveText (&FormSet->Help, Help, ARRAY_SIZE (Help), L"")[0] != L'\0') {
+    ModernUiDrawTextFit (Ui, Rect.X + 18, RowY, Rect.Width - 36, Help, Theme->MutedText, Background);
+    RowY += 22;
+  }
+
+  if (FormSet->PageCount == 0) {
+    ModernUiDrawText (Ui, Rect.X + 18, RowY, L"No pages in normalized preview.", Theme->MutedText, Background);
+    ModernUiHiiBridgeClearView (&View);
+    return;
+  }
+
+  Page = &FormSet->Pages[0];
+  ModernUiDrawTextFit (
+    Ui,
+    Rect.X + 18,
+    RowY,
+    Rect.Width - 36,
+    HiiPreviewResolveText (&Page->Title, PageTitle, ARRAY_SIZE (PageTitle), L"First page"),
+    Theme->AccentYellow,
+    Background
+    );
+  RowY += 28;
+
+  MaxItems = MIN (Page->ItemCount, 5);
+  for (Index = 0; Index < MaxItems; Index++) {
+    if ((RowY + 24) > (Rect.Y + Rect.Height - 10)) {
+      break;
+    }
+
+    Item = &Page->Items[Index];
+    if (!Item->Policy.VisibleByDefault) {
+      continue;
+    }
+
+    HiiPreviewResolveText (&Item->Prompt, Prompt, ARRAY_SIZE (Prompt), HiiPreviewDisplayKindText (Item->Policy.DisplayKind));
+    HiiPreviewResolveText (&Item->ValueText, Value, ARRAY_SIZE (Value), L"");
+    if (Value[0] == L'\0') {
+      UnicodeSPrint (
+        Value,
+        sizeof (Value),
+        L"%s / %s",
+        HiiPreviewDisplayKindText (Item->Policy.DisplayKind),
+        HiiPreviewEditPolicyText (Item->Policy.EditPolicy)
+        );
+    }
+
+    DrawProviderSummaryInfoRow (Ui, Theme, Rect.X + 18, RowY, Rect.Width - 36, Prompt, Value);
+    RowY += 26;
+  }
+
+  if ((Page->ItemCount > MaxItems) && ((RowY + 20) <= (Rect.Y + Rect.Height))) {
+    ModernUiDrawTextFormatted (Ui, Rect.X + 18, RowY, Theme->MutedText, Background, L"+ %u more items in native browser", Page->ItemCount - MaxItems);
+  }
+
+  ModernUiHiiBridgeClearView (&View);
+}
+
 /**
   Draw the Devices page with a small handle/device-path inventory.
 
@@ -349,6 +579,10 @@ DrawDevices (
   UINTN                     RowX;
   UINTN                     RowWidth;
   MODERN_UI_ROW_MODEL       RowModel;
+  MODERN_UI_DEVICE_ENTRY    *SelectedEntry;
+  MODERN_UI_RECT            PreviewPanel;
+  UINTN                     ListWidth;
+  BOOLEAN                   ShowPreview;
 
   Panel = ModernSetupContentRect (Ui);
   RowX = Panel.X + 20;
@@ -366,6 +600,16 @@ DrawDevices (
   HiiCount = 0;
   VisibleHiiCount = 0;
   VisibleDeviceCount = 0;
+  SelectedEntry = (Selected < EntryCount) ? &Entries[Selected] : NULL;
+  ShowPreview = (BOOLEAN)((SelectedEntry != NULL) && SelectedEntry->HasForm && (Panel.Width >= 720));
+  if (ShowPreview) {
+    ListWidth    = (Panel.Width - 56) / 2;
+    RowWidth     = ListWidth;
+    PreviewPanel = (MODERN_UI_RECT){ RowX + ListWidth + 16, Panel.Y + 54, Panel.Width - ListWidth - 56, Panel.Height - 74 };
+  } else {
+    PreviewPanel = (MODERN_UI_RECT){ 0, 0, 0, 0 };
+  }
+
   for (Index = 0; Index < EntryCount; Index++) {
     if (Entries[Index].HasForm) {
       HiiCount++;
@@ -433,6 +677,10 @@ DrawDevices (
 
   if (EntryCount == 0) {
     ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 66, L"No HII formsets found.", Theme->Warning, Theme->Surface);
+  }
+
+  if (ShowPreview) {
+    DrawHiiReadOnlyPreview (Ui, Theme, PreviewPanel, SelectedEntry);
   }
 
   ModernUiDeviceDataFreeEntries (Entries, EntryCount);
