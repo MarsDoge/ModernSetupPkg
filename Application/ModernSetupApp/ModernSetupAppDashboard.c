@@ -77,7 +77,7 @@ DrawDashboardSection (
     (MODERN_UI_RECT){ Rect.X, Rect.Y, Rect.Width, Accent ? 2 : 1 },
     Accent ? Theme->AccentOrange : ModernUiBlendColor (Theme->Border, Theme->BackgroundBlack, 40)
     );
-  ModernUiDrawTextFit (Ui, Rect.X + 18, Rect.Y + 16, Rect.Width - 36, Title, Accent ? Theme->AccentYellow : Theme->MutedText, PanelColor);
+  ModernUiDrawTextFit (Ui, Rect.X + 18, Rect.Y + DASHBOARD_SECTION_TITLE_TOP, Rect.Width - 36, Title, Accent ? Theme->AccentYellow : Theme->MutedText, PanelColor);
 }
 
 /**
@@ -167,7 +167,7 @@ DrawDashboardQuickGroupLabel (
   ModernUiDrawTextFit (
     Ui,
     Rect.X + 4,
-    Rect.Y - 24,
+    Rect.Y - DASHBOARD_QUICK_GROUP_LABEL_OFFSET,
     Rect.Width - 8,
     Label,
     Theme->WarningText,

@@ -63,7 +63,7 @@ ModernSetupGetDashboardQuickGrid (
 
   Grid->Visible    = TRUE;
   Grid->Panel      = (MODERN_UI_RECT){ Content.X, QuickY, Content.Width, QuickHeight };
-  Grid->CardGap    = 14;
+  Grid->CardGap    = DASHBOARD_QUICK_CARD_GAP;
   Grid->CardTop    = DASHBOARD_QUICK_CARD_TOP;
   CardAreaWidth    = (Grid->Panel.Width > 40) ? (Grid->Panel.Width - 40) : Grid->Panel.Width;
   MaxRows          = (Grid->Panel.Height > (DASHBOARD_QUICK_CARD_TOP + DASHBOARD_QUICK_VALUE_MIN_HEIGHT + DASHBOARD_QUICK_CARD_BOTTOM)) ?
