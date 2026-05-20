@@ -254,6 +254,35 @@ Phase 9 is complete when:
 4. Smoke validation continues to reject direct setup mutation paths and direct
    provider calls from pages, without requiring removal of diagnostic text.
 
+## Phase 10 Dashboard category landing
+
+Current app/provider acceptance target:
+
+- Title: `phase10(app): Dashboard 作为设置分类入口`.
+- Route: App shell and provider agents, with platform-ci for smoke/build validation.
+- Labels: `area/app-provider`, `area/platform-ci` when mirrored to GitHub.
+- Scope: keep the existing six Dashboard cards and destinations, but reframe the
+  surface as Setup Categories/设置分类. Centralize the card-to-page route table in
+  app-private actions code, preserve Boot/Devices content focus and other
+  destinations' navigation focus, and add only a small localized open/enter
+  affordance that fits the existing layout.
+- Non-goals: no big tree-navigation rewrite, no diagnostics cleanup/removal, no
+  writable setup config, no ConfigAccess/HII varstore writes, and no public
+  provider model expansion.
+- Expected validation: `python3 Tests/Smoke/smoke_validate.py`,
+  `git diff --check`, and an X64 CLANG app build when the local edk2 workspace is
+  available.
+
+Phase 10 is complete when:
+
+1. Dashboard visible copy says Setup Categories/设置分类 for the landing area.
+2. Enter routing for the six cards uses a shared app-private helper/table instead
+   of hard-coded `if/else` in the main loop.
+3. Boot and Devices routes still land in content focus; Diagnostics, Firmware,
+   Power, and Performance keep navigation focus.
+4. Smoke validation covers the helper/route contract without brittle label
+   removal checks.
+
 ## Later backlog themes
 
 Keep later work grouped by feature phase rather than creating one issue per file move:

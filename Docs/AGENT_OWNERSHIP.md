@@ -36,7 +36,7 @@ Use ownership to answer three questions:
 | `ModernSetupAppDashboard.c` | Dashboard-only drawing and dashboard card layout | Keep `ModernSetupDrawDashboard()` defined here; route dashboard summary/card presentation through app/provider and keep expanded cards backed by the app-private provider snapshot |
 | `ModernSetupAppProvider.c` | App-private read-only provider snapshot, fallback normalization, and derived provider health/readiness summary | Keep provider LibraryClass calls centralized here so Dashboard/pages consume normalized summaries without parsing setup data or duplicating fallback policy |
 | `ModernSetupAppPages.c` | Existing page drawing and page dispatch for Boot, Devices, Security, provider summaries, and Exit | Keep current pages together for now; real setup entries must hand off to FormBrowser/`SendForm()` instead of implementing IFR behavior in the app |
-| `ModernSetupAppActions.c` | App actions such as boot option launch, language selection, and setup handoff helpers | Route behavior-affecting actions through app/provider; cross-review display-engine/FormBrowser for setup-page handoff changes |
+| `ModernSetupAppActions.c` | App actions such as boot option launch, language selection, setup handoff helpers, and Dashboard category route resolution | Route behavior-affecting actions through app/provider; cross-review display-engine/FormBrowser for setup-page handoff changes |
 
 ModernSetupApp boundary rules:
 
@@ -50,6 +50,9 @@ ModernSetupApp boundary rules:
   the current rows, selectable card count, navigation behavior, provider snapshot
   boundary, and diagnostic Present/Absent/Available/N/A text unless a later
   cleanup phase explicitly owns that removal.
+- Dashboard category landing routes are app-private shell behavior: keep the
+  six-card route table centralized in Actions helpers, preserve content focus for
+  Boot/Devices, and keep read-only overview destinations in navigation focus.
 - PCIe policy summaries from `ModernUiPcieDataLib` are read-only capability and
   native HII entry hints. ReBAR, Above 4G decoding, SR-IOV, ASPM, bifurcation,
   hot-plug, ACS/ARI, IOMMU, and BAR resource policy changes remain owned by

@@ -12,6 +12,15 @@
 
 STATIC CONST EFI_GUID  mUiAppGuid = { 0x462CAA21, 0x7614, 0x4503, { 0x83, 0x6E, 0x8A, 0xB6, 0xF4, 0x66, 0x23, 0x31 } };
 
+STATIC CONST MODERN_SETUP_DASHBOARD_ROUTE  mDashboardCategoryRoutes[DASHBOARD_QUICK_CARD_COUNT] = {
+  { PageBoot,        SetupFocusContent },
+  { PageDevices,     SetupFocusContent },
+  { PageDiagnostics, SetupFocusNav     },
+  { PageFirmware,    SetupFocusNav     },
+  { PagePower,       SetupFocusNav     },
+  { PagePerformance, SetupFocusNav     }
+};
+
 BOOLEAN         mModernSetupLanguageDropdownOpen;
 UINTN           mModernSetupLanguageDropdownSelection;
 
@@ -75,6 +84,33 @@ ModernSetupGetDashboardQuickGrid (
   Grid->CardHeight  = (Grid->Panel.Height > (Grid->CardTop + DASHBOARD_QUICK_CARD_BOTTOM + (Grid->CardGap * (Grid->Rows - 1)))) ?
                       ((Grid->Panel.Height - Grid->CardTop - DASHBOARD_QUICK_CARD_BOTTOM - (Grid->CardGap * (Grid->Rows - 1))) / Grid->Rows) :
                       DASHBOARD_QUICK_VALUE_MIN_HEIGHT;
+  return TRUE;
+}
+
+/**
+  Resolve a Dashboard setup category card to its destination page and focus.
+
+  The first two categories keep content focus so Enter can immediately act on
+  boot/device rows. Provider-summary destinations keep navigation focus because
+  their current pages are read-only overview panels.
+
+  @param[in]  Selection  Zero-based Dashboard category card index.
+  @param[out] Route      Receives the page and focus destination. Must not be NULL.
+
+  @retval TRUE   Selection maps to a supported category route.
+  @retval FALSE  Selection is out of range or Route is NULL.
+**/
+BOOLEAN
+ModernSetupGetDashboardCategoryRoute (
+  IN  UINTN                         Selection,
+  OUT MODERN_SETUP_DASHBOARD_ROUTE  *Route
+  )
+{
+  if ((Route == NULL) || (Selection >= ARRAY_SIZE (mDashboardCategoryRoutes))) {
+    return FALSE;
+  }
+
+  *Route = mDashboardCategoryRoutes[Selection];
   return TRUE;
 }
 

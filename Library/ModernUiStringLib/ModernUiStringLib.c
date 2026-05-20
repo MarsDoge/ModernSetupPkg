@@ -25,8 +25,8 @@ STATIC BOOLEAN  mLanguageInitialized;
 STATIC CONST CHAR16  *mEnglishStrings[ModernUiStringMax] = {
   L"MODERN UEFI BIOS UTILITY",
   L"ADVANCED MODE",
-  L"Dashboard",
-  L"Platform overview",
+  L"Setup Categories",
+  L"Choose a setup category",
   L"Boot",
   L"Boot order and entries",
   L"Devices",
@@ -130,14 +130,16 @@ STATIC CONST CHAR16  *mEnglishStrings[ModernUiStringMax] = {
   L"Diagnostics",
   L"Management",
   L"Power",
-  L"Performance"
+  L"Performance",
+  L"Setup Categories",
+  L"Open / Enter"
 };
 
 STATIC CONST CHAR16  *mSimplifiedChineseStrings[ModernUiStringMax] = {
   L"现代UEFI设置工具",
   L"高级模式",
-  L"仪表盘",
-  L"平台概览",
+  L"设置分类",
+  L"选择设置分类",
   L"启动",
   L"启动顺序与启动项",
   L"设备",
@@ -241,7 +243,9 @@ STATIC CONST CHAR16  *mSimplifiedChineseStrings[ModernUiStringMax] = {
   L"诊断",
   L"管理",
   L"电源",
-  L"性能"
+  L"性能",
+  L"设置分类",
+  L"打开/回车"
 };
 
 /**
