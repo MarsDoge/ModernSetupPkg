@@ -8,7 +8,9 @@
 set -euo pipefail
 
 PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKSPACE="${WORKSPACE:-$(cd "${PKG_DIR}/.." && pwd)}"
+# shellcheck disable=SC1091
+source "${PKG_DIR}/Scripts/edk2-workspace.sh"
+WORKSPACE="$(DetectWorkspace)"
 TARGET="${TARGET:-DEBUG}"
 ACCEL="${ACCEL:-tcg}"
 MEMORY="${MEMORY:-1024}"

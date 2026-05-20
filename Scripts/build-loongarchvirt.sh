@@ -8,7 +8,9 @@
 set -euo pipefail
 
 PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORKSPACE="${WORKSPACE:-$(cd "${PKG_DIR}/.." && pwd)}"
+# shellcheck disable=SC1091
+source "${PKG_DIR}/Scripts/edk2-workspace.sh"
+WORKSPACE="$(DetectWorkspace)"
 TARGET="${TARGET:-DEBUG}"
 JOBS="${JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
 MODERN_SETUP_DEMO_DRIVER_SAMPLE="${MODERN_SETUP_DEMO_DRIVER_SAMPLE:-1}"
@@ -21,15 +23,10 @@ OVERLAY_DIR="${WORKSPACE}/Build/ModernSetupPkgOverlay"
 export PATH="/opt/homebrew/bin:${PATH}"
 export WORKSPACE
 export GCC_LOONGARCH64_PREFIX
+ConfigureModernSetupPackagePath
 
 if [[ ! -d "${WORKSPACE}/MdePkg" || ! -d "${WORKSPACE}/OvmfPkg/LoongArchVirt" ]]; then
   echo "WORKSPACE does not look like an edk2 checkout with LoongArchVirt: ${WORKSPACE}" >&2
-  exit 1
-fi
-
-if [[ "$(cd "${PKG_DIR}" && pwd)" != "${WORKSPACE}/ModernSetupPkg" ]]; then
-  echo "ModernSetupPkg should be checked out at ${WORKSPACE}/ModernSetupPkg" >&2
-  echo "Current package path: ${PKG_DIR}" >&2
   exit 1
 fi
 

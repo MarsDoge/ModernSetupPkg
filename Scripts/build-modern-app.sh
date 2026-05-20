@@ -8,26 +8,8 @@
 set -euo pipefail
 
 PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PKG_PARENT="$(cd "${PKG_DIR}/.." && pwd)"
-
-DetectWorkspace() {
-  if [[ -n "${WORKSPACE:-}" ]]; then
-    printf '%s\n' "${WORKSPACE}"
-    return
-  fi
-
-  if [[ -d "${PKG_PARENT}/MdePkg" && -d "${PKG_PARENT}/BaseTools" ]]; then
-    printf '%s\n' "${PKG_PARENT}"
-    return
-  fi
-
-  if [[ -d "${PKG_PARENT}/edk2/MdePkg" && -d "${PKG_PARENT}/edk2/BaseTools" ]]; then
-    printf '%s\n' "${PKG_PARENT}/edk2"
-    return
-  fi
-
-  printf '%s\n' "${PKG_PARENT}"
-}
+# shellcheck disable=SC1091
+source "${PKG_DIR}/Scripts/edk2-workspace.sh"
 
 ClangSupportsArch() {
   local Dir="$1"
@@ -81,24 +63,6 @@ FindClangBin() {
   fi
 
   printf '%s\n' ""
-}
-
-AppendPackagePath() {
-  local PathEntry="$1"
-  local Existing
-
-  IFS=':' read -r -a Existing <<< "${PACKAGES_PATH:-}"
-  for Existing in "${Existing[@]}"; do
-    if [[ "${Existing}" == "${PathEntry}" ]]; then
-      return
-    fi
-  done
-
-  if [[ -n "${PACKAGES_PATH:-}" ]]; then
-    PACKAGES_PATH="${PACKAGES_PATH}:${PathEntry}"
-  else
-    PACKAGES_PATH="${PathEntry}"
-  fi
 }
 
 WORKSPACE="$(DetectWorkspace)"
@@ -158,10 +122,7 @@ fi
 
 export WORKSPACE
 
-if [[ "$(cd "${PKG_DIR}" && pwd)" != "${WORKSPACE}/ModernSetupPkg" ]]; then
-  AppendPackagePath "${PKG_PARENT}"
-  export PACKAGES_PATH
-fi
+ConfigureModernSetupPackagePath
 
 APP_EFI="${WORKSPACE}/Build/ModernSetupPkgExperimental/${TARGET}_${TOOL_CHAIN_TAG}/${ARCH}/ModernSetupApp.efi"
 
