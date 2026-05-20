@@ -381,6 +381,111 @@ HiiPreviewEditPolicyText (
 
 STATIC
 CONST CHAR16 *
+HiiPreviewPolicyReasonText (
+  IN CONST MODERN_UI_HII_ITEM  *Item
+  )
+{
+  if (Item == NULL) {
+    return L"Preview-only; edits happen in native FormBrowser.";
+  }
+
+  if (Item->Policy.Unsupported) {
+    return L"Unsupported IFR construct; open native FormBrowser.";
+  }
+
+  if (Item->Policy.NativeOnly && Item->Policy.RequiresNativeFallback) {
+    return L"Firmware-owned behavior; native FormBrowser required.";
+  }
+
+  if (Item->Policy.NativeOnly) {
+    return L"Native-only setup control; open native FormBrowser.";
+  }
+
+  if (Item->Policy.RequiresNativeFallback) {
+    return L"Native fallback required by setup policy.";
+  }
+
+  if (Item->Policy.ReadOnly) {
+    return L"Preview-only; no edits here.";
+  }
+
+  return L"Preview-only; edits happen in native FormBrowser.";
+}
+
+STATIC
+VOID
+HiiPreviewCountPagePolicy (
+  IN  CONST MODERN_UI_HII_PAGE  *Page,
+  IN  UINTN                     MaxShown,
+  OUT UINTN                     *ShownCount,
+  OUT UINTN                     *VisibleCount,
+  OUT UINTN                     *NativeOnlyCount,
+  OUT UINTN                     *FallbackCount,
+  OUT UINTN                     *UnsupportedCount
+  )
+{
+  UINTN                     Index;
+  UINTN                     Shown;
+  CONST MODERN_UI_HII_ITEM  *Item;
+
+  Shown = 0;
+  if (ShownCount != NULL) {
+    *ShownCount = 0;
+  }
+
+  if (VisibleCount != NULL) {
+    *VisibleCount = 0;
+  }
+
+  if (NativeOnlyCount != NULL) {
+    *NativeOnlyCount = 0;
+  }
+
+  if (FallbackCount != NULL) {
+    *FallbackCount = 0;
+  }
+
+  if (UnsupportedCount != NULL) {
+    *UnsupportedCount = 0;
+  }
+
+  if (Page == NULL) {
+    return;
+  }
+
+  for (Index = 0; Index < Page->ItemCount; Index++) {
+    Item = &Page->Items[Index];
+    if (!Item->Policy.VisibleByDefault) {
+      continue;
+    }
+
+    if (VisibleCount != NULL) {
+      (*VisibleCount)++;
+    }
+
+    if (Shown < MaxShown) {
+      Shown++;
+      if (Item->Policy.NativeOnly && (NativeOnlyCount != NULL)) {
+        (*NativeOnlyCount)++;
+      }
+
+      if (Item->Policy.RequiresNativeFallback && (FallbackCount != NULL)) {
+        (*FallbackCount)++;
+      }
+
+      if (Item->Policy.Unsupported && (UnsupportedCount != NULL)) {
+        (*UnsupportedCount)++;
+      }
+    }
+  }
+
+  if (ShownCount != NULL) {
+    *ShownCount = Shown;
+  }
+}
+
+STATIC
+CONST CHAR16 *
 HiiPreviewResolveText (
   IN  CONST MODERN_UI_TEXT_REF  *TextRef,
   OUT CHAR16                    *Buffer,
@@ -442,11 +547,17 @@ DrawHiiReadOnlyPreview (
   UINTN                          Index;
   UINTN                          RowY;
   UINTN                          MaxItems;
+  UINTN                          ShownItems;
+  UINTN                          VisibleItems;
+  UINTN                          NativeOnlyItems;
+  UINTN                          FallbackItems;
+  UINTN                          UnsupportedItems;
   CHAR16                         Title[128];
   CHAR16                         Help[128];
   CHAR16                         PageTitle[128];
   CHAR16                         Prompt[128];
   CHAR16                         Value[128];
+  CHAR16                         Summary[128];
 
   if ((Entry == NULL) || !Entry->HasForm || (Rect.Width < 180) || (Rect.Height < 120)) {
     return;
@@ -467,12 +578,13 @@ DrawHiiReadOnlyPreview (
   Status = ModernUiHiiBridgeBuildView (&View, &Entry->FormSetGuid, 1);
   if (EFI_ERROR (Status)) {
     ModernUiDrawTextFormatted (Ui, Rect.X + 18, Rect.Y + 76, Theme->Warning, Background, L"Preview unavailable: %r", Status);
+    ModernUiDrawText (Ui, Rect.X + 18, Rect.Y + 100, L"Press Enter to open native FormBrowser.", Theme->MutedText, Background);
     return;
   }
 
   FormSet = HiiPreviewFindFormSet (&View, Entry);
   if (FormSet == NULL) {
-    ModernUiDrawText (Ui, Rect.X + 18, Rect.Y + 76, L"No normalized preview for this formset.", Theme->Warning, Background);
+    ModernUiDrawText (Ui, Rect.X + 18, Rect.Y + 76, L"No normalized preview for this formset; press Enter for native FormBrowser.", Theme->Warning, Background);
     ModernUiHiiBridgeClearView (&View);
     return;
   }
@@ -495,12 +607,22 @@ DrawHiiReadOnlyPreview (
   }
 
   if (FormSet->PageCount == 0) {
-    ModernUiDrawText (Ui, Rect.X + 18, RowY, L"No pages in normalized preview.", Theme->MutedText, Background);
+    ModernUiDrawText (Ui, Rect.X + 18, RowY, L"No pages in normalized preview; press Enter for native FormBrowser.", Theme->MutedText, Background);
     ModernUiHiiBridgeClearView (&View);
     return;
   }
 
   Page = &FormSet->Pages[0];
+  MaxItems = 5;
+  HiiPreviewCountPagePolicy (
+    Page,
+    MaxItems,
+    &ShownItems,
+    &VisibleItems,
+    &NativeOnlyItems,
+    &FallbackItems,
+    &UnsupportedItems
+    );
   ModernUiDrawTextFit (
     Ui,
     Rect.X + 18,
@@ -512,8 +634,20 @@ DrawHiiReadOnlyPreview (
     );
   RowY += 28;
 
-  MaxItems = MIN (Page->ItemCount, 5);
-  for (Index = 0; Index < MaxItems; Index++) {
+  UnicodeSPrint (
+    Summary,
+    sizeof (Summary),
+    L"Preview: %u shown, %u native-only, %u native fallback, %u unsupported.",
+    ShownItems,
+    NativeOnlyItems,
+    FallbackItems,
+    UnsupportedItems
+    );
+  ModernUiDrawTextFit (Ui, Rect.X + 18, RowY, Rect.Width - 36, Summary, Theme->MutedText, Background);
+  RowY += 24;
+
+  ShownItems = 0;
+  for (Index = 0; (Index < Page->ItemCount) && (ShownItems < MaxItems); Index++) {
     if ((RowY + 24) > (Rect.Y + Rect.Height - 10)) {
       break;
     }
@@ -525,7 +659,14 @@ DrawHiiReadOnlyPreview (
 
     HiiPreviewResolveText (&Item->Prompt, Prompt, ARRAY_SIZE (Prompt), HiiPreviewDisplayKindText (Item->Policy.DisplayKind));
     HiiPreviewResolveText (&Item->ValueText, Value, ARRAY_SIZE (Value), L"");
-    if (Value[0] == L'\0') {
+    if (Item->Policy.Unsupported || Item->Policy.NativeOnly || Item->Policy.RequiresNativeFallback || Item->Policy.ReadOnly) {
+      UnicodeSPrint (
+        Value,
+        sizeof (Value),
+        L"%s",
+        HiiPreviewPolicyReasonText (Item)
+        );
+    } else if (Value[0] == L'\0') {
       UnicodeSPrint (
         Value,
         sizeof (Value),
@@ -537,10 +678,11 @@ DrawHiiReadOnlyPreview (
 
     DrawProviderSummaryInfoRow (Ui, Theme, Rect.X + 18, RowY, Rect.Width - 36, Prompt, Value);
     RowY += 26;
+    ShownItems++;
   }
 
-  if ((Page->ItemCount > MaxItems) && ((RowY + 20) <= (Rect.Y + Rect.Height))) {
-    ModernUiDrawTextFormatted (Ui, Rect.X + 18, RowY, Theme->MutedText, Background, L"+ %u more items in native browser", Page->ItemCount - MaxItems);
+  if ((VisibleItems > ShownItems) && ((RowY + 20) <= (Rect.Y + Rect.Height))) {
+    ModernUiDrawTextFormatted (Ui, Rect.X + 18, RowY, Theme->MutedText, Background, L"+ %u more items in native browser", VisibleItems - ShownItems);
   }
 
   ModernUiHiiBridgeClearView (&View);
