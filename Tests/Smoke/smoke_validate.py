@@ -150,6 +150,38 @@ PCIE_DOC_REQUIRED_FILES = (
     Path("README.md"),
     Path("CHANGELOG.md"),
 )
+HII_BRIDGE_FORBIDDEN_WRITE_TOKENS = (
+    "SetVariable",
+    "ExtractConfig",
+    "RouteConfig",
+    "HiiSetBrowserData",
+    "HiiUpdateForm",
+    "Callback",
+    "ConfigAccess",
+    "ConfigRouting",
+    "EFI_HII_CONFIG_ACCESS_PROTOCOL",
+    "EFI_HII_CONFIG_ROUTING_PROTOCOL",
+    "gEfiHiiConfigAccessProtocolGuid",
+    "gEfiHiiConfigRoutingProtocolGuid",
+)
+HII_BRIDGE_REQUIRED_TEXT_FIELDS = (
+    "Title",
+    "Prompt",
+    "Help",
+    "ValueText",
+)
+RENDERER_HII_NEUTRAL_TOKENS = (
+    "ModernUiHiiBridge.h",
+    "ModernUiHiiBridgeLib",
+    "MODERN_UI_HII_VIEW",
+    "MODERN_UI_HII_FORMSET",
+    "MODERN_UI_HII_PAGE",
+    "MODERN_UI_HII_ITEM",
+    "EFI_HII_CONFIG_ACCESS_PROTOCOL",
+    "EFI_HII_CONFIG_ROUTING_PROTOCOL",
+    "ConfigAccess",
+    "RouteConfig",
+)
 APP_PROVIDER_SNAPSHOT_FIELDS = (
     "Platform",
     "Security",
@@ -694,6 +726,75 @@ def check_pcie_docs_language(root: Path) -> list[str]:
     return ["PASS PCIe docs read-only/capability/entry language checks"]
 
 
+def check_hii_bridge_view_model_boundary(root: Path) -> list[str]:
+    header = root / "Include" / "ModernUi" / "ModernUiHiiBridge.h"
+    source = root / "Library" / "ModernUiHiiBridgeLib" / "ModernUiHiiBridgeLib.c"
+    inf = root / "Library" / "ModernUiHiiBridgeLib" / "ModernUiHiiBridgeLib.inf"
+    device_data = root / "Library" / "ModernUiDeviceDataLib" / "ModernUiDeviceDataLib.c"
+
+    for path in (header, source, inf):
+        if not path.exists():
+            raise SmokeFailure(f"missing HII bridge foundation file: {path.relative_to(root)}")
+
+    header_text = strip_c_comments(header.read_text(encoding="utf-8"))
+    source_text = strip_c_comments(source.read_text(encoding="utf-8"))
+    inf_text = inf.read_text(encoding="utf-8")
+    combined = "\n".join((header_text, source_text, inf_text))
+
+    for token in (
+        "MODERN_UI_TEXT_REF",
+        "ModernUiTextRefHiiString",
+        "MODERN_UI_SETUP_SOURCE_REF",
+        "MODERN_UI_DISPLAY_KIND",
+        "MODERN_UI_EDIT_POLICY",
+        "MODERN_UI_DISPLAY_POLICY",
+        "ModernUiHiiBridgeClearView",
+        "ModernUiHiiBridgeBuildView",
+        "ModernUiHiiBridgeResolveText",
+    ):
+        if token not in combined:
+            raise SmokeFailure(f"HII bridge view model missing token: {token}")
+
+    item_match = re.search(r"typedef\s+struct\s*\{(?P<body>.*?)\}\s*MODERN_UI_HII_ITEM\s*;", header_text, re.DOTALL)
+    if item_match is None:
+        raise SmokeFailure("HII bridge header missing MODERN_UI_HII_ITEM struct")
+    item_body = item_match.group("body")
+    for field in HII_BRIDGE_REQUIRED_TEXT_FIELDS:
+        if not re.search(rf"MODERN_UI_TEXT_REF\s+{field}\s*;", item_body):
+            raise SmokeFailure(f"MODERN_UI_HII_ITEM must model {field} as MODERN_UI_TEXT_REF")
+    if "MODERN_UI_TEXT_REF  Text;" not in header_text:
+        raise SmokeFailure("MODERN_UI_HII_OPTION must model option text as MODERN_UI_TEXT_REF")
+
+    for token in ("ApplyNextValue", "NotifyForm", "RunCallback", "RefreshValues", "ConfigAccess", "VarStore"):
+        if token in header_text:
+            raise SmokeFailure(f"HII bridge public API/model contains prohibited legacy token: {token}")
+    for token in HII_BRIDGE_FORBIDDEN_WRITE_TOKENS:
+        if token in combined:
+            raise SmokeFailure(f"HII bridge foundation contains prohibited write/path token: {token}")
+    for token in ("EFI_IFR_FLAG_CALLBACK", "ModernUiEditNativeOnly", "RequiresNativeFallback", "NativeOnly"):
+        if token not in source_text:
+            raise SmokeFailure(f"HII bridge default display policy missing fallback token: {token}")
+
+    device_text = strip_c_comments(device_data.read_text(encoding="utf-8"))
+    for token in ("ModernUiDeviceDataOpenEntry", "gEfiFormBrowser2ProtocolGuid", "SendForm"):
+        if token not in device_text:
+            raise SmokeFailure(f"native DeviceData/FormBrowser fallback missing token: {token}")
+
+    renderer_paths = [
+        root / "Include" / "ModernUi" / "ModernUiRenderer.h",
+        root / "Library" / "ModernUiRendererLib" / "ModernUiRendererLib.c",
+        root / "Library" / "ModernUiRendererLib" / "ModernUiRendererLib.inf",
+    ]
+    for renderer in renderer_paths:
+        if renderer.exists():
+            renderer_text = strip_c_comments(renderer.read_text(encoding="utf-8"))
+            for token in RENDERER_HII_NEUTRAL_TOKENS:
+                if token in renderer_text:
+                    raise SmokeFailure(f"renderer must remain HII-neutral; {renderer.relative_to(root)} contains {token}")
+
+    return ["PASS HII bridge view-model/default-display-policy boundary"]
+
+
 def check_overlay_generation(root: Path) -> list[str]:
     bash = shutil.which("bash")
     if bash is None:
@@ -779,6 +880,7 @@ def main() -> int:
         messages.extend(check_modern_setup_app_preferences_boundary(root))
         messages.extend(check_pcie_provider_foundation(root))
         messages.extend(check_pcie_docs_language(root))
+        messages.extend(check_hii_bridge_view_model_boundary(root))
         messages.extend(check_static_overlay_script_contracts(root))
         messages.extend(check_overlay_generation(root))
     except SmokeFailure as exc:

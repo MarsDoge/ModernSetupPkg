@@ -1,5 +1,5 @@
 ## @file
-# HII/IFR bridge library for ModernSetupPkg.
+# View-only HII/IFR bridge library for ModernSetupPkg.
 #
 # Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
 # Author: MarsDoge (Dongyan Qian)
@@ -27,15 +27,9 @@
 [LibraryClasses]
   BaseLib
   BaseMemoryLib
-  DebugLib
   HiiLib
   MemoryAllocationLib
-  PrintLib
   UefiBootServicesTableLib
-  UefiHiiServicesLib
-  UefiLib
 
 [Protocols]
-  gEfiHiiConfigAccessProtocolGuid
-  gEfiHiiConfigRoutingProtocolGuid
   gEfiHiiDatabaseProtocolGuid
