@@ -81,6 +81,38 @@ DrawProviderSummarySection (
 }
 
 /**
+  Draw a lightweight provider-page subsection label.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] X      Left coordinate in pixels.
+  @param[in] Y      Top coordinate in pixels.
+  @param[in] Width  Available label width in pixels.
+  @param[in] Label  Subsection label text. Must not be NULL.
+**/
+STATIC
+VOID
+DrawProviderSubsectionHeader (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN UINTN                     X,
+  IN UINTN                     Y,
+  IN UINTN                     Width,
+  IN CONST CHAR16              *Label
+  )
+{
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background;
+
+  if (Width < 32) {
+    return;
+  }
+
+  Background = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ X, Y + 18, Width, 1 }, Theme->Border);
+  ModernUiDrawTextFit (Ui, X, Y, Width, Label, Theme->WarningText, Background);
+}
+
+/**
   Return localized capability text for a boolean provider state.
 
   @param[in] Present  TRUE when the capability is available.
@@ -132,6 +164,8 @@ SecurityStateText (
   @param[in] Section   Section title text. Must not be NULL.
   @param[in] Labels    Row label array. Must not be NULL when RowCount is nonzero.
   @param[in] Values    Row value array. Must not be NULL when RowCount is nonzero.
+  @param[in] Groups    Optional group label array. Non-NULL entries add a
+                       subsection header before the corresponding row.
   @param[in] RowCount  Number of rows in Labels and Values.
 **/
 STATIC
@@ -143,6 +177,7 @@ DrawProviderSummaryPage (
   IN CONST CHAR16              *Section,
   IN CONST CHAR16              **Labels,
   IN CONST CHAR16              **Values,
+  IN CONST CHAR16              **Groups,
   IN UINTN                     RowCount
   )
 {
@@ -150,15 +185,28 @@ DrawProviderSummaryPage (
   MODERN_UI_RECT  Panel;
   UINTN           Index;
   UINTN           RowY;
+  UINTN           RowStep;
+  UINTN           HeaderStep;
 
   Content = ModernSetupContentRect (Ui);
-  Panel   = (MODERN_UI_RECT){ Content.X, Content.Y, Content.Width, MIN (Content.Height, 340) };
+  Panel      = (MODERN_UI_RECT){ Content.X, Content.Y, Content.Width, MIN (Content.Height, 430) };
+  RowY       = Panel.Y + 58;
+  RowStep    = (Panel.Height < 380) ? 28 : 34;
+  HeaderStep = (Panel.Height < 380) ? 20 : 28;
 
   DrawProviderSummarySection (Ui, Theme, Panel, Section, TRUE);
   ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
 
   for (Index = 0; Index < RowCount; Index++) {
-    RowY = Panel.Y + 58 + (Index * 34);
+    if ((Groups != NULL) && (Groups[Index] != NULL)) {
+      if ((RowY + 24) > (Panel.Y + Panel.Height)) {
+        break;
+      }
+
+      DrawProviderSubsectionHeader (Ui, Theme, Panel.X + 22, RowY, Panel.Width - 44, Groups[Index]);
+      RowY += HeaderStep;
+    }
+
     if ((RowY + 24) > (Panel.Y + Panel.Height)) {
       break;
     }
@@ -172,6 +220,7 @@ DrawProviderSummaryPage (
       Labels[Index],
       Values[Index]
       );
+    RowY += RowStep;
   }
 }
 
@@ -410,11 +459,13 @@ DrawFirmware (
   MODERN_UI_FIRMWARE_SUMMARY      *Summary;
   CONST CHAR16                    *Labels[5];
   CONST CHAR16                    *Values[5];
+  CONST CHAR16                    *Groups[5] = { NULL };
 
   ModernSetupGetProviderSnapshot (&Providers);
   Summary = &Providers.Firmware;
 
   Labels[0] = ModernUiGetString (ModernUiStringFirmwareVendor);
+  Groups[0] = ModernUiGetString (ModernUiStringGroupFirmware);
   Values[0] = Summary->Vendor;
   Labels[1] = ModernUiGetString (ModernUiStringFirmwareRevision);
   Values[1] = Summary->Revision;
@@ -432,6 +483,7 @@ DrawFirmware (
     ModernUiGetString (ModernUiStringFirmwareUpdate),
     Labels,
     Values,
+    Groups,
     ARRAY_SIZE (Labels)
     );
 }
@@ -461,6 +513,7 @@ DrawDiagnostics (
   CHAR16                                ProviderIssue[96];
   CONST CHAR16                          *Labels[8];
   CONST CHAR16                          *Values[8];
+  CONST CHAR16                          *Groups[8] = { NULL };
 
   ModernSetupGetProviderSnapshot (&Providers);
   ModernSetupGetProviderHealthSummary (&Providers, &ProviderHealth);
@@ -477,12 +530,14 @@ DrawDiagnostics (
   }
 
   Labels[0] = L"Provider Health";
+  Groups[0] = ModernUiGetString (ModernUiStringGroupDiagnostics);
   Values[0] = ModernSetupGetProviderHealthStateText (ProviderHealth.State);
   Labels[1] = L"Provider Coverage";
   Values[1] = ProviderCoverage;
   Labels[2] = L"Provider Issue";
   Values[2] = ProviderIssue;
   Labels[3] = ModernUiGetString (ModernUiStringAcpiTables);
+  Groups[3] = ModernUiGetString (ModernUiStringGroupPlatformHealth);
   Values[3] = CapabilityText (Summary->AcpiPresent);
   Labels[4] = ModernUiGetString (ModernUiStringSmbiosTables);
   Values[4] = CapabilityText (Summary->SmbiosPresent);
@@ -500,6 +555,7 @@ DrawDiagnostics (
     ModernUiGetString (ModernUiStringDiagnosticsLogs),
     Labels,
     Values,
+    Groups,
     ARRAY_SIZE (Labels)
     );
 }
@@ -523,11 +579,13 @@ DrawManagement (
   MODERN_UI_MANAGEMENT_SUMMARY    *Summary;
   CONST CHAR16                    *Labels[3];
   CONST CHAR16                    *Values[3];
+  CONST CHAR16                    *Groups[3] = { NULL };
 
   ModernSetupGetProviderSnapshot (&Providers);
   Summary = &Providers.Management;
 
   Labels[0] = ModernUiGetString (ModernUiStringIpmi);
+  Groups[0] = ModernUiGetString (ModernUiStringGroupManagement);
   Values[0] = CapabilityText (Summary->IpmiProtocolPresent);
   Labels[1] = ModernUiGetString (ModernUiStringRedfish);
   Values[1] = CapabilityText (Summary->RedfishDiscoverPresent);
@@ -541,6 +599,7 @@ DrawManagement (
     ModernUiGetString (ModernUiStringManagement),
     Labels,
     Values,
+    Groups,
     ARRAY_SIZE (Labels)
     );
 }
@@ -564,17 +623,20 @@ DrawPower (
   MODERN_UI_POWER_SUMMARY         *Summary;
   CONST CHAR16                    *Labels[5];
   CONST CHAR16                    *Values[5];
+  CONST CHAR16                    *Groups[5] = { NULL };
 
   ModernSetupGetProviderSnapshot (&Providers);
   Summary = &Providers.Power;
 
   Labels[0] = ModernUiGetString (ModernUiStringAcpiTablesProvider);
+  Groups[0] = ModernUiGetString (ModernUiStringGroupPower);
   Values[0] = CapabilityText (Summary->AcpiTablePresent);
   Labels[1] = ModernUiGetString (ModernUiStringAcpiSdtProtocol);
   Values[1] = CapabilityText (Summary->AcpiSdtProtocolPresent);
   Labels[2] = ModernUiGetString (ModernUiStringChassisThermalState);
   Values[2] = Summary->ChassisThermalState;
   Labels[3] = ModernUiGetString (ModernUiStringPowerSupply);
+  Groups[3] = ModernUiGetString (ModernUiStringGroupDiagnostics);
   Values[3] = CapabilityText (Summary->SmbiosPowerSupplyPresent);
   Labels[4] = ModernUiGetString (ModernUiStringSmbiosTables);
   Values[4] = CapabilityText (Summary->SmbiosChassisPresent);
@@ -586,6 +648,7 @@ DrawPower (
     ModernUiGetString (ModernUiStringPowerThermal),
     Labels,
     Values,
+    Groups,
     ARRAY_SIZE (Labels)
     );
 }
@@ -612,12 +675,14 @@ DrawPerformance (
   CHAR16                            PciePolicy[96];
   CONST CHAR16                      *Labels[8];
   CONST CHAR16                      *Values[8];
+  CONST CHAR16                      *Groups[8] = { NULL };
 
   ModernSetupGetProviderSnapshot (&Providers);
   Summary = &Providers.Performance;
   Pcie    = &Providers.Pcie;
 
   Labels[0] = ModernUiGetString (ModernUiStringProcessorInventory);
+  Groups[0] = ModernUiGetString (ModernUiStringGroupPerformance);
   Values[0] = CapabilityText (Summary->ProcessorInventoryPresent);
   Labels[1] = ModernUiGetString (ModernUiStringMemoryInventory);
   Values[1] = CapabilityText (Summary->MemoryInventoryPresent);
@@ -643,6 +708,7 @@ DrawPerformance (
     CapabilityText (Pcie->SriovPolicyEntryPresent)
     );
   Labels[5] = L"PCIe Policy";
+  Groups[5] = ModernUiGetString (ModernUiStringGroupPowerPerformance);
   Values[5] = EFI_ERROR (Providers.PcieStatus) ? ModernUiGetString (ModernUiStringNotAvailable) : CapabilityText (Pcie->PciePolicyEntryPresent);
   Labels[6] = L"ReBAR / Above 4G / SR-IOV";
   Values[6] = EFI_ERROR (Providers.PcieStatus) ? ModernUiGetString (ModernUiStringNotAvailable) : PciePolicy;
@@ -656,6 +722,7 @@ DrawPerformance (
     ModernUiGetString (ModernUiStringPerformanceTuning),
     Labels,
     Values,
+    Groups,
     ARRAY_SIZE (Labels)
     );
 }

@@ -141,6 +141,38 @@ DrawDashboardTile (
 }
 
 /**
+  Draw a lightweight group label above one Dashboard Quick Access card.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] Rect   Card rectangle in pixels.
+  @param[in] Label  Group label text. Must not be NULL.
+**/
+STATIC
+VOID
+DrawDashboardQuickGroupLabel (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN MODERN_UI_RECT            Rect,
+  IN CONST CHAR16              *Label
+  )
+{
+  if ((Rect.Width < 40) || (Rect.Y < 24)) {
+    return;
+  }
+
+  ModernUiDrawTextFit (
+    Ui,
+    Rect.X + 4,
+    Rect.Y - 24,
+    Rect.Width - 8,
+    Label,
+    Theme->WarningText,
+    ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30)
+    );
+}
+
+/**
   Return stable present/absent display text for Dashboard details.
 
   @param[in] Present  TRUE when a read-only capability was detected.
@@ -342,6 +374,18 @@ ModernSetupDrawDashboard (
       CardX     = QuickPanel.X + 20 + ((CardIndex % Grid.CardsPerRow) * (Grid.CardWidth + Grid.CardGap));
       CardY     = QuickPanel.Y + Grid.CardTop + ((CardIndex / Grid.CardsPerRow) * (Grid.CardHeight + Grid.CardGap));
       QuickCard = (MODERN_UI_RECT){ CardX, CardY, Grid.CardWidth, Grid.CardHeight };
+      if ((CardIndex == 0) || (CardIndex == 2) || (CardIndex == 4)) {
+        DrawDashboardQuickGroupLabel (
+          Ui,
+          Theme,
+          QuickCard,
+          ModernUiGetString (
+            (CardIndex == 0) ? ModernUiStringGroupBootDevices :
+            ((CardIndex == 2) ? ModernUiStringGroupPlatformHealth : ModernUiStringGroupPowerPerformance)
+            )
+          );
+      }
+
       switch (CardIndex) {
         case 0:
           DrawDashboardTile (Ui, Theme, QuickCard, ModernUiGetString (ModernUiStringBootOptions), BootCount, BootDetailText, TRUE, (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));

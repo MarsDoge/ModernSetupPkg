@@ -122,7 +122,15 @@ STATIC CONST CHAR16  *mEnglishStrings[ModernUiStringMax] = {
   L"RouteConfig returned: %r",
   L"Boot option returned: %r",
   L"Classic UiApp returned: %r",
-  L"ModernSetupApp: graphics initialization failed: %r\n"
+  L"ModernSetupApp: graphics initialization failed: %r\n",
+  L"Boot & Devices",
+  L"Platform Health",
+  L"Power & Performance",
+  L"Firmware",
+  L"Diagnostics",
+  L"Management",
+  L"Power",
+  L"Performance"
 };
 
 STATIC CONST CHAR16  *mSimplifiedChineseStrings[ModernUiStringMax] = {
@@ -225,7 +233,15 @@ STATIC CONST CHAR16  *mSimplifiedChineseStrings[ModernUiStringMax] = {
   L"RouteConfig返回：%r",
   L"启动项返回：%r",
   L"传统UiApp返回：%r",
-  L"ModernSetupApp：图形初始化失败：%r\n"
+  L"ModernSetupApp：图形初始化失败：%r\n",
+  L"启动与设备",
+  L"平台健康",
+  L"电源与性能",
+  L"固件",
+  L"诊断",
+  L"管理",
+  L"电源",
+  L"性能"
 };
 
 /**

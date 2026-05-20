@@ -223,6 +223,37 @@ Phase 7 is complete when:
 5. Productization docs state that PCIe policy pages and any real policy changes
    remain native platform HII/FormBrowser responsibility.
 
+## Phase 9 App information hierarchy
+
+Current app/provider acceptance target:
+
+- Title: `phase9(app): 增加 App 信息层级与分组提示`.
+- Route: App shell and provider agents, with platform-ci for smoke validation.
+- Labels: `area/app-provider`, `area/platform-ci` when mirrored to GitHub.
+- Scope: add lightweight visual grouping to Dashboard Quick Access and provider
+  summary pages so Firmware, Diagnostics, Management, Power, and Performance
+  information reads as sections. Preserve existing pages, row labels/values,
+  navigation behavior, provider snapshot boundary, and existing Present/Absent
+  diagnostics text.
+- Non-goals: no navigation-state rewrite, no provider model expansion, no public
+  API/DEC change, no ConfigAccess/HII/variable writes, and no removal of current
+  diagnostics rows or raw Present/Absent/Available/N/A text.
+- Expected validation: `python3 Tests/Smoke/smoke_validate.py`,
+  `git diff --check`, and an X64 CLANG app build when the local edk2 workspace is
+  available.
+
+Phase 9 is complete when:
+
+1. Dashboard still exposes the same six selectable Quick Access cards while
+   adding visible group labels such as Boot & Devices, Platform Health, and
+   Power & Performance.
+2. Provider pages show lightweight subsection labels for Firmware, Diagnostics,
+   Management, Power, and Performance without deleting existing rows.
+3. Presentation modules continue to consume `MODERN_SETUP_PROVIDER_SNAPSHOT`,
+   with direct provider LibraryClass calls centralized in `ModernSetupAppProvider.c`.
+4. Smoke validation continues to reject direct setup mutation paths and direct
+   provider calls from pages, without requiring removal of diagnostic text.
+
 ## Later backlog themes
 
 Keep later work grouped by feature phase rather than creating one issue per file move:
