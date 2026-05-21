@@ -1337,6 +1337,49 @@ def check_modern_ui_builtin_glyph_subset(root: Path) -> list[str]:
     return [f"PASS ModernUiRendererLib built-in glyph subset covers {len(required_chars)} localized string glyphs"]
 
 
+def check_ip_hygiene_notices(root: Path) -> list[str]:
+    notices_path = root / "THIRD_PARTY_NOTICES.md"
+    if not notices_path.exists():
+        raise SmokeFailure("missing THIRD_PARTY_NOTICES.md")
+
+    notices = notices_path.read_text(encoding="utf-8")
+    for token in (
+        "External/edk2",
+        "BSD-2-Clause-Patent",
+        "Noto Sans CJK SC Regular",
+        "SIL Open Font License 1.1",
+        "Assets/Fonts/LICENSE.NotoSansCJK.txt",
+        "Screenshots",
+        "Assets/Brand",
+        "Trademarks",
+    ):
+        if token not in notices:
+            raise SmokeFailure(f"THIRD_PARTY_NOTICES.md missing token: {token}")
+
+    for readme in (root / "README.md", root / "README.zh-CN.md"):
+        text = readme.read_text(encoding="utf-8")
+        if "THIRD_PARTY_NOTICES.md" not in text:
+            raise SmokeFailure(f"{readme.relative_to(root)} missing THIRD_PARTY_NOTICES.md link")
+
+    glyph_text = (root / "Library" / "ModernUiRendererLib" / "ModernUiGlyphs.c").read_text(encoding="utf-8")
+    for token in ("Noto Sans CJK SC Regular", "SIL Open Font License 1.1", "THIRD_PARTY_NOTICES.md"):
+        if token not in glyph_text:
+            raise SmokeFailure(f"ModernUiGlyphs.c missing glyph attribution token: {token}")
+
+    asset_docs = {
+        Path("Assets") / "Fonts" / "README.md": ("Noto Sans CJK", "SIL Open Font License 1.1", "THIRD_PARTY_NOTICES.md"),
+        Path("Assets") / "Brand" / "README.md": ("provenance", "third-party firmware", "THIRD_PARTY_NOTICES.md"),
+        Path("Assets") / "Screenshots" / "README.md": ("edk2/QEMU", "commercial firmware screenshots", "THIRD_PARTY_NOTICES.md"),
+    }
+    for relative, tokens in asset_docs.items():
+        text = (root / relative).read_text(encoding="utf-8")
+        for token in tokens:
+            if token not in text:
+                raise SmokeFailure(f"{relative} missing IP hygiene/provenance token: {token}")
+
+    return ["PASS IP hygiene notices and asset provenance docs"]
+
+
 def check_overlay_generation(root: Path) -> list[str]:
     bash = shutil.which("bash")
     if bash is None:
@@ -1426,6 +1469,7 @@ def main() -> int:
         messages.extend(check_bilingual_documentation_contract(root))
         messages.extend(check_hii_bridge_view_model_boundary(root))
         messages.extend(check_modern_ui_builtin_glyph_subset(root))
+        messages.extend(check_ip_hygiene_notices(root))
         messages.extend(check_edk2_baseline_contract(root))
         messages.extend(check_ovmf_capture_helper_contract(root))
         messages.extend(check_xarch_docs_contract(root))

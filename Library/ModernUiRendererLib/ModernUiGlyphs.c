@@ -1,7 +1,11 @@
 /** @file
   Generated minimal anti-aliased glyph table for ModernUiRendererLib.
 
-  Source font: Noto Sans CJK SC Regular, SIL Open Font License 1.1.
+  Generated bitmap subset from Noto Sans CJK SC Regular. The source font is
+  licensed under the SIL Open Font License 1.1; preserve Noto Sans CJK
+  attribution and the OFL notice when regenerating or replacing this subset.
+  See Assets/Fonts/README.md, Assets/Fonts/LICENSE.NotoSansCJK.txt, and
+  THIRD_PARTY_NOTICES.md for attribution and license boundary details.
   Regenerate with Scripts/generate-font-glyphs.py.
 
   Copyright (c) 2026, MarsDoge. All rights reserved.<BR>

@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: BSD-2-Clause-Patent -->
+
 # edk2 Baseline
 
 ModernSetupPkg carries a pinned edk2 baseline as a Git submodule so build and QEMU validation can start from a reproducible firmware tree.

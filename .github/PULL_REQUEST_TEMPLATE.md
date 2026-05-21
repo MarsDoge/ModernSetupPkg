@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: BSD-2-Clause-Patent -->
+
 # Pull request checklist
 
 Thanks for contributing. Use N/A for sections that do not apply; docs-only and small maintainer-file PRs should stay lightweight.

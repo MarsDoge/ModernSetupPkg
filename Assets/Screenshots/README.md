@@ -8,12 +8,17 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 # Screenshots
 
 This directory holds ModernSetupPkg screenshots used for the GitHub repository
-presentation and design review.
+presentation and design review. Unless a file or note explicitly says
+otherwise, screenshots are captured from ModernSetupPkg running with edk2/QEMU
+output. They are not commercial firmware screenshots or vendor-provided assets.
+See the repository-level `THIRD_PARTY_NOTICES.md` for consolidated provenance
+and trademark notices.
 
 Capture rules:
 
-- Use ModernSetupPkg output only. Do not copy commercial firmware screenshots,
-  vendor icons, fonts, wallpapers, or other closed assets into this repository.
+- Use ModernSetupPkg + edk2/QEMU output only unless otherwise documented. Do
+  not copy commercial firmware screenshots, vendor icons, fonts, wallpapers, or
+  other closed assets into this repository.
 - Prefer ArmVirtQemu captures at 1024x768 or 1280x800 so text, panels, and
   drop-downs are readable in GitHub.
 - Keep filenames stable and descriptive, for example

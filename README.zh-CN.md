@@ -146,4 +146,4 @@ python3 Tests/Smoke/smoke_validate.py
 
 ## 许可证
 
-本项目使用 `BSD-2-Clause-Patent`，详见 `LICENSE`。第三方字体和素材的许可证信息保留在对应目录。
+本项目使用 `BSD-2-Clause-Patent`，详见 `LICENSE`。第三方归属、生成字体子集、截图来源、品牌素材来源和商标声明见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)；第三方字体和素材的许可证信息也保留在对应目录。

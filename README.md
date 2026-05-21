@@ -542,8 +542,8 @@ is generated from Noto Sans CJK SC Regular and compiled into
 `ModernUiRendererLib`; ASCII-only text can still use edk2 HII Font rendering.
 UEFI box drawing, arrows, triangles, and checkbox glyphs are rendered as narrow
 GOP primitives so native FormBrowser frames do not depend on a large font
-subset. The full font file is not committed. See `Assets/Fonts/README.md` for
-source, license, and regeneration details.
+subset. The full font file is not committed. See `Assets/Fonts/README.md` and
+`THIRD_PARTY_NOTICES.md` for source, license, and regeneration details.
 
 ## DisplayEngine Path
 
@@ -608,3 +608,10 @@ For repeatable local captures, build the desired path and run:
 CAPTURE_PREFIX=before-armvirt ModernSetupPkg/Scripts/capture-armvirt.sh
 CAPTURE_PREFIX=after-armvirt ModernSetupPkg/Scripts/capture-armvirt.sh
 ```
+
+## License and Notices
+
+ModernSetupPkg is licensed under `BSD-2-Clause-Patent`; see `LICENSE`.
+Third-party attribution, generated font subset notices, screenshot provenance,
+brand asset provenance, and trademark disclaimers are documented in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
