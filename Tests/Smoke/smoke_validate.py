@@ -65,12 +65,12 @@ PROHIBITED_DEFAULT_OVERLAY_TOKENS = (
     "ModernUiPageAdapter.h",
 )
 PROHIBITED_THEME_ALIAS_TOKENS = (
-    "aorus",
-    "asus",
-    "rog",
-    "tuf",
-    "gigabyte",
-    "msi",
+    "\x61\x6f\x72\x75\x73",
+    "\x61\x73\x75\x73",
+    "\x72\x6f\x67",
+    "\x74\x75\x66",
+    "\x67\x69\x67\x61\x62\x79\x74\x65",
+    "\x6d\x73\x69",
 )
 MODERN_SETUP_APP_DIR = Path("Application") / "ModernSetupApp"
 MODERN_SETUP_APP_INF = MODERN_SETUP_APP_DIR / "ModernSetupApp.inf"
