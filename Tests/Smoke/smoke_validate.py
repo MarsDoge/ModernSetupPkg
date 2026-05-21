@@ -85,6 +85,7 @@ APP_NOINLINE_DRAW_HELPERS = (
     "DrawManagement",
     "DrawPower",
     "DrawPerformance",
+    "DrawServerInventorySummary",
     "DrawPreferences",
     "DrawExit",
 )
@@ -108,6 +109,7 @@ APP_PROVIDER_SUMMARY_TOKENS = (
     "ModernUiPowerDataGetSummary",
     "ModernUiHardwareHealthDataGetSummary",
     "ModernUiPerformanceDataGetSummary",
+    "ModernUiPcieDataGetSummary",
 )
 HARDWARE_HEALTH_PROVIDER_SUMMARY_TOKEN = "ModernUiHardwareHealthDataGetSummary"
 HARDWARE_HEALTH_PROVIDER_REQUIRED_FILES = (
@@ -244,6 +246,7 @@ APP_PROVIDER_SNAPSHOT_FIELDS = (
     "Power",
     "HardwareHealth",
     "Performance",
+    "Pcie",
 )
 DASHBOARD_EXPANDED_CARD_TOKENS = (
     "Provider Health",
@@ -984,6 +987,77 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
     return ["PASS ModernSetupApp module boundary checks"]
 
 
+def check_phase25_server_inventory_summary(root: Path) -> list[str]:
+    app_dir = root / MODERN_SETUP_APP_DIR
+    pages = app_dir / "ModernSetupAppPages.c"
+    dashboard = app_dir / "ModernSetupAppDashboard.c"
+    chrome = app_dir / "ModernSetupAppChrome.c"
+    actions = app_dir / "ModernSetupAppActions.c"
+    internal = app_dir / "ModernSetupAppInternal.h"
+    provider = app_dir / "ModernSetupAppProvider.c"
+
+    pages_body = strip_c_comments(pages.read_text(encoding="utf-8"))
+    dashboard_body = strip_c_comments(dashboard.read_text(encoding="utf-8"))
+    chrome_body = strip_c_comments(chrome.read_text(encoding="utf-8"))
+    actions_body = strip_c_comments(actions.read_text(encoding="utf-8"))
+    internal_body = strip_c_comments(internal.read_text(encoding="utf-8"))
+    provider_body = strip_c_comments(provider.read_text(encoding="utf-8"))
+
+    if not re.search(r"\bSTATIC\s+VOID\s+MODERN_SETUP_NOINLINE\s+DrawServerInventorySummary\s*\(", pages_body):
+        raise SmokeFailure("DrawServerInventorySummary must exist and be MODERN_SETUP_NOINLINE")
+
+    start = pages_body.find("DrawServerInventorySummary (")
+    end = pages_body.find("DrawPreferences (", start)
+    if start < 0 or end < 0:
+        raise SmokeFailure("could not isolate DrawServerInventorySummary body")
+    server_body = pages_body[start:end]
+
+    for token in (
+        "ModernSetupGetProviderSnapshot (&Providers)",
+        "ModernSetupGetProviderHealthSummary (&Providers, &ProviderHealth)",
+        "Providers.Management",
+        "Providers.Performance",
+        "Providers.Pcie",
+        "Providers.Diagnostics",
+        "Providers.Platform",
+        "Providers.Firmware",
+        "ProviderHealth.",
+        "Read-only",
+        "Native HII/FormBrowser owns policy changes",
+    ):
+        if token not in server_body:
+            raise SmokeFailure(f"Server Inventory summary missing required token: {token}")
+
+    if not re.search(r"EFI_ERROR\s*\(\s*Providers\.PcieStatus\s*\)", server_body):
+        raise SmokeFailure("Server Inventory must gate PCIe counts on Providers.PcieStatus")
+    for token in ("ModernUiPcieDataGetSummary", "ModernUiManagementDataGetSummary", "ModernUiPerformanceDataGetSummary"):
+        if token in pages_body or token in dashboard_body or token in actions_body:
+            raise SmokeFailure(f"UI page/dashboard/actions bypass provider snapshot with direct provider call: {token}")
+        if token not in provider_body:
+            raise SmokeFailure(f"ModernSetupAppProvider.c missing provider summary call: {token}")
+
+    for token in (
+        "PageServerInventory",
+        "ModernUiStringPageServerInventory",
+        "ModernUiStringPageServerInventoryHint",
+    ):
+        if token not in internal_body + chrome_body:
+            raise SmokeFailure(f"Server Inventory page/chrome missing route token: {token}")
+    if "case PageServerInventory:" not in pages_body or "DrawServerInventorySummary (Ui, Theme, Focus)" not in pages_body:
+        raise SmokeFailure("Server Inventory page dispatch is missing")
+    if "PageServerInventory" not in actions_body or "mDashboardCategoryRoutes[DASHBOARD_QUICK_CARD_COUNT]" not in actions_body:
+        raise SmokeFailure("Server Inventory dashboard route is missing or route table is not count-aligned")
+    if "Server Inventory" not in dashboard_body or "ServerValueText" not in dashboard_body:
+        raise SmokeFailure("Dashboard missing Server Inventory card")
+
+    dec_text = (root / "ModernSetupPkg.dec").read_text(encoding="utf-8")
+    for token in ("PcdServerInventory", "ServerInventoryVar", "ServerInventoryPolicy"):
+        if token in dec_text:
+            raise SmokeFailure(f"writable/setup token unexpectedly added for Server Inventory: {token}")
+
+    return ["PASS Phase25 Server Inventory read-only summary/dashboard contract"]
+
+
 def check_modern_setup_app_preferences_boundary(root: Path) -> list[str]:
     for required in PREFERENCES_REQUIRED_FILES:
         if not (root / required).exists():
@@ -1462,6 +1536,7 @@ def main() -> int:
         messages.extend(check_shell_syntax(root))
         messages.extend(check_modern_setup_app_inf_sources(root))
         messages.extend(check_modern_setup_app_module_boundaries(root))
+        messages.extend(check_phase25_server_inventory_summary(root))
         messages.extend(check_modern_setup_app_preferences_boundary(root))
         messages.extend(check_pcie_provider_foundation(root))
         messages.extend(check_hardware_health_demo_provider(root))

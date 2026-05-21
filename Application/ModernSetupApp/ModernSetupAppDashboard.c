@@ -243,6 +243,8 @@ ModernSetupDrawDashboard (
   CHAR16  PerformanceValueText[64];
   CHAR16  PerformanceDetailText[96];
   CHAR16  PciePolicyText[96];
+  CHAR16  ServerValueText[96];
+  CHAR16  ServerDetailText[96];
   CHAR16  BootDetailText[96];
   CHAR16  DeviceDetailText[96];
   MODERN_UI_RECT  Content;
@@ -338,6 +340,28 @@ ModernSetupDrawDashboard (
   }
   UnicodeSPrint (BootDetailText, sizeof (BootDetailText), L"Mode %s / Secure %s", Providers.Platform.BootMode, SecurityText);
   UnicodeSPrint (DeviceDetailText, sizeof (DeviceDetailText), L"%u handles / %u tables", Providers.Diagnostics.HandleCount, Providers.Diagnostics.ConfigurationTableCount);
+  if (EFI_ERROR (Providers.PcieStatus)) {
+    UnicodeSPrint (
+      ServerValueText,
+      sizeof (ServerValueText),
+      L"Mgmt %s / PCIe %s",
+      EFI_ERROR (Providers.ManagementStatus) ? ModernUiGetString (ModernUiStringUnknown) : DashboardPresenceText (DashboardAnyCapability (Providers.Management.IpmiProtocolPresent, Providers.Management.RedfishDiscoverPresent)),
+      ModernUiGetString (ModernUiStringUnknown)
+      );
+  } else {
+    UnicodeSPrint (
+      ServerValueText,
+      sizeof (ServerValueText),
+      L"Mgmt %s / PCIe %u roots",
+      EFI_ERROR (Providers.ManagementStatus) ? ModernUiGetString (ModernUiStringUnknown) : DashboardPresenceText (DashboardAnyCapability (Providers.Management.IpmiProtocolPresent, Providers.Management.RedfishDiscoverPresent)),
+      Providers.Pcie.RootBridgeCount
+      );
+  }
+  UnicodeSPrint (
+    ServerDetailText,
+    sizeof (ServerDetailText),
+    L"Read-only inventory / native owns policy"
+    );
 
   TopHeight   = (Content.Height >= 460) ? 300 : 232;
   MonitorWidth = (Content.Width >= 760) ? ((Content.Width * 31) / 100) : 0;
@@ -389,14 +413,15 @@ ModernSetupDrawDashboard (
       CardX     = QuickPanel.X + 20 + ((CardIndex % Grid.CardsPerRow) * (Grid.CardWidth + Grid.CardGap));
       CardY     = QuickPanel.Y + Grid.CardTop + ((CardIndex / Grid.CardsPerRow) * (Grid.CardHeight + Grid.CardGap));
       QuickCard = (MODERN_UI_RECT){ CardX, CardY, Grid.CardWidth, Grid.CardHeight };
-      if ((CardIndex == 0) || (CardIndex == 2) || (CardIndex == 4)) {
+      if ((CardIndex == 0) || (CardIndex == 2) || (CardIndex == 4) || (CardIndex == 6)) {
         DrawDashboardQuickGroupLabel (
           Ui,
           Theme,
           QuickCard,
           ModernUiGetString (
             (CardIndex == 0) ? ModernUiStringGroupBootDevices :
-            ((CardIndex == 2) ? ModernUiStringGroupPlatformHealth : ModernUiStringGroupPowerPerformance)
+            ((CardIndex == 2) ? ModernUiStringGroupPlatformHealth :
+            ((CardIndex == 4) ? ModernUiStringGroupPowerPerformance : ModernUiStringGroupManagement))
             )
           );
       }
@@ -418,8 +443,11 @@ ModernSetupDrawDashboard (
           DrawDashboardTile (Ui, Theme, QuickCard, L"Power / Thermal", PowerValueText, PowerDetailText, (BOOLEAN)!EFI_ERROR (Providers.PowerStatus), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
           break;
         case 5:
-        default:
           DrawDashboardTile (Ui, Theme, QuickCard, L"Performance", PerformanceValueText, PerformanceDetailText, (BOOLEAN)!EFI_ERROR (Providers.PerformanceStatus), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
+          break;
+        case 6:
+        default:
+          DrawDashboardTile (Ui, Theme, QuickCard, L"Server Inventory", ServerValueText, ServerDetailText, (BOOLEAN)(!EFI_ERROR (Providers.ManagementStatus) || !EFI_ERROR (Providers.PcieStatus)), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
           break;
       }
     }

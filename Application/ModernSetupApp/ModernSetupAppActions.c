@@ -18,7 +18,8 @@ STATIC CONST MODERN_SETUP_DASHBOARD_ROUTE  mDashboardCategoryRoutes[DASHBOARD_QU
   { PageDiagnostics, SetupFocusNav     },
   { PageFirmware,    SetupFocusNav     },
   { PagePower,       SetupFocusNav     },
-  { PagePerformance, SetupFocusNav     }
+  { PagePerformance, SetupFocusNav     },
+  { PageServerInventory, SetupFocusNav }
 };
 
 BOOLEAN         mModernSetupLanguageDropdownOpen;
