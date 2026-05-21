@@ -1607,39 +1607,63 @@ DrawPreferences (
   IN UINTN                     Selected
   )
 {
-  CONST CHAR16         *Prompts[3];
-  CONST CHAR16         *Values[3];
-  UINTN                Index;
-  UINTN                Y;
-  BOOLEAN              IsSelected;
-  MODERN_UI_RECT       Panel;
-  UINTN                RowX;
-  UINTN                RowWidth;
-  MODERN_UI_ROW_MODEL  RowModel;
+  CONST CHAR16           *Prompts[MODERN_SETUP_PREFERENCE_ROW_COUNT];
+  UINTN                  Index;
+  UINTN                  Y;
+  BOOLEAN                IsSelected;
+  MODERN_UI_RECT         Panel;
+  UINTN                  RowX;
+  UINTN                  RowWidth;
+  UINTN                  ValueWidth;
+  UINTN                  ChoiceCount;
+  UINTN                  Choice;
+  UINTN                  PopupX;
+  UINTN                  PopupY;
+  MODERN_UI_ROW_MODEL    RowModel;
+  MODERN_UI_POPUP_MODEL  PopupModel;
 
-  Prompts[0] = ModernUiGetString (ModernUiStringPreferenceConfirmReset);
-  Values[0]  = (mModernSetupPreferences.ConfirmReset != 0) ? ModernUiGetString (ModernUiStringEnabled) : ModernUiGetString (ModernUiStringDisabled);
-  Prompts[1] = ModernUiGetString (ModernUiStringPreferenceSave);
-  Values[1]  = NULL;
-  Prompts[2] = ModernUiGetString (ModernUiStringPreferenceDefaults);
-  Values[2]  = NULL;
+  Prompts[MODERN_SETUP_PREFERENCE_ROW_THEME]                  = L"Theme";
+  Prompts[MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY]      = L"Dashboard Density";
+  Prompts[MODERN_SETUP_PREFERENCE_ROW_REMEMBER_LAST_PAGE]     = L"Remember Last Page";
+  Prompts[MODERN_SETUP_PREFERENCE_ROW_SHOW_ADVANCED_HINTS]    = L"Show Advanced Hints";
+  Prompts[MODERN_SETUP_PREFERENCE_ROW_CONFIRM_RESET]          = ModernUiGetString (ModernUiStringPreferenceConfirmReset);
 
   Panel = ModernSetupContentRect (Ui);
   RowX = Panel.X + 26;
   RowWidth = Panel.Width - 52;
+  ValueWidth = 240;
   ModernUiDrawPanel (Ui, Panel, Theme);
   ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
   ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, ModernUiGetString (ModernUiStringPreferencesInstruction), Theme->MutedText, Theme->Surface);
 
-  for (Index = 0; Index < ARRAY_SIZE (Prompts); Index++) {
+  for (Index = 0; Index < MODERN_SETUP_PREFERENCE_ROW_COUNT; Index++) {
     Y = Panel.Y + 72 + Index * 42;
     IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
     RowModel.Rect      = (MODERN_UI_RECT){ RowX, Y - 8, RowWidth, 34 };
     RowModel.Prompt    = Prompts[Index];
-    RowModel.Value     = Values[Index];
-    RowModel.Role      = IsSelected ? ModernUiRowSelected : ((Index >= 1) ? ModernUiRowAction : ModernUiRowNormal);
-    RowModel.ValueType = (Index >= 1) ? ModernUiValueNone : ModernUiValueOneOf;
+    RowModel.Value     = ModernSetupGetPreferenceValueName (Index);
+    RowModel.Role      = IsSelected ? ModernUiRowSelected : ModernUiRowNormal;
+    RowModel.ValueType = (Index <= MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY) ? ModernUiValueOneOf : ModernUiValueCheckbox;
     ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
+  }
+
+  if (mModernSetupPreferencePopupOpen) {
+    ChoiceCount = ModernSetupGetPreferenceChoiceCount (mModernSetupPreferencePopupRow);
+    PopupX      = RowX + RowWidth - ValueWidth - 12;
+    PopupY      = Panel.Y + 72 + (mModernSetupPreferencePopupRow + 1) * 42 - 8;
+    PopupModel.Rect  = (MODERN_UI_RECT){ PopupX, PopupY, ValueWidth, 40 + ChoiceCount * 34 };
+    PopupModel.Title = ModernSetupGetPreferenceValueName (mModernSetupPreferencePopupRow);
+    ModernUiEngineDrawPopup (Ui, &PopupModel, Theme);
+
+    for (Choice = 0; Choice < ChoiceCount; Choice++) {
+      IsSelected = (BOOLEAN)(Choice == mModernSetupPreferencePopupSelection);
+      RowModel.Rect      = (MODERN_UI_RECT){ PopupX + 6, PopupY + 28 + Choice * 34, ValueWidth - 12, 30 };
+      RowModel.Prompt    = ModernSetupGetPreferenceChoiceName (mModernSetupPreferencePopupRow, Choice);
+      RowModel.Value     = NULL;
+      RowModel.Role      = IsSelected ? ModernUiRowSelected : ModernUiRowNormal;
+      RowModel.ValueType = ModernUiValueNone;
+      ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
+    }
   }
 }
 

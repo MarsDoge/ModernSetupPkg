@@ -24,6 +24,9 @@ STATIC CONST MODERN_SETUP_DASHBOARD_ROUTE  mDashboardCategoryRoutes[DASHBOARD_QU
 
 BOOLEAN         mModernSetupLanguageDropdownOpen;
 UINTN           mModernSetupLanguageDropdownSelection;
+BOOLEAN         mModernSetupPreferencePopupOpen;
+UINTN           mModernSetupPreferencePopupRow;
+UINTN           mModernSetupPreferencePopupSelection;
 MODERN_UI_PREFERENCES  mModernSetupPreferences;
 
 /**
@@ -330,7 +333,7 @@ ModernSetupGetPageSelectableCount (
     case PageDevices:
       return ModernSetupGetVisibleDeviceCount ();
     case PagePreferences:
-      return 3;
+      return MODERN_SETUP_PREFERENCE_ROW_COUNT;
     case PageExit:
       return 4;
     default:
@@ -471,8 +474,163 @@ ModernSetupHandleLanguageSelectorEnter (
   mModernSetupLanguageDropdownOpen = FALSE;
 }
 
+CONST CHAR16 *
+ModernSetupPreferenceCheckboxValueText (
+  IN UINT8  Value
+  )
+{
+  return (Value != 0) ? L"[x] Enabled" : L"[ ] Disabled";
+}
+
+UINTN
+ModernSetupGetPreferenceChoiceCount (
+  IN UINTN  Row
+  )
+{
+  switch (Row) {
+    case MODERN_SETUP_PREFERENCE_ROW_THEME:
+      return 3;
+    case MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY:
+      return 2;
+    default:
+      return 0;
+  }
+}
+
+CONST CHAR16 *
+ModernSetupGetPreferenceChoiceName (
+  IN UINTN  Row,
+  IN UINTN  Selection
+  )
+{
+  if (Row == MODERN_SETUP_PREFERENCE_ROW_THEME) {
+    switch (Selection) {
+      case MODERN_UI_PREFERENCES_THEME_SYSTEM:
+        return L"Default";
+      case MODERN_UI_PREFERENCES_THEME_DARK:
+        return L"Amber";
+      case MODERN_UI_PREFERENCES_THEME_RED:
+        return L"Accent Red";
+      default:
+        return L"Default";
+    }
+  }
+
+  if (Row == MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY) {
+    return (Selection == ModernUiDashboardDensityCompact) ? L"Compact" : L"Comfortable";
+  }
+
+  return L"";
+}
+
+CONST CHAR16 *
+ModernSetupGetPreferenceValueName (
+  IN UINTN  Row
+  )
+{
+  switch (Row) {
+    case MODERN_SETUP_PREFERENCE_ROW_THEME:
+      return ModernSetupGetPreferenceChoiceName (Row, mModernSetupPreferences.ThemeId);
+    case MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY:
+      return ModernSetupGetPreferenceChoiceName (Row, mModernSetupPreferences.DashboardDensity);
+    case MODERN_SETUP_PREFERENCE_ROW_REMEMBER_LAST_PAGE:
+      return ModernSetupPreferenceCheckboxValueText (mModernSetupPreferences.RememberLastPage);
+    case MODERN_SETUP_PREFERENCE_ROW_SHOW_ADVANCED_HINTS:
+      return ModernSetupPreferenceCheckboxValueText (mModernSetupPreferences.ShowAdvancedHints);
+    case MODERN_SETUP_PREFERENCE_ROW_CONFIRM_RESET:
+      return ModernSetupPreferenceCheckboxValueText (mModernSetupPreferences.ConfirmReset);
+    default:
+      return L"";
+  }
+}
+
+STATIC
+EFI_STATUS
+PersistPreferencesAndStatus (
+  OUT CHAR16  *StatusMessage,
+  IN  UINTN   StatusSize
+  )
+{
+  EFI_STATUS  Status;
+
+  Status = ModernUiPreferencesSave (&mModernSetupPreferences);
+  if ((StatusMessage != NULL) && (StatusSize >= sizeof (CHAR16))) {
+    UnicodeSPrint (StatusMessage, StatusSize, ModernUiGetString (ModernUiStringPreferenceSavedFormat), Status);
+  }
+
+  return Status;
+}
+
+VOID
+ModernSetupHandlePreferencePopupUp (
+  VOID
+  )
+{
+  UINTN  Count;
+
+  Count = ModernSetupGetPreferenceChoiceCount (mModernSetupPreferencePopupRow);
+  if (!mModernSetupPreferencePopupOpen || (Count == 0)) {
+    return;
+  }
+
+  mModernSetupPreferencePopupSelection = (mModernSetupPreferencePopupSelection == 0) ? (Count - 1) : (mModernSetupPreferencePopupSelection - 1);
+}
+
+VOID
+ModernSetupHandlePreferencePopupDown (
+  VOID
+  )
+{
+  UINTN  Count;
+
+  Count = ModernSetupGetPreferenceChoiceCount (mModernSetupPreferencePopupRow);
+  if (!mModernSetupPreferencePopupOpen || (Count == 0)) {
+    return;
+  }
+
+  mModernSetupPreferencePopupSelection = (mModernSetupPreferencePopupSelection + 1) % Count;
+}
+
+VOID
+ModernSetupCancelPreferencePopup (
+  VOID
+  )
+{
+  mModernSetupPreferencePopupOpen = FALSE;
+}
+
+VOID
+ModernSetupCommitPreferencePopup (
+  OUT CHAR16  *StatusMessage,
+  IN  UINTN   StatusSize
+  )
+{
+  if ((StatusMessage != NULL) && (StatusSize >= sizeof (CHAR16))) {
+    StatusMessage[0] = L'\0';
+  }
+
+  if (!mModernSetupPreferencePopupOpen) {
+    return;
+  }
+
+  switch (mModernSetupPreferencePopupRow) {
+    case MODERN_SETUP_PREFERENCE_ROW_THEME:
+      mModernSetupPreferences.ThemeId = (UINT8)mModernSetupPreferencePopupSelection;
+      break;
+    case MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY:
+      mModernSetupPreferences.DashboardDensity = (UINT8)mModernSetupPreferencePopupSelection;
+      break;
+    default:
+      mModernSetupPreferencePopupOpen = FALSE;
+      return;
+  }
+
+  mModernSetupPreferencePopupOpen = FALSE;
+  PersistPreferencesAndStatus (StatusMessage, StatusSize);
+}
+
 /**
-  Toggle or persist one app-owned Preferences row.
+  Toggle, open, or persist one app-owned Preferences row.
 
   @param[in]  Selection      Preferences row index.
   @param[out] StatusMessage  Status buffer to update. Must not be NULL.
@@ -485,24 +643,33 @@ ModernSetupHandlePreferencesEnter (
   IN  UINTN   StatusSize
   )
 {
-  EFI_STATUS  Status;
-
   if ((StatusMessage == NULL) || (StatusSize < sizeof (CHAR16))) {
     return;
   }
 
   StatusMessage[0] = L'\0';
   switch (Selection) {
-    case 0:
+    case MODERN_SETUP_PREFERENCE_ROW_THEME:
+      mModernSetupPreferencePopupRow       = Selection;
+      mModernSetupPreferencePopupSelection = mModernSetupPreferences.ThemeId;
+      mModernSetupPreferencePopupOpen      = TRUE;
+      break;
+    case MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY:
+      mModernSetupPreferencePopupRow       = Selection;
+      mModernSetupPreferencePopupSelection = mModernSetupPreferences.DashboardDensity;
+      mModernSetupPreferencePopupOpen      = TRUE;
+      break;
+    case MODERN_SETUP_PREFERENCE_ROW_REMEMBER_LAST_PAGE:
+      mModernSetupPreferences.RememberLastPage = (mModernSetupPreferences.RememberLastPage == 0) ? 1 : 0;
+      PersistPreferencesAndStatus (StatusMessage, StatusSize);
+      break;
+    case MODERN_SETUP_PREFERENCE_ROW_SHOW_ADVANCED_HINTS:
+      mModernSetupPreferences.ShowAdvancedHints = (mModernSetupPreferences.ShowAdvancedHints == 0) ? 1 : 0;
+      PersistPreferencesAndStatus (StatusMessage, StatusSize);
+      break;
+    case MODERN_SETUP_PREFERENCE_ROW_CONFIRM_RESET:
       mModernSetupPreferences.ConfirmReset = (mModernSetupPreferences.ConfirmReset == 0) ? 1 : 0;
-      break;
-    case 1:
-      Status = ModernUiPreferencesSave (&mModernSetupPreferences);
-      UnicodeSPrint (StatusMessage, StatusSize, ModernUiGetString (ModernUiStringPreferenceSavedFormat), Status);
-      break;
-    case 2:
-      ModernUiPreferencesResetToDefaults (&mModernSetupPreferences);
-      UnicodeSPrint (StatusMessage, StatusSize, ModernUiGetString (ModernUiStringPreferenceDefaultsLoaded));
+      PersistPreferencesAndStatus (StatusMessage, StatusSize);
       break;
     default:
       break;

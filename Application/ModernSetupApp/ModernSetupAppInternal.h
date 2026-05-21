@@ -135,9 +135,21 @@ typedef struct {
   SETUP_FOCUS  Focus;
 } MODERN_SETUP_DASHBOARD_ROUTE;
 
+typedef enum {
+  MODERN_SETUP_PREFERENCE_ROW_THEME = 0,
+  MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY,
+  MODERN_SETUP_PREFERENCE_ROW_REMEMBER_LAST_PAGE,
+  MODERN_SETUP_PREFERENCE_ROW_SHOW_ADVANCED_HINTS,
+  MODERN_SETUP_PREFERENCE_ROW_CONFIRM_RESET,
+  MODERN_SETUP_PREFERENCE_ROW_COUNT
+} MODERN_SETUP_PREFERENCE_ROW;
+
 extern EFI_HANDLE  mModernSetupImageHandle;
 extern BOOLEAN     mModernSetupLanguageDropdownOpen;
 extern UINTN       mModernSetupLanguageDropdownSelection;
+extern BOOLEAN     mModernSetupPreferencePopupOpen;
+extern UINTN       mModernSetupPreferencePopupRow;
+extern UINTN       mModernSetupPreferencePopupSelection;
 extern MODERN_UI_PREFERENCES  mModernSetupPreferences;
 
 MODERN_UI_RECT
@@ -273,6 +285,48 @@ ModernSetupOpenSelectedDeviceEntry (
 
 VOID
 ModernSetupHandleLanguageSelectorEnter (
+  OUT CHAR16  *StatusMessage,
+  IN  UINTN   StatusSize
+  );
+
+CONST CHAR16 *
+ModernSetupGetPreferenceChoiceName (
+  IN UINTN  Row,
+  IN UINTN  Selection
+  );
+
+CONST CHAR16 *
+ModernSetupGetPreferenceValueName (
+  IN UINTN  Row
+  );
+
+CONST CHAR16 *
+ModernSetupPreferenceCheckboxValueText (
+  IN UINT8  Value
+  );
+
+UINTN
+ModernSetupGetPreferenceChoiceCount (
+  IN UINTN  Row
+  );
+
+VOID
+ModernSetupHandlePreferencePopupUp (
+  VOID
+  );
+
+VOID
+ModernSetupHandlePreferencePopupDown (
+  VOID
+  );
+
+VOID
+ModernSetupCancelPreferencePopup (
+  VOID
+  );
+
+VOID
+ModernSetupCommitPreferencePopup (
   OUT CHAR16  *StatusMessage,
   IN  UINTN   StatusSize
   );
