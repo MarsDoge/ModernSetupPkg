@@ -292,13 +292,25 @@ ModernSetupDrawDashboard (
     DashboardPresenceText (Providers.Firmware.CapsuleRuntimeServices)
     );
   UnicodeSPrint (PowerValueText, sizeof (PowerValueText), L"%s", Providers.Power.ChassisThermalState);
-  UnicodeSPrint (
-    PowerDetailText,
-    sizeof (PowerDetailText),
-    L"ACPI %s / SMBIOS %s",
-    DashboardPresenceText (DashboardAnyCapability (Providers.Power.AcpiTablePresent, Providers.Power.AcpiSdtProtocolPresent)),
-    DashboardPresenceText (DashboardAnyCapability (Providers.Power.SmbiosChassisPresent, Providers.Power.SmbiosPowerSupplyPresent))
-    );
+  if (!EFI_ERROR (Providers.HardwareHealthStatus) && (Providers.HardwareHealth.SensorCount > 0)) {
+    UnicodeSPrint (
+      PowerDetailText,
+      sizeof (PowerDetailText),
+      L"%s %d %s / %s",
+      Providers.HardwareHealth.Sensors[0].Name,
+      Providers.HardwareHealth.Sensors[0].CurrentValue,
+      Providers.HardwareHealth.Sensors[0].Unit,
+      Providers.HardwareHealth.DemoData ? L"demo" : L"provider"
+      );
+  } else {
+    UnicodeSPrint (
+      PowerDetailText,
+      sizeof (PowerDetailText),
+      L"ACPI %s / SMBIOS %s",
+      DashboardPresenceText (DashboardAnyCapability (Providers.Power.AcpiTablePresent, Providers.Power.AcpiSdtProtocolPresent)),
+      DashboardPresenceText (DashboardAnyCapability (Providers.Power.SmbiosChassisPresent, Providers.Power.SmbiosPowerSupplyPresent))
+      );
+  }
   UnicodeSPrint (
     PerformanceValueText,
     sizeof (PerformanceValueText),

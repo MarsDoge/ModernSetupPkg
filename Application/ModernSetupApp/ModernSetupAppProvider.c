@@ -54,6 +54,7 @@ InitializeProviderSnapshotDefaults (
   Snapshot->DiagnosticsStatus = EFI_NOT_READY;
   Snapshot->ManagementStatus  = EFI_NOT_READY;
   Snapshot->PowerStatus       = EFI_NOT_READY;
+  Snapshot->HardwareHealthStatus = EFI_NOT_READY;
   Snapshot->PerformanceStatus = EFI_NOT_READY;
   Snapshot->PcieStatus        = EFI_NOT_READY;
 
@@ -116,7 +117,7 @@ ModernSetupGetProviderHealthSummary (
   OUT MODERN_SETUP_PROVIDER_HEALTH_SUMMARY  *Health
   )
 {
-  MODERN_SETUP_PROVIDER_STATUS_ENTRY  Entries[8];
+  MODERN_SETUP_PROVIDER_STATUS_ENTRY  Entries[9];
   UINTN                               Index;
 
   if ((Snapshot == NULL) || (Health == NULL)) {
@@ -129,8 +130,9 @@ ModernSetupGetProviderHealthSummary (
   Entries[3] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"Diagnostics", Snapshot->DiagnosticsStatus };
   Entries[4] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"Management",  Snapshot->ManagementStatus };
   Entries[5] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"Power",       Snapshot->PowerStatus };
-  Entries[6] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"Performance", Snapshot->PerformanceStatus };
-  Entries[7] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"PCIe Policy", Snapshot->PcieStatus };
+  Entries[6] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"Hardware Health", Snapshot->HardwareHealthStatus };
+  Entries[7] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"Performance", Snapshot->PerformanceStatus };
+  Entries[8] = (MODERN_SETUP_PROVIDER_STATUS_ENTRY){ L"PCIe Policy", Snapshot->PcieStatus };
 
   ZeroMem (Health, sizeof (*Health));
   Health->TotalProviders       = ARRAY_SIZE (Entries);
@@ -184,6 +186,7 @@ ModernSetupGetProviderSnapshot (
   MODERN_UI_DIAGNOSTICS_SUMMARY   Diagnostics;
   MODERN_UI_MANAGEMENT_SUMMARY    Management;
   MODERN_UI_POWER_SUMMARY         Power;
+  MODERN_UI_HARDWARE_HEALTH_SUMMARY HardwareHealth;
   MODERN_UI_PERFORMANCE_SUMMARY   Performance;
   MODERN_UI_PCIE_SUMMARY          Pcie;
 
@@ -221,6 +224,11 @@ ModernSetupGetProviderSnapshot (
   Snapshot->PowerStatus = ModernUiPowerDataGetSummary (&Power);
   if (!EFI_ERROR (Snapshot->PowerStatus)) {
     CopyMem (&Snapshot->Power, &Power, sizeof (Snapshot->Power));
+  }
+
+  Snapshot->HardwareHealthStatus = ModernUiHardwareHealthDataGetSummary (&HardwareHealth);
+  if (!EFI_ERROR (Snapshot->HardwareHealthStatus)) {
+    CopyMem (&Snapshot->HardwareHealth, &HardwareHealth, sizeof (Snapshot->HardwareHealth));
   }
 
   Snapshot->PerformanceStatus = ModernUiPerformanceDataGetSummary (&Performance);

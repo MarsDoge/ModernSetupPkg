@@ -66,6 +66,20 @@ PROHIBITED_DEFAULT_OVERLAY_TOKENS = (
 )
 MODERN_SETUP_APP_DIR = Path("Application") / "ModernSetupApp"
 MODERN_SETUP_APP_INF = MODERN_SETUP_APP_DIR / "ModernSetupApp.inf"
+APP_NOINLINE_DRAW_HELPERS = (
+    "DrawProviderSummaryPage",
+    "DrawBoot",
+    "DrawHiiReadOnlyPreview",
+    "DrawDevices",
+    "DrawSecurity",
+    "DrawFirmware",
+    "DrawDiagnostics",
+    "DrawManagement",
+    "DrawPower",
+    "DrawPerformance",
+    "DrawPreferences",
+    "DrawExit",
+)
 PROHIBITED_APP_SOURCE_TOKENS = (
     "ModernUiPageAdapter.h",
     "ModernUiPageAdapterLib",
@@ -84,7 +98,28 @@ APP_PROVIDER_SUMMARY_TOKENS = (
     "ModernUiDiagnosticsDataGetSummary",
     "ModernUiManagementDataGetSummary",
     "ModernUiPowerDataGetSummary",
+    "ModernUiHardwareHealthDataGetSummary",
     "ModernUiPerformanceDataGetSummary",
+)
+HARDWARE_HEALTH_PROVIDER_SUMMARY_TOKEN = "ModernUiHardwareHealthDataGetSummary"
+HARDWARE_HEALTH_PROVIDER_REQUIRED_FILES = (
+    Path("Include") / "ModernUi" / "ModernUiHardwareHealthData.h",
+    Path("Library") / "ModernUiHardwareHealthDataLib" / "ModernUiHardwareHealthDataLib.c",
+    Path("Library") / "ModernUiHardwareHealthDataLib" / "ModernUiHardwareHealthDataLib.inf",
+)
+HARDWARE_HEALTH_FORBIDDEN_TOKENS = (
+    "SetVariable",
+    "RouteConfig",
+    "ExtractConfig",
+    "HiiSetBrowserData",
+    "HiiUpdateForm",
+    "EFI_HII_CONFIG_ACCESS_PROTOCOL",
+    "SMBus",
+    "I2C",
+    "IPMI",
+    "SuperIO",
+    "MMIO",
+    "PCI",
 )
 PCIE_PROVIDER_SUMMARY_TOKEN = "ModernUiPcieDataGetSummary"
 PCIE_PROVIDER_REQUIRED_FILES = (
@@ -199,6 +234,7 @@ APP_PROVIDER_SNAPSHOT_FIELDS = (
     "Diagnostics",
     "Management",
     "Power",
+    "HardwareHealth",
     "Performance",
 )
 DASHBOARD_EXPANDED_CARD_TOKENS = (
@@ -816,6 +852,19 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
         raise SmokeFailure("ModernSetupAppPages.c does not call ModernSetupDrawDashboard")
     if c_function_definition_count(pages_body, "ModernSetupDrawDashboard"):
         raise SmokeFailure("ModernSetupAppPages.c must call, not define, ModernSetupDrawDashboard")
+    if "#define MODERN_SETUP_NOINLINE" not in pages_body:
+        raise SmokeFailure("ModernSetupAppPages.c missing MODERN_SETUP_NOINLINE guard for large draw helpers")
+    if not re.search(r"\bVOID\s+MODERN_SETUP_NOINLINE\s+ModernSetupDrawCurrentPage\s*\(", pages_body):
+        raise SmokeFailure("ModernSetupDrawCurrentPage must be MODERN_SETUP_NOINLINE to keep its dispatch frame bounded")
+    for helper in APP_NOINLINE_DRAW_HELPERS:
+        if not re.search(rf"\bSTATIC\s+VOID\s+MODERN_SETUP_NOINLINE\s+{helper}\s*\(", pages_body):
+            raise SmokeFailure(f"ModernSetupAppPages.c must mark {helper} MODERN_SETUP_NOINLINE")
+    if re.search(r"\bMODERN_UI_HII_VIEW\s+View\s*;", pages_body):
+        raise SmokeFailure("DrawHiiReadOnlyPreview must not place MODERN_UI_HII_VIEW on the UEFI stack")
+    if "AllocateZeroPool (sizeof (*View))" not in pages_body:
+        raise SmokeFailure("DrawHiiReadOnlyPreview must heap-allocate MODERN_UI_HII_VIEW with AllocateZeroPool")
+    if "ModernUiHiiBridgeClearView (View)" not in pages_body or "FreePool (View)" not in pages_body:
+        raise SmokeFailure("DrawHiiReadOnlyPreview must clear and free its heap-allocated MODERN_UI_HII_VIEW")
 
     provider_body = strip_c_comments(provider.read_text(encoding="utf-8"))
     if c_function_definition_count(provider_body, "ModernSetupGetProviderSnapshot") != 1:
@@ -987,6 +1036,76 @@ def check_pcie_provider_foundation(root: Path) -> list[str]:
             raise SmokeFailure(f"ModernSetupAppPages.c missing Performance PCIe catalog token: {token}")
 
     return ["PASS PCIe provider foundation wiring and read-only boundary checks"]
+
+
+def check_hardware_health_demo_provider(root: Path) -> list[str]:
+    for relative in HARDWARE_HEALTH_PROVIDER_REQUIRED_FILES:
+        if not (root / relative).exists():
+            raise SmokeFailure(f"missing Hardware Health demo provider file: {relative}")
+
+    header = root / "Include" / "ModernUi" / "ModernUiHardwareHealthData.h"
+    lib_c = root / "Library" / "ModernUiHardwareHealthDataLib" / "ModernUiHardwareHealthDataLib.c"
+    lib_inf = root / "Library" / "ModernUiHardwareHealthDataLib" / "ModernUiHardwareHealthDataLib.inf"
+    dec = root / "ModernSetupPkg.dec"
+    experimental_dsc = root / "Experimental" / "ModernSetupApp.dsc"
+    app_inf = root / MODERN_SETUP_APP_INF
+    app_dir = root / MODERN_SETUP_APP_DIR
+    provider = app_dir / "ModernSetupAppProvider.c"
+    pages = app_dir / "ModernSetupAppPages.c"
+    dashboard = app_dir / "ModernSetupAppDashboard.c"
+    docs = root / "Docs" / "ProductizationFeatureMatrix.md"
+
+    assert_contains(header, "MODERN_UI_HARDWARE_HEALTH_MAX_SENSORS")
+    assert_contains(header, "MODERN_UI_HARDWARE_HEALTH_MAX_SAMPLES")
+    assert_contains(header, "MODERN_UI_HARDWARE_SENSOR_TYPE")
+    assert_contains(header, "MODERN_UI_HARDWARE_HEALTH_SENSOR")
+    assert_contains(header, "MODERN_UI_HARDWARE_HEALTH_SUMMARY")
+    assert_contains(header, HARDWARE_HEALTH_PROVIDER_SUMMARY_TOKEN)
+    assert_contains(lib_c, "#include <ModernUi/ModernUiHardwareHealthData.h>")
+    assert_contains(lib_c, HARDWARE_HEALTH_PROVIDER_SUMMARY_TOKEN)
+    assert_contains(lib_c, "Demo provider")
+    assert_contains(lib_c, "CPU Package")
+    assert_contains(lib_c, "Board Ambient")
+    assert_contains(lib_c, "VRM Zone")
+    assert_contains(lib_inf, "BASE_NAME                      = ModernUiHardwareHealthDataLib")
+    assert_contains(lib_inf, "LIBRARY_CLASS                  = ModernUiHardwareHealthDataLib|UEFI_APPLICATION")
+    assert_contains(dec, "ModernUiHardwareHealthDataLib|Include/ModernUi/ModernUiHardwareHealthData.h")
+    assert_contains(experimental_dsc, "ModernUiHardwareHealthDataLib|ModernSetupPkg/Library/ModernUiHardwareHealthDataLib/ModernUiHardwareHealthDataLib.inf")
+    assert_contains(experimental_dsc, "ModernSetupPkg/Library/ModernUiHardwareHealthDataLib/ModernUiHardwareHealthDataLib.inf")
+    assert_contains(app_inf, "ModernUiHardwareHealthDataLib")
+
+    for source in (header, lib_c):
+        body = strip_c_comments(source.read_text(encoding="utf-8"))
+        for token in HARDWARE_HEALTH_FORBIDDEN_TOKENS:
+            if re.search(rf"\b{re.escape(token)}\b", body):
+                raise SmokeFailure(f"{source.relative_to(root)} contains prohibited Hardware Health token: {token}")
+
+    for source in sorted(app_dir.glob("ModernSetupApp*.c")):
+        body = strip_c_comments(source.read_text(encoding="utf-8"))
+        if HARDWARE_HEALTH_PROVIDER_SUMMARY_TOKEN in body and source.name != "ModernSetupAppProvider.c":
+            raise SmokeFailure(
+                f"{source.relative_to(root)} bypasses ModernSetupAppProvider.c for Hardware Health provider summary"
+            )
+
+    provider_body = strip_c_comments(provider.read_text(encoding="utf-8"))
+    pages_body = strip_c_comments(pages.read_text(encoding="utf-8"))
+    dashboard_body = strip_c_comments(dashboard.read_text(encoding="utf-8"))
+    if provider_body.count(HARDWARE_HEALTH_PROVIDER_SUMMARY_TOKEN) != 1:
+        raise SmokeFailure("ModernSetupAppProvider.c must call Hardware Health provider summary exactly once")
+    for token in ("HardwareHealth", "HardwareHealthStatus", "Hardware Health"):
+        assert_contains(provider, token)
+    for token in ("Providers.HardwareHealth", "DrawTemperatureTrendSparkline", "DrawHardwareHealthSensorRow"):
+        if token not in pages_body:
+            raise SmokeFailure(f"ModernSetupAppPages.c missing Hardware Health UI token: {token}")
+    if "Providers.HardwareHealth" not in dashboard_body:
+        raise SmokeFailure("ModernSetupAppDashboard.c must consume Hardware Health through the provider snapshot")
+
+    doc_text = docs.read_text(encoding="utf-8").lower()
+    for token in ("hardware health", "read-only", "demo", "native", "formbrowser"):
+        if token not in doc_text:
+            raise SmokeFailure(f"ProductizationFeatureMatrix.md missing Hardware Health documentation token: {token}")
+
+    return ["PASS Hardware Health demo provider wiring and read-only boundary checks"]
 
 
 def check_pcie_docs_language(root: Path) -> list[str]:
@@ -1233,6 +1352,7 @@ def main() -> int:
         messages.extend(check_modern_setup_app_module_boundaries(root))
         messages.extend(check_modern_setup_app_preferences_boundary(root))
         messages.extend(check_pcie_provider_foundation(root))
+        messages.extend(check_hardware_health_demo_provider(root))
         messages.extend(check_pcie_docs_language(root))
         messages.extend(check_hii_bridge_view_model_boundary(root))
         messages.extend(check_modern_ui_builtin_glyph_subset(root))

@@ -12,6 +12,12 @@
 
 #include <ModernUi/ModernUiHiiBridge.h>
 
+#if defined (__GNUC__) || defined (__clang__)
+#define MODERN_SETUP_NOINLINE  __attribute__ ((noinline))
+#else
+#define MODERN_SETUP_NOINLINE
+#endif
+
 /**
   Draw one provider-summary label/value row.
 
@@ -172,6 +178,7 @@ SecurityStateText (
 **/
 STATIC
 VOID
+MODERN_SETUP_NOINLINE
 DrawProviderSummaryPage (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
@@ -236,6 +243,7 @@ DrawProviderSummaryPage (
 **/
 STATIC
 VOID
+MODERN_SETUP_NOINLINE
 DrawBoot (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
@@ -531,6 +539,7 @@ HiiPreviewFindFormSet (
 
 STATIC
 VOID
+MODERN_SETUP_NOINLINE
 DrawHiiReadOnlyPreview (
   IN MODERN_UI_RENDER_CONTEXT       *Ui,
   IN CONST MODERN_UI_THEME          *Theme,
@@ -539,7 +548,7 @@ DrawHiiReadOnlyPreview (
   )
 {
   EFI_STATUS                     Status;
-  MODERN_UI_HII_VIEW             View;
+  MODERN_UI_HII_VIEW             *View;
   MODERN_UI_HII_FORMSET          *FormSet;
   MODERN_UI_HII_PAGE             *Page;
   MODERN_UI_HII_ITEM             *Item;
@@ -575,18 +584,24 @@ DrawHiiReadOnlyPreview (
     Background
     );
 
-  Status = ModernUiHiiBridgeBuildView (&View, &Entry->FormSetGuid, 1);
-  if (EFI_ERROR (Status)) {
-    ModernUiDrawTextFormatted (Ui, Rect.X + 18, Rect.Y + 76, Theme->Warning, Background, L"Preview unavailable: %r", Status);
+  View = AllocateZeroPool (sizeof (*View));
+  if (View == NULL) {
+    ModernUiDrawText (Ui, Rect.X + 18, Rect.Y + 76, L"Preview unavailable: out of resources.", Theme->Warning, Background);
     ModernUiDrawText (Ui, Rect.X + 18, Rect.Y + 100, L"Press Enter to open native FormBrowser.", Theme->MutedText, Background);
     return;
   }
 
-  FormSet = HiiPreviewFindFormSet (&View, Entry);
+  Status = ModernUiHiiBridgeBuildView (View, &Entry->FormSetGuid, 1);
+  if (EFI_ERROR (Status)) {
+    ModernUiDrawTextFormatted (Ui, Rect.X + 18, Rect.Y + 76, Theme->Warning, Background, L"Preview unavailable: %r", Status);
+    ModernUiDrawText (Ui, Rect.X + 18, Rect.Y + 100, L"Press Enter to open native FormBrowser.", Theme->MutedText, Background);
+    goto Exit;
+  }
+
+  FormSet = HiiPreviewFindFormSet (View, Entry);
   if (FormSet == NULL) {
     ModernUiDrawText (Ui, Rect.X + 18, Rect.Y + 76, L"No normalized preview for this formset; press Enter for native FormBrowser.", Theme->Warning, Background);
-    ModernUiHiiBridgeClearView (&View);
-    return;
+    goto Exit;
   }
 
   RowY = Rect.Y + 76;
@@ -608,8 +623,7 @@ DrawHiiReadOnlyPreview (
 
   if (FormSet->PageCount == 0) {
     ModernUiDrawText (Ui, Rect.X + 18, RowY, L"No pages in normalized preview; press Enter for native FormBrowser.", Theme->MutedText, Background);
-    ModernUiHiiBridgeClearView (&View);
-    return;
+    goto Exit;
   }
 
   Page = &FormSet->Pages[0];
@@ -685,7 +699,9 @@ DrawHiiReadOnlyPreview (
     ModernUiDrawTextFormatted (Ui, Rect.X + 18, RowY, Theme->MutedText, Background, L"+ %u more items in native browser", VisibleItems - ShownItems);
   }
 
-  ModernUiHiiBridgeClearView (&View);
+Exit:
+  ModernUiHiiBridgeClearView (View);
+  FreePool (View);
 }
 
 /**
@@ -698,6 +714,7 @@ DrawHiiReadOnlyPreview (
 **/
 STATIC
 VOID
+MODERN_SETUP_NOINLINE
 DrawDevices (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
@@ -838,6 +855,7 @@ DrawDevices (
 **/
 STATIC
 VOID
+MODERN_SETUP_NOINLINE
 DrawSecurity (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
@@ -890,6 +908,7 @@ DrawSecurity (
 **/
 STATIC
 VOID
+MODERN_SETUP_NOINLINE
 DrawFirmware (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
@@ -938,6 +957,7 @@ DrawFirmware (
 **/
 STATIC
 VOID
+MODERN_SETUP_NOINLINE
 DrawDiagnostics (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
@@ -1010,6 +1030,7 @@ DrawDiagnostics (
 **/
 STATIC
 VOID
+MODERN_SETUP_NOINLINE
 DrawManagement (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
@@ -1045,6 +1066,101 @@ DrawManagement (
     );
 }
 
+STATIC
+VOID
+DrawTemperatureTrendSparkline (
+  IN MODERN_UI_RENDER_CONTEXT                  *Ui,
+  IN CONST MODERN_UI_THEME                     *Theme,
+  IN UINTN                                     X,
+  IN UINTN                                     Y,
+  IN UINTN                                     Width,
+  IN UINTN                                     Height,
+  IN CONST MODERN_UI_HARDWARE_HEALTH_SENSOR   *Sensor,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL            Background
+  )
+{
+  INTN   MinValue;
+  INTN   MaxValue;
+  INTN   Range;
+  UINTN  Index;
+  UINTN  SampleCount;
+  UINTN  BarWidth;
+  UINTN  BarX;
+  UINTN  BarHeight;
+  UINTN  BarTop;
+
+  if ((Sensor == NULL) || (Width < 32) || (Height < 12) || (Sensor->SampleCount == 0)) {
+    return;
+  }
+
+  SampleCount = MIN (Sensor->SampleCount, MODERN_UI_HARDWARE_HEALTH_MAX_SAMPLES);
+  MinValue    = Sensor->Samples[0];
+  MaxValue    = Sensor->Samples[0];
+  for (Index = 1; Index < SampleCount; Index++) {
+    if (Sensor->Samples[Index] < MinValue) {
+      MinValue = Sensor->Samples[Index];
+    }
+
+    if (Sensor->Samples[Index] > MaxValue) {
+      MaxValue = Sensor->Samples[Index];
+    }
+  }
+
+  Range = MaxValue - MinValue;
+  if (Range < 1) {
+    Range = 1;
+  }
+
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ X, Y, Width, Height }, ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 44));
+  ModernUiStrokeRect (Ui, (MODERN_UI_RECT){ X, Y, Width, Height }, Theme->Border);
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ X + 3, Y + (Height / 2), Width - 6, 1 }, ModernUiBlendColor (Theme->Border, Theme->Surface, 128));
+
+  BarWidth = MAX (3, Width / ((SampleCount * 2) + 1));
+  for (Index = 0; Index < SampleCount; Index++) {
+    BarX      = X + 3 + ((Width - 6) * Index) / SampleCount;
+    BarHeight = 3 + (((UINTN)(Sensor->Samples[Index] - MinValue) * (Height - 7)) / (UINTN)Range);
+    BarTop    = Y + Height - 4 - BarHeight;
+    ModernUiFillRect (
+      Ui,
+      (MODERN_UI_RECT){ BarX, BarTop, BarWidth, BarHeight },
+      (Sensor->Samples[Index] >= Sensor->WarningValue) ? Theme->Warning : Theme->AccentOrange
+      );
+  }
+
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ X, Y + Height - 2, Width, 1 }, Background);
+}
+
+STATIC
+VOID
+DrawHardwareHealthSensorRow (
+  IN MODERN_UI_RENDER_CONTEXT                 *Ui,
+  IN CONST MODERN_UI_THEME                    *Theme,
+  IN UINTN                                    X,
+  IN UINTN                                    Y,
+  IN UINTN                                    Width,
+  IN CONST MODERN_UI_HARDWARE_HEALTH_SENSOR  *Sensor,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL           Background
+  )
+{
+  CHAR16  ValueText[48];
+  UINTN   TrendX;
+  UINTN   TrendWidth;
+
+  if ((Sensor == NULL) || (Width < 80)) {
+    return;
+  }
+
+  UnicodeSPrint (ValueText, sizeof (ValueText), L"%d %s", Sensor->CurrentValue, Sensor->Unit);
+  ModernUiDrawTextFit (Ui, X, Y, (Width >= 420) ? 150 : (Width / 2), Sensor->Name, Theme->Text, Background);
+  ModernUiDrawTextFit (Ui, X + ((Width >= 420) ? 156 : (Width / 2)), Y, 72, ValueText, Theme->AccentYellow, Background);
+
+  if (Width >= 420) {
+    TrendX     = X + 238;
+    TrendWidth = Width - 238;
+    DrawTemperatureTrendSparkline (Ui, Theme, TrendX, Y - 4, TrendWidth, 22, Sensor, Background);
+  }
+}
+
 /**
   Draw the Power page with read-only ACPI and thermal provider state.
 
@@ -1054,6 +1170,7 @@ DrawManagement (
 **/
 STATIC
 VOID
+MODERN_SETUP_NOINLINE
 DrawPower (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
@@ -1062,12 +1179,21 @@ DrawPower (
 {
   MODERN_SETUP_PROVIDER_SNAPSHOT  Providers;
   MODERN_UI_POWER_SUMMARY         *Summary;
+  MODERN_UI_HARDWARE_HEALTH_SUMMARY *Health;
   CONST CHAR16                    *Labels[5];
   CONST CHAR16                    *Values[5];
   CONST CHAR16                    *Groups[5] = { NULL };
+  MODERN_UI_RECT                  Content;
+  MODERN_UI_RECT                  Panel;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL   PanelBackground;
+  UINTN                           Index;
+  UINTN                           RowY;
+  UINTN                           RowStep;
+  CHAR16                          ProviderText[96];
 
   ModernSetupGetProviderSnapshot (&Providers);
   Summary = &Providers.Power;
+  Health  = &Providers.HardwareHealth;
 
   Labels[0] = ModernUiGetString (ModernUiStringAcpiTablesProvider);
   Groups[0] = ModernUiGetString (ModernUiStringGroupPower);
@@ -1082,16 +1208,56 @@ DrawPower (
   Labels[4] = ModernUiGetString (ModernUiStringSmbiosTables);
   Values[4] = CapabilityText (Summary->SmbiosChassisPresent);
 
-  DrawProviderSummaryPage (
-    Ui,
-    Theme,
-    Focus,
-    ModernUiGetString (ModernUiStringPowerThermal),
-    Labels,
-    Values,
-    Groups,
-    ARRAY_SIZE (Labels)
+  Content         = ModernSetupContentRect (Ui);
+  Panel           = (MODERN_UI_RECT){ Content.X, Content.Y, Content.Width, MIN (Content.Height, 520) };
+  PanelBackground = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
+  RowY            = Panel.Y + 58;
+  RowStep         = 26;
+
+  DrawProviderSummarySection (Ui, Theme, Panel, ModernUiGetString (ModernUiStringPowerThermal), TRUE);
+  ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
+
+  for (Index = 0; Index < ARRAY_SIZE (Labels); Index++) {
+    if ((Groups[Index] != NULL) && ((RowY + 24) <= (Panel.Y + Panel.Height))) {
+      DrawProviderSubsectionHeader (Ui, Theme, Panel.X + 22, RowY, Panel.Width - 44, Groups[Index]);
+      RowY += 20;
+    }
+
+    if ((RowY + 24) > (Panel.Y + Panel.Height)) {
+      return;
+    }
+
+    DrawProviderSummaryInfoRow (Ui, Theme, Panel.X + 22, RowY, Panel.Width - 44, Labels[Index], Values[Index]);
+    RowY += RowStep;
+  }
+
+  if ((RowY + 54) > (Panel.Y + Panel.Height)) {
+    return;
+  }
+
+  RowY += 8;
+  DrawProviderSubsectionHeader (Ui, Theme, Panel.X + 22, RowY, Panel.Width - 44, L"Hardware Health");
+  RowY += 22;
+  UnicodeSPrint (
+    ProviderText,
+    sizeof (ProviderText),
+    L"%s%s / %u sensor%s",
+    Health->ProviderName,
+    Health->DemoData ? L" (demo)" : L"",
+    Health->SensorCount,
+    (Health->SensorCount == 1) ? L"" : L"s"
     );
+  DrawProviderSummaryInfoRow (Ui, Theme, Panel.X + 22, RowY, Panel.Width - 44, L"Source", ProviderText);
+  RowY += RowStep;
+
+  for (Index = 0; Index < MIN (Health->SensorCount, MODERN_UI_HARDWARE_HEALTH_MAX_SENSORS); Index++) {
+    if ((RowY + 28) > (Panel.Y + Panel.Height)) {
+      break;
+    }
+
+    DrawHardwareHealthSensorRow (Ui, Theme, Panel.X + 22, RowY, Panel.Width - 44, &Health->Sensors[Index], PanelBackground);
+    RowY += 30;
+  }
 }
 
 /**
@@ -1103,6 +1269,7 @@ DrawPower (
 **/
 STATIC
 VOID
+MODERN_SETUP_NOINLINE
 DrawPerformance (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
@@ -1221,6 +1388,7 @@ DrawPerformance (
 **/
 STATIC
 VOID
+MODERN_SETUP_NOINLINE
 DrawPreferences (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
@@ -1274,6 +1442,7 @@ DrawPreferences (
 **/
 STATIC
 VOID
+MODERN_SETUP_NOINLINE
 DrawExit (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
@@ -1356,6 +1525,7 @@ DrawExit (
   @param[in] StatusMessage  Optional status text. May be NULL.
 **/
 VOID
+MODERN_SETUP_NOINLINE
 ModernSetupDrawCurrentPage (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,

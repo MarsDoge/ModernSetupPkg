@@ -26,6 +26,7 @@
 #include <ModernUi/ModernUiDeviceData.h>
 #include <ModernUi/ModernUiDiagnosticsData.h>
 #include <ModernUi/ModernUiFirmwareData.h>
+#include <ModernUi/ModernUiHardwareHealthData.h>
 #include <ModernUi/ModernUiInput.h>
 #include <ModernUi/ModernUiEngine.h>
 #include <ModernUi/ModernUiManagementData.h>
@@ -88,6 +89,7 @@ typedef struct {
   MODERN_UI_DIAGNOSTICS_SUMMARY    Diagnostics;
   MODERN_UI_MANAGEMENT_SUMMARY     Management;
   MODERN_UI_POWER_SUMMARY          Power;
+  MODERN_UI_HARDWARE_HEALTH_SUMMARY HardwareHealth;
   MODERN_UI_PERFORMANCE_SUMMARY    Performance;
   MODERN_UI_PCIE_SUMMARY           Pcie;
   EFI_STATUS                       PlatformStatus;
@@ -96,6 +98,7 @@ typedef struct {
   EFI_STATUS                       DiagnosticsStatus;
   EFI_STATUS                       ManagementStatus;
   EFI_STATUS                       PowerStatus;
+  EFI_STATUS                       HardwareHealthStatus;
   EFI_STATUS                       PerformanceStatus;
   EFI_STATUS                       PcieStatus;
 } MODERN_SETUP_PROVIDER_SNAPSHOT;
