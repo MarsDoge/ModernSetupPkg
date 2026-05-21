@@ -1096,9 +1096,10 @@ def check_phase26_interactive_app_owned_preferences(root: Path) -> list[str]:
     app_dir = root / MODERN_SETUP_APP_DIR
     app_main = strip_c_comments((app_dir / "ModernSetupApp.c").read_text(encoding="utf-8"))
     actions = strip_c_comments((app_dir / "ModernSetupAppActions.c").read_text(encoding="utf-8"))
+    chrome = strip_c_comments((app_dir / "ModernSetupAppChrome.c").read_text(encoding="utf-8"))
     pages = strip_c_comments((app_dir / "ModernSetupAppPages.c").read_text(encoding="utf-8"))
     internal = strip_c_comments((app_dir / "ModernSetupAppInternal.h").read_text(encoding="utf-8"))
-    app_sources = "\n".join((app_main, actions, pages, internal))
+    app_sources = "\n".join((app_main, actions, chrome, pages, internal))
 
     required_tokens = (
         "MODERN_SETUP_PREFERENCE_ROW_THEME",
@@ -1141,8 +1142,12 @@ def check_phase26_interactive_app_owned_preferences(root: Path) -> list[str]:
         raise SmokeFailure("Esc/navigation must cancel an open Preferences popup")
     if "ModernSetupHandlePreferencePopupUp ()" not in app_main or "ModernSetupHandlePreferencePopupDown ()" not in app_main:
         raise SmokeFailure("Up/Down must move an open Preferences popup selection")
+    if "ModernSetupGetCompactTabLabel" not in chrome or "L\"Perf\"" not in chrome or "L\"Mgmt\"" not in chrome:
+        raise SmokeFailure("Phase26 top navigation must use compact IBV-style tab labels")
+    if "Tabs[Index].Text = ModernUiGetString (mPages[Index].Title)" in chrome:
+        raise SmokeFailure("Phase26 top navigation must not use full page titles as tab labels")
 
-    return ["PASS Phase26 interactive app-owned Preferences controls contract"]
+    return ["PASS Phase26 interactive Preferences controls and compact top navigation contract"]
 
 
 def check_pcie_provider_foundation(root: Path) -> list[str]:
