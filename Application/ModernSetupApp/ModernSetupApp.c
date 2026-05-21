@@ -87,6 +87,13 @@ UefiMain (
       continue;
     }
 
+    if ((Focus == SetupFocusContent) && (Page == PagePreferences) && mModernSetupPreferencePopupOpen && (Event.Type == ModernUiInputOther)) {
+      ModernSetupHandlePreferenceInputKey (&Event, StatusMessage, sizeof (StatusMessage));
+      ResetConfirmationPending = FALSE;
+      Redraw = TRUE;
+      continue;
+    }
+
     if (Event.Type != ModernUiInputEnter) {
       ResetConfirmationPending = FALSE;
     }

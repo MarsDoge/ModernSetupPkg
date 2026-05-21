@@ -27,6 +27,9 @@ UINTN           mModernSetupLanguageDropdownSelection;
 BOOLEAN         mModernSetupPreferencePopupOpen;
 UINTN           mModernSetupPreferencePopupRow;
 UINTN           mModernSetupPreferencePopupSelection;
+MODERN_SETUP_PREFERENCE_POPUP_KIND  mModernSetupPreferencePopupKind;
+CHAR16          mModernSetupPreferenceInputBuffer[MODERN_UI_PREFERENCES_PROFILE_NAME_CHARS];
+UINTN           mModernSetupPreferenceInputLength;
 MODERN_UI_PREFERENCES  mModernSetupPreferences;
 
 /**
@@ -528,11 +531,18 @@ ModernSetupGetPreferenceValueName (
   IN UINTN  Row
   )
 {
+  STATIC CHAR16  BootTimeoutText[16];
+
   switch (Row) {
     case MODERN_SETUP_PREFERENCE_ROW_THEME:
       return ModernSetupGetPreferenceChoiceName (Row, mModernSetupPreferences.ThemeId);
     case MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY:
       return ModernSetupGetPreferenceChoiceName (Row, mModernSetupPreferences.DashboardDensity);
+    case MODERN_SETUP_PREFERENCE_ROW_BOOT_TIMEOUT:
+      UnicodeSPrint (BootTimeoutText, sizeof (BootTimeoutText), L"%u sec", mModernSetupPreferences.BootTimeoutSeconds);
+      return BootTimeoutText;
+    case MODERN_SETUP_PREFERENCE_ROW_PROFILE_NAME:
+      return mModernSetupPreferences.ProfileName;
     case MODERN_SETUP_PREFERENCE_ROW_REMEMBER_LAST_PAGE:
       return ModernSetupPreferenceCheckboxValueText (mModernSetupPreferences.RememberLastPage);
     case MODERN_SETUP_PREFERENCE_ROW_SHOW_ADVANCED_HINTS:
@@ -542,6 +552,60 @@ ModernSetupGetPreferenceValueName (
     default:
       return L"";
   }
+}
+
+STATIC
+UINTN
+ModernSetupPreferenceStringLength (
+  IN CONST CHAR16  *Text,
+  IN UINTN         MaxChars
+  )
+{
+  UINTN  Length;
+
+  if (Text == NULL) {
+    return 0;
+  }
+
+  for (Length = 0; (Length < MaxChars) && (Text[Length] != L'\0'); Length++) {
+  }
+
+  return Length;
+}
+
+STATIC
+BOOLEAN
+ModernSetupPreferenceIsPrintableAscii (
+  IN CHAR16  Character
+  )
+{
+  return (BOOLEAN)((Character >= L' ') && (Character <= L'~'));
+}
+
+STATIC
+VOID
+ModernSetupOpenPreferenceInputPopup (
+  IN UINTN                               Row,
+  IN MODERN_SETUP_PREFERENCE_POPUP_KIND  Kind
+  )
+{
+  mModernSetupPreferencePopupRow       = Row;
+  mModernSetupPreferencePopupSelection = 0;
+  mModernSetupPreferencePopupKind      = Kind;
+  mModernSetupPreferencePopupOpen      = TRUE;
+  ZeroMem (mModernSetupPreferenceInputBuffer, sizeof (mModernSetupPreferenceInputBuffer));
+
+  if (Kind == ModernSetupPreferencePopupNumericInput) {
+    UnicodeSPrint (mModernSetupPreferenceInputBuffer, sizeof (mModernSetupPreferenceInputBuffer), L"%u", mModernSetupPreferences.BootTimeoutSeconds);
+  } else if (Kind == ModernSetupPreferencePopupStringInput) {
+    CopyMem (mModernSetupPreferenceInputBuffer, mModernSetupPreferences.ProfileName, sizeof (mModernSetupPreferenceInputBuffer));
+    mModernSetupPreferenceInputBuffer[MODERN_UI_PREFERENCES_PROFILE_NAME_CHARS - 1] = L'\0';
+  }
+
+  mModernSetupPreferenceInputLength = ModernSetupPreferenceStringLength (
+                                        mModernSetupPreferenceInputBuffer,
+                                        MODERN_UI_PREFERENCES_PROFILE_NAME_CHARS
+                                        );
 }
 
 STATIC
@@ -569,7 +633,7 @@ ModernSetupHandlePreferencePopupUp (
   UINTN  Count;
 
   Count = ModernSetupGetPreferenceChoiceCount (mModernSetupPreferencePopupRow);
-  if (!mModernSetupPreferencePopupOpen || (Count == 0)) {
+  if (!mModernSetupPreferencePopupOpen || (mModernSetupPreferencePopupKind != ModernSetupPreferencePopupChoice) || (Count == 0)) {
     return;
   }
 
@@ -584,7 +648,7 @@ ModernSetupHandlePreferencePopupDown (
   UINTN  Count;
 
   Count = ModernSetupGetPreferenceChoiceCount (mModernSetupPreferencePopupRow);
-  if (!mModernSetupPreferencePopupOpen || (Count == 0)) {
+  if (!mModernSetupPreferencePopupOpen || (mModernSetupPreferencePopupKind != ModernSetupPreferencePopupChoice) || (Count == 0)) {
     return;
   }
 
@@ -597,6 +661,7 @@ ModernSetupCancelPreferencePopup (
   )
 {
   mModernSetupPreferencePopupOpen = FALSE;
+  mModernSetupPreferencePopupKind = ModernSetupPreferencePopupNone;
 }
 
 VOID
@@ -605,11 +670,56 @@ ModernSetupCommitPreferencePopup (
   IN  UINTN   StatusSize
   )
 {
+  UINTN  Index;
+  UINTN  NumericValue;
+
   if ((StatusMessage != NULL) && (StatusSize >= sizeof (CHAR16))) {
     StatusMessage[0] = L'\0';
   }
 
   if (!mModernSetupPreferencePopupOpen) {
+    return;
+  }
+
+  if (mModernSetupPreferencePopupKind == ModernSetupPreferencePopupNumericInput) {
+    if (mModernSetupPreferenceInputLength == 0) {
+      UnicodeSPrint (StatusMessage, StatusSize, L"Boot timeout must be 0..30 seconds.");
+      return;
+    }
+
+    NumericValue = 0;
+    for (Index = 0; Index < mModernSetupPreferenceInputLength; Index++) {
+      if ((mModernSetupPreferenceInputBuffer[Index] < L'0') || (mModernSetupPreferenceInputBuffer[Index] > L'9')) {
+        UnicodeSPrint (StatusMessage, StatusSize, L"Boot timeout accepts digits only.");
+        return;
+      }
+
+      NumericValue = (NumericValue * 10) + (UINTN)(mModernSetupPreferenceInputBuffer[Index] - L'0');
+    }
+
+    if (NumericValue > MODERN_UI_PREFERENCES_BOOT_TIMEOUT_MAX) {
+      UnicodeSPrint (StatusMessage, StatusSize, L"Boot timeout must be 0..30 seconds.");
+      return;
+    }
+
+    mModernSetupPreferences.BootTimeoutSeconds = (UINT8)NumericValue;
+    mModernSetupPreferencePopupOpen = FALSE;
+    mModernSetupPreferencePopupKind = ModernSetupPreferencePopupNone;
+    PersistPreferencesAndStatus (StatusMessage, StatusSize);
+    return;
+  }
+
+  if (mModernSetupPreferencePopupKind == ModernSetupPreferencePopupStringInput) {
+    if (mModernSetupPreferenceInputLength == 0) {
+      UnicodeSPrint (StatusMessage, StatusSize, L"Profile name must not be empty.");
+      return;
+    }
+
+    mModernSetupPreferenceInputBuffer[MODERN_UI_PREFERENCES_PROFILE_NAME_CHARS - 1] = L'\0';
+    CopyMem (mModernSetupPreferences.ProfileName, mModernSetupPreferenceInputBuffer, sizeof (mModernSetupPreferences.ProfileName));
+    mModernSetupPreferencePopupOpen = FALSE;
+    mModernSetupPreferencePopupKind = ModernSetupPreferencePopupNone;
+    PersistPreferencesAndStatus (StatusMessage, StatusSize);
     return;
   }
 
@@ -622,11 +732,68 @@ ModernSetupCommitPreferencePopup (
       break;
     default:
       mModernSetupPreferencePopupOpen = FALSE;
+      mModernSetupPreferencePopupKind = ModernSetupPreferencePopupNone;
       return;
   }
 
   mModernSetupPreferencePopupOpen = FALSE;
+  mModernSetupPreferencePopupKind = ModernSetupPreferencePopupNone;
   PersistPreferencesAndStatus (StatusMessage, StatusSize);
+}
+
+VOID
+ModernSetupHandlePreferenceInputKey (
+  IN  CONST MODERN_UI_INPUT_EVENT  *Event,
+  OUT CHAR16                       *StatusMessage,
+  IN  UINTN                        StatusSize
+  )
+{
+  CHAR16   Character;
+  BOOLEAN  NumericInput;
+
+  if ((Event == NULL) || !mModernSetupPreferencePopupOpen) {
+    return;
+  }
+
+  if ((mModernSetupPreferencePopupKind != ModernSetupPreferencePopupNumericInput) &&
+      (mModernSetupPreferencePopupKind != ModernSetupPreferencePopupStringInput))
+  {
+    return;
+  }
+
+  if ((StatusMessage != NULL) && (StatusSize >= sizeof (CHAR16))) {
+    StatusMessage[0] = L'\0';
+  }
+
+  Character = Event->UnicodeChar;
+  if (Character == CHAR_BACKSPACE) {
+    if (mModernSetupPreferenceInputLength > 0) {
+      mModernSetupPreferenceInputLength--;
+      mModernSetupPreferenceInputBuffer[mModernSetupPreferenceInputLength] = L'\0';
+    }
+
+    return;
+  }
+
+  NumericInput = (BOOLEAN)(mModernSetupPreferencePopupKind == ModernSetupPreferencePopupNumericInput);
+  if (NumericInput) {
+    if ((Character < L'0') || (Character > L'9')) {
+      return;
+    }
+  } else if (!ModernSetupPreferenceIsPrintableAscii (Character)) {
+    return;
+  }
+
+  if (NumericInput) {
+    if (mModernSetupPreferenceInputLength >= 2) {
+      return;
+    }
+  } else if (mModernSetupPreferenceInputLength >= (MODERN_UI_PREFERENCES_PROFILE_NAME_CHARS - 1)) {
+    return;
+  }
+
+  mModernSetupPreferenceInputBuffer[mModernSetupPreferenceInputLength++] = Character;
+  mModernSetupPreferenceInputBuffer[mModernSetupPreferenceInputLength] = L'\0';
 }
 
 /**
@@ -652,12 +819,20 @@ ModernSetupHandlePreferencesEnter (
     case MODERN_SETUP_PREFERENCE_ROW_THEME:
       mModernSetupPreferencePopupRow       = Selection;
       mModernSetupPreferencePopupSelection = mModernSetupPreferences.ThemeId;
+      mModernSetupPreferencePopupKind      = ModernSetupPreferencePopupChoice;
       mModernSetupPreferencePopupOpen      = TRUE;
       break;
     case MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY:
       mModernSetupPreferencePopupRow       = Selection;
       mModernSetupPreferencePopupSelection = mModernSetupPreferences.DashboardDensity;
+      mModernSetupPreferencePopupKind      = ModernSetupPreferencePopupChoice;
       mModernSetupPreferencePopupOpen      = TRUE;
+      break;
+    case MODERN_SETUP_PREFERENCE_ROW_BOOT_TIMEOUT:
+      ModernSetupOpenPreferenceInputPopup (Selection, ModernSetupPreferencePopupNumericInput);
+      break;
+    case MODERN_SETUP_PREFERENCE_ROW_PROFILE_NAME:
+      ModernSetupOpenPreferenceInputPopup (Selection, ModernSetupPreferencePopupStringInput);
       break;
     case MODERN_SETUP_PREFERENCE_ROW_REMEMBER_LAST_PAGE:
       mModernSetupPreferences.RememberLastPage = (mModernSetupPreferences.RememberLastPage == 0) ? 1 : 0;

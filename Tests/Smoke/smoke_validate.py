@@ -1150,6 +1150,79 @@ def check_phase26_interactive_app_owned_preferences(root: Path) -> list[str]:
     return ["PASS Phase26 interactive Preferences controls and compact top navigation contract"]
 
 
+def check_phase27_app_owned_input_preferences(root: Path) -> list[str]:
+    app_dir = root / MODERN_SETUP_APP_DIR
+    app_main = strip_c_comments((app_dir / "ModernSetupApp.c").read_text(encoding="utf-8"))
+    actions = strip_c_comments((app_dir / "ModernSetupAppActions.c").read_text(encoding="utf-8"))
+    pages = strip_c_comments((app_dir / "ModernSetupAppPages.c").read_text(encoding="utf-8"))
+    internal = strip_c_comments((app_dir / "ModernSetupAppInternal.h").read_text(encoding="utf-8"))
+    header = strip_c_comments((root / "Include" / "ModernUi" / "ModernUiPreferences.h").read_text(encoding="utf-8"))
+    lib = strip_c_comments((root / "Library" / "ModernUiPreferencesLib" / "ModernUiPreferencesLib.c").read_text(encoding="utf-8"))
+    app_sources = "\n".join((app_main, actions, pages, internal))
+    prefs_sources = "\n".join((header, lib))
+
+    for token in (
+        "MODERN_SETUP_PREFERENCE_ROW_BOOT_TIMEOUT",
+        "MODERN_SETUP_PREFERENCE_ROW_PROFILE_NAME",
+        "ModernSetupPreferencePopupNumericInput",
+        "ModernSetupPreferencePopupStringInput",
+        "ModernSetupHandlePreferenceInputKey",
+        "mModernSetupPreferenceInputBuffer",
+        "mModernSetupPreferenceInputLength",
+        "ModernUiValueNumeric",
+        "ModernUiValueString",
+        "UI Boot Countdown",
+        "Setup Profile Name",
+        "Digits only, range 0..30",
+        "Printable ASCII, max 31 chars",
+    ):
+        if token not in app_sources:
+            raise SmokeFailure(f"Phase27 input Preferences UI missing token: {token}")
+
+    for token in (
+        "BootTimeoutSeconds",
+        "ProfileName",
+        "MODERN_UI_PREFERENCES_BOOT_TIMEOUT_MAX",
+        "MODERN_UI_PREFERENCES_BOOT_TIMEOUT_DEFAULT",
+        "MODERN_UI_PREFERENCES_PROFILE_NAME_CHARS",
+        "Default Profile",
+        "ValidateProfileName",
+    ):
+        if token not in prefs_sources:
+            raise SmokeFailure(f"Phase27 persisted input preference schema missing token: {token}")
+
+    if "#define MODERN_UI_PREFERENCES_VERSION        2" not in header:
+        raise SmokeFailure("Phase27 preference schema must bump the typed version")
+    if "EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS" not in lib:
+        raise SmokeFailure("Preferences variable attributes must remain NV+BS only")
+    if "EFI_VARIABLE_RUNTIME_ACCESS" in lib:
+        raise SmokeFailure("Preferences variable attributes must reject runtime access")
+    if "Event.Type == ModernUiInputOther" not in app_main:
+        raise SmokeFailure("Printable/backspace input must be routed to Preferences input popup")
+    if "CHAR_BACKSPACE" not in actions:
+        raise SmokeFailure("Preferences input popup must handle backspace")
+    if "ModernSetupCommitPreferencePopup (StatusMessage, sizeof (StatusMessage))" not in app_main:
+        raise SmokeFailure("Enter must commit numeric/string Preferences input popups")
+    if "ModernSetupCancelPreferencePopup ()" not in app_main:
+        raise SmokeFailure("Esc/navigation must cancel Preferences input popups")
+    if "ModernUiPreferencesSave (&mModernSetupPreferences)" not in actions:
+        raise SmokeFailure("Input preference commit must persist through ModernUiPreferencesLib")
+    if "mModernSetupPreferences.BootTimeoutSeconds" not in actions or "mModernSetupPreferences.ProfileName" not in actions:
+        raise SmokeFailure("Input preference commit must bind both persisted fields")
+
+    for path in sorted(app_dir.glob("ModernSetupApp*.c")):
+        body = strip_c_comments(path.read_text(encoding="utf-8"))
+        if "SetVariable" in body:
+            raise SmokeFailure(f"{path.relative_to(root)} directly calls/references SetVariable")
+    for token in ("BootOrder", "Boot####", "SecureBoot", "PCIe", "CPU", "MemoryPolicy", "Fan", "Chipset"):
+        if token in lib:
+            raise SmokeFailure(f"preferences library references prohibited platform-policy token: {token}")
+    if "ModernSetupGetCompactTabLabel" not in strip_c_comments((app_dir / "ModernSetupAppChrome.c").read_text(encoding="utf-8")):
+        raise SmokeFailure("Compact top navigation guard is missing")
+
+    return ["PASS Phase27 app-owned numeric/string input Preferences contract"]
+
+
 def check_pcie_provider_foundation(root: Path) -> list[str]:
     for relative in PCIE_PROVIDER_REQUIRED_FILES:
         if not (root / relative).exists():
@@ -1597,6 +1670,7 @@ def main() -> int:
         messages.extend(check_phase25_server_inventory_summary(root))
         messages.extend(check_modern_setup_app_preferences_boundary(root))
         messages.extend(check_phase26_interactive_app_owned_preferences(root))
+        messages.extend(check_phase27_app_owned_input_preferences(root))
         messages.extend(check_pcie_provider_foundation(root))
         messages.extend(check_hardware_health_demo_provider(root))
         messages.extend(check_pcie_docs_language(root))

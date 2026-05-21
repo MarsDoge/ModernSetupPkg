@@ -14,6 +14,58 @@
 
 #include <ModernUi/ModernUiPreferences.h>
 
+STATIC CONST CHAR16  mModernUiDefaultProfileName[] = L"Default Profile";
+
+STATIC
+VOID
+SetDefaultProfileName (
+  OUT CHAR16  *ProfileName
+  )
+{
+  UINTN  Index;
+
+  if (ProfileName == NULL) {
+    return;
+  }
+
+  ZeroMem (ProfileName, sizeof (CHAR16) * MODERN_UI_PREFERENCES_PROFILE_NAME_CHARS);
+  for (Index = 0;
+       (Index < (MODERN_UI_PREFERENCES_PROFILE_NAME_CHARS - 1)) && (mModernUiDefaultProfileName[Index] != L'\0');
+       Index++)
+  {
+    ProfileName[Index] = mModernUiDefaultProfileName[Index];
+  }
+}
+
+STATIC
+BOOLEAN
+ValidateProfileName (
+  IN CONST CHAR16  *ProfileName
+  )
+{
+  UINTN  Index;
+  BOOLEAN HasText;
+
+  if (ProfileName == NULL) {
+    return FALSE;
+  }
+
+  HasText = FALSE;
+  for (Index = 0; Index < MODERN_UI_PREFERENCES_PROFILE_NAME_CHARS; Index++) {
+    if (ProfileName[Index] == L'\0') {
+      return HasText;
+    }
+
+    if ((ProfileName[Index] < L' ') || (ProfileName[Index] > L'~')) {
+      return FALSE;
+    }
+
+    HasText = TRUE;
+  }
+
+  return FALSE;
+}
+
 /**
   Validate and normalize app-owned preferences in place.
 
@@ -50,6 +102,18 @@ ValidatePreferences (
   Preferences->RememberLastPage  = (Preferences->RememberLastPage != 0) ? 1 : 0;
   Preferences->ShowAdvancedHints = (Preferences->ShowAdvancedHints != 0) ? 1 : 0;
   Preferences->ConfirmReset      = (Preferences->ConfirmReset != 0) ? 1 : 0;
+  if ((Preferences->BootTimeoutSeconds < MODERN_UI_PREFERENCES_BOOT_TIMEOUT_MIN) ||
+      (Preferences->BootTimeoutSeconds > MODERN_UI_PREFERENCES_BOOT_TIMEOUT_MAX))
+  {
+    Preferences->BootTimeoutSeconds = MODERN_UI_PREFERENCES_BOOT_TIMEOUT_DEFAULT;
+  }
+
+  if (!ValidateProfileName (Preferences->ProfileName)) {
+    SetDefaultProfileName (Preferences->ProfileName);
+  } else {
+    Preferences->ProfileName[MODERN_UI_PREFERENCES_PROFILE_NAME_CHARS - 1] = L'\0';
+  }
+
   ZeroMem (Preferences->Reserved, sizeof (Preferences->Reserved));
   return TRUE;
 }
@@ -73,6 +137,8 @@ ModernUiPreferencesResetToDefaults (
   Preferences->RememberLastPage  = TRUE;
   Preferences->ShowAdvancedHints = TRUE;
   Preferences->ConfirmReset      = TRUE;
+  Preferences->BootTimeoutSeconds = MODERN_UI_PREFERENCES_BOOT_TIMEOUT_DEFAULT;
+  SetDefaultProfileName (Preferences->ProfileName);
   return EFI_SUCCESS;
 }
 
