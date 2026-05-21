@@ -50,6 +50,11 @@ demos. `Docs/XArch.md` defines the target model and validation vocabulary, and
 `Docs/ProductizationFeatureMatrix.md` records the common desktop, workstation,
 server, embedded, and appliance front-page capabilities that should be filled in
 through provider libraries while keeping real setup pages on native FormBrowser.
+For a lightweight target metadata check, run:
+
+```sh
+Scripts/xarch-validate.sh --all --mode dry-run
+```
 
 ## Current Scope
 

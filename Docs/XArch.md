@@ -55,6 +55,37 @@ planning, and smoke tests:
 These levels describe evidence, not product quality. A target may support the
 same UX model while still having a lower evidence level than another target.
 
+## Lightweight Validation Runner
+
+`Scripts/xarch-validate.sh` is the Phase20 runner for making the XArch target
+model executable without starting a full firmware build or QEMU session. It is
+dry-run only in this phase: the runner validates target metadata, checks that
+the expected scripts and manual docs exist, and reports the current evidence
+level for each target. It reports intended build/run/capture helpers but does
+not invoke them.
+
+```sh
+# Validate all documented XArch targets with the default table report.
+Scripts/xarch-validate.sh --all --mode dry-run
+
+# Validate one target.
+Scripts/xarch-validate.sh --target aarch64 --mode dry-run
+
+# Machine-readable report for external tooling.
+Scripts/xarch-validate.sh --target all --mode dry-run --format json
+```
+
+Current runner scope:
+
+- Supported targets: `x64`, `aarch64`, `loongarch64`, `riscv64`, or `all`.
+- edk2 ARCH values remain concrete: `X64`, `AARCH64`, `LOONGARCH64`, and
+  `RISCV64`.
+- Supported mode: `dry-run` only.
+- Supported report formats: `table`, `markdown`, and `json`.
+- Checked artifacts are the documented target scripts and manual validation
+  docs. Heavy build, QEMU, and screenshot capture commands remain explicit
+  maintainer actions outside this runner.
+
 ## Ownership Boundaries
 
 XArch does not change firmware ownership boundaries:
