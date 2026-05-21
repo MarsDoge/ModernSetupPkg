@@ -7,6 +7,8 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 # ModernSetupPkg Development Guide
 
+Language: English | [简体中文](DEVELOPMENT.zh-CN.md)
+
 ModernSetupPkg is intended to become a reusable modern setup UI framework plus a
 default setup application. New code should keep ArmVirt useful as the first test
 target, but must not bake ArmVirt, QEMU, AArch64, LoongArch, x86, or any IBV

@@ -7,6 +7,8 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 # XArch Architecture Model
 
+Language: English | [简体中文](XArch.zh-CN.md)
+
 XArch is ModernSetupPkg's cross-architecture architecture model for keeping one
 Setup UX, one HII/FormBrowser ownership boundary, and one validation vocabulary
 across X64, AARCH64, LOONGARCH64, and RISCV64 targets.
