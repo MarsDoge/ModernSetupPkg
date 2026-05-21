@@ -215,6 +215,16 @@ XARCH_DOC_REQUIRED_FILES = (
     Path("Docs") / "ProductizationFeatureMatrix.md",
 )
 XARCH_ARCH_TOKENS = ("X64", "AARCH64", "LOONGARCH64", "RISCV64")
+XARCH_TARGET_TOKENS = ("x64", "aarch64", "loongarch64", "riscv64")
+XARCH_RUNNER = Path("Scripts") / "xarch-validate.sh"
+XARCH_RUNNER_FORBIDDEN_MUTATION_TOKENS = (
+    "SetVariable",
+    "HiiSetBrowserData",
+    "HiiUpdateForm",
+    "RouteConfig",
+    "ExtractConfig",
+    "EFI_HII_CONFIG_ACCESS_PROTOCOL",
+)
 
 
 class SmokeFailure(Exception):
@@ -465,6 +475,45 @@ def check_xarch_docs_contract(root: Path) -> list[str]:
     assert_contains(xarch_doc, "XArch does not replace edk2 ARCH values")
 
     return ["PASS XArch docs/model static contract"]
+
+
+def check_xarch_runner_contract(root: Path) -> list[str]:
+    runner = root / XARCH_RUNNER
+    if not runner.exists():
+        raise SmokeFailure(f"missing XArch validation runner: {XARCH_RUNNER}")
+
+    text = runner.read_text(encoding="utf-8")
+    if not os.access(runner, os.X_OK):
+        bash = shutil.which("bash")
+        if bash is None:
+            raise SmokeFailure(f"{XARCH_RUNNER} is not executable and bash is unavailable for syntax coverage")
+        run([bash, "-n", str(runner)], cwd=root)
+
+    for token in XARCH_ARCH_TOKENS + XARCH_TARGET_TOKENS:
+        if token not in text:
+            raise SmokeFailure(f"{XARCH_RUNNER} missing XArch runner token: {token}")
+
+    for token in ("--target", "--all", "--mode", "dry-run", "--format"):
+        if token not in text:
+            raise SmokeFailure(f"{XARCH_RUNNER} missing CLI contract token: {token}")
+
+    for token in ("build-ovmf-x64.sh", "build-armvirt.sh", "build-loongarchvirt.sh", "build-riscvvirt.sh"):
+        if token not in text:
+            raise SmokeFailure(f"{XARCH_RUNNER} missing intended script reference: {token}")
+
+    for prohibited in XARCH_RUNNER_FORBIDDEN_MUTATION_TOKENS:
+        if prohibited in text:
+            raise SmokeFailure(f"{XARCH_RUNNER} contains prohibited firmware-mutation token: {prohibited}")
+
+    forbidden_runtime_patterns = (
+        r"\bbuild\s+-p\b",
+        r"\bqemu-system-",
+    )
+    for pattern in forbidden_runtime_patterns:
+        if re.search(pattern, text):
+            raise SmokeFailure(f"{XARCH_RUNNER} appears to invoke a heavy validation command: {pattern}")
+
+    return ["PASS XArch validation runner static contract"]
 
 
 def check_edk2_baseline_contract(root: Path) -> list[str]:
@@ -1124,6 +1173,7 @@ def main() -> int:
         messages.extend(check_edk2_baseline_contract(root))
         messages.extend(check_ovmf_capture_helper_contract(root))
         messages.extend(check_xarch_docs_contract(root))
+        messages.extend(check_xarch_runner_contract(root))
         messages.extend(check_static_overlay_script_contracts(root))
         messages.extend(check_overlay_generation(root))
     except SmokeFailure as exc:
