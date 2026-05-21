@@ -1,0 +1,28 @@
+## @file
+# Read-only hardware health demo summary provider for ModernSetupApp.
+#
+# Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
+# Author: MarsDoge (Dongyan Qian)
+# Open source: https://github.com/MarsDoge/ModernSetupPkg
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = ModernUiHardwareHealthDataLib
+  FILE_GUID                      = 7D85E1D4-3B04-4C2B-B3AB-4F39F1E4C4A4
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 0.1
+  LIBRARY_CLASS                  = ModernUiHardwareHealthDataLib|UEFI_APPLICATION
+
+[Sources]
+  ModernUiHardwareHealthDataLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  ModernSetupPkg/ModernSetupPkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  PrintLib
