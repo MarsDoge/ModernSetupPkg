@@ -1092,6 +1092,59 @@ def check_modern_setup_app_preferences_boundary(root: Path) -> list[str]:
     return ["PASS ModernSetupApp app-owned preferences boundary"]
 
 
+def check_phase26_interactive_app_owned_preferences(root: Path) -> list[str]:
+    app_dir = root / MODERN_SETUP_APP_DIR
+    app_main = strip_c_comments((app_dir / "ModernSetupApp.c").read_text(encoding="utf-8"))
+    actions = strip_c_comments((app_dir / "ModernSetupAppActions.c").read_text(encoding="utf-8"))
+    pages = strip_c_comments((app_dir / "ModernSetupAppPages.c").read_text(encoding="utf-8"))
+    internal = strip_c_comments((app_dir / "ModernSetupAppInternal.h").read_text(encoding="utf-8"))
+    app_sources = "\n".join((app_main, actions, pages, internal))
+
+    required_tokens = (
+        "MODERN_SETUP_PREFERENCE_ROW_THEME",
+        "MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY",
+        "MODERN_SETUP_PREFERENCE_ROW_REMEMBER_LAST_PAGE",
+        "MODERN_SETUP_PREFERENCE_ROW_SHOW_ADVANCED_HINTS",
+        "MODERN_SETUP_PREFERENCE_ROW_CONFIRM_RESET",
+        "MODERN_SETUP_PREFERENCE_ROW_COUNT",
+        "mModernSetupPreferencePopupOpen",
+        "mModernSetupPreferencePopupSelection",
+        "ModernSetupHandlePreferencePopupUp",
+        "ModernSetupHandlePreferencePopupDown",
+        "ModernSetupCancelPreferencePopup",
+        "ModernSetupCommitPreferencePopup",
+        "ModernSetupGetPreferenceChoiceCount",
+        "ModernSetupGetPreferenceChoiceName",
+        "ModernSetupGetPreferenceValueName",
+        "ModernSetupPreferenceCheckboxValueText",
+        "ModernUiValueOneOf",
+        "ModernUiValueCheckbox",
+        "ModernUiEngineDrawPopup",
+    )
+    for token in required_tokens:
+        if token not in app_sources:
+            raise SmokeFailure(f"Phase26 interactive Preferences missing token: {token}")
+
+    for field in ("ThemeId", "DashboardDensity", "RememberLastPage", "ShowAdvancedHints", "ConfirmReset"):
+        if f"mModernSetupPreferences.{field}" not in app_sources:
+            raise SmokeFailure(f"Phase26 Preferences UI does not bind field: {field}")
+
+    if "return MODERN_SETUP_PREFERENCE_ROW_COUNT" not in actions:
+        raise SmokeFailure("Preferences selectable count must use MODERN_SETUP_PREFERENCE_ROW_COUNT")
+    if "ModernUiPreferencesSave (&mModernSetupPreferences)" not in actions:
+        raise SmokeFailure("Preferences controls must persist through ModernUiPreferencesSave")
+    if actions.count("PersistPreferencesAndStatus (StatusMessage, StatusSize)") < 4:
+        raise SmokeFailure("Preferences one-of and checkbox controls must share the save path")
+    if "ModernSetupCommitPreferencePopup (StatusMessage, sizeof (StatusMessage))" not in app_main:
+        raise SmokeFailure("Enter must commit an open Preferences one-of popup")
+    if "ModernSetupCancelPreferencePopup ()" not in app_main:
+        raise SmokeFailure("Esc/navigation must cancel an open Preferences popup")
+    if "ModernSetupHandlePreferencePopupUp ()" not in app_main or "ModernSetupHandlePreferencePopupDown ()" not in app_main:
+        raise SmokeFailure("Up/Down must move an open Preferences popup selection")
+
+    return ["PASS Phase26 interactive app-owned Preferences controls contract"]
+
+
 def check_pcie_provider_foundation(root: Path) -> list[str]:
     for relative in PCIE_PROVIDER_REQUIRED_FILES:
         if not (root / relative).exists():
@@ -1538,6 +1591,7 @@ def main() -> int:
         messages.extend(check_modern_setup_app_module_boundaries(root))
         messages.extend(check_phase25_server_inventory_summary(root))
         messages.extend(check_modern_setup_app_preferences_boundary(root))
+        messages.extend(check_phase26_interactive_app_owned_preferences(root))
         messages.extend(check_pcie_provider_foundation(root))
         messages.extend(check_hardware_health_demo_provider(root))
         messages.extend(check_pcie_docs_language(root))

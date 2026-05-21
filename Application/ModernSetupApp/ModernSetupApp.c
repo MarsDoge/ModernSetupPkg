@@ -59,7 +59,10 @@ UefiMain (
 
   EfiBootManagerConnectAll ();
   EfiBootManagerRefreshAllBootOption ();
-  ModernUiPreferencesLoad (&mModernSetupPreferences);
+  Status = ModernUiPreferencesLoad (&mModernSetupPreferences);
+  if (EFI_ERROR (Status)) {
+    ModernUiPreferencesResetToDefaults (&mModernSetupPreferences);
+  }
   ModernUiInputInit (&Input);
   Theme         = ModernUiGetTheme ();
   Page          = PageDashboard;
@@ -90,7 +93,9 @@ UefiMain (
 
     switch (Event.Type) {
       case ModernUiInputUp:
-        if ((Focus == SetupFocusContent) && (Page == PageExit) && mModernSetupLanguageDropdownOpen) {
+        if ((Focus == SetupFocusContent) && (Page == PagePreferences) && mModernSetupPreferencePopupOpen) {
+          ModernSetupHandlePreferencePopupUp ();
+        } else if ((Focus == SetupFocusContent) && (Page == PageExit) && mModernSetupLanguageDropdownOpen) {
           mModernSetupLanguageDropdownSelection = (mModernSetupLanguageDropdownSelection == 0) ? 1 : 0;
         } else if ((Focus == SetupFocusContent) && (Page == PageDashboard)) {
           if (ModernSetupGetDashboardQuickGrid (&Ui, &DashboardGrid) && (DashboardSelection >= DashboardGrid.CardsPerRow)) {
@@ -110,7 +115,9 @@ UefiMain (
         Redraw = TRUE;
         break;
       case ModernUiInputDown:
-        if ((Focus == SetupFocusContent) && (Page == PageExit) && mModernSetupLanguageDropdownOpen) {
+        if ((Focus == SetupFocusContent) && (Page == PagePreferences) && mModernSetupPreferencePopupOpen) {
+          ModernSetupHandlePreferencePopupDown ();
+        } else if ((Focus == SetupFocusContent) && (Page == PageExit) && mModernSetupLanguageDropdownOpen) {
           mModernSetupLanguageDropdownSelection = (mModernSetupLanguageDropdownSelection + 1) % 2;
         } else if (Focus == SetupFocusNav) {
           if (ModernSetupGetPageSelectableCount (&Ui, Page) > 0) {
@@ -133,11 +140,14 @@ UefiMain (
         break;
       case ModernUiInputTab:
         mModernSetupLanguageDropdownOpen = FALSE;
+        ModernSetupCancelPreferencePopup ();
         Focus  = (Focus == SetupFocusNav) ? SetupFocusContent : SetupFocusNav;
         Redraw = TRUE;
         break;
       case ModernUiInputLeft:
-        if ((Focus == SetupFocusContent) && (Page == PageExit) && mModernSetupLanguageDropdownOpen) {
+        if ((Focus == SetupFocusContent) && (Page == PagePreferences) && mModernSetupPreferencePopupOpen) {
+          ModernSetupCancelPreferencePopup ();
+        } else if ((Focus == SetupFocusContent) && (Page == PageExit) && mModernSetupLanguageDropdownOpen) {
           mModernSetupLanguageDropdownOpen = FALSE;
         } else if ((Focus == SetupFocusContent) && (Page == PageDashboard)) {
           if (ModernSetupGetDashboardQuickGrid (&Ui, &DashboardGrid) && ((DashboardSelection % DashboardGrid.CardsPerRow) > 0)) {
@@ -148,6 +158,7 @@ UefiMain (
         } else if (Focus == SetupFocusNav) {
           Page = (Page == 0) ? (PageMax - 1) : (Page - 1);
           mModernSetupLanguageDropdownOpen = FALSE;
+          ModernSetupCancelPreferencePopup ();
         } else {
           Focus = SetupFocusNav;
         }
@@ -159,6 +170,7 @@ UefiMain (
         if (Focus == SetupFocusNav) {
           Page = (Page + 1) % PageMax;
           mModernSetupLanguageDropdownOpen = FALSE;
+          ModernSetupCancelPreferencePopup ();
         } else if (Page == PageDashboard) {
           if (ModernSetupGetDashboardQuickGrid (&Ui, &DashboardGrid)) {
             if ((((DashboardSelection % DashboardGrid.CardsPerRow) + 1) < DashboardGrid.CardsPerRow) && ((DashboardSelection + 1) < DASHBOARD_QUICK_CARD_COUNT)) {
@@ -170,13 +182,18 @@ UefiMain (
           StatusMessage[0] = L'\0';
         } else {
           mModernSetupLanguageDropdownOpen = FALSE;
+          ModernSetupCancelPreferencePopup ();
           StatusMessage[0] = L'\0';
         }
 
         Redraw = TRUE;
         break;
       case ModernUiInputEscape:
-        if ((Focus == SetupFocusContent) && (Page == PageExit) && mModernSetupLanguageDropdownOpen) {
+        if ((Focus == SetupFocusContent) && (Page == PagePreferences) && mModernSetupPreferencePopupOpen) {
+          ModernSetupCancelPreferencePopup ();
+          StatusMessage[0] = L'\0';
+          Redraw = TRUE;
+        } else if ((Focus == SetupFocusContent) && (Page == PageExit) && mModernSetupLanguageDropdownOpen) {
           mModernSetupLanguageDropdownOpen = FALSE;
           StatusMessage[0] = L'\0';
           Redraw = TRUE;
@@ -212,7 +229,11 @@ UefiMain (
           UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"FormBrowser returned: %r", Status);
           Redraw = TRUE;
         } else if (Page == PagePreferences) {
-          ModernSetupHandlePreferencesEnter (PreferencesSelection, StatusMessage, sizeof (StatusMessage));
+          if (mModernSetupPreferencePopupOpen) {
+            ModernSetupCommitPreferencePopup (StatusMessage, sizeof (StatusMessage));
+          } else {
+            ModernSetupHandlePreferencesEnter (PreferencesSelection, StatusMessage, sizeof (StatusMessage));
+          }
           Redraw = TRUE;
         } else if (Page == PageExit) {
           if (ExitSelection == 0) {
