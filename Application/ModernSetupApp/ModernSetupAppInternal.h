@@ -138,11 +138,20 @@ typedef struct {
 typedef enum {
   MODERN_SETUP_PREFERENCE_ROW_THEME = 0,
   MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY,
+  MODERN_SETUP_PREFERENCE_ROW_BOOT_TIMEOUT,
+  MODERN_SETUP_PREFERENCE_ROW_PROFILE_NAME,
   MODERN_SETUP_PREFERENCE_ROW_REMEMBER_LAST_PAGE,
   MODERN_SETUP_PREFERENCE_ROW_SHOW_ADVANCED_HINTS,
   MODERN_SETUP_PREFERENCE_ROW_CONFIRM_RESET,
   MODERN_SETUP_PREFERENCE_ROW_COUNT
 } MODERN_SETUP_PREFERENCE_ROW;
+
+typedef enum {
+  ModernSetupPreferencePopupNone = 0,
+  ModernSetupPreferencePopupChoice,
+  ModernSetupPreferencePopupNumericInput,
+  ModernSetupPreferencePopupStringInput
+} MODERN_SETUP_PREFERENCE_POPUP_KIND;
 
 extern EFI_HANDLE  mModernSetupImageHandle;
 extern BOOLEAN     mModernSetupLanguageDropdownOpen;
@@ -150,6 +159,9 @@ extern UINTN       mModernSetupLanguageDropdownSelection;
 extern BOOLEAN     mModernSetupPreferencePopupOpen;
 extern UINTN       mModernSetupPreferencePopupRow;
 extern UINTN       mModernSetupPreferencePopupSelection;
+extern MODERN_SETUP_PREFERENCE_POPUP_KIND  mModernSetupPreferencePopupKind;
+extern CHAR16      mModernSetupPreferenceInputBuffer[MODERN_UI_PREFERENCES_PROFILE_NAME_CHARS];
+extern UINTN       mModernSetupPreferenceInputLength;
 extern MODERN_UI_PREFERENCES  mModernSetupPreferences;
 
 MODERN_UI_RECT
@@ -329,6 +341,13 @@ VOID
 ModernSetupCommitPreferencePopup (
   OUT CHAR16  *StatusMessage,
   IN  UINTN   StatusSize
+  );
+
+VOID
+ModernSetupHandlePreferenceInputKey (
+  IN  CONST MODERN_UI_INPUT_EVENT  *Event,
+  OUT CHAR16                       *StatusMessage,
+  IN  UINTN                        StatusSize
   );
 
 VOID

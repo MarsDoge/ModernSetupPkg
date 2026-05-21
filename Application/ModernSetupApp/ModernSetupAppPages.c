@@ -919,10 +919,16 @@ DrawFirmware (
   MODERN_UI_FIRMWARE_SUMMARY      *Summary;
   CONST CHAR16                    *Labels[5];
   CONST CHAR16                    *Values[5];
-  CONST CHAR16                    *Groups[5] = { NULL };
+  CONST CHAR16                    *Groups[5];
 
   ModernSetupGetProviderSnapshot (&Providers);
   Summary = &Providers.Firmware;
+
+  Groups[0] = NULL;
+  Groups[1] = NULL;
+  Groups[2] = NULL;
+  Groups[3] = NULL;
+  Groups[4] = NULL;
 
   Labels[0] = ModernUiGetString (ModernUiStringFirmwareVendor);
   Groups[0] = ModernUiGetString (ModernUiStringGroupFirmware);
@@ -974,11 +980,20 @@ DrawDiagnostics (
   CHAR16                                ProviderIssue[96];
   CONST CHAR16                          *Labels[8];
   CONST CHAR16                          *Values[8];
-  CONST CHAR16                          *Groups[8] = { NULL };
+  CONST CHAR16                          *Groups[8];
 
   ModernSetupGetProviderSnapshot (&Providers);
   ModernSetupGetProviderHealthSummary (&Providers, &ProviderHealth);
   Summary = &Providers.Diagnostics;
+
+  Groups[0] = NULL;
+  Groups[1] = NULL;
+  Groups[2] = NULL;
+  Groups[3] = NULL;
+  Groups[4] = NULL;
+  Groups[5] = NULL;
+  Groups[6] = NULL;
+  Groups[7] = NULL;
 
   UnicodeSPrint (MemoryMap, sizeof (MemoryMap), L"%u", Summary->MemoryDescriptorCount);
   UnicodeSPrint (Handles, sizeof (Handles), L"%u", Summary->HandleCount);
@@ -1041,10 +1056,14 @@ DrawManagement (
   MODERN_UI_MANAGEMENT_SUMMARY    *Summary;
   CONST CHAR16                    *Labels[3];
   CONST CHAR16                    *Values[3];
-  CONST CHAR16                    *Groups[3] = { NULL };
+  CONST CHAR16                    *Groups[3];
 
   ModernSetupGetProviderSnapshot (&Providers);
   Summary = &Providers.Management;
+
+  Groups[0] = NULL;
+  Groups[1] = NULL;
+  Groups[2] = NULL;
 
   Labels[0] = ModernUiGetString (ModernUiStringIpmi);
   Groups[0] = ModernUiGetString (ModernUiStringGroupManagement);
@@ -1182,7 +1201,7 @@ DrawPower (
   MODERN_UI_HARDWARE_HEALTH_SUMMARY *Health;
   CONST CHAR16                    *Labels[5];
   CONST CHAR16                    *Values[5];
-  CONST CHAR16                    *Groups[5] = { NULL };
+  CONST CHAR16                    *Groups[5];
   MODERN_UI_RECT                  Content;
   MODERN_UI_RECT                  Panel;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL   PanelBackground;
@@ -1194,6 +1213,12 @@ DrawPower (
   ModernSetupGetProviderSnapshot (&Providers);
   Summary = &Providers.Power;
   Health  = &Providers.HardwareHealth;
+
+  Groups[0] = NULL;
+  Groups[1] = NULL;
+  Groups[2] = NULL;
+  Groups[3] = NULL;
+  Groups[4] = NULL;
 
   Labels[0] = ModernUiGetString (ModernUiStringAcpiTablesProvider);
   Groups[0] = ModernUiGetString (ModernUiStringGroupPower);
@@ -1288,12 +1313,24 @@ DrawPerformance (
   CHAR16                            PcieDeviceCapabilities[96];
   CONST CHAR16                      *Labels[11];
   CONST CHAR16                      *Values[11];
-  CONST CHAR16                      *Groups[11] = { NULL };
+  CONST CHAR16                      *Groups[11];
 
   ModernSetupGetProviderSnapshot (&Providers);
   Summary         = &Providers.Performance;
   Pcie            = &Providers.Pcie;
   PcieUnavailable = ModernUiGetString (ModernUiStringNotAvailable);
+
+  Groups[0]  = NULL;
+  Groups[1]  = NULL;
+  Groups[2]  = NULL;
+  Groups[3]  = NULL;
+  Groups[4]  = NULL;
+  Groups[5]  = NULL;
+  Groups[6]  = NULL;
+  Groups[7]  = NULL;
+  Groups[8]  = NULL;
+  Groups[9]  = NULL;
+  Groups[10] = NULL;
 
   Labels[0] = ModernUiGetString (ModernUiStringProcessorInventory);
   Groups[0] = ModernUiGetString (ModernUiStringGroupPerformance);
@@ -1612,6 +1649,7 @@ DrawPreferences (
   UINTN                  Y;
   BOOLEAN                IsSelected;
   MODERN_UI_RECT         Panel;
+  CONST CHAR16           *Hint;
   UINTN                  RowX;
   UINTN                  RowWidth;
   UINTN                  ValueWidth;
@@ -1624,6 +1662,8 @@ DrawPreferences (
 
   Prompts[MODERN_SETUP_PREFERENCE_ROW_THEME]                  = L"Theme";
   Prompts[MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY]      = L"Dashboard Density";
+  Prompts[MODERN_SETUP_PREFERENCE_ROW_BOOT_TIMEOUT]           = L"UI Boot Countdown";
+  Prompts[MODERN_SETUP_PREFERENCE_ROW_PROFILE_NAME]           = L"Setup Profile Name";
   Prompts[MODERN_SETUP_PREFERENCE_ROW_REMEMBER_LAST_PAGE]     = L"Remember Last Page";
   Prompts[MODERN_SETUP_PREFERENCE_ROW_SHOW_ADVANCED_HINTS]    = L"Show Advanced Hints";
   Prompts[MODERN_SETUP_PREFERENCE_ROW_CONFIRM_RESET]          = ModernUiGetString (ModernUiStringPreferenceConfirmReset);
@@ -1643,26 +1683,51 @@ DrawPreferences (
     RowModel.Prompt    = Prompts[Index];
     RowModel.Value     = ModernSetupGetPreferenceValueName (Index);
     RowModel.Role      = IsSelected ? ModernUiRowSelected : ModernUiRowNormal;
-    RowModel.ValueType = (Index <= MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY) ? ModernUiValueOneOf : ModernUiValueCheckbox;
+    if (Index <= MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY) {
+      RowModel.ValueType = ModernUiValueOneOf;
+    } else if (Index == MODERN_SETUP_PREFERENCE_ROW_BOOT_TIMEOUT) {
+      RowModel.ValueType = ModernUiValueNumeric;
+    } else if (Index == MODERN_SETUP_PREFERENCE_ROW_PROFILE_NAME) {
+      RowModel.ValueType = ModernUiValueString;
+    } else {
+      RowModel.ValueType = ModernUiValueCheckbox;
+    }
     ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
   }
 
   if (mModernSetupPreferencePopupOpen) {
-    ChoiceCount = ModernSetupGetPreferenceChoiceCount (mModernSetupPreferencePopupRow);
     PopupX      = RowX + RowWidth - ValueWidth - 12;
     PopupY      = Panel.Y + 72 + (mModernSetupPreferencePopupRow + 1) * 42 - 8;
-    PopupModel.Rect  = (MODERN_UI_RECT){ PopupX, PopupY, ValueWidth, 40 + ChoiceCount * 34 };
-    PopupModel.Title = ModernSetupGetPreferenceValueName (mModernSetupPreferencePopupRow);
-    ModernUiEngineDrawPopup (Ui, &PopupModel, Theme);
+    if (mModernSetupPreferencePopupKind == ModernSetupPreferencePopupChoice) {
+      ChoiceCount = ModernSetupGetPreferenceChoiceCount (mModernSetupPreferencePopupRow);
+      PopupModel.Rect  = (MODERN_UI_RECT){ PopupX, PopupY, ValueWidth, 40 + ChoiceCount * 34 };
+      PopupModel.Title = ModernSetupGetPreferenceValueName (mModernSetupPreferencePopupRow);
+      ModernUiEngineDrawPopup (Ui, &PopupModel, Theme);
 
-    for (Choice = 0; Choice < ChoiceCount; Choice++) {
-      IsSelected = (BOOLEAN)(Choice == mModernSetupPreferencePopupSelection);
-      RowModel.Rect      = (MODERN_UI_RECT){ PopupX + 6, PopupY + 28 + Choice * 34, ValueWidth - 12, 30 };
-      RowModel.Prompt    = ModernSetupGetPreferenceChoiceName (mModernSetupPreferencePopupRow, Choice);
+      for (Choice = 0; Choice < ChoiceCount; Choice++) {
+        IsSelected = (BOOLEAN)(Choice == mModernSetupPreferencePopupSelection);
+        RowModel.Rect      = (MODERN_UI_RECT){ PopupX + 6, PopupY + 28 + Choice * 34, ValueWidth - 12, 30 };
+        RowModel.Prompt    = ModernSetupGetPreferenceChoiceName (mModernSetupPreferencePopupRow, Choice);
+        RowModel.Value     = NULL;
+        RowModel.Role      = IsSelected ? ModernUiRowSelected : ModernUiRowNormal;
+        RowModel.ValueType = ModernUiValueNone;
+        ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
+      }
+    } else {
+      PopupModel.Rect  = (MODERN_UI_RECT){ PopupX, PopupY, ValueWidth, 118 };
+      PopupModel.Title = Prompts[mModernSetupPreferencePopupRow];
+      ModernUiEngineDrawPopup (Ui, &PopupModel, Theme);
+
+      Hint = (mModernSetupPreferencePopupKind == ModernSetupPreferencePopupNumericInput) ?
+             L"Digits only, range 0..30. Enter saves, Esc cancels." :
+             L"Printable ASCII, max 31 chars. Enter saves, Esc cancels.";
+      RowModel.Rect      = (MODERN_UI_RECT){ PopupX + 8, PopupY + 36, ValueWidth - 16, 34 };
+      RowModel.Prompt    = mModernSetupPreferenceInputBuffer;
       RowModel.Value     = NULL;
-      RowModel.Role      = IsSelected ? ModernUiRowSelected : ModernUiRowNormal;
-      RowModel.ValueType = ModernUiValueNone;
+      RowModel.Role      = ModernUiRowSelected;
+      RowModel.ValueType = (mModernSetupPreferencePopupKind == ModernSetupPreferencePopupNumericInput) ? ModernUiValueNumeric : ModernUiValueString;
       ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
+      ModernUiDrawTextFit (Ui, PopupX + 12, PopupY + 80, ValueWidth - 24, Hint, Theme->MutedText, Theme->Surface);
     }
   }
 }
