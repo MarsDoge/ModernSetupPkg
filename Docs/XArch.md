@@ -73,7 +73,16 @@ Scripts/xarch-validate.sh --target aarch64 --mode dry-run
 
 # Machine-readable report for external tooling.
 Scripts/xarch-validate.sh --target all --mode dry-run --format json
+
+# Write Markdown/JSON artifacts for CI logs or maintainer handoff.
+Scripts/xarch-validate.sh --all --mode dry-run --format markdown --output Build/Reports/xarch-validation.md
+Scripts/xarch-validate.sh --all --mode dry-run --format json --output Build/XArchValidation.json
 ```
+
+When `--output PATH` is provided, the runner creates parent directories as
+needed, writes exactly the selected report format to `PATH`, and prints a short
+`Wrote XArch validation artifact: PATH` status line to stdout. If `--output` is
+omitted, the report is printed to stdout as before.
 
 Current runner scope:
 

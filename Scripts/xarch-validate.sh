@@ -11,10 +11,12 @@ PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET_FILTER="all"
 MODE="dry-run"
 FORMAT="table"
+OUTPUT_PATH=""
+OUTPUT_SET=0
 
 usage() {
   cat <<'USAGE'
-Usage: Scripts/xarch-validate.sh [--target x64|aarch64|loongarch64|riscv64|all] [--mode dry-run] [--format table|markdown|json]
+Usage: Scripts/xarch-validate.sh [--target x64|aarch64|loongarch64|riscv64|all] [--mode dry-run] [--format table|markdown|json] [--output PATH]
        Scripts/xarch-validate.sh --all
 
 Run the lightweight XArch validation runner. The Phase20 runner is dry-run only:
@@ -28,6 +30,8 @@ Options:
   --all                  Alias for --target all.
   --mode dry-run         Dry-run mode only for this phase. Default: dry-run.
   --format FORMAT        table, markdown, or json. Default: table.
+  --output PATH          Write the selected report format to PATH instead of
+                         stdout and print a short artifact status line.
 USAGE
 }
 
@@ -91,6 +95,20 @@ while [[ $# -gt 0 ]]; do
       FORMAT="${1#--format=}"
       shift
       ;;
+    --output)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --output" >&2
+        exit 2
+      fi
+      OUTPUT_PATH="$2"
+      OUTPUT_SET=1
+      shift 2
+      ;;
+    --output=*)
+      OUTPUT_PATH="${1#--output=}"
+      OUTPUT_SET=1
+      shift
+      ;;
     *)
       echo "Unknown option '$1'" >&2
       usage >&2
@@ -111,6 +129,38 @@ case "${FORMAT}" in
     exit 2
     ;;
 esac
+
+if [[ ${OUTPUT_SET} -eq 1 && -z "${OUTPUT_PATH}" ]]; then
+  echo "Missing value for --output" >&2
+  exit 2
+fi
+
+if [[ -n "${OUTPUT_PATH}" ]]; then
+  if [[ -d "${OUTPUT_PATH}" ]]; then
+    echo "Output path is a directory: ${OUTPUT_PATH}" >&2
+    exit 2
+  fi
+
+  OUTPUT_DIR="$(dirname -- "${OUTPUT_PATH}")"
+  if [[ -z "${OUTPUT_DIR}" ]]; then
+    OUTPUT_DIR="."
+  fi
+
+  if ! mkdir -p -- "${OUTPUT_DIR}"; then
+    echo "Failed to create output directory: ${OUTPUT_DIR}" >&2
+    exit 2
+  fi
+
+  if [[ ! -w "${OUTPUT_DIR}" ]]; then
+    echo "Output directory is not writable: ${OUTPUT_DIR}" >&2
+    exit 2
+  fi
+
+  if [[ -e "${OUTPUT_PATH}" && ! -w "${OUTPUT_PATH}" ]]; then
+    echo "Output path is not writable: ${OUTPUT_PATH}" >&2
+    exit 2
+  fi
+fi
 
 TARGET_KEYS=(x64 aarch64 loongarch64 riscv64)
 
@@ -224,43 +274,55 @@ if [[ ${#RESULT_KEYS[@]} -eq 0 ]]; then
   exit 2
 fi
 
-case "${FORMAT}" in
-  table)
-    echo "XArch validation report (mode: ${MODE})"
-    printf '%-30s | %-11s | %-46s | %-34s | %-6s | %s\n' "Target" "edk2 ARCH" "Platform" "Validation level" "Result" "Checked scripts/docs"
-    printf '%-30s-+-%-11s-+-%-46s-+-%-34s-+-%-6s-+-%s\n' "------------------------------" "-----------" "----------------------------------------------" "----------------------------------" "------" "--------------------"
-    for i in "${!RESULT_KEYS[@]}"; do
-      printf '%-30s | %-11s | %-46s | %-34s | %-6s | %s\n' \
-        "${RESULT_LABELS[$i]}" "${RESULT_ARCHES[$i]}" "${RESULT_PLATFORMS[$i]}" \
-        "${RESULT_LEVELS[$i]}" "${RESULT_RESULTS[$i]}" "${RESULT_CHECKS[$i]}"
-      printf '  note: %s\n' "${RESULT_NOTES[$i]}"
-    done
-    ;;
-  markdown)
-    echo "# XArch validation report"
-    echo
-    echo "Mode: ${MODE}"
-    echo
-    echo "| Target | edk2 ARCH | Platform | Validation level | Checked scripts/docs | Result |"
-    echo "| --- | --- | --- | --- | --- | --- |"
-    for i in "${!RESULT_KEYS[@]}"; do
-      echo "| ${RESULT_LABELS[$i]} | ${RESULT_ARCHES[$i]} | ${RESULT_PLATFORMS[$i]} | ${RESULT_LEVELS[$i]} | ${RESULT_CHECKS[$i]} | ${RESULT_RESULTS[$i]} |"
-    done
-    ;;
-  json)
-    echo "{"
-    echo "  \"mode\": \"${MODE}\","
-    echo "  \"targets\": ["
-    for i in "${!RESULT_KEYS[@]}"; do
-      comma=","
-      if [[ $i -eq $((${#RESULT_KEYS[@]} - 1)) ]]; then
-        comma=""
-      fi
-      echo "    {\"target\": \"$(json_escape "${RESULT_LABELS[$i]}")\", \"edk2_arch\": \"${RESULT_ARCHES[$i]}\", \"platform\": \"$(json_escape "${RESULT_PLATFORMS[$i]}")\", \"validation_level\": \"$(json_escape "${RESULT_LEVELS[$i]}")\", \"checked\": \"$(json_escape "${RESULT_CHECKS[$i]}")\", \"result\": \"${RESULT_RESULTS[$i]}\", \"note\": \"$(json_escape "${RESULT_NOTES[$i]}")\"}${comma}"
-    done
-    echo "  ]"
-    echo "}"
-    ;;
-esac
+generate_report() {
+  case "${FORMAT}" in
+    table)
+      echo "XArch validation report (mode: ${MODE})"
+      printf '%-30s | %-11s | %-46s | %-34s | %-6s | %s\n' "Target" "edk2 ARCH" "Platform" "Validation level" "Result" "Checked scripts/docs"
+      printf '%-30s-+-%-11s-+-%-46s-+-%-34s-+-%-6s-+-%s\n' "------------------------------" "-----------" "----------------------------------------------" "----------------------------------" "------" "--------------------"
+      for i in "${!RESULT_KEYS[@]}"; do
+        printf '%-30s | %-11s | %-46s | %-34s | %-6s | %s\n' \
+          "${RESULT_LABELS[$i]}" "${RESULT_ARCHES[$i]}" "${RESULT_PLATFORMS[$i]}" \
+          "${RESULT_LEVELS[$i]}" "${RESULT_RESULTS[$i]}" "${RESULT_CHECKS[$i]}"
+        printf '  note: %s\n' "${RESULT_NOTES[$i]}"
+      done
+      ;;
+    markdown)
+      echo "# XArch validation report"
+      echo
+      echo "Mode: ${MODE}"
+      echo
+      echo "| Target | edk2 ARCH | Platform | Validation level | Checked scripts/docs | Result |"
+      echo "| --- | --- | --- | --- | --- | --- |"
+      for i in "${!RESULT_KEYS[@]}"; do
+        echo "| ${RESULT_LABELS[$i]} | ${RESULT_ARCHES[$i]} | ${RESULT_PLATFORMS[$i]} | ${RESULT_LEVELS[$i]} | ${RESULT_CHECKS[$i]} | ${RESULT_RESULTS[$i]} |"
+      done
+      ;;
+    json)
+      echo "{"
+      echo "  \"mode\": \"${MODE}\","
+      echo "  \"targets\": ["
+      for i in "${!RESULT_KEYS[@]}"; do
+        comma=","
+        if [[ $i -eq $((${#RESULT_KEYS[@]} - 1)) ]]; then
+          comma=""
+        fi
+        echo "    {\"target\": \"$(json_escape "${RESULT_LABELS[$i]}")\", \"edk2_arch\": \"${RESULT_ARCHES[$i]}\", \"platform\": \"$(json_escape "${RESULT_PLATFORMS[$i]}")\", \"validation_level\": \"$(json_escape "${RESULT_LEVELS[$i]}")\", \"checked\": \"$(json_escape "${RESULT_CHECKS[$i]}")\", \"result\": \"${RESULT_RESULTS[$i]}\", \"note\": \"$(json_escape "${RESULT_NOTES[$i]}")\"}${comma}"
+      done
+      echo "  ]"
+      echo "}"
+      ;;
+  esac
+}
+
+if [[ -n "${OUTPUT_PATH}" ]]; then
+  if ! generate_report > "${OUTPUT_PATH}"; then
+    echo "Failed to write XArch validation artifact: ${OUTPUT_PATH}" >&2
+    exit 2
+  fi
+  echo "Wrote XArch validation artifact: ${OUTPUT_PATH}"
+else
+  generate_report
+fi
 
 exit "${EXIT_STATUS}"

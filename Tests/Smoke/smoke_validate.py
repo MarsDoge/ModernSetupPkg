@@ -30,6 +30,7 @@ side invariants that are useful for multi-agent maintenance:
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
 import re
@@ -473,6 +474,8 @@ def check_xarch_docs_contract(root: Path) -> list[str]:
     for token in XARCH_ARCH_TOKENS:
         assert_contains(xarch_doc, token)
     assert_contains(xarch_doc, "XArch does not replace edk2 ARCH values")
+    assert_contains(xarch_doc, "--output PATH")
+    assert_contains(xarch_doc, "Wrote XArch validation artifact")
 
     return ["PASS XArch docs/model static contract"]
 
@@ -493,7 +496,7 @@ def check_xarch_runner_contract(root: Path) -> list[str]:
         if token not in text:
             raise SmokeFailure(f"{XARCH_RUNNER} missing XArch runner token: {token}")
 
-    for token in ("--target", "--all", "--mode", "dry-run", "--format"):
+    for token in ("--target", "--all", "--mode", "dry-run", "--format", "--output"):
         if token not in text:
             raise SmokeFailure(f"{XARCH_RUNNER} missing CLI contract token: {token}")
 
@@ -514,6 +517,69 @@ def check_xarch_runner_contract(root: Path) -> list[str]:
             raise SmokeFailure(f"{XARCH_RUNNER} appears to invoke a heavy validation command: {pattern}")
 
     return ["PASS XArch validation runner static contract"]
+
+
+def check_xarch_runner_artifact_output(root: Path) -> list[str]:
+    bash = shutil.which("bash")
+    if bash is None:
+        return ["SKIP XArch validation artifact output: bash not found"]
+
+    runner = root / XARCH_RUNNER
+    with tempfile.TemporaryDirectory(prefix="xarch-validation-smoke-") as tmp:
+        out_dir = Path(tmp) / "reports" / "nested"
+        markdown_path = out_dir / "xarch-validation.md"
+        json_path = out_dir / "xarch-validation.json"
+
+        markdown_result = run(
+            [
+                bash,
+                str(runner),
+                "--all",
+                "--mode",
+                "dry-run",
+                "--format",
+                "markdown",
+                "--output",
+                str(markdown_path),
+            ],
+            cwd=root,
+        )
+        expected_markdown_status = f"Wrote XArch validation artifact: {markdown_path}"
+        if markdown_result.stdout.strip() != expected_markdown_status:
+            raise SmokeFailure("XArch markdown artifact status line mismatch")
+        markdown_text = markdown_path.read_text(encoding="utf-8")
+        for token in ("# XArch validation report", "| Target |", "X64 / OVMF X64", "RISCV64"):
+            if token not in markdown_text:
+                raise SmokeFailure(f"XArch markdown artifact missing token: {token}")
+
+        json_result = run(
+            [
+                bash,
+                str(runner),
+                "--all",
+                "--mode",
+                "dry-run",
+                "--format",
+                "json",
+                "--output",
+                str(json_path),
+            ],
+            cwd=root,
+        )
+        expected_json_status = f"Wrote XArch validation artifact: {json_path}"
+        if json_result.stdout.strip() != expected_json_status:
+            raise SmokeFailure("XArch JSON artifact status line mismatch")
+        payload = json.loads(json_path.read_text(encoding="utf-8"))
+        if payload.get("mode") != "dry-run":
+            raise SmokeFailure("XArch JSON artifact mode mismatch")
+        targets = payload.get("targets")
+        if not isinstance(targets, list) or len(targets) != len(XARCH_TARGET_TOKENS):
+            raise SmokeFailure("XArch JSON artifact target list mismatch")
+        for target in targets:
+            if target.get("result") != "PASS":
+                raise SmokeFailure(f"XArch JSON artifact target did not pass: {target}")
+
+    return ["PASS XArch validation artifact output smoke"]
 
 
 def check_edk2_baseline_contract(root: Path) -> list[str]:
@@ -1174,6 +1240,7 @@ def main() -> int:
         messages.extend(check_ovmf_capture_helper_contract(root))
         messages.extend(check_xarch_docs_contract(root))
         messages.extend(check_xarch_runner_contract(root))
+        messages.extend(check_xarch_runner_artifact_output(root))
         messages.extend(check_static_overlay_script_contracts(root))
         messages.extend(check_overlay_generation(root))
     except SmokeFailure as exc:

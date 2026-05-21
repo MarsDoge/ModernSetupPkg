@@ -54,6 +54,8 @@ For a lightweight target metadata check, run:
 
 ```sh
 Scripts/xarch-validate.sh --all --mode dry-run
+Scripts/xarch-validate.sh --all --mode dry-run --format markdown --output Build/Reports/xarch-validation.md
+Scripts/xarch-validate.sh --all --mode dry-run --format json --output Build/XArchValidation.json
 ```
 
 ## Current Scope
