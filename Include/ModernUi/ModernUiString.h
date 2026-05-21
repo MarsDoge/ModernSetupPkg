@@ -34,6 +34,8 @@ typedef enum {
   ModernUiStringPagePowerHint,
   ModernUiStringPagePerformance,
   ModernUiStringPagePerformanceHint,
+  ModernUiStringPageServerInventory,
+  ModernUiStringPageServerInventoryHint,
   ModernUiStringPagePreferences,
   ModernUiStringPagePreferencesHint,
   ModernUiStringPageHii,

@@ -20,6 +20,7 @@ STATIC CONST PAGE_DESCRIPTOR  mPages[] = {
   { PageManagement, ModernUiStringPageManagement, ModernUiStringPageManagementHint },
   { PagePower, ModernUiStringPagePower, ModernUiStringPagePowerHint },
   { PagePerformance, ModernUiStringPagePerformance, ModernUiStringPagePerformanceHint },
+  { PageServerInventory, ModernUiStringPageServerInventory, ModernUiStringPageServerInventoryHint },
   { PagePreferences, ModernUiStringPagePreferences, ModernUiStringPagePreferencesHint },
   { PageExit,      ModernUiStringPageExit,      ModernUiStringPageExitHint      }
 };

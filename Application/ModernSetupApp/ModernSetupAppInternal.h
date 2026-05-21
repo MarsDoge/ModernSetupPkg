@@ -48,7 +48,7 @@
 #define SCREEN_MARGIN      24
 #define MAX_BOOT_ROWS      9
 #define MAX_DEVICE_ROWS    9
-#define DASHBOARD_QUICK_CARD_COUNT  6
+#define DASHBOARD_QUICK_CARD_COUNT  7
 #define DASHBOARD_SECTION_TITLE_TOP 12
 #define DASHBOARD_QUICK_CARD_TOP    64
 #define DASHBOARD_QUICK_CARD_GAP    40
@@ -66,6 +66,7 @@ typedef enum {
   PageManagement,
   PagePower,
   PagePerformance,
+  PageServerInventory,
   PagePreferences,
   PageExit,
   PageMax

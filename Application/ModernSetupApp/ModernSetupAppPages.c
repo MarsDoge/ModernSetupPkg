@@ -1379,6 +1379,217 @@ DrawPerformance (
 }
 
 /**
+  Return a capability value only when its provider snapshot status is usable.
+
+  @param[in] Status   Provider status from MODERN_SETUP_PROVIDER_SNAPSHOT.
+  @param[in] Present  Capability bit from the provider snapshot.
+
+  @return Non-NULL localized capability text, or Unknown for failed providers.
+**/
+STATIC
+CONST CHAR16 *
+SnapshotCapabilityText (
+  IN EFI_STATUS  Status,
+  IN BOOLEAN     Present
+  )
+{
+  if (EFI_ERROR (Status)) {
+    return ModernUiGetString (ModernUiStringUnknown);
+  }
+
+  return CapabilityText (Present);
+}
+
+/**
+  Draw a compact read-only Server Inventory summary from app provider snapshots.
+
+  This page is intentionally view-only. Native HII/FormBrowser owns policy
+  changes; ModernSetupApp only presents normalized provider snapshot data.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] Focus  Current focus area.
+**/
+STATIC
+VOID
+MODERN_SETUP_NOINLINE
+DrawServerInventorySummary (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus
+  )
+{
+  MODERN_SETUP_PROVIDER_SNAPSHOT        Providers;
+  MODERN_SETUP_PROVIDER_HEALTH_SUMMARY  ProviderHealth;
+  MODERN_UI_RECT                        Content;
+  MODERN_UI_RECT                        Panel;
+  MODERN_UI_RECT                        Column;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL         Background;
+  UINTN                                 LeftWidth;
+  UINTN                                 RightWidth;
+  UINTN                                 RowY;
+  CHAR16                                MemoryText[48];
+  CHAR16                                ProviderCoverage[64];
+  CHAR16                                ProviderIssue[96];
+  CHAR16                                SmbiosAcpiText[64];
+  CHAR16                                FabricText[80];
+  CHAR16                                DeviceText[80];
+  CHAR16                                IsolationText[112];
+  CHAR16                                NativePolicyText[112];
+  CONST CHAR16                          *UnknownText;
+
+  ModernSetupGetProviderSnapshot (&Providers);
+  ModernSetupGetProviderHealthSummary (&Providers, &ProviderHealth);
+
+  UnknownText = ModernUiGetString (ModernUiStringUnknown);
+  if (EFI_ERROR (Providers.PlatformStatus)) {
+    UnicodeSPrint (MemoryText, sizeof (MemoryText), L"%s", UnknownText);
+  } else {
+    UnicodeSPrint (MemoryText, sizeof (MemoryText), L"%lu MB", Providers.Platform.MemorySizeMb);
+  }
+
+  UnicodeSPrint (ProviderCoverage, sizeof (ProviderCoverage), L"%u/%u ready", ProviderHealth.ReadyProviders, ProviderHealth.TotalProviders);
+  if (ProviderHealth.State == ModernSetupProviderHealthReady) {
+    UnicodeSPrint (ProviderIssue, sizeof (ProviderIssue), L"None");
+  } else {
+    UnicodeSPrint (ProviderIssue, sizeof (ProviderIssue), L"%s (%r)", ProviderHealth.FirstIssueName, ProviderHealth.FirstIssueStatus);
+  }
+
+  if (EFI_ERROR (Providers.DiagnosticsStatus)) {
+    UnicodeSPrint (SmbiosAcpiText, sizeof (SmbiosAcpiText), L"%s", UnknownText);
+  } else {
+    UnicodeSPrint (
+      SmbiosAcpiText,
+      sizeof (SmbiosAcpiText),
+      L"SMBIOS %s / ACPI %s",
+      CapabilityText (Providers.Diagnostics.SmbiosPresent),
+      CapabilityText (Providers.Diagnostics.AcpiPresent)
+      );
+  }
+
+  if (EFI_ERROR (Providers.PcieStatus)) {
+    UnicodeSPrint (FabricText, sizeof (FabricText), L"%s", UnknownText);
+    UnicodeSPrint (DeviceText, sizeof (DeviceText), L"%s", UnknownText);
+    UnicodeSPrint (IsolationText, sizeof (IsolationText), L"%s", UnknownText);
+    UnicodeSPrint (NativePolicyText, sizeof (NativePolicyText), L"%s", UnknownText);
+  } else {
+    UnicodeSPrint (
+      FabricText,
+      sizeof (FabricText),
+      L"%u controllers / %u roots",
+      Providers.Pcie.ControllerCount,
+      Providers.Pcie.RootBridgeCount
+      );
+    UnicodeSPrint (
+      DeviceText,
+      sizeof (DeviceText),
+      L"%u endpoints / %u bridges",
+      Providers.Pcie.EndpointCount,
+      Providers.Pcie.BridgeCount
+      );
+    UnicodeSPrint (
+      IsolationText,
+      sizeof (IsolationText),
+      L"IOMMU %s / ACS %s (%u) / ARI %s (%u)",
+      CapabilityText (Providers.Pcie.IommuPolicyEntryPresent || Providers.Pcie.IoMmuProtocolPresent),
+      CapabilityText (Providers.Pcie.AcsPolicyEntryPresent),
+      Providers.Pcie.AcsDeviceCount,
+      CapabilityText (Providers.Pcie.AriPolicyEntryPresent),
+      Providers.Pcie.AriDeviceCount
+      );
+    UnicodeSPrint (
+      NativePolicyText,
+      sizeof (NativePolicyText),
+      L"SR-IOV %s (%u) / ReBAR %s (%u) / Above4G %s",
+      CapabilityText (Providers.Pcie.SriovPolicyEntryPresent),
+      Providers.Pcie.SriovDeviceCount,
+      CapabilityText (Providers.Pcie.ResizeBarPolicyEntryPresent),
+      Providers.Pcie.ResizableBarDeviceCount,
+      CapabilityText (Providers.Pcie.Above4GPolicyEntryPresent)
+      );
+  }
+
+  Content    = ModernSetupContentRect (Ui);
+  Panel      = (MODERN_UI_RECT){ Content.X, Content.Y, Content.Width, MIN (Content.Height, 540) };
+  Background = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
+  DrawProviderSummarySection (Ui, Theme, Panel, L"Server Inventory Summary", TRUE);
+  ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
+  ModernUiDrawTextFit (
+    Ui,
+    Panel.X + 22,
+    Panel.Y + 38,
+    Panel.Width - 44,
+    L"Read-only. Native HII/FormBrowser owns policy changes.",
+    Theme->MutedText,
+    Background
+    );
+
+  if (Panel.Width >= 720) {
+    LeftWidth  = (Panel.Width - 60) / 2;
+    RightWidth = Panel.Width - 60 - LeftWidth;
+  } else {
+    LeftWidth  = Panel.Width - 44;
+    RightWidth = 0;
+  }
+
+  Column = (MODERN_UI_RECT){ Panel.X + 22, Panel.Y + 70, LeftWidth, Panel.Height - 86 };
+  RowY   = Column.Y;
+  DrawProviderSubsectionHeader (Ui, Theme, Column.X, RowY, Column.Width, L"Platform");
+  RowY += 22;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, ModernUiGetString (ModernUiStringFirmwareVendor), EFI_ERROR (Providers.PlatformStatus) ? UnknownText : Providers.Platform.FirmwareVendor);
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, ModernUiGetString (ModernUiStringFirmwareRevision), EFI_ERROR (Providers.FirmwareStatus) ? (EFI_ERROR (Providers.PlatformStatus) ? UnknownText : Providers.Platform.FirmwareRevision) : Providers.Firmware.Revision);
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Architecture", EFI_ERROR (Providers.PlatformStatus) ? UnknownText : Providers.Platform.Architecture);
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Memory", MemoryText);
+  RowY += 36;
+
+  DrawProviderSubsectionHeader (Ui, Theme, Column.X, RowY, Column.Width, L"Management");
+  RowY += 22;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, ModernUiGetString (ModernUiStringIpmi), SnapshotCapabilityText (Providers.ManagementStatus, Providers.Management.IpmiProtocolPresent));
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, ModernUiGetString (ModernUiStringRedfish), SnapshotCapabilityText (Providers.ManagementStatus, Providers.Management.RedfishDiscoverPresent));
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"SMBIOS host interface", SnapshotCapabilityText (Providers.ManagementStatus, Providers.Management.SmbiosManagementInterfacePresent));
+  RowY += 36;
+
+  DrawProviderSubsectionHeader (Ui, Theme, Column.X, RowY, Column.Width, L"Serviceability");
+  RowY += 22;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"SMBIOS / ACPI", SmbiosAcpiText);
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Provider Health", ModernSetupGetProviderHealthStateText (ProviderHealth.State));
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Provider Coverage", ProviderCoverage);
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Provider Issue", ProviderIssue);
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, ModernUiGetString (ModernUiStringRasPolicy), SnapshotCapabilityText (Providers.PerformanceStatus, Providers.Performance.RasPolicyEntryPresent));
+
+  if (RightWidth == 0) {
+    return;
+  }
+
+  Column = (MODERN_UI_RECT){ Panel.X + 38 + LeftWidth, Panel.Y + 70, RightWidth, Panel.Height - 86 };
+  RowY   = Column.Y;
+  DrawProviderSubsectionHeader (Ui, Theme, Column.X, RowY, Column.Width, L"PCIe Fabric");
+  RowY += 22;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Controllers / Roots", FabricText);
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Endpoints / Bridges", DeviceText);
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"IOMMU / ACS / ARI", IsolationText);
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"SR-IOV / ReBAR / Above4G", NativePolicyText);
+  RowY += 36;
+  DrawProviderSubsectionHeader (Ui, Theme, Column.X, RowY, Column.Width, L"Inventory Note");
+  RowY += 22;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Policy ownership", L"Native HII/FormBrowser");
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"ModernSetupApp role", L"Read-only snapshot display");
+}
+
+/**
   Draw the app-owned Preferences page.
 
   @param[in] Ui        Initialized render context. Must not be NULL.
@@ -1571,6 +1782,9 @@ ModernSetupDrawCurrentPage (
       break;
     case PagePerformance:
       DrawPerformance (Ui, Theme, Focus);
+      break;
+    case PageServerInventory:
+      DrawServerInventorySummary (Ui, Theme, Focus);
       break;
     case PagePreferences:
       DrawPreferences (Ui, Theme, Focus, PreferencesSelection);
