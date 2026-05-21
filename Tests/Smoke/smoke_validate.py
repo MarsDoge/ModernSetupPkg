@@ -262,6 +262,25 @@ XARCH_RUNNER_FORBIDDEN_MUTATION_TOKENS = (
     "ExtractConfig",
     "EFI_HII_CONFIG_ACCESS_PROTOCOL",
 )
+BILINGUAL_DOC_PAIRS = (
+    (Path("README.md"), Path("README.zh-CN.md")),
+    (Path("Docs") / "XArch.md", Path("Docs") / "XArch.zh-CN.md"),
+    (Path("Docs") / "ProductizationFeatureMatrix.md", Path("Docs") / "ProductizationFeatureMatrix.zh-CN.md"),
+    (Path("Docs") / "MODULE_BOUNDARIES.md", Path("Docs") / "MODULE_BOUNDARIES.zh-CN.md"),
+    (Path("Docs") / "DEVELOPMENT.md", Path("Docs") / "DEVELOPMENT.zh-CN.md"),
+    (Path("Docs") / "IbvAndPlatformSetupSurvey.md", Path("Docs") / "IbvAndPlatformSetupSurvey.zh-CN.md"),
+)
+DOC_INDEX_PAIRS = (
+    (Path("Docs") / "README.md", Path("Docs") / "README.zh-CN.md"),
+)
+IBV_CHINESE_TAXONOMY_HEADING = "广义 IBV / 平台 Setup 功能分类"
+IBV_ENGLISH_TAXONOMY_HEADING = "Broad IBV / Platform Setup Taxonomy"
+PRODUCTIZATION_ZH_PARITY_TOKENS = (
+    "XArch 产品目标能力矩阵",
+    "Battery and adapter policy",
+    "RAS/NUMA/PCIe policy",
+    "ARCH=LOONGARCH64",
+)
 
 
 class SmokeFailure(Exception):
@@ -1141,6 +1160,43 @@ def check_pcie_docs_language(root: Path) -> list[str]:
     return ["PASS PCIe docs read-only/capability/entry language checks"]
 
 
+def check_bilingual_documentation_contract(root: Path) -> list[str]:
+    pairs = BILINGUAL_DOC_PAIRS + DOC_INDEX_PAIRS
+    for english, chinese in pairs:
+        english_path = root / english
+        chinese_path = root / chinese
+        if not english_path.exists():
+            raise SmokeFailure(f"missing English bilingual doc: {english}")
+        if not chinese_path.exists():
+            raise SmokeFailure(f"missing zh-CN bilingual doc: {chinese}")
+
+        english_text = english_path.read_text(encoding="utf-8")
+        chinese_text = chinese_path.read_text(encoding="utf-8")
+        if chinese.name not in english_text:
+            raise SmokeFailure(f"{english} missing reciprocal zh-CN link to {chinese.name}")
+        if english.name not in chinese_text:
+            raise SmokeFailure(f"{chinese} missing reciprocal English link to {english.name}")
+
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    for target in ("Docs/README.md", "Docs/README.zh-CN.md"):
+        if target not in readme:
+            raise SmokeFailure(f"README.md missing development-docs index link: {target}")
+
+    english_ibv = root / "Docs" / "IbvAndPlatformSetupSurvey.md"
+    english_ibv_text = english_ibv.read_text(encoding="utf-8")
+    if IBV_CHINESE_TAXONOMY_HEADING in english_ibv_text:
+        raise SmokeFailure("English IBV survey still contains Chinese-only taxonomy heading")
+    if IBV_ENGLISH_TAXONOMY_HEADING not in english_ibv_text:
+        raise SmokeFailure("English IBV survey missing Broad IBV / Platform Setup Taxonomy section")
+
+    productization_zh = (root / "Docs" / "ProductizationFeatureMatrix.zh-CN.md").read_text(encoding="utf-8")
+    for token in PRODUCTIZATION_ZH_PARITY_TOKENS:
+        if token not in productization_zh:
+            raise SmokeFailure(f"ProductizationFeatureMatrix.zh-CN.md missing parity token: {token}")
+
+    return [f"PASS bilingual documentation pairs and IBV taxonomy split: {len(pairs)} pairs"]
+
+
 def check_hii_bridge_view_model_boundary(root: Path) -> list[str]:
     header = root / "Include" / "ModernUi" / "ModernUiHiiBridge.h"
     source = root / "Library" / "ModernUiHiiBridgeLib" / "ModernUiHiiBridgeLib.c"
@@ -1354,6 +1410,7 @@ def main() -> int:
         messages.extend(check_pcie_provider_foundation(root))
         messages.extend(check_hardware_health_demo_provider(root))
         messages.extend(check_pcie_docs_language(root))
+        messages.extend(check_bilingual_documentation_contract(root))
         messages.extend(check_hii_bridge_view_model_boundary(root))
         messages.extend(check_modern_ui_builtin_glyph_subset(root))
         messages.extend(check_edk2_baseline_contract(root))

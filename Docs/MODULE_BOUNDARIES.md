@@ -7,6 +7,8 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 # Module Boundaries
 
+Language: English | [简体中文](MODULE_BOUNDARIES.zh-CN.md)
+
 ModernSetupPkg is easiest to maintain when each layer keeps a small, concrete contract. Internal implementation can change freely, but public headers, DEC entries, and cross-layer behavior should remain stable unless the affected owners review the change.
 
 ## Stable contracts

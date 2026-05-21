@@ -7,6 +7,8 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 # Productization Feature Matrix
 
+Language: English | [简体中文](ProductizationFeatureMatrix.zh-CN.md)
+
 ModernSetup has two XArch productization layers:
 
 ```text

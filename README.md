@@ -7,6 +7,8 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 # ModernSetupPkg
 
+Language: English | [简体中文](README.zh-CN.md)
+
 ModernSetupPkg is an experimental XArch edk2 package for a modern GOP-based UEFI
 setup graphics engine and standard front-page shell. XArch is the project's
 cross-architecture model for keeping one Setup UX, one HII/FormBrowser ownership
@@ -341,6 +343,8 @@ Real VFR/IFR pages should continue through native edk2 FormBrowser and
 
 ## Development Documents
 
+- Documentation index: [`Docs/README.md`](Docs/README.md) and
+  [`Docs/README.zh-CN.md`](Docs/README.zh-CN.md).
 - `Docs/DEVELOPMENT.md` defines coding rules, function comment requirements,
   architecture boundaries, and extension points.
 - `Docs/XArch.md` defines the XArch model, concrete target mapping, validation
