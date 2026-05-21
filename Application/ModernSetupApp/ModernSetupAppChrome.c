@@ -25,6 +25,66 @@ STATIC CONST PAGE_DESCRIPTOR  mPages[] = {
   { PageExit,      ModernUiStringPageExit,      ModernUiStringPageExitHint      }
 };
 
+STATIC CONST CHAR16  *mEnglishCompactTabLabels[] = {
+  L"Main",
+  L"Boot",
+  L"Devices",
+  L"Security",
+  L"Firmware",
+  L"Status",
+  L"Mgmt",
+  L"Power",
+  L"Perf",
+  L"Server",
+  L"Pref",
+  L"Exit"
+};
+
+STATIC CONST CHAR16  *mChineseCompactTabLabels[] = {
+  L"主页",
+  L"启动",
+  L"设备",
+  L"安全",
+  L"固件",
+  L"状态",
+  L"管理",
+  L"电源",
+  L"性能",
+  L"Server",
+  L"偏好",
+  L"退出"
+};
+
+/**
+  Return the compact top-tab label for a page descriptor index.
+
+  The page title strings remain full length for the content title area; this
+  keeps the first-row IBV-style navigation compact enough for 1280px captures.
+
+  @param[in] Index  Page descriptor index.
+
+  @return Non-NULL compact tab label.
+**/
+STATIC
+CONST CHAR16 *
+ModernSetupGetCompactTabLabel (
+  IN UINTN  Index
+  )
+{
+  CONST CHAR8  *Language;
+
+  if (Index >= ARRAY_SIZE (mEnglishCompactTabLabels)) {
+    return L"";
+  }
+
+  Language = ModernUiGetLanguage ();
+  if ((Language[0] == 'z') && (Language[1] == 'h') && (Index < ARRAY_SIZE (mChineseCompactTabLabels))) {
+    return mChineseCompactTabLabels[Index];
+  }
+
+  return mEnglishCompactTabLabels[Index];
+}
+
 /**
   Draw the top status/header band.
 
@@ -71,7 +131,7 @@ ModernSetupDrawTabs (
     if (mPages[Index].Page == Page) {
       SelectedTab = Index;
     }
-    Tabs[Index].Text = ModernUiGetString (mPages[Index].Title);
+    Tabs[Index].Text = ModernSetupGetCompactTabLabel (Index);
   }
 
   ModernUiEngineDrawTabs (
