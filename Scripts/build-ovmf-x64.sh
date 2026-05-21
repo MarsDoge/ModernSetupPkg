@@ -46,12 +46,17 @@ theme_name = sys.argv[3].strip().lower()
 display_engine = sys.argv[4].strip().lower()
 theme_pcd = {
     "orange": "0x00",
-    "aorus": "0x00",
+    "amber": "0x00",
+    "dark-orange": "0x00",
     "red": "0x01",
-    "asus": "0x01",
+    "accent-red": "0x01",
+    "dark-red": "0x01",
 }.get(theme_name)
 if theme_pcd is None:
-    raise SystemExit(f"Unsupported MODERN_SETUP_THEME={theme_name!r}; use orange or red")
+    raise SystemExit(
+        f"Unsupported MODERN_SETUP_THEME={theme_name!r}; "
+        "use orange, amber, dark-orange, red, accent-red, or dark-red"
+    )
 if display_engine not in {"modern", "native"}:
     raise SystemExit(
         f"Unsupported MODERN_SETUP_DISPLAY_ENGINE={display_engine!r}; use modern or native"

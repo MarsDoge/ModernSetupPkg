@@ -107,7 +107,7 @@ this file as both a release log and a lightweight development progress record.
   top advanced-mode navigation chrome, right-side status rail, content area
   reservation, and bottom action strip drawn in the GOP-backed customized
   display path without vendor artwork or a custom HII parser.
-- AORUS-like black/orange theme tokens for DisplayEngine rendering, including
+- High-contrast black/orange theme tokens for DisplayEngine rendering, including
   header pattern, orange/yellow accents, selected bands, popup border, warning
   text, and telemetry text colors.
 - Shared layout helper for DisplayEngine chrome and native statement area
@@ -184,7 +184,7 @@ this file as both a release log and a lightweight development progress record.
   area, and keeps the procedural pattern limited to the header instead of the
   main content surface.
 - DisplayEngine rows, value boxes, drop-down frames, popups, and pick lists now
-  use black/orange AORUS-like surfaces while preserving native FormBrowser
+  use black/orange advanced-mode surfaces while preserving native FormBrowser
   control semantics.
 - Native FormBrowser selected rows now keep the highlight attribute across the
   full statement field and use a brighter orange/yellow selection treatment.

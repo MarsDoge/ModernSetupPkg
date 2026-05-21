@@ -64,6 +64,14 @@ PROHIBITED_DEFAULT_OVERLAY_TOKENS = (
     "ModernUiHiiBridge.h",
     "ModernUiPageAdapter.h",
 )
+PROHIBITED_THEME_ALIAS_TOKENS = (
+    "aorus",
+    "asus",
+    "rog",
+    "tuf",
+    "gigabyte",
+    "msi",
+)
 MODERN_SETUP_APP_DIR = Path("Application") / "ModernSetupApp"
 MODERN_SETUP_APP_INF = MODERN_SETUP_APP_DIR / "ModernSetupApp.inf"
 APP_NOINLINE_DRAW_HELPERS = (
@@ -331,6 +339,11 @@ def check_static_overlay_script_contracts(root: Path) -> list[str]:
         for token in PROHIBITED_DEFAULT_OVERLAY_TOKENS:
             if token in text:
                 raise SmokeFailure(f"{path} default overlay generator references prohibited token: {token}")
+
+        lowered = text.lower()
+        for token in PROHIBITED_THEME_ALIAS_TOKENS:
+            if f'"{token}"' in lowered or f"'{token}'" in lowered:
+                raise SmokeFailure(f"{path} uses prohibited vendor theme alias: {token}")
 
         write_targets = re.findall(r"\(overlay / [^)]+\)\.write_text\(", text)
         if not write_targets:
