@@ -245,6 +245,9 @@ this file as both a release log and a lightweight development progress record.
 
 ### Fixed
 
+- Changed ModernSetupApp Boot page Enter behavior to launch the selected
+  visible Boot#### entry through UefiBootManagerLib; native Boot Manager remains
+  available as the Exit-page fallback.
 - Fixed rectangle fill rendering by using GOP `EfiBltVideoFill` instead of
   passing a one-line buffer as a multi-line BLT source.
 - Fixed text rendering setup by providing the HII Font output dimensions and

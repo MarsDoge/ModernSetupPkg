@@ -376,26 +376,45 @@ ModernSetupGetPageSelectableCount (
 }
 
 /**
-  Open the native Boot Manager for a visible Boot page row.
+  Launch the selected visible Boot#### option.
 
-  ModernSetupApp is the setup/front-page UI. It lists Boot#### summaries, but
-  hands Boot#### launch responsibility to edk2's native BootManagerMenuApp (or
-  UiApp on platforms where the native setup app remains the fallback). Selection
-  is accepted for the UI contract and is not dereferenced here.
+  The Boot page presents the same filtered Boot#### rows shown on screen. Enter
+  resolves the selected visible row back to its Boot#### option number, then
+  lets UefiBootManagerLib perform the actual boot attempt. The Exit page still
+  provides a separate native Boot Manager fallback for platforms where users
+  want edk2's original boot picker.
 
-  @param[in] Selection  Zero-based visible Boot page row index. Ignored.
+  @param[in] Selection  Zero-based visible Boot page row index.
 
-  @retval EFI_SUCCESS           Native boot manager returned successfully.
-  @retval EFI_NOT_FOUND         Native fallback app could not be resolved.
-  @retval others                Status returned by the native fallback handoff.
+  @retval EFI_SUCCESS    Boot option launched and returned successfully.
+  @retval EFI_NOT_FOUND  Selection is out of range or the Boot#### option vanished.
+  @retval others         Status recorded by UefiBootManagerLib.
 **/
 EFI_STATUS
 ModernSetupLaunchSelectedBootOption (
   IN UINTN  Selection
   )
 {
-  (VOID)Selection;
-  return ModernSetupLaunchUiAppFallback (mModernSetupImageHandle);
+  EFI_STATUS             Status;
+  MODERN_UI_BOOT_OPTION  *Options;
+  UINTN                  OptionCount;
+  UINT16                 OptionNumber;
+
+  Options = NULL;
+  Status = ModernUiBootDataGetOptions (mModernSetupImageHandle, &Options, &OptionCount);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  if ((Options == NULL) || (Selection >= OptionCount)) {
+    ModernUiBootDataFreeOptions (Options, OptionCount);
+    return EFI_NOT_FOUND;
+  }
+
+  OptionNumber = Options[Selection].OptionNumber;
+  ModernUiBootDataFreeOptions (Options, OptionCount);
+
+  return ModernUiBootDataBootOption (OptionNumber);
 }
 
 /**

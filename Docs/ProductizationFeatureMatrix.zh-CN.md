@@ -37,7 +37,7 @@ ModernSetup 有两层 XArch 产品化边界：
 | 页面 | 通用目的 | App 应显示 | 复杂设置归属 | 当前状态 |
 | --- | --- | --- | --- | --- |
 | Dashboard | 第一眼平台状态。 | firmware vendor/revision、architecture、form factor、boot mode、platform name、memory、display mode、boot count、Secure Boot、HII/device count、provider availability。 | App data providers。 | Basic implemented。 |
-| Boot | Boot 清单和启动入口。 | `BootOrder`、`Boot####`、active/hidden state、category、device-path summary、launch selected option。 | Boot Maintenance HII pages。 | Basic implemented。 |
+| Boot | Boot 清单、所选条目启动和原生 Boot Manager fallback。 | `BootOrder` / `Boot####` active/hidden state、category、device-path summary。回车启动当前可见 Boot#### 条目。 | Boot Maintenance HII pages。 | Basic implemented。 |
 | Devices / HII | 平台 Setup 页面和设备 inventory 入口。 | HII formsets、driver/device path rows、Driver Health entry、inventory rows。 | Each driver formset via FormBrowser2。 | Basic implemented。 |
 | Security | 只读安全态势。 | Secure Boot、Setup Mode、PK/KEK/db/dbx、TPM/TCG/TCM presence。 | Security HII pages and platform policy drivers。 | Basic implemented。 |
 | Firmware Update | 固件生命周期入口。 | Capsule support、firmware version、recovery/update entry、last update state。 | Capsule/update HII or platform update app。 | Basic read-only implemented。 |
@@ -55,7 +55,7 @@ ModernSetup 有两层 XArch 产品化边界：
 | 领域 / 子系统 | 标准 App IA | Provider / 数据方向 | App 行为 | 原生归属 / 非目标 |
 | --- | --- | --- | --- | --- |
 | System overview / Main | Dashboard；Exit 语言/会话入口。 | `ModernUiPlatformDataLib`、UEFI system table、SMBIOS。 | 显示固件、架构、形态、平台名、内存/显示摘要。 | date/time、password、defaults、save/discard 保持原生。 |
-| Boot manager / boot policy | Boot；Dashboard 快捷分类。 | `ModernUiBootDataLib`、Boot#### variables、Boot Manager services。 | 列出 boot entries、状态、分类、路径摘要并启动选中项。 | boot order 编辑、one-time boot、fast boot、PXE/HTTP policy 保持原生。 |
+| Boot manager / boot policy | Boot；Dashboard 快捷分类。 | `ModernUiBootDataLib`、Boot#### variables、Boot Manager services。 | 列出 boot entries、状态、分类、路径摘要；回车通过 UefiBootManagerLib 启动所选条目。 | boot order 编辑、one-time boot、fast boot、PXE/HTTP policy 保持原生。 |
 | Device / HII formset inventory | Devices / HII。 | `ModernUiDeviceDataLib`、HII database、device paths、Driver Health。 | 列出原生 setup/device entries 并用 `EFI_FORM_BROWSER2_PROTOCOL.SendForm()` 打开。 | App 不解析 IFR、不实现 ConfigAccess、不写 varstore。 |
 | Security / identity | Security summary。 | `ModernUiSecurityDataLib`、Secure Boot variables、TCG/TCM/TPM probes。 | 显示 Secure Boot、Setup Mode、key presence、TPM/TCM availability。 | key enrollment、password、physical presence、measured boot policy 保持原生。 |
 | Firmware update / recovery | Firmware Update。 | `ModernUiFirmwareDataLib`、capsule probes、platform update hints。 | 显示 update/recovery 可用性并路由到原生 updater。 | 不构造 capsule、不刷写 flash、不写 recovery policy。 |

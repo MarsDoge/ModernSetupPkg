@@ -47,7 +47,7 @@ show a summary or entry point, then open the owning HII form through
 | Page | Common purpose | App should show | Complex settings owner | Current status |
 | --- | --- | --- | --- | --- |
 | Dashboard | First-glance platform state. | Firmware vendor/revision, architecture, form factor, boot mode, platform name, memory, display mode, boot count, Secure Boot state, HII/device count, provider availability. | App data providers. | Basic implemented. |
-| Boot | Boot inventory and launch entry. | `BootOrder`, `Boot####`, active/hidden state, category, device-path summary, launch selected option. | Boot Maintenance HII pages for editing and advanced policy. | Basic implemented. |
+| Boot | Boot inventory, selected-entry launch, and native Boot Manager fallback. | `BootOrder` / `Boot####` active/hidden state, category, and device-path summaries. Enter launches the selected visible Boot#### entry. | Boot Maintenance HII pages for editing and advanced policy. | Basic implemented. |
 | Devices / HII | Entry point to platform setup pages and device inventory. | HII formsets, driver/device path rows, Driver Health entry, inventory rows. | Each driver formset via FormBrowser2. | Basic implemented. |
 | Security | Read-only security posture. | Secure Boot, Setup Mode, PK/KEK/db/dbx state, TPM/TCG/TCM presence when available. | Security HII pages and platform policy drivers. | Basic implemented. |
 | Firmware Update | Firmware lifecycle entry point. | Capsule support, firmware version, recovery/update entry, last update state when available. | Capsule/update HII or platform update app. | Basic read-only implemented. |
@@ -70,7 +70,7 @@ App-owned control.
 | Domain / subsystem | Standard App IA | Provider / data source direction | App display / entry behavior | Native owner / non-goal |
 | --- | --- | --- | --- | --- |
 | System overview / Main | Dashboard; Exit for language/session affordances. | `ModernUiPlatformDataLib`, UEFI system table, SMBIOS when available. | Show firmware, architecture, form factor, platform name, memory/display summary, language/session hints. | Date/time, password, defaults, and save/discard workflows remain native. |
-| Boot manager / boot policy | Boot; Dashboard quick category. | `ModernUiBootDataLib`, Boot#### variables, Boot Manager services. | List boot entries, active/hidden/category/path summary, and launch selected option. | Boot order editing, one-time boot policy, fast boot, PXE/HTTP policy stay Boot Maintenance/platform HII. |
+| Boot manager / boot policy | Boot; Dashboard quick category. | `ModernUiBootDataLib`, Boot#### variables, Boot Manager services. | List boot entries and active/hidden/category/path summaries; Enter launches the selected entry via UefiBootManagerLib. | Boot order editing, one-time boot policy, fast boot, PXE/HTTP policy stay Boot Maintenance/platform HII. |
 | Device / HII formset inventory | Devices / HII; Dashboard quick category. | `ModernUiDeviceDataLib`, HII database, device paths, Driver Health. | List native setup/device entries and open them via `EFI_FORM_BROWSER2_PROTOCOL.SendForm()`. | No IFR parsing, ConfigAccess implementation, form mutation, or varstore writes in App. |
 | Security / identity | Security summary and Dashboard status. | `ModernUiSecurityDataLib`, Secure Boot variables, TCG/TCM/TPM protocol probes. | Show Secure Boot, Setup Mode, key presence, and TPM/TCM availability as posture. | Key enrollment, password, physical presence, measured boot policy, chassis policy remain native. |
 | Firmware update / recovery | Firmware Update category; Dashboard lifecycle card. | `ModernUiFirmwareDataLib`, capsule runtime/protocol/report probes, platform update entry hints. | Show capsule/update/recovery availability and route to native updater when exposed. | No capsule construction, flash programming, rollback policy, or recovery writes in App. |
@@ -147,7 +147,7 @@ view of common App/provider behavior, not a request to hide `ARCH=X64`,
 | Provider | Responsibility | Minimum v1 behavior | Failure behavior |
 | --- | --- | --- | --- |
 | `ModernUiPlatformDataLib` | Firmware, architecture, memory, display, platform name. | Fill dashboard strings and memory summary. | Show `Unknown` or `N/A`; never ASSERT. |
-| `ModernUiBootDataLib` | Boot option enumeration and launch. | Show `Boot####` active/hidden/category/path summary; launch selected option. | Show empty state or returned `EFI_STATUS`. |
+| `ModernUiBootDataLib` | Boot option enumeration and selected-entry launch. | Show `Boot####` active/hidden/category/path summary; launch the selected visible entry through UefiBootManagerLib while native Boot Manager remains available as fallback. | Show empty state or returned `EFI_STATUS`. |
 | `ModernUiDeviceDataLib` | HII formset/device entry discovery. | List HII entries and open forms through FormBrowser2. | Keep row read-only and show `EFI_STATUS`. |
 | `ModernUiSecurityDataLib` | Secure Boot, key database, and TCG protocol state. | Read standard variables and protocol presence as read-only. | Show `Unknown`; no writes. |
 | `ModernUiFirmwareDataLib` | Capsule/update/recovery status. | Detect capsule runtime services, capsule architectural protocol, and capsule report presence. | Show `N/A`; open native update path when present. |
