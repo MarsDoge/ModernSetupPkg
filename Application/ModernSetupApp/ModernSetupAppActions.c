@@ -36,11 +36,29 @@ MODERN_UI_PREFERENCES  mModernSetupPreferences;
   Calculate the visible Dashboard Quick Access grid from the same layout
   contract used by drawing and keyboard navigation.
 
-  @param[in]  Ui    Initialized render context. Must not be NULL.
-  @param[out] Grid  Receives the Quick Access panel and card metrics.
+  DashboardDensity is the app-owned ModernUi preference selecting the
+  Dashboard layout density. Only ModernUiDashboardDensityCompact triggers
+  the compact layout (tighter top summary band, smaller card gap/top, and
+  reduced minimum card value height). Any other value -- including the
+  default ModernUiDashboardDensityComfortable, the out-of-range sentinel
+  ModernUiDashboardDensityMax, or any unrecognized UINT8 -- falls back to
+  the Comfortable layout path; no validation or clamping is performed
+  here. Preference sanitation/defaulting is owned by
+  ModernUiPreferencesLib, which clamps unknown values back to
+  ModernUiDashboardDensityComfortable before this helper is reached.
+
+  @param[in]  Ui                Initialized render context. Must not be NULL.
+  @param[in]  DashboardDensity  ModernUi dashboard density preference. Expected
+                                values: ModernUiDashboardDensityComfortable (0,
+                                default) or ModernUiDashboardDensityCompact.
+                                Any other value is treated as Comfortable.
+  @param[out] Grid              Receives the Quick Access panel and card
+                                metrics. Must not be NULL. Zeroed on entry;
+                                left zeroed on FALSE return.
 
   @retval TRUE   Quick Access cards are visible/selectable.
-  @retval FALSE  Quick Access cards do not fit in the current content rect.
+  @retval FALSE  Ui or Grid is NULL, or Quick Access cards do not fit in the
+                 current content rect.
 **/
 BOOLEAN
 ModernSetupGetDashboardQuickGrid (
