@@ -14,6 +14,10 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase 29 Dashboard density layout: the app-owned `DashboardDensity`
+  preference now feeds the Dashboard grid helper, so `Compact` reduces the top
+  summary area and quick-card spacing while navigation uses the same density-aware
+  geometry as rendering.
 - Phase 28 app-owned runtime theme switching: the `Theme` preference now resolves
   the active `ModernSetupApp` palette during redraw, adds the generic premium
   `Graphite Gold` dark graphite/champagne palette, and exposes the additive

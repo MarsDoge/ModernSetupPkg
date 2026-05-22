@@ -1259,6 +1259,34 @@ def check_phase28_runtime_theme_switching(root: Path) -> list[str]:
     return ["PASS Phase28 runtime Theme preference applies app-owned palettes"]
 
 
+def check_phase29_dashboard_density_layout(root: Path) -> list[str]:
+    app_dir = root / MODERN_SETUP_APP_DIR
+    app_main = strip_c_comments((app_dir / "ModernSetupApp.c").read_text(encoding="utf-8"))
+    actions = strip_c_comments((app_dir / "ModernSetupAppActions.c").read_text(encoding="utf-8"))
+    dashboard = strip_c_comments((app_dir / "ModernSetupAppDashboard.c").read_text(encoding="utf-8"))
+    internal = strip_c_comments((app_dir / "ModernSetupAppInternal.h").read_text(encoding="utf-8"))
+
+    if "ModernSetupGetDashboardQuickGrid (" not in internal or "DashboardDensity" not in internal:
+        raise SmokeFailure("Phase29 Dashboard grid helper must accept DashboardDensity")
+    if "ModernUiDashboardDensityCompact" not in actions:
+        raise SmokeFailure("Phase29 Dashboard grid helper must branch on Compact density")
+    for token in ("Compact ? 20 : DASHBOARD_QUICK_CARD_GAP", "Compact ? 42 : DASHBOARD_QUICK_CARD_TOP", "Compact ? 10 : 16"):
+        if token not in actions:
+            raise SmokeFailure(f"Phase29 compact Dashboard grid missing layout token: {token}")
+    if "Compact ? ((Content.Height >= 460) ? 236 : 204)" not in actions:
+        raise SmokeFailure("Phase29 compact Dashboard must reduce the top summary height")
+    if app_main.count("mModernSetupPreferences.DashboardDensity") < 4:
+        raise SmokeFailure("Phase29 Dashboard navigation must use the same density-aware grid as rendering")
+    if "ModernSetupGetDashboardQuickGrid (Ui, mModernSetupPreferences.DashboardDensity, &Grid)" not in dashboard:
+        raise SmokeFailure("Phase29 Dashboard rendering must use the density-aware grid")
+    if "mModernSetupPreferences.DashboardDensity == ModernUiDashboardDensityCompact" not in dashboard:
+        raise SmokeFailure("Phase29 Dashboard top summary layout must react to Compact density")
+    if any(token in dashboard + actions for token in ("SetVariable", "ExtractConfig", "RouteConfig", "HiiSetBrowserData")):
+        raise SmokeFailure("Phase29 DashboardDensity layout must not introduce HII or variable writes")
+
+    return ["PASS Phase29 DashboardDensity controls Dashboard layout density"]
+
+
 def check_pcie_provider_foundation(root: Path) -> list[str]:
     for relative in PCIE_PROVIDER_REQUIRED_FILES:
         if not (root / relative).exists():
@@ -1708,6 +1736,7 @@ def main() -> int:
         messages.extend(check_phase26_interactive_app_owned_preferences(root))
         messages.extend(check_phase27_app_owned_input_preferences(root))
         messages.extend(check_phase28_runtime_theme_switching(root))
+        messages.extend(check_phase29_dashboard_density_layout(root))
         messages.extend(check_pcie_provider_foundation(root))
         messages.extend(check_hardware_health_demo_provider(root))
         messages.extend(check_pcie_docs_language(root))

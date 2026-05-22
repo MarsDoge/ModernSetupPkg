@@ -363,7 +363,8 @@ ModernSetupDrawDashboard (
     L"Read-only inventory / native owns policy"
     );
 
-  TopHeight   = (Content.Height >= 460) ? 300 : 232;
+  TopHeight   = (mModernSetupPreferences.DashboardDensity == ModernUiDashboardDensityCompact) ?
+                ((Content.Height >= 460) ? 236 : 204) : ((Content.Height >= 460) ? 300 : 232);
   MonitorWidth = (Content.Width >= 760) ? ((Content.Width * 31) / 100) : 0;
   if ((MonitorWidth > 0) && (Content.Width > (MonitorWidth + CARD_GAP))) {
     SystemPanel  = (MODERN_UI_RECT){ Content.X, Content.Y, Content.Width - MonitorWidth - CARD_GAP, TopHeight };
@@ -373,7 +374,7 @@ ModernSetupDrawDashboard (
     MonitorPanel = (MODERN_UI_RECT){ 0, 0, 0, 0 };
   }
 
-  if (!ModernSetupGetDashboardQuickGrid (Ui, &Grid)) {
+  if (!ModernSetupGetDashboardQuickGrid (Ui, mModernSetupPreferences.DashboardDensity, &Grid)) {
     QuickPanel = (MODERN_UI_RECT){ 0, 0, 0, 0 };
   } else {
     QuickPanel = Grid.Panel;
