@@ -28,10 +28,10 @@ OVMF X64 now has a pinned edk2 baseline, scripted QEMU screendump capture, and a
 local/manual `ModernSetupApp` dashboard validation path. The current OVMF
 capture shows the shared XArch `ModernUiEngineLib` front-page shell with
 Simplified Chinese text, read-only platform summaries, provider health, and the
-black/orange advanced-mode theme after the CJK glyph and Dashboard spacing
+Graphite Gold app runtime theme after the CJK glyph and Dashboard spacing
 polish.
 
-![ModernSetup OVMF X64 dashboard](Assets/Screenshots/modern-ovmf-x64-dashboard-phase18.png)
+![ModernSetup OVMF X64 dashboard](Assets/Screenshots/modern-ovmf-x64-dashboard-graphite-gold.png)
 
 The same graphics stack also renders native FormBrowser pages; edk2 still owns
 HII/VFR/IFR parsing, GUID formset discovery, callbacks, and variable writes.
@@ -106,15 +106,17 @@ route for Device Manager, DriverSample, Boot Maintenance, or third-party HII
 driver pages.
 
 The current DisplayEngine visual direction uses a commercial-IBV-style
-advanced-mode structure without reusing commercial artwork. The default theme is
-black/orange with yellow focus accents; an experimental black/deep-red/yellow
-theme can be selected at build time with `MODERN_SETUP_THEME=red`. These
-surfaces are drawn from theme tokens and GOP primitives so OEM-specific styling
-can later be provided through theme/layout configuration instead of by changing
-HII parsing behavior.
+advanced-mode structure without reusing commercial artwork. The default
+build-time theme is dark/orange with yellow focus accents; an experimental
+black/deep-red/yellow theme can be selected at build time with
+`MODERN_SETUP_THEME=red`. The app front-page shell also supports runtime theme
+preferences such as Graphite Gold, which uses graphite surfaces with warm gold
+accents. These surfaces are drawn from theme tokens and GOP primitives so
+OEM-specific styling can later be provided through theme/layout configuration
+instead of by changing HII parsing behavior.
 
 ```sh
-# Default black/orange theme
+# Default dark/orange build-time theme
 ModernSetupPkg/Scripts/build-armvirt.sh
 
 # Experimental black/deep-red/yellow theme
@@ -576,7 +578,7 @@ assets.
 
 Current OVMF X64 capture:
 
-![ModernSetup OVMF X64 dashboard](Assets/Screenshots/modern-ovmf-x64-dashboard-phase18.png)
+![ModernSetup OVMF X64 dashboard](Assets/Screenshots/modern-ovmf-x64-dashboard-graphite-gold.png)
 
 Current LoongArch captures:
 
