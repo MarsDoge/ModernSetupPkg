@@ -17,9 +17,9 @@ UI 只使用开源 edk2 接口和原创视觉资产。商业 IBV 固件界面只
 
 ## 最新状态
 
-OVMF X64 已有固定 edk2 baseline、脚本化 QEMU screendump 捕获，以及本地/手工 `ModernSetupApp` dashboard 验证路径。当前 OVMF 捕获展示了共享 XArch `ModernUiEngineLib` 首页壳层、简体中文文本、只读平台摘要、provider health，以及 CJK 字形和 Dashboard 间距打磨后的黑/橙 advanced-mode theme。
+OVMF X64 已有固定 edk2 baseline、脚本化 QEMU screendump 捕获，以及本地/手工 `ModernSetupApp` dashboard 验证路径。当前 OVMF 捕获展示了共享 XArch `ModernUiEngineLib` 首页壳层、简体中文文本、只读平台摘要、provider health，以及 CJK 字形和 Dashboard 间距打磨后的 Graphite Gold 应用运行时主题。
 
-![ModernSetup OVMF X64 dashboard](Assets/Screenshots/modern-ovmf-x64-dashboard-phase18.png)
+![ModernSetup OVMF X64 dashboard](Assets/Screenshots/modern-ovmf-x64-dashboard-graphite-gold.png)
 
 同一 graphics stack 也用于渲染原生 FormBrowser 页面；edk2 仍拥有 HII/VFR/IFR 解析、GUID formset discovery、callbacks 和 variable writes。
 
