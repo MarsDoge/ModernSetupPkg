@@ -9,6 +9,8 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 语言：[English](ProductizationFeatureMatrix.md) | 简体中文
 
+另请参阅：[ProductizationValidationMatrix.zh-CN.md](ProductizationValidationMatrix.zh-CN.md)，其中记录 Phase30 基于证据的验证矩阵和 smoke gate 契约。
+
 ModernSetup 有两层 XArch 产品化边界：
 
 ```text

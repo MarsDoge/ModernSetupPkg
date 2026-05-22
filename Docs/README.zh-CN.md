@@ -17,6 +17,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 | --- | --- | --- |
 | XArch 架构模型 | [XArch.zh-CN.md](XArch.zh-CN.md) | [XArch.md](XArch.md) |
 | 产品化功能矩阵 | [ProductizationFeatureMatrix.zh-CN.md](ProductizationFeatureMatrix.zh-CN.md) | [ProductizationFeatureMatrix.md](ProductizationFeatureMatrix.md) |
+| 产品化验证矩阵 | [ProductizationValidationMatrix.zh-CN.md](ProductizationValidationMatrix.zh-CN.md) | [ProductizationValidationMatrix.md](ProductizationValidationMatrix.md) |
 | 模块边界 | [MODULE_BOUNDARIES.zh-CN.md](MODULE_BOUNDARIES.zh-CN.md) | [MODULE_BOUNDARIES.md](MODULE_BOUNDARIES.md) |
 | 开发指南 | [DEVELOPMENT.zh-CN.md](DEVELOPMENT.zh-CN.md) | [DEVELOPMENT.md](DEVELOPMENT.md) |
 | IBV 与平台 Setup 调研 | [IbvAndPlatformSetupSurvey.zh-CN.md](IbvAndPlatformSetupSurvey.zh-CN.md) | [IbvAndPlatformSetupSurvey.md](IbvAndPlatformSetupSurvey.md) |

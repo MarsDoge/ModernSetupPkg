@@ -277,6 +277,7 @@ BILINGUAL_DOC_PAIRS = (
     (Path("README.md"), Path("README.zh-CN.md")),
     (Path("Docs") / "XArch.md", Path("Docs") / "XArch.zh-CN.md"),
     (Path("Docs") / "ProductizationFeatureMatrix.md", Path("Docs") / "ProductizationFeatureMatrix.zh-CN.md"),
+    (Path("Docs") / "ProductizationValidationMatrix.md", Path("Docs") / "ProductizationValidationMatrix.zh-CN.md"),
     (Path("Docs") / "MODULE_BOUNDARIES.md", Path("Docs") / "MODULE_BOUNDARIES.zh-CN.md"),
     (Path("Docs") / "DEVELOPMENT.md", Path("Docs") / "DEVELOPMENT.zh-CN.md"),
     (Path("Docs") / "IbvAndPlatformSetupSurvey.md", Path("Docs") / "IbvAndPlatformSetupSurvey.zh-CN.md"),
@@ -291,6 +292,147 @@ PRODUCTIZATION_ZH_PARITY_TOKENS = (
     "Battery and adapter policy",
     "RAS/NUMA/PCIe policy",
     "ARCH=LOONGARCH64",
+)
+PRODUCTIZATION_VALIDATION_DOCS = (
+    Path("Docs") / "ProductizationValidationMatrix.md",
+    Path("Docs") / "ProductizationValidationMatrix.zh-CN.md",
+)
+PRODUCTIZATION_VALIDATION_LINK_SOURCES = (
+    Path("README.md"),
+    Path("README.zh-CN.md"),
+    Path("Docs") / "README.md",
+    Path("Docs") / "README.zh-CN.md",
+    Path("Docs") / "XArch.md",
+    Path("Docs") / "XArch.zh-CN.md",
+    Path("Docs") / "ProductizationFeatureMatrix.md",
+    Path("Docs") / "ProductizationFeatureMatrix.zh-CN.md",
+    Path("Tests") / "README.md",
+    Path("Tests") / "Smoke" / "README.md",
+    Path("CHANGELOG.md"),
+)
+PRODUCTIZATION_VALIDATION_TARGET_TOKENS = (
+    "X64",
+    "AARCH64",
+    "LOONGARCH64",
+    "RISCV64",
+    "OvmfPkg/OvmfPkgX64",
+    "ArmVirtPkg/ArmVirtQemu",
+    "OvmfPkg/LoongArchVirt/LoongArchVirtQemu",
+    "OvmfPkg/RiscVVirt/RiscVVirtQemu",
+    "Scripts/build-ovmf-x64.sh",
+    "Scripts/build-armvirt.sh",
+    "Scripts/build-loongarchvirt.sh",
+    "Scripts/build-riscvvirt.sh",
+)
+PRODUCTIZATION_VALIDATION_DOC_CONTRACTS = (
+    (
+        Path("Docs") / "ProductizationValidationMatrix.md",
+        {
+            "XArch-not-ARCH boundary": (
+                "XArch",
+                "edk2 ARCH",
+                "ARCH=X64",
+                "ARCH=AARCH64",
+                "ARCH=LOONGARCH64",
+                "ARCH=RISCV64",
+            ),
+            "native HII/SendForm ownership": (
+                "EFI_FORM_BROWSER2_PROTOCOL.SendForm()",
+                "FormBrowser2",
+                "native HII",
+                "ConfigAccess",
+                "IFR",
+                "HII varstores",
+                "platform policy",
+            ),
+            "Hardware Health demo-only/read-only boundary": (
+                "Hardware Health",
+                "demo-only/read-only",
+                "does not claim real sensors",
+                "does not program",
+            ),
+            "ModernUiPreferencesLib ownership": (
+                "Preferences",
+                "ModernUiPreferencesLib",
+                "not platform policy",
+            ),
+            "PCIe native policy ownership": (
+                "PCIe",
+                "ReBAR",
+                "Above 4G",
+                "SR-IOV",
+                "ASPM",
+                "bifurcation",
+                "hot-plug",
+                "ACS",
+                "ARI",
+                "IOMMU",
+                "native HII",
+            ),
+        },
+    ),
+    (
+        Path("Docs") / "ProductizationValidationMatrix.zh-CN.md",
+        {
+            "XArch-not-ARCH boundary": (
+                "XArch",
+                "不会替代",
+                "edk2 ARCH",
+                "ARCH=X64",
+                "ARCH=AARCH64",
+                "ARCH=LOONGARCH64",
+                "ARCH=RISCV64",
+            ),
+            "native HII/SendForm ownership": (
+                "EFI_FORM_BROWSER2_PROTOCOL.SendForm()",
+                "FormBrowser2",
+                "native HII",
+                "ConfigAccess",
+                "不得解析 IFR",
+                "不得写 HII varstores",
+                "不得写 platform policy",
+            ),
+            "Hardware Health demo-only/read-only boundary": (
+                "Hardware Health",
+                "demo-only/read-only",
+                "不声明真实传感器",
+                "不编程",
+                "只读",
+            ),
+            "ModernUiPreferencesLib ownership": (
+                "Preferences",
+                "ModernUiPreferencesLib",
+                "不是 platform policy",
+            ),
+            "PCIe native policy ownership": (
+                "PCIe",
+                "ReBAR",
+                "Above 4G",
+                "SR-IOV",
+                "ASPM",
+                "bifurcation",
+                "hot-plug",
+                "ACS",
+                "ARI",
+                "IOMMU",
+                "native HII",
+            ),
+        },
+    ),
+)
+PRODUCTIZATION_XARCH_NEGATION_CUES = (
+    "no supported",
+    "not supported",
+    "does not",
+    "do not",
+    "not an edk2 build-architecture abstraction",
+    "no `ARCH=XArch`",
+    "no `TARGET=XArch`",
+    "不存在",
+    "不会",
+    "不是 edk2 构建架构抽象",
+    "不支持",
+    "不应",
 )
 
 
@@ -1479,6 +1621,113 @@ def check_bilingual_documentation_contract(root: Path) -> list[str]:
     return [f"PASS bilingual documentation pairs and IBV taxonomy split: {len(pairs)} pairs"]
 
 
+def check_xarch_build_tokens_are_negated(relative: Path, text: str) -> None:
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        for token in ("ARCH=XArch", "TARGET=XArch"):
+            if token not in line:
+                continue
+            lowered = line.lower()
+            if not any(cue.lower() in lowered for cue in PRODUCTIZATION_XARCH_NEGATION_CUES):
+                raise SmokeFailure(
+                    f"{relative}:{line_number} mentions {token} without an explicit same-line rejection"
+                )
+
+
+def check_phase30_productization_validation_matrix(root: Path) -> list[str]:
+    english = root / PRODUCTIZATION_VALIDATION_DOCS[0]
+    chinese = root / PRODUCTIZATION_VALIDATION_DOCS[1]
+    for relative in PRODUCTIZATION_VALIDATION_DOCS:
+        if not (root / relative).exists():
+            raise SmokeFailure(f"missing Phase30 productization validation doc: {relative}")
+
+    english_text = english.read_text(encoding="utf-8")
+    chinese_text = chinese.read_text(encoding="utf-8")
+    combined = english_text + "\n" + chinese_text
+
+    if PRODUCTIZATION_VALIDATION_DOCS[1].name not in english_text:
+        raise SmokeFailure("ProductizationValidationMatrix.md missing zh-CN cross-link")
+    if PRODUCTIZATION_VALIDATION_DOCS[0].name not in chinese_text:
+        raise SmokeFailure("ProductizationValidationMatrix.zh-CN.md missing English cross-link")
+
+    for relative in PRODUCTIZATION_VALIDATION_LINK_SOURCES:
+        if "ProductizationValidationMatrix" not in (root / relative).read_text(encoding="utf-8"):
+            raise SmokeFailure(f"{relative} missing Phase30 validation matrix link/reference")
+
+    for token in PRODUCTIZATION_VALIDATION_TARGET_TOKENS:
+        if token not in combined:
+            raise SmokeFailure(f"Phase30 validation matrix missing target/platform/script token: {token}")
+
+    for relative, contracts in PRODUCTIZATION_VALIDATION_DOC_CONTRACTS:
+        text = (root / relative).read_text(encoding="utf-8")
+        for area, tokens in contracts.items():
+            for token in tokens:
+                if token not in text:
+                    raise SmokeFailure(f"{relative} missing Phase30 {area} token: {token}")
+        check_xarch_build_tokens_are_negated(relative, text)
+
+    for required_heading in (
+        "XArch Target Validation Matrix",
+        "Product Class Validation Matrix",
+        "App / Provider Validation Matrix",
+        "XArch 目标验证矩阵",
+        "产品类别验证矩阵",
+        "App / Provider 验证矩阵",
+    ):
+        if required_heading not in combined:
+            raise SmokeFailure(f"Phase30 validation matrix missing section: {required_heading}")
+
+    for area in (
+        "Dashboard",
+        "Boot",
+        "Devices / HII",
+        "Security",
+        "Firmware",
+        "Diagnostics",
+        "Management",
+        "Power / Thermal",
+        "Hardware Health",
+        "Performance",
+        "PCIe",
+        "Preferences",
+        "Exit",
+    ):
+        if area not in combined:
+            raise SmokeFailure(f"Phase30 validation matrix missing App/provider area: {area}")
+
+    bash = shutil.which("bash")
+    if bash is None:
+        return ["PASS Phase30 productization validation matrix docs; SKIP xarch JSON smoke: bash not found"]
+
+    with tempfile.TemporaryDirectory(prefix="phase30-xarch-smoke-") as tmp:
+        json_path = Path(tmp) / "xarch-validation.json"
+        run(
+            [
+                bash,
+                str(root / XARCH_RUNNER),
+                "--all",
+                "--mode",
+                "dry-run",
+                "--format",
+                "json",
+                "--output",
+                str(json_path),
+            ],
+            cwd=root,
+        )
+        payload = json.loads(json_path.read_text(encoding="utf-8"))
+        targets = payload.get("targets")
+        if not isinstance(targets, list) or len(targets) != 4:
+            raise SmokeFailure("Phase30 xarch JSON smoke expected four targets")
+        for target in targets:
+            if target.get("result") != "PASS":
+                raise SmokeFailure(f"Phase30 xarch JSON target did not pass: {target}")
+        riscv = [target for target in targets if target.get("edk2_arch") == "RISCV64"]
+        if len(riscv) != 1 or riscv[0].get("validation_level") != "Build/script validation":
+            raise SmokeFailure("Phase30 xarch JSON smoke must keep RISCV64 at Build/script validation")
+
+    return ["PASS Phase30 XArch/productization validation matrix docs and xarch JSON smoke"]
+
+
 def check_hii_bridge_view_model_boundary(root: Path) -> list[str]:
     header = root / "Include" / "ModernUi" / "ModernUiHiiBridge.h"
     source = root / "Library" / "ModernUiHiiBridgeLib" / "ModernUiHiiBridgeLib.c"
@@ -1741,6 +1990,7 @@ def main() -> int:
         messages.extend(check_hardware_health_demo_provider(root))
         messages.extend(check_pcie_docs_language(root))
         messages.extend(check_bilingual_documentation_contract(root))
+        messages.extend(check_phase30_productization_validation_matrix(root))
         messages.extend(check_hii_bridge_view_model_boundary(root))
         messages.extend(check_modern_ui_builtin_glyph_subset(root))
         messages.extend(check_ip_hygiene_notices(root))

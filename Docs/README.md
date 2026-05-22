@@ -18,6 +18,7 @@ Simplified Chinese counterparts for the core project docs.
 | --- | --- | --- |
 | XArch architecture model | [XArch.md](XArch.md) | [XArch.zh-CN.md](XArch.zh-CN.md) |
 | Productization feature matrix | [ProductizationFeatureMatrix.md](ProductizationFeatureMatrix.md) | [ProductizationFeatureMatrix.zh-CN.md](ProductizationFeatureMatrix.zh-CN.md) |
+| Productization validation matrix | [ProductizationValidationMatrix.md](ProductizationValidationMatrix.md) | [ProductizationValidationMatrix.zh-CN.md](ProductizationValidationMatrix.zh-CN.md) |
 | Module boundaries | [MODULE_BOUNDARIES.md](MODULE_BOUNDARIES.md) | [MODULE_BOUNDARIES.zh-CN.md](MODULE_BOUNDARIES.zh-CN.md) |
 | Development guide | [DEVELOPMENT.md](DEVELOPMENT.md) | [DEVELOPMENT.zh-CN.md](DEVELOPMENT.zh-CN.md) |
 | IBV and platform setup survey | [IbvAndPlatformSetupSurvey.md](IbvAndPlatformSetupSurvey.md) | [IbvAndPlatformSetupSurvey.zh-CN.md](IbvAndPlatformSetupSurvey.zh-CN.md) |

@@ -54,6 +54,10 @@ The smoke harness currently checks:
 - PCIe docs must describe read-only capability summaries and native HII entry
   hints; real ReBAR, Above 4G, SR-IOV, ASPM, and bifurcation policy changes
   remain platform HII/FormBrowser-owned.
+- `Docs/ProductizationValidationMatrix.md` and its zh-CN counterpart exist,
+  keep XArch separate from concrete edk2 ARCH values, preserve
+  ModernSetupApp/HII/native ownership boundaries, and match the dry-run XArch
+  target metadata report.
 
 Use this as the first validation for docs, ownership, script, and static overlay
 changes. It complements, but does not replace, manual QEMU checks for firmware UI

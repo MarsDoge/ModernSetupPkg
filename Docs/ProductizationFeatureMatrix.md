@@ -9,6 +9,9 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 Language: English | [简体中文](ProductizationFeatureMatrix.zh-CN.md)
 
+See also: [ProductizationValidationMatrix.md](ProductizationValidationMatrix.md) for
+the Phase30 evidence-backed validation matrix and smoke-gate contract.
+
 ModernSetup has two XArch productization layers:
 
 ```text

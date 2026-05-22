@@ -89,6 +89,8 @@ Tests
   pages.
 - `Docs/ProductizationFeatureMatrix.md` tracks standard App feature coverage
   across x86, ARM, RISC-V, and LoongArch product classes.
+- `Docs/ProductizationValidationMatrix.md` tracks the Phase30 XArch target,
+  product-class, and App/provider validation matrix enforced by smoke checks.
 - `Docs/IbvAndPlatformSetupSurvey.md` records the public IBV/OEM/form-factor
   survey used to decide common App surfaces.
 
