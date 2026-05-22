@@ -1223,6 +1223,42 @@ def check_phase27_app_owned_input_preferences(root: Path) -> list[str]:
     return ["PASS Phase27 app-owned numeric/string input Preferences contract"]
 
 
+def check_phase28_runtime_theme_switching(root: Path) -> list[str]:
+    app_dir = root / MODERN_SETUP_APP_DIR
+    app_main = strip_c_comments((app_dir / "ModernSetupApp.c").read_text(encoding="utf-8"))
+    actions = strip_c_comments((app_dir / "ModernSetupAppActions.c").read_text(encoding="utf-8"))
+    theme_header = strip_c_comments((root / "Include" / "ModernUi" / "ModernUiTheme.h").read_text(encoding="utf-8"))
+    prefs_header = strip_c_comments((root / "Include" / "ModernUi" / "ModernUiPreferences.h").read_text(encoding="utf-8"))
+    theme_lib = strip_c_comments((root / "Library" / "ModernUiThemeLib" / "ModernUiThemeLib.c").read_text(encoding="utf-8"))
+
+    for token in (
+        "MODERN_UI_PREFERENCES_THEME_GRAPHITE_GOLD",
+        "MODERN_UI_PREFERENCES_THEME_MAX",
+        "ModernUiGetThemeForPreference",
+    ):
+        if token not in (prefs_header + theme_header + theme_lib + app_main):
+            raise SmokeFailure(f"Phase28 runtime theme switching missing token: {token}")
+    if "MODERN_UI_PREFERENCES_THEME_GRAPHITE_GOLD" not in prefs_header:
+        raise SmokeFailure("Phase28 preference schema must append the Graphite Gold theme id")
+    if "MODERN_UI_PREFERENCES_THEME_MAX" not in prefs_header or "MODERN_UI_PREFERENCES_THEME_GRAPHITE_GOLD" not in prefs_header:
+        raise SmokeFailure("Phase28 preference schema max must include the premium theme")
+    if "mGraphiteGoldTheme" not in theme_lib:
+        raise SmokeFailure("Phase28 premium Graphite Gold palette is missing")
+    if "case MODERN_UI_PREFERENCES_THEME_GRAPHITE_GOLD:" not in theme_lib:
+        raise SmokeFailure("Phase28 runtime theme resolver must map Graphite Gold")
+    if "Graphite Gold" not in actions or "return 4;" not in actions:
+        raise SmokeFailure("Phase28 Preferences theme choices must expose Graphite Gold")
+    if app_main.count("ModernUiGetThemeForPreference (mModernSetupPreferences.ThemeId)") < 2:
+        raise SmokeFailure("ModernSetupApp must resolve runtime theme on initial load and redraw")
+    if "ModernUiGetTheme ();" in app_main:
+        raise SmokeFailure("ModernSetupApp must not ignore app-owned ThemeId with direct ModernUiGetTheme use")
+    for vendor_token in PROHIBITED_THEME_ALIAS_TOKENS:
+        if vendor_token in (theme_lib + actions + prefs_header).lower():
+            raise SmokeFailure(f"Phase28 runtime theme uses prohibited vendor alias: {vendor_token}")
+
+    return ["PASS Phase28 runtime Theme preference applies app-owned palettes"]
+
+
 def check_pcie_provider_foundation(root: Path) -> list[str]:
     for relative in PCIE_PROVIDER_REQUIRED_FILES:
         if not (root / relative).exists():
@@ -1671,6 +1707,7 @@ def main() -> int:
         messages.extend(check_modern_setup_app_preferences_boundary(root))
         messages.extend(check_phase26_interactive_app_owned_preferences(root))
         messages.extend(check_phase27_app_owned_input_preferences(root))
+        messages.extend(check_phase28_runtime_theme_switching(root))
         messages.extend(check_pcie_provider_foundation(root))
         messages.extend(check_hardware_health_demo_provider(root))
         messages.extend(check_pcie_docs_language(root))
