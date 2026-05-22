@@ -502,6 +502,13 @@ def check_static_overlay_script_contracts(root: Path) -> list[str]:
 
         for token in PROHIBITED_DEFAULT_OVERLAY_TOKENS:
             if token in text:
+                is_loongarch_replace_uiapp_opt_in = (
+                    name == "build-loongarchvirt.sh"
+                    and "MODERN_SETUP_REPLACE_UIAPP" in text
+                    and token in {"ModernSetupApp", "ModernUiHiiBridgeLib"}
+                )
+                if is_loongarch_replace_uiapp_opt_in:
+                    continue
                 raise SmokeFailure(f"{path} default overlay generator references prohibited token: {token}")
 
         lowered = text.lower()
@@ -561,6 +568,7 @@ def loongarch_fixture(workspace: Path) -> None:
         workspace / "OvmfPkg" / "LoongArchVirt" / "LoongArchVirtQemu.dsc",
         """[Defines]
   FLASH_DEFINITION               = OvmfPkg/LoongArchVirt/LoongArchVirtQemu.fdf
+  gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile                | { 0x21, 0xaa, 0x2c, 0x46, 0x14, 0x76, 0x03, 0x45, 0x83, 0x6e, 0x8a, 0xb6, 0xf4, 0x66, 0x23, 0x31 }
 !include LoongArchVirt.fdf.inc
 
 [LibraryClasses.common]
@@ -1965,6 +1973,36 @@ def check_overlay_generation(root: Path) -> list[str]:
                         )
 
                 messages.append(f"PASS {platform} {engine} overlay generation dry run")
+
+        overlay_dir = workspace / "Build" / "ModernSetupPkgOverlay"
+        if overlay_dir.exists():
+            shutil.rmtree(overlay_dir)
+
+        env = os.environ.copy()
+        env.update(
+            {
+                "WORKSPACE": str(workspace),
+                "GENERATE_ONLY": "1",
+                "MODERN_SETUP_DISPLAY_ENGINE": "modern",
+                "MODERN_SETUP_DEMO_DRIVER_SAMPLE": "0",
+                "MODERN_SETUP_REPLACE_UIAPP": "1",
+            }
+        )
+        script = workspace / "ModernSetupPkg" / "Scripts" / "build-loongarchvirt.sh"
+        run([bash, str(script)], cwd=workspace / "ModernSetupPkg", env=env)
+
+        dsc = workspace / "Build" / "ModernSetupPkgOverlay" / "LoongArchVirtQemuModernSetup.dsc"
+        fdf = workspace / "Build" / "ModernSetupPkgOverlay" / "LoongArchVirtQemuModernSetup.fdf"
+        assert_contains(dsc, "ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf")
+        assert_contains(dsc, "MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf")
+        assert_contains(
+            dsc,
+            "gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile                | { 0x21, 0xaa, 0x2c, 0x46, 0x14, 0x76, 0x03, 0x45, 0x83, 0x6e, 0x8a, 0xb6, 0xf4, 0x66, 0x23, 0x31 }",
+        )
+        assert_contains(fdf, "INF  MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf")
+        assert_contains(fdf, "INF  RuleOverride = MODERN_SETUP_UIAPP ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf")
+        assert_contains(fdf, "FILE APPLICATION = 462CAA21-7614-4503-836E-8AB6F4662331")
+        messages.append("PASS loongarch replace-uiapp opt-in overlay generation dry run")
 
     return messages
 

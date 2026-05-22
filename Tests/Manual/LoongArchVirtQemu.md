@@ -36,6 +36,11 @@ Expected result:
 - With `MODERN_SETUP_DISPLAY_ENGINE=native`, the overlay keeps upstream
   `DisplayEngineDxe` for before/after comparison.
 - The overlay keeps native `UiApp` as the setup entry.
+- For the opt-in architecture-validation image,
+  `MODERN_SETUP_REPLACE_UIAPP=1` keeps LoongArchVirt's original
+  `PcdBootManagerMenuFile` pointing at the UiApp file GUID, replaces that FV
+  file with `ModernSetupApp`, and adds native `BootManagerMenuApp` to the FV so
+  ModernSetupApp's native fallback does not recurse into itself.
 - `DriverSampleDxe` is included by default unless
   `MODERN_SETUP_DEMO_DRIVER_SAMPLE=0` is set.
 - `Build/LoongArchVirtQemu/DEBUG_GCC/FV/QEMU_EFI.fd` exists.
@@ -69,6 +74,9 @@ Expected result:
 - QEMU opens a LoongArch64 graphical window.
 - Pressing `Esc` or `F2` during BDS enters native `UiApp`.
 - UiApp rendering is handled by `ModernDisplayEngineDxe`.
+- With `MODERN_SETUP_REPLACE_UIAPP=1`, the same firmware setup entry enters
+  `ModernSetupApp`; use the app's native fallback action to launch
+  `BootManagerMenuApp` for the native Boot#### launch path.
 - Device Manager can enumerate platform HII formsets.
 - DriverSample appears automatically when the demo driver is enabled.
 - No ASSERT, exception, or GOP initialization failure is printed to serial.

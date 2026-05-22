@@ -236,7 +236,7 @@ UefiMain (
           Redraw = TRUE;
         } else if (Page == PageBoot) {
           Status = ModernSetupLaunchSelectedBootOption (BootSelection);
-          UnicodeSPrint (StatusMessage, sizeof (StatusMessage), ModernUiGetString (ModernUiStringBootReturnedFormat), Status);
+          UnicodeSPrint (StatusMessage, sizeof (StatusMessage), ModernUiGetString (ModernUiStringClassicReturnedFormat), Status);
           Redraw = TRUE;
         } else if (Page == PageDevices) {
           Status = ModernSetupOpenSelectedDeviceEntry (DeviceSelection);

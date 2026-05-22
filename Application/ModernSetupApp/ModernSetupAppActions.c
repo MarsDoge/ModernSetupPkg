@@ -10,7 +10,11 @@
 
 #include "ModernSetupAppInternal.h"
 
-STATIC CONST EFI_GUID  mUiAppGuid = { 0x462CAA21, 0x7614, 0x4503, { 0x83, 0x6E, 0x8A, 0xB6, 0xF4, 0x66, 0x23, 0x31 } };
+#if defined (MODERN_SETUP_NATIVE_FALLBACK_BOOT_MANAGER_MENU) && (MODERN_SETUP_NATIVE_FALLBACK_BOOT_MANAGER_MENU != 0)
+STATIC CONST EFI_GUID  mNativeFallbackAppGuid = { 0xEEC25BDC, 0x67F2, 0x4D95, { 0xB1, 0xD5, 0xF8, 0x1B, 0x20, 0x39, 0xD1, 0x1D } };
+#else
+STATIC CONST EFI_GUID  mNativeFallbackAppGuid = { 0x462CAA21, 0x7614, 0x4503, { 0x83, 0x6E, 0x8A, 0xB6, 0xF4, 0x66, 0x23, 0x31 } };
+#endif
 
 STATIC CONST MODERN_SETUP_DASHBOARD_ROUTE  mDashboardCategoryRoutes[DASHBOARD_QUICK_CARD_COUNT] = {
   { PageBoot,        SetupFocusContent },
@@ -372,39 +376,26 @@ ModernSetupGetPageSelectableCount (
 }
 
 /**
-  Boot one visible Boot page row through UefiBootManagerLib.
+  Open the native Boot Manager for a visible Boot page row.
 
-  @param[in] Selection  Zero-based visible Boot page row index.
+  ModernSetupApp is the setup/front-page UI. It lists Boot#### summaries, but
+  hands Boot#### launch responsibility to edk2's native BootManagerMenuApp (or
+  UiApp on platforms where the native setup app remains the fallback). Selection
+  is accepted for the UI contract and is not dereferenced here.
 
-  @retval EFI_SUCCESS            Boot option was launched and returned.
-  @retval EFI_NOT_FOUND          The selected Boot#### option could not be found.
-  @retval others                 Status from boot option decoding or launch.
+  @param[in] Selection  Zero-based visible Boot page row index. Ignored.
+
+  @retval EFI_SUCCESS           Native boot manager returned successfully.
+  @retval EFI_NOT_FOUND         Native fallback app could not be resolved.
+  @retval others                Status returned by the native fallback handoff.
 **/
 EFI_STATUS
 ModernSetupLaunchSelectedBootOption (
   IN UINTN  Selection
   )
 {
-  EFI_STATUS             Status;
-  MODERN_UI_BOOT_OPTION  *Options;
-  UINTN                  OptionCount;
-  UINT16                 OptionNumber;
-
-  Options = NULL;
-  Status = ModernUiBootDataGetOptions (mModernSetupImageHandle, &Options, &OptionCount);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
-  if ((Options == NULL) || (Selection >= OptionCount)) {
-    ModernUiBootDataFreeOptions (Options, OptionCount);
-    return EFI_NOT_FOUND;
-  }
-
-  OptionNumber = Options[Selection].OptionNumber;
-  ModernUiBootDataFreeOptions (Options, OptionCount);
-  Status = ModernUiBootDataBootOption (OptionNumber);
-  return Status;
+  (VOID)Selection;
+  return ModernSetupLaunchUiAppFallback (mModernSetupImageHandle);
 }
 
 /**
@@ -881,11 +872,15 @@ ModernSetupHandlePreferencesEnter (
 }
 
 /**
-  Load and start the classic edk2 UiApp from the same firmware volume.
+  Load and start the native edk2 fallback app from the same firmware volume.
+
+  By default this targets native UiApp. Test builds that replace the UiApp FFS
+  file with ModernSetupApp define MODERN_SETUP_NATIVE_FALLBACK_BOOT_MANAGER_MENU
+  so this action targets BootManagerMenuApp instead and avoids self-recursion.
 
   @param[in] ImageHandle  Current image handle. Must not be NULL.
 
-  @retval EFI_SUCCESS           UiApp returned successfully.
+  @retval EFI_SUCCESS           Native fallback app returned successfully.
   @retval EFI_NOT_FOUND         Current image device path could not be resolved.
   @retval EFI_OUT_OF_RESOURCES  Device path allocation failed.
   @retval others                Status returned by HandleProtocol(), LoadImage(),
@@ -917,7 +912,7 @@ ModernSetupLaunchUiAppFallback (
     return EFI_NOT_FOUND;
   }
 
-  EfiInitializeFwVolDevicepathNode (&FileNode, &mUiAppGuid);
+  EfiInitializeFwVolDevicepathNode (&FileNode, &mNativeFallbackAppGuid);
   AppPath = AppendDevicePathNode (DevicePath, (EFI_DEVICE_PATH_PROTOCOL *)&FileNode);
   if (AppPath == NULL) {
     return EFI_OUT_OF_RESOURCES;
