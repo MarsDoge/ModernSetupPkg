@@ -52,6 +52,8 @@ demos. `Docs/XArch.md` defines the target model and validation vocabulary, and
 `Docs/ProductizationFeatureMatrix.md` records the common desktop, workstation,
 server, embedded, and appliance front-page capabilities that should be filled in
 through provider libraries while keeping real setup pages on native FormBrowser.
+`Docs/ProductizationValidationMatrix.md` records the Phase30 evidence matrix and
+smoke-gate checks for the same XArch/productization boundaries.
 For a lightweight target metadata check, run:
 
 ```sh

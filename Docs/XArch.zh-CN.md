@@ -9,6 +9,8 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 语言：[English](XArch.md) | 简体中文
 
+另请参阅：[ProductizationValidationMatrix.zh-CN.md](ProductizationValidationMatrix.zh-CN.md)，其中记录 Phase30 XArch 目标/产品化验证证据矩阵。
+
 XArch 是 ModernSetupPkg 的跨架构项目模型：在 X64、AARCH64、LOONGARCH64 和 RISCV64 目标之间保持同一套 Setup UX、同一条 HII/FormBrowser 所有权边界，以及同一套验证词汇。
 
 XArch 是项目、产品和验证词汇，不替代 edk2 的 `ARCH` 值。构建脚本、DSC/FDF overlay、工具链选择和 edk2 构建变量仍使用具体值：`ARCH=X64`、`ARCH=AARCH64`、`ARCH=LOONGARCH64`、`ARCH=RISCV64`。

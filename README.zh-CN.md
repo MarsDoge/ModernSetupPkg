@@ -80,6 +80,7 @@ ModernSetupApp
 - [`Docs/DEVELOPMENT.zh-CN.md`](Docs/DEVELOPMENT.zh-CN.md) / [`Docs/DEVELOPMENT.md`](Docs/DEVELOPMENT.md)：编码规则、函数注释、架构边界和扩展点。
 - [`Docs/XArch.zh-CN.md`](Docs/XArch.zh-CN.md) / [`Docs/XArch.md`](Docs/XArch.md)：XArch 模型、具体目标映射、验证词汇、成熟度和所有权边界。
 - [`Docs/ProductizationFeatureMatrix.zh-CN.md`](Docs/ProductizationFeatureMatrix.zh-CN.md) / [`Docs/ProductizationFeatureMatrix.md`](Docs/ProductizationFeatureMatrix.md)：XArch App 功能路线图和 provider 边界。
+- [`Docs/ProductizationValidationMatrix.zh-CN.md`](Docs/ProductizationValidationMatrix.zh-CN.md) / [`Docs/ProductizationValidationMatrix.md`](Docs/ProductizationValidationMatrix.md)：Phase30 XArch 产品化证据矩阵和 smoke gate 检查。
 - [`Docs/MODULE_BOUNDARIES.zh-CN.md`](Docs/MODULE_BOUNDARIES.zh-CN.md) / [`Docs/MODULE_BOUNDARIES.md`](Docs/MODULE_BOUNDARIES.md)：稳定契约和层级规则。
 - [`Docs/IbvAndPlatformSetupSurvey.zh-CN.md`](Docs/IbvAndPlatformSetupSurvey.zh-CN.md) / [`Docs/IbvAndPlatformSetupSurvey.md`](Docs/IbvAndPlatformSetupSurvey.md)：IBV/OEM/platform form setup surface 调研。
 - `CHANGELOG.md`：开发进度、用户可见变化和计划版本工作。

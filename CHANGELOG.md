@@ -14,6 +14,13 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase30 XArch/productization validation docs and smoke gate coverage through
+  `Docs/ProductizationValidationMatrix.md`, its zh-CN counterpart, doc-index
+  links, and host-side checks for evidence wording, concrete ARCH values,
+  ModernSetupApp/native HII boundaries, Hardware Health demo-only/read-only
+  status, app-owned preferences, PCIe policy ownership, and xarch dry-run target
+  metadata. This is documentation/test coverage only; runtime behavior is
+  unchanged.
 - Phase 29 Dashboard density layout: the app-owned `DashboardDensity`
   preference now feeds the Dashboard grid helper, so `Compact` reduces the top
   summary area and quick-card spacing while navigation uses the same density-aware
