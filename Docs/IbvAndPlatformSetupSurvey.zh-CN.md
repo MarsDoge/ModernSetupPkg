@@ -38,7 +38,7 @@ ASUS、Gigabyte、MSI、ASRock、Dell、HP、Lenovo、HPE、Supermicro、Intel N
 | 表面 | App 直接显示 | App 仅提供入口 | 原生 FormBrowser 归属 |
 | --- | --- | --- | --- |
 | System / Dashboard | Firmware vendor/revision、architecture、form factor、boot mode、memory、display mode、Secure Boot、provider availability。 | 详细平台 inventory。 | Platform inventory HII 或 SMBIOS/ACPI-specific pages。 |
-| Boot | Boot#### number、active/hidden state、category、description、device path summary、launch selected option。 | Boot order editing 和 boot policy。 | Boot Maintenance Manager 和 platform boot HII。 |
+| Boot | Boot#### number、active/hidden state、category、description、device path summary。ModernSetupApp 中条目可启动；回车通过 UefiBootManagerLib 尝试启动所选 Boot####。 | 直接启动 Boot####、Boot order editing 和 boot policy。 | 原生 Boot Manager、Boot Maintenance Manager 和 platform boot HII。 |
 | Devices | HII formsets、device path inventory、capability providers。 | Driver/device setup pages。 | Device Manager、Driver Health 和各 driver formset。 |
 | Security | Secure Boot、Setup Mode、PK/KEK/db/dbx presence、TPM/TCG/TCM protocol presence。 | Key management、TPM physical presence、measured boot policy。 | SecurityPkg/platform security HII。 |
 | Firmware Update | Capsule runtime support、capsule protocol、capsule report presence、firmware revision。 | Capsule/update/recovery application。 | Capsule/update HII 或 platform update application。 |
@@ -58,7 +58,7 @@ ASUS、Gigabyte、MSI、ASRock、Dell、HP、Lenovo、HPE、Supermicro、Intel N
 | 领域 / 子系统 | 示例选项 | 适用产品 | 架构说明 | ModernSetup 处理方式 | 优先级 |
 | --- | --- | --- | --- | --- | --- |
 | System overview / Main | Firmware vendor/version、build date、board SKU、serial、UUID、language、date/time、administrator/user password 状态。 | 服务器、工作站、桌面、笔记本、嵌入式。 | 架构中立；SMBIOS 在 x86/Arm 服务器常见，在 RISC-V/LoongArch 上可选；RTC 和 language 是 UEFI 标准界面。 | 展示只读身份/状态；存在原生 date/time、language、password 页面时只提供入口。 | P0 |
-| Boot manager / boot policy | Boot order、one-time boot、支持时的 UEFI/legacy mode、PXE、HTTP boot、USB boot、network stack、boot timeout、fast boot。 | 所有产品类型；网络启动在服务器、工作站、嵌入式上尤其常见。 | UEFI Boot#### 架构中立；CSM/legacy 主要是 x86 客户端遗留项；HTTP/PXE 取决于 NIC 栈。 | 展示 Boot#### 清单并启动所选项；编辑和策略仍归 Boot Maintenance/平台 HII。 | P0 |
+| Boot manager / boot policy | Boot order、one-time boot、支持时的 UEFI/legacy mode、PXE、HTTP boot、USB boot、network stack、boot timeout、fast boot。 | 所有产品类型；网络启动在服务器、工作站、嵌入式上尤其常见。 | UEFI Boot#### 架构中立；CSM/legacy 主要是 x86 客户端遗留项；HTTP/PXE 取决于 NIC 栈。 | 展示 Boot#### 清单，并通过 UefiBootManagerLib 启动所选条目；编辑和策略仍归 Boot Maintenance/平台 HII。 | P0 |
 | Security / identity | Secure Boot、Setup Mode、key databases、TPM/PTT/fTPM/TCM、measured boot、physical presence、chassis intrusion、passwords。 | 所有产品类型；服务器、工作站、笔记本最常见。 | Secure Boot 变量是 UEFI 标准；TPM/TCG 在 x86/Arm 常见，在 RISC-V/LoongArch 可选；面向中国市场的平台可能出现 TCM。 | 展示安全态势和协议/key 存在性；key 管理、password、physical-presence 流程和 measured-boot 策略保持原生。 | P0 |
 | Firmware update / recovery | Capsule support、BIOS flash utility、recovery capsule、rollback prevention、dual-bank image、update log。 | 所有产品类型；嵌入式和服务器更强调恢复与生命周期。 | UEFI capsule 接口架构中立；恢复介质和 flash layout 与主板相关。 | 展示能力/状态，并打开原生 update/recovery app 或 HII；App 不执行 flash 写入。 | P0 |
 | Device / HII formset inventory | Device Manager、Driver Health、storage controller pages、NIC pages、USB controller pages、option ROM pages。 | 所有产品类型。 | 通过 HII database 和 device path 保持架构中立；总线可用性取决于平台。 | 枚举入口，并通过 FormBrowser2 打开归属 formset；App 不解析 IFR、不实现 ConfigAccess。 | P0 |
