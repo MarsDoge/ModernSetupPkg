@@ -287,6 +287,17 @@ ModernSetupGetDashboardCategoryRoute (
   );
 
 EFI_STATUS
+ModernSetupGetCachedBootOptions (
+  OUT CONST MODERN_UI_BOOT_OPTION  **Options,
+  OUT UINTN                        *OptionCount
+  );
+
+VOID
+ModernSetupInvalidateBootOptionsCache (
+  VOID
+  );
+
+EFI_STATUS
 ModernSetupLaunchSelectedBootOption (
   IN UINTN  Selection
   );

@@ -47,6 +47,23 @@ UefiMain (
   CHAR16                    StatusMessage[96];
   BOOLEAN                   Redraw;
   BOOLEAN                   ResetConfirmationPending;
+  SETUP_PAGE                OldPage;
+  SETUP_FOCUS               OldFocus;
+  UINTN                     OldDashboardSelection;
+  UINTN                     OldBootSelection;
+  UINTN                     OldDeviceSelection;
+  UINTN                     OldPreferencesSelection;
+  UINTN                     OldExitSelection;
+  BOOLEAN                   OldLanguageDropdownOpen;
+  UINTN                     OldLanguageDropdownSelection;
+  BOOLEAN                   OldPreferencePopupOpen;
+  UINTN                     OldPreferencePopupRow;
+  UINTN                     OldPreferencePopupSelection;
+  MODERN_SETUP_PREFERENCE_POPUP_KIND  OldPreferencePopupKind;
+  UINTN                     OldPreferenceInputLength;
+  BOOLEAN                   OldResetConfirmationPending;
+  MODERN_UI_PREFERENCES     OldPreferences;
+  CHAR16                    OldStatusMessage[96];
 
   gBS->SetWatchdogTimer (0, 0, 0, NULL);
   mModernSetupImageHandle = ImageHandle;
@@ -88,10 +105,35 @@ UefiMain (
       continue;
     }
 
+    OldPage                      = Page;
+    OldFocus                     = Focus;
+    OldDashboardSelection        = DashboardSelection;
+    OldBootSelection             = BootSelection;
+    OldDeviceSelection           = DeviceSelection;
+    OldPreferencesSelection      = PreferencesSelection;
+    OldExitSelection             = ExitSelection;
+    OldLanguageDropdownOpen      = mModernSetupLanguageDropdownOpen;
+    OldLanguageDropdownSelection = mModernSetupLanguageDropdownSelection;
+    OldPreferencePopupOpen       = mModernSetupPreferencePopupOpen;
+    OldPreferencePopupRow        = mModernSetupPreferencePopupRow;
+    OldPreferencePopupSelection  = mModernSetupPreferencePopupSelection;
+    OldPreferencePopupKind       = mModernSetupPreferencePopupKind;
+    OldPreferenceInputLength     = mModernSetupPreferenceInputLength;
+    OldResetConfirmationPending  = ResetConfirmationPending;
+    CopyMem (&OldPreferences, &mModernSetupPreferences, sizeof (OldPreferences));
+    CopyMem (OldStatusMessage, StatusMessage, sizeof (OldStatusMessage));
+
     if ((Focus == SetupFocusContent) && (Page == PagePreferences) && mModernSetupPreferencePopupOpen && (Event.Type == ModernUiInputOther)) {
       ModernSetupHandlePreferenceInputKey (&Event, StatusMessage, sizeof (StatusMessage));
       ResetConfirmationPending = FALSE;
       Redraw = TRUE;
+      if ((OldPreferenceInputLength == mModernSetupPreferenceInputLength) &&
+          (StrCmp (OldStatusMessage, StatusMessage) == 0) &&
+          (CompareMem (&OldPreferences, &mModernSetupPreferences, sizeof (OldPreferences)) == 0))
+      {
+        Redraw = FALSE;
+      }
+
       continue;
     }
 
@@ -276,6 +318,37 @@ UefiMain (
         break;
       default:
         break;
+    }
+
+    if (((OldPage == PageBoot) && (Page != PageBoot)) ||
+        ((Event.Type == ModernUiInputEnter) &&
+         ((OldPage == PageBoot) ||
+          (OldPage == PageDevices) ||
+          ((OldPage == PageExit) && (OldExitSelection == 1)))))
+    {
+      ModernSetupInvalidateBootOptionsCache ();
+    }
+
+    if (Redraw && (Event.Type != ModernUiInputEnter) &&
+        (OldPage == Page) &&
+        (OldFocus == Focus) &&
+        (OldDashboardSelection == DashboardSelection) &&
+        (OldBootSelection == BootSelection) &&
+        (OldDeviceSelection == DeviceSelection) &&
+        (OldPreferencesSelection == PreferencesSelection) &&
+        (OldExitSelection == ExitSelection) &&
+        (OldLanguageDropdownOpen == mModernSetupLanguageDropdownOpen) &&
+        (OldLanguageDropdownSelection == mModernSetupLanguageDropdownSelection) &&
+        (OldPreferencePopupOpen == mModernSetupPreferencePopupOpen) &&
+        (OldPreferencePopupRow == mModernSetupPreferencePopupRow) &&
+        (OldPreferencePopupSelection == mModernSetupPreferencePopupSelection) &&
+        (OldPreferencePopupKind == mModernSetupPreferencePopupKind) &&
+        (OldPreferenceInputLength == mModernSetupPreferenceInputLength) &&
+        (OldResetConfirmationPending == ResetConfirmationPending) &&
+        (StrCmp (OldStatusMessage, StatusMessage) == 0) &&
+        (CompareMem (&OldPreferences, &mModernSetupPreferences, sizeof (OldPreferences)) == 0))
+    {
+      Redraw = FALSE;
     }
   }
 }

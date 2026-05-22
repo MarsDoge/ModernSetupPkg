@@ -16,6 +16,10 @@ STATIC CONST EFI_GUID  mNativeFallbackAppGuid = { 0xEEC25BDC, 0x67F2, 0x4D95, { 
 STATIC CONST EFI_GUID  mNativeFallbackAppGuid = { 0x462CAA21, 0x7614, 0x4503, { 0x83, 0x6E, 0x8A, 0xB6, 0xF4, 0x66, 0x23, 0x31 } };
 #endif
 
+STATIC MODERN_UI_BOOT_OPTION  *mModernSetupBootOptionsCache;
+STATIC UINTN                  mModernSetupBootOptionCountCache;
+STATIC BOOLEAN                mModernSetupBootOptionsCacheValid;
+
 STATIC CONST MODERN_SETUP_DASHBOARD_ROUTE  mDashboardCategoryRoutes[DASHBOARD_QUICK_CARD_COUNT] = {
   { PageBoot,        SetupFocusContent },
   { PageDevices,     SetupFocusContent },
@@ -283,8 +287,58 @@ ModernSetupSetPageSelection (
 }
 
 
+EFI_STATUS
+ModernSetupGetCachedBootOptions (
+  OUT CONST MODERN_UI_BOOT_OPTION  **Options,
+  OUT UINTN                        *OptionCount
+  )
+{
+  EFI_STATUS  Status;
+
+  if ((Options == NULL) || (OptionCount == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (!mModernSetupBootOptionsCacheValid) {
+    ModernSetupInvalidateBootOptionsCache ();
+    Status = ModernUiBootDataGetOptions (
+               mModernSetupImageHandle,
+               &mModernSetupBootOptionsCache,
+               &mModernSetupBootOptionCountCache
+               );
+    if (EFI_ERROR (Status)) {
+      mModernSetupBootOptionsCache      = NULL;
+      mModernSetupBootOptionCountCache = 0;
+      return Status;
+    }
+
+    mModernSetupBootOptionsCacheValid = TRUE;
+  }
+
+  *Options     = mModernSetupBootOptionsCache;
+  *OptionCount = mModernSetupBootOptionCountCache;
+  return EFI_SUCCESS;
+}
+
+VOID
+ModernSetupInvalidateBootOptionsCache (
+  VOID
+  )
+{
+  if (mModernSetupBootOptionsCache != NULL) {
+    ModernUiBootDataFreeOptions (
+      mModernSetupBootOptionsCache,
+      mModernSetupBootOptionCountCache
+      );
+  }
+
+  mModernSetupBootOptionsCache      = NULL;
+  mModernSetupBootOptionCountCache = 0;
+  mModernSetupBootOptionsCacheValid = FALSE;
+}
+
 /**
-  Count visible boot options from UefiBootManagerLib.
+  Count visible boot options from the cached Boot#### snapshot.
 
   @return Number of visible Boot#### entries, or 0 when none are available.
 **/
@@ -293,17 +347,16 @@ ModernSetupGetBootCount (
   VOID
   )
 {
-  EFI_STATUS             Status;
-  MODERN_UI_BOOT_OPTION  *Options;
-  UINTN                  OptionCount;
+  EFI_STATUS                   Status;
+  CONST MODERN_UI_BOOT_OPTION  *Options;
+  UINTN                        OptionCount;
 
   Options = NULL;
-  Status = ModernUiBootDataGetOptions (mModernSetupImageHandle, &Options, &OptionCount);
+  Status = ModernSetupGetCachedBootOptions (&Options, &OptionCount);
   if (EFI_ERROR (Status)) {
     return 0;
   }
 
-  ModernUiBootDataFreeOptions (Options, OptionCount);
   return OptionCount;
 }
 
@@ -395,24 +448,23 @@ ModernSetupLaunchSelectedBootOption (
   IN UINTN  Selection
   )
 {
-  EFI_STATUS             Status;
-  MODERN_UI_BOOT_OPTION  *Options;
-  UINTN                  OptionCount;
-  UINT16                 OptionNumber;
+  EFI_STATUS                   Status;
+  CONST MODERN_UI_BOOT_OPTION  *Options;
+  UINTN                        OptionCount;
+  UINT16                       OptionNumber;
 
   Options = NULL;
-  Status = ModernUiBootDataGetOptions (mModernSetupImageHandle, &Options, &OptionCount);
+  Status = ModernSetupGetCachedBootOptions (&Options, &OptionCount);
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
   if ((Options == NULL) || (Selection >= OptionCount)) {
-    ModernUiBootDataFreeOptions (Options, OptionCount);
     return EFI_NOT_FOUND;
   }
 
   OptionNumber = Options[Selection].OptionNumber;
-  ModernUiBootDataFreeOptions (Options, OptionCount);
+  ModernSetupInvalidateBootOptionsCache ();
 
   return ModernUiBootDataBootOption (OptionNumber);
 }
