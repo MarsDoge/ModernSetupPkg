@@ -276,6 +276,7 @@ ModernSetupGetPageSelectableCount (
 BOOLEAN
 ModernSetupGetDashboardQuickGrid (
   IN  MODERN_UI_RENDER_CONTEXT           *Ui,
+  IN  UINT8                              DashboardDensity,
   OUT MODERN_SETUP_DASHBOARD_QUICK_GRID  *Grid
   );
 

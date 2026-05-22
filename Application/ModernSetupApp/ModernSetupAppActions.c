@@ -45,6 +45,7 @@ MODERN_UI_PREFERENCES  mModernSetupPreferences;
 BOOLEAN
 ModernSetupGetDashboardQuickGrid (
   IN  MODERN_UI_RENDER_CONTEXT           *Ui,
+  IN  UINT8                              DashboardDensity,
   OUT MODERN_SETUP_DASHBOARD_QUICK_GRID  *Grid
   )
 {
@@ -52,29 +53,36 @@ ModernSetupGetDashboardQuickGrid (
   UINTN           TopHeight;
   UINTN           QuickY;
   UINTN           QuickHeight;
+  UINTN           QuickGap;
   UINTN           CardAreaWidth;
   UINTN           MaxRows;
+  UINTN           ValueMinHeight;
+  BOOLEAN         Compact;
 
   if ((Ui == NULL) || (Grid == NULL)) {
     return FALSE;
   }
 
   ZeroMem (Grid, sizeof (*Grid));
+  Compact     = (BOOLEAN)(DashboardDensity == ModernUiDashboardDensityCompact);
   Content     = ModernSetupContentRect (Ui);
-  TopHeight   = (Content.Height >= 460) ? 300 : 232;
-  QuickY      = Content.Y + TopHeight + 16;
-  QuickHeight = (Content.Height > (TopHeight + 16)) ? (Content.Height - TopHeight - 16) : 0;
+  TopHeight   = Compact ? ((Content.Height >= 460) ? 236 : 204) :
+                ((Content.Height >= 460) ? 300 : 232);
+  QuickGap    = Compact ? 10 : 16;
+  QuickY      = Content.Y + TopHeight + QuickGap;
+  QuickHeight = (Content.Height > (TopHeight + QuickGap)) ? (Content.Height - TopHeight - QuickGap) : 0;
   if (QuickHeight <= 110) {
     return FALSE;
   }
 
   Grid->Visible    = TRUE;
   Grid->Panel      = (MODERN_UI_RECT){ Content.X, QuickY, Content.Width, QuickHeight };
-  Grid->CardGap    = DASHBOARD_QUICK_CARD_GAP;
-  Grid->CardTop    = DASHBOARD_QUICK_CARD_TOP;
+  Grid->CardGap    = Compact ? 20 : DASHBOARD_QUICK_CARD_GAP;
+  Grid->CardTop    = Compact ? 42 : DASHBOARD_QUICK_CARD_TOP;
   CardAreaWidth    = (Grid->Panel.Width > 40) ? (Grid->Panel.Width - 40) : Grid->Panel.Width;
-  MaxRows          = (Grid->Panel.Height > (DASHBOARD_QUICK_CARD_TOP + DASHBOARD_QUICK_VALUE_MIN_HEIGHT + DASHBOARD_QUICK_CARD_BOTTOM)) ?
-                     ((Grid->Panel.Height - DASHBOARD_QUICK_CARD_TOP - DASHBOARD_QUICK_CARD_BOTTOM + Grid->CardGap) / (DASHBOARD_QUICK_VALUE_MIN_HEIGHT + Grid->CardGap)) :
+  ValueMinHeight   = Compact ? 30 : DASHBOARD_QUICK_VALUE_MIN_HEIGHT;
+  MaxRows          = (Grid->Panel.Height > (Grid->CardTop + ValueMinHeight + DASHBOARD_QUICK_CARD_BOTTOM)) ?
+                     ((Grid->Panel.Height - Grid->CardTop - DASHBOARD_QUICK_CARD_BOTTOM + Grid->CardGap) / (ValueMinHeight + Grid->CardGap)) :
                      1;
   MaxRows          = MAX (1, MIN (DASHBOARD_QUICK_CARD_COUNT, MaxRows));
   Grid->CardsPerRow = (DASHBOARD_QUICK_CARD_COUNT + MaxRows - 1) / MaxRows;
@@ -322,7 +330,8 @@ ModernSetupGetPageSelectableCount (
       {
         MODERN_SETUP_DASHBOARD_QUICK_GRID  Grid;
 
-        return ModernSetupGetDashboardQuickGrid (Ui, &Grid) ? DASHBOARD_QUICK_CARD_COUNT : 0;
+        return ModernSetupGetDashboardQuickGrid (Ui, mModernSetupPreferences.DashboardDensity, &Grid) ?
+               DASHBOARD_QUICK_CARD_COUNT : 0;
       }
     case PageBoot:
       {

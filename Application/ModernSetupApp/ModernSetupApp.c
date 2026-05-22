@@ -106,7 +106,9 @@ UefiMain (
         } else if ((Focus == SetupFocusContent) && (Page == PageExit) && mModernSetupLanguageDropdownOpen) {
           mModernSetupLanguageDropdownSelection = (mModernSetupLanguageDropdownSelection == 0) ? 1 : 0;
         } else if ((Focus == SetupFocusContent) && (Page == PageDashboard)) {
-          if (ModernSetupGetDashboardQuickGrid (&Ui, &DashboardGrid) && (DashboardSelection >= DashboardGrid.CardsPerRow)) {
+          if (ModernSetupGetDashboardQuickGrid (&Ui, mModernSetupPreferences.DashboardDensity, &DashboardGrid) &&
+              (DashboardSelection >= DashboardGrid.CardsPerRow))
+          {
             DashboardSelection -= DashboardGrid.CardsPerRow;
           } else {
             Focus = SetupFocusNav;
@@ -132,7 +134,9 @@ UefiMain (
             Focus = SetupFocusContent;
           }
         } else if (Page == PageDashboard) {
-          if (ModernSetupGetDashboardQuickGrid (&Ui, &DashboardGrid) && ((DashboardSelection + DashboardGrid.CardsPerRow) < DASHBOARD_QUICK_CARD_COUNT)) {
+          if (ModernSetupGetDashboardQuickGrid (&Ui, mModernSetupPreferences.DashboardDensity, &DashboardGrid) &&
+              ((DashboardSelection + DashboardGrid.CardsPerRow) < DASHBOARD_QUICK_CARD_COUNT))
+          {
             DashboardSelection += DashboardGrid.CardsPerRow;
           }
         } else {
@@ -158,7 +162,9 @@ UefiMain (
         } else if ((Focus == SetupFocusContent) && (Page == PageExit) && mModernSetupLanguageDropdownOpen) {
           mModernSetupLanguageDropdownOpen = FALSE;
         } else if ((Focus == SetupFocusContent) && (Page == PageDashboard)) {
-          if (ModernSetupGetDashboardQuickGrid (&Ui, &DashboardGrid) && ((DashboardSelection % DashboardGrid.CardsPerRow) > 0)) {
+          if (ModernSetupGetDashboardQuickGrid (&Ui, mModernSetupPreferences.DashboardDensity, &DashboardGrid) &&
+              ((DashboardSelection % DashboardGrid.CardsPerRow) > 0))
+          {
             DashboardSelection--;
           } else if (!DashboardGrid.Visible) {
             DashboardSelection = (DashboardSelection == 0) ? (DASHBOARD_QUICK_CARD_COUNT - 1) : (DashboardSelection - 1);
@@ -180,7 +186,7 @@ UefiMain (
           mModernSetupLanguageDropdownOpen = FALSE;
           ModernSetupCancelPreferencePopup ();
         } else if (Page == PageDashboard) {
-          if (ModernSetupGetDashboardQuickGrid (&Ui, &DashboardGrid)) {
+          if (ModernSetupGetDashboardQuickGrid (&Ui, mModernSetupPreferences.DashboardDensity, &DashboardGrid)) {
             if ((((DashboardSelection % DashboardGrid.CardsPerRow) + 1) < DashboardGrid.CardsPerRow) && ((DashboardSelection + 1) < DASHBOARD_QUICK_CARD_COUNT)) {
               DashboardSelection++;
             }
