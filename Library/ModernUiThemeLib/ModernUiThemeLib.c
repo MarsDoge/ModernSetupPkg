@@ -9,6 +9,7 @@
 **/
 
 #include <ModernUi/ModernUiTheme.h>
+#include <ModernUi/ModernUiPreferences.h>
 #include <Library/PcdLib.h>
 
 #define RGB(r, g, b)  { (b), (g), (r), 0 }
@@ -57,6 +58,28 @@ STATIC CONST MODERN_UI_THEME  mRedTheme = {
   RGB (0xE1, 0xE1, 0xDC)   // TelemetryText
 };
 
+STATIC CONST MODERN_UI_THEME  mGraphiteGoldTheme = {
+  RGB (0x03, 0x04, 0x04),  // Background
+  RGB (0x0A, 0x0B, 0x0C),  // Surface
+  RGB (0x13, 0x13, 0x12),  // SurfaceRaised
+  RGB (0x3A, 0x34, 0x28),  // Border
+  RGB (0xC7, 0x9A, 0x3A),  // Accent
+  RGB (0x3C, 0x2B, 0x10),  // AccentSoft
+  RGB (0xF2, 0xEC, 0xDE),  // Text
+  RGB (0xA8, 0xA0, 0x90),  // MutedText
+  RGB (0xD9, 0xB5, 0x55),  // Warning
+  RGB (0x72, 0xC9, 0x8A),  // Success
+  RGB (0x00, 0x00, 0x00),  // BackgroundBlack
+  RGB (0x24, 0x1B, 0x0E),  // HeaderPattern
+  RGB (0xC7, 0x9A, 0x3A),  // AccentOrange
+  RGB (0xE8, 0xCB, 0x7A),  // AccentYellow
+  RGB (0xF0, 0xC6, 0x58),  // GlowOrange
+  RGB (0x4A, 0x36, 0x16),  // SelectedBand
+  RGB (0xD8, 0xB1, 0x5A),  // PopupBorder
+  RGB (0xE8, 0xCB, 0x7A),  // WarningText
+  RGB (0xE6, 0xDE, 0xCF)   // TelemetryText
+};
+
 /**
   Return the active built-in theme token table.
 
@@ -76,4 +99,34 @@ ModernUiGetTheme (
   }
 
   return &mOrangeTheme;
+}
+
+/**
+  Return a built-in theme token table for an app-owned runtime preference.
+
+  The returned pointer is immutable library-owned storage. The function accepts
+  any ThemeId value; unknown identifiers resolve to the build-time default and
+  no persistent preference state is modified.
+
+  @param[in] ThemeId  App-owned theme preference identifier.
+
+  @return Non-NULL pointer to immutable theme tokens.
+**/
+CONST MODERN_UI_THEME *
+EFIAPI
+ModernUiGetThemeForPreference (
+  IN UINT8  ThemeId
+  )
+{
+  switch (ThemeId) {
+    case MODERN_UI_PREFERENCES_THEME_DARK:
+      return &mOrangeTheme;
+    case MODERN_UI_PREFERENCES_THEME_RED:
+      return &mRedTheme;
+    case MODERN_UI_PREFERENCES_THEME_GRAPHITE_GOLD:
+      return &mGraphiteGoldTheme;
+    case MODERN_UI_PREFERENCES_THEME_SYSTEM:
+    default:
+      return ModernUiGetTheme ();
+  }
 }

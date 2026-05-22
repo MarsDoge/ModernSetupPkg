@@ -14,6 +14,10 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase 28 app-owned runtime theme switching: the `Theme` preference now resolves
+  the active `ModernSetupApp` palette during redraw, adds the generic premium
+  `Graphite Gold` dark graphite/champagne palette, and exposes the additive
+  `ModernUiGetThemeForPreference()` resolver with smoke coverage.
 - Phase 10 `ModernSetupApp` Dashboard category landing: the former Quick Access
   section is now labeled Setup Categories/设置分类, routes through an app-private
   card-to-page helper, and shows a small localized Open/Enter affordance while

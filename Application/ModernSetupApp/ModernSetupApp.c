@@ -64,7 +64,7 @@ UefiMain (
     ModernUiPreferencesResetToDefaults (&mModernSetupPreferences);
   }
   ModernUiInputInit (&Input);
-  Theme         = ModernUiGetTheme ();
+  Theme         = ModernUiGetThemeForPreference (mModernSetupPreferences.ThemeId);
   Page          = PageDashboard;
   Focus         = SetupFocusNav;
   DashboardSelection = 0;
@@ -78,6 +78,7 @@ UefiMain (
 
   for (;;) {
     if (Redraw) {
+      Theme = ModernUiGetThemeForPreference (mModernSetupPreferences.ThemeId);
       ModernSetupDrawCurrentPage (&Ui, Theme, Page, Focus, DashboardSelection, BootSelection, DeviceSelection, PreferencesSelection, ExitSelection, StatusMessage);
       Redraw = FALSE;
     }

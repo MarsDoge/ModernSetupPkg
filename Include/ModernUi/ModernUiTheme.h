@@ -50,4 +50,21 @@ ModernUiGetTheme (
   VOID
   );
 
+/**
+  Return a built-in theme token table for an app-owned runtime preference.
+
+  The returned pointer is owned by ModernUiThemeLib and must not be freed or
+  modified by the caller. Invalid preference identifiers fall back to the
+  active build-time default theme without modifying any caller-owned state.
+
+  @param[in] ThemeId  App-owned theme preference identifier.
+
+  @return Non-NULL pointer to immutable theme tokens.
+**/
+CONST MODERN_UI_THEME *
+EFIAPI
+ModernUiGetThemeForPreference (
+  IN UINT8  ThemeId
+  );
+
 #endif

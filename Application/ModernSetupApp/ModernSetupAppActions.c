@@ -492,7 +492,7 @@ ModernSetupGetPreferenceChoiceCount (
 {
   switch (Row) {
     case MODERN_SETUP_PREFERENCE_ROW_THEME:
-      return 3;
+      return 4;
     case MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY:
       return 2;
     default:
@@ -514,6 +514,8 @@ ModernSetupGetPreferenceChoiceName (
         return L"Amber";
       case MODERN_UI_PREFERENCES_THEME_RED:
         return L"Accent Red";
+      case MODERN_UI_PREFERENCES_THEME_GRAPHITE_GOLD:
+        return L"Graphite Gold";
       default:
         return L"Default";
     }
