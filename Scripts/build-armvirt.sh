@@ -16,6 +16,7 @@ JOBS="${JOBS:-$(sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
 MODERN_SETUP_DEMO_DRIVER_SAMPLE="${MODERN_SETUP_DEMO_DRIVER_SAMPLE:-1}"
 MODERN_SETUP_THEME="${MODERN_SETUP_THEME:-orange}"
 MODERN_SETUP_DISPLAY_ENGINE="${MODERN_SETUP_DISPLAY_ENGINE:-modern}"
+MODERN_SETUP_REPLACE_UIAPP="${MODERN_SETUP_REPLACE_UIAPP:-0}"
 GENERATE_ONLY="${GENERATE_ONLY:-0}"
 OVERLAY_DIR="${WORKSPACE}/Build/ModernSetupPkgOverlay"
 
@@ -31,7 +32,7 @@ fi
 
 mkdir -p "${OVERLAY_DIR}"
 
-python3 - <<'PY' "${WORKSPACE}" "${OVERLAY_DIR}" "${MODERN_SETUP_DEMO_DRIVER_SAMPLE}" "${MODERN_SETUP_THEME}" "${MODERN_SETUP_DISPLAY_ENGINE}"
+python3 - <<'PY' "${WORKSPACE}" "${OVERLAY_DIR}" "${MODERN_SETUP_DEMO_DRIVER_SAMPLE}" "${MODERN_SETUP_THEME}" "${MODERN_SETUP_DISPLAY_ENGINE}" "${MODERN_SETUP_REPLACE_UIAPP}"
 from pathlib import Path
 import re
 import sys
@@ -41,6 +42,7 @@ overlay = Path(sys.argv[2])
 enable_driver_sample = sys.argv[3] != "0"
 theme_name = sys.argv[4].strip().lower()
 display_engine = sys.argv[5].strip().lower()
+replace_uiapp_flag = sys.argv[6].strip().lower()
 theme_pcd = {
     "orange": "0x00",
     "amber": "0x00",
@@ -58,21 +60,54 @@ if display_engine not in {"modern", "native"}:
     raise SystemExit(
         f"Unsupported MODERN_SETUP_DISPLAY_ENGINE={display_engine!r}; use modern or native"
     )
+if replace_uiapp_flag not in {"0", "1", "false", "true", "no", "yes"}:
+    raise SystemExit(
+        f"Unsupported MODERN_SETUP_REPLACE_UIAPP={replace_uiapp_flag!r}; use 0 or 1"
+    )
+replace_uiapp = replace_uiapp_flag in {"1", "true", "yes"}
 
+modern_setup_app_component_boot_manager_fallback = """  ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf {
+    <BuildOptions>
+      GCC:*_*_*_CC_FLAGS = -DMODERN_SETUP_NATIVE_FALLBACK_BOOT_MANAGER_MENU=1
+  }"""
+modern_setup_app_uiapp_fdf_inf = "  INF RuleOverride = MODERN_SETUP_UIAPP ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf"
 modern_display_component = "  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
 modern_display_fdf_inf = "  INF ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
 driver_sample_component = "  MdeModulePkg/Universal/DriverSampleDxe/DriverSampleDxe.inf"
 driver_sample_fdf_inf = "  INF MdeModulePkg/Universal/DriverSampleDxe/DriverSampleDxe.inf"
-ui_app_guid_bytes = "{ 0x21, 0xaa, 0x2c, 0x46, 0x14, 0x76, 0x03, 0x45, 0x83, 0x6e, 0x8a, 0xb6, 0xf4, 0x66, 0x23, 0x31 }"
 library_block = """  ModernUiEngineLib|ModernSetupPkg/Library/ModernUiEngineLib/ModernUiEngineLib.inf
   ModernUiRendererLib|ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
   ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
 """
+app_library_block = """  ModernUiPlatformDataLib|ModernSetupPkg/Library/ModernUiPlatformDataLib/ModernUiPlatformDataLib.inf
+  ModernUiBootDataLib|ModernSetupPkg/Library/ModernUiBootDataLib/ModernUiBootDataLib.inf
+  ModernUiDeviceDataLib|ModernSetupPkg/Library/ModernUiDeviceDataLib/ModernUiDeviceDataLib.inf
+  ModernUiSecurityDataLib|ModernSetupPkg/Library/ModernUiSecurityDataLib/ModernUiSecurityDataLib.inf
+  ModernUiFirmwareDataLib|ModernSetupPkg/Library/ModernUiFirmwareDataLib/ModernUiFirmwareDataLib.inf
+  ModernUiHardwareHealthDataLib|ModernSetupPkg/Library/ModernUiHardwareHealthDataLib/ModernUiHardwareHealthDataLib.inf
+  ModernUiHiiBridgeLib|ModernSetupPkg/Library/ModernUiHiiBridgeLib/ModernUiHiiBridgeLib.inf
+  ModernUiDiagnosticsDataLib|ModernSetupPkg/Library/ModernUiDiagnosticsDataLib/ModernUiDiagnosticsDataLib.inf
+  ModernUiManagementDataLib|ModernSetupPkg/Library/ModernUiManagementDataLib/ModernUiManagementDataLib.inf
+  ModernUiPowerDataLib|ModernSetupPkg/Library/ModernUiPowerDataLib/ModernUiPowerDataLib.inf
+  ModernUiPerformanceDataLib|ModernSetupPkg/Library/ModernUiPerformanceDataLib/ModernUiPerformanceDataLib.inf
+  ModernUiPcieDataLib|ModernSetupPkg/Library/ModernUiPcieDataLib/ModernUiPcieDataLib.inf
+  ModernUiInputLib|ModernSetupPkg/Library/ModernUiInputLib/ModernUiInputLib.inf
+  ModernUiPreferencesLib|ModernSetupPkg/Library/ModernUiPreferencesLib/ModernUiPreferencesLib.inf
+  ModernUiStringLib|ModernSetupPkg/Library/ModernUiStringLib/ModernUiStringLib.inf
+"""
+
+def replace_regex_once(text: str, pattern: str, replacement: str, description: str) -> str:
+    text, count = re.subn(pattern, replacement, text, count=1, flags=re.MULTILINE)
+    if count != 1:
+        raise SystemExit(f"Expected {description} anchor matching: {pattern}")
+    return text
 
 dsc = (workspace / "ArmVirtPkg/ArmVirtQemu.dsc").read_text()
+boot_manager_menu_guid_bytes = "{ 0xdc, 0x5b, 0xc2, 0xee, 0xf2, 0x67, 0x95, 0x4d, 0xb1, 0xd5, 0xf8, 0x1b, 0x20, 0x39, 0xd1, 0x1d }"
+ui_app_guid_bytes = "{ 0x21, 0xaa, 0x2c, 0x46, 0x14, 0x76, 0x03, 0x45, 0x83, 0x6e, 0x8a, 0xb6, 0xf4, 0x66, 0x23, 0x31 }"
 dsc = re.sub(
     r"gEfiMdeModulePkgTokenSpaceGuid\.PcdBootManagerMenuFile\|\{[^}]+\}",
-    f"gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile|{ui_app_guid_bytes}",
+    f"gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile|{boot_manager_menu_guid_bytes if replace_uiapp else ui_app_guid_bytes}",
     dsc,
     count=1,
 )
@@ -81,8 +116,17 @@ dsc = dsc.replace(
     "  FLASH_DEFINITION               = Build/ModernSetupPkgOverlay/ArmVirtQemuModernSetup.fdf",
 )
 if "ModernUiEngineLib|ModernSetupPkg" not in dsc:
-    if display_engine == "modern":
+    if display_engine == "modern" or replace_uiapp:
         dsc = dsc.replace("[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + library_block, 1)
+if replace_uiapp and "ModernUiPlatformDataLib|ModernSetupPkg" not in dsc:
+    dsc = dsc.replace("[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + app_library_block, 1)
+if replace_uiapp:
+    dsc = replace_regex_once(
+        dsc,
+        r"^  MdeModulePkg/Application/UiApp/UiApp\.inf \{\r?\n(?:    [^\r\n]*\r?\n)*?  \}\r?\n",
+        modern_setup_app_component_boot_manager_fallback + "\n",
+        "UiApp DSC component",
+    )
 if display_engine == "modern":
     dsc = dsc.replace(
         "  CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf",
@@ -95,11 +139,18 @@ if display_engine == "modern":
         1,
     )
 if enable_driver_sample and driver_sample_component not in dsc:
-    dsc = dsc.replace(
-        "  MdeModulePkg/Application/UiApp/UiApp.inf {",
-        driver_sample_component + "\n  MdeModulePkg/Application/UiApp/UiApp.inf {",
-        1,
-    )
+    if replace_uiapp:
+        dsc = dsc.replace(
+            modern_setup_app_component_boot_manager_fallback,
+            driver_sample_component + "\n" + modern_setup_app_component_boot_manager_fallback,
+            1,
+        )
+    else:
+        dsc = dsc.replace(
+            "  MdeModulePkg/Application/UiApp/UiApp.inf {",
+            driver_sample_component + "\n  MdeModulePkg/Application/UiApp/UiApp.inf {",
+            1,
+        )
 if display_engine == "modern":
     dsc += (
         "\n[PcdsFixedAtBuild]\n"
@@ -124,18 +175,42 @@ if display_engine == "modern":
         modern_display_fdf_inf,
         1,
     )
+if replace_uiapp:
+    fv = replace_regex_once(
+        fv,
+        r"^\s*INF\s+MdeModulePkg/Application/UiApp/UiApp\.inf\s*$",
+        modern_setup_app_uiapp_fdf_inf,
+        "UiApp FDF INF",
+    )
 if enable_driver_sample and driver_sample_fdf_inf not in fv:
-    fv = fv.replace(
-        "  INF MdeModulePkg/Application/UiApp/UiApp.inf",
-        driver_sample_fdf_inf + "\n  INF MdeModulePkg/Application/UiApp/UiApp.inf",
-        1,
+    if replace_uiapp:
+        fv = fv.replace(
+            modern_setup_app_uiapp_fdf_inf,
+            driver_sample_fdf_inf + "\n" + modern_setup_app_uiapp_fdf_inf,
+            1,
+        )
+    else:
+        fv = fv.replace(
+            "  INF MdeModulePkg/Application/UiApp/UiApp.inf",
+            driver_sample_fdf_inf + "\n  INF MdeModulePkg/Application/UiApp/UiApp.inf",
+            1,
+        )
+if replace_uiapp and "[Rule.Common.UEFI_APPLICATION.MODERN_SETUP_UIAPP]" not in fv:
+    fv += (
+        "\n[Rule.Common.UEFI_APPLICATION.MODERN_SETUP_UIAPP]\n"
+        "  FILE APPLICATION = 462CAA21-7614-4503-836E-8AB6F4662331 {\n"
+        "    PE32     PE32                    $(INF_OUTPUT)/$(MODULE_NAME).efi\n"
+        "    UI       STRING=\"ModernSetupApp\" Optional\n"
+        "  }\n"
     )
 (overlay / "ArmVirtQemuModernSetupFvMain.fdf.inc").write_text(fv)
 PY
 
 echo "Generated: ${OVERLAY_DIR}/ArmVirtQemuModernSetup.dsc"
 echo "Generated: ${OVERLAY_DIR}/ArmVirtQemuModernSetup.fdf"
+echo "Generated: ${OVERLAY_DIR}/ArmVirtQemuModernSetupFvMain.fdf.inc"
 echo "DisplayEngine: ${MODERN_SETUP_DISPLAY_ENGINE}"
+echo "Replace UiApp with ModernSetupApp: ${MODERN_SETUP_REPLACE_UIAPP}"
 
 if [[ "${GENERATE_ONLY}" == "1" ]]; then
   exit 0

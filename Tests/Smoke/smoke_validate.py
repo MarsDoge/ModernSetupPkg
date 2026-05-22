@@ -502,12 +502,11 @@ def check_static_overlay_script_contracts(root: Path) -> list[str]:
 
         for token in PROHIBITED_DEFAULT_OVERLAY_TOKENS:
             if token in text:
-                is_loongarch_replace_uiapp_opt_in = (
-                    name == "build-loongarchvirt.sh"
-                    and "MODERN_SETUP_REPLACE_UIAPP" in text
+                is_replace_uiapp_opt_in = (
+                    "MODERN_SETUP_REPLACE_UIAPP" in text
                     and token in {"ModernSetupApp", "ModernUiHiiBridgeLib"}
                 )
-                if is_loongarch_replace_uiapp_opt_in:
+                if is_replace_uiapp_opt_in:
                     continue
                 raise SmokeFailure(f"{path} default overlay generator references prohibited token: {token}")
 
