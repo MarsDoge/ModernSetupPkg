@@ -2063,6 +2063,7 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         "UNSAVED CHANGES",
         "MODAL VIEW",
         "ModernUiDrawTextFit",
+        "Time.Second",
     ):
         if token not in engine_text:
             raise SmokeFailure(f"Phase36 DisplayEngine footer status chip missing token: {token}")

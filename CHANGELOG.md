@@ -14,6 +14,9 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase36 UX iteration: the Modern UI header time now includes seconds, making
+  redraw/refresh activity visible without adding a new timer path or changing
+  FormBrowser event ownership.
 - Phase36 UX iteration: DisplayEngine page status now normalizes through a
   private page-state enum with an explicit future `REBOOT REQUIRED` state, so
   reboot-after-save policy can be surfaced later without conflating it with
