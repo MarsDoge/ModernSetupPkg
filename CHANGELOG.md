@@ -14,6 +14,12 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase33 DisplayEngine form view-model foundation: `ModernUiCustomizedDisplayLib`
+  now has a private `ModernDisplayFormModel` layer that classifies borrowed
+  FormBrowser DisplayEngine form/statement data into Modern UI row metadata,
+  centralizes page layout handoff in `DisplayPageFrame`, and routes key-help UX
+  decisions through the new row helper without promoting `ModernUiHiiBridgeLib`
+  or taking HII/config ownership.
 - phase32(app): apply DashboardDensity to Boot/Devices/Provider pages.
 - Phase30 XArch/productization validation docs and smoke gate coverage through
   `Docs/ProductizationValidationMatrix.md`, its zh-CN counterpart, doc-index
