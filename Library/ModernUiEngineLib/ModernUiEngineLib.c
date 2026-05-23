@@ -422,6 +422,32 @@ ModernUiEngineDrawTabs (
   return EFI_SUCCESS;
 }
 
+STATIC
+EFI_GRAPHICS_OUTPUT_BLT_PIXEL
+ModernUiEngineStatusColor (
+  IN CONST CHAR16           *StatusText,
+  IN CONST MODERN_UI_THEME  *Theme
+  )
+{
+  if ((StatusText == NULL) || (Theme == NULL)) {
+    return (EFI_GRAPHICS_OUTPUT_BLT_PIXEL){ 0, 0, 0, 0 };
+  }
+
+  if (StrCmp (StatusText, L"UNSAVED CHANGES") == 0) {
+    return Theme->Warning;
+  }
+
+  if (StrCmp (StatusText, L"LIVE REFRESH") == 0) {
+    return Theme->Success;
+  }
+
+  if (StrCmp (StatusText, L"MODAL VIEW") == 0) {
+    return Theme->AccentYellow;
+  }
+
+  return Theme->AccentOrange;
+}
+
 EFI_STATUS
 EFIAPI
 ModernUiEngineDrawFooter (
@@ -431,7 +457,11 @@ ModernUiEngineDrawFooter (
   IN CONST MODERN_UI_THEME     *Theme
   )
 {
-  EFI_STATUS  Status;
+  EFI_STATUS                     Status;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  StatusColor;
+  UINTN                          ChipWidth;
+  UINTN                          TextWidth;
+  UINTN                          MaxChipWidth;
 
   if ((Context == NULL) || (Theme == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
     return EFI_INVALID_PARAMETER;
@@ -458,8 +488,48 @@ ModernUiEngineDrawFooter (
     }
   }
 
-  if ((StatusText != NULL) && (StatusText[0] != CHAR_NULL)) {
-    return ModernUiDrawText (Context, Rect.X + 24, Rect.Y + 10, StatusText, Theme->Warning, Theme->BackgroundBlack);
+  if ((StatusText != NULL) && (StatusText[0] != CHAR_NULL) && (Rect.Width > 80) && (Rect.Height > 22)) {
+    StatusColor  = ModernUiEngineStatusColor (StatusText, Theme);
+    TextWidth    = ModernUiMeasureText (StatusText);
+    MaxChipWidth = (Rect.Width > 96) ? (Rect.Width - 48) : Rect.Width;
+    ChipWidth    = MIN (MaxChipWidth, TextWidth + 42);
+
+    Status = ModernUiFillRect (
+               Context,
+               (MODERN_UI_RECT){ Rect.X + 18, Rect.Y + 7, ChipWidth, 20 },
+               ModernUiBlendColor (Theme->BackgroundBlack, StatusColor, 16)
+               );
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+
+    Status = ModernUiFillRect (
+               Context,
+               (MODERN_UI_RECT){ Rect.X + 18, Rect.Y + 7, 4, 20 },
+               StatusColor
+               );
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+
+    Status = ModernUiFillRect (
+               Context,
+               (MODERN_UI_RECT){ Rect.X + 22, Rect.Y + 7, ChipWidth - 4, 1 },
+               ModernUiBlendColor (StatusColor, Theme->BackgroundBlack, 55)
+               );
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+
+    return ModernUiDrawTextFit (
+             Context,
+             Rect.X + 34,
+             Rect.Y + 11,
+             (ChipWidth > 30) ? (ChipWidth - 30) : ChipWidth,
+             StatusText,
+             StatusColor,
+             ModernUiBlendColor (Theme->BackgroundBlack, StatusColor, 16)
+             );
   }
 
   return EFI_SUCCESS;
