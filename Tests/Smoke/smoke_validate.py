@@ -1931,7 +1931,32 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         if token not in refresh_body:
             raise SmokeFailure(f"RefreshKeyHelp must consume the Phase33 row model/helper: {token}")
 
-    return ["PASS Phase33 private DisplayEngine form view-model boundary"]
+    row_surface_body = extract_c_function_body(
+        strip_c_comments(internal_c.read_text(encoding="utf-8")),
+        "ModernDisplayDrawStatementRow",
+    )
+    for token in (
+        "ModernDisplayClassifyStatementForForm",
+        "ModernDisplayFormRowGetVisualRole",
+        "MODERN_DISPLAY_FORM_ROW",
+    ):
+        if token not in row_surface_body:
+            raise SmokeFailure(f"DisplayEngine row surface must consume the Phase34 row model/helper: {token}")
+
+    form_display = root / "Universal" / "ModernDisplayEngineDxe" / "FormDisplay.c"
+    form_display_text = strip_c_comments(form_display.read_text(encoding="utf-8"))
+    display_one_menu = extract_c_function_body(form_display_text, "DisplayOneMenu")
+    if "ModernDisplayDrawStatementRow" not in display_one_menu:
+        raise SmokeFailure("DisplayOneMenu must keep the Modern row surface hook")
+    for stale_token in ("IsActionRow", "IsSubtitleRow"):
+        if stale_token in display_one_menu:
+            raise SmokeFailure(f"DisplayOneMenu must not reintroduce scattered row role state: {stale_token}")
+
+    for token in ("ConfigAccess", "RouteConfig", "ExtractConfig", "SetVariable", "HiiSetBrowserData"):
+        if token in row_surface_body:
+            raise SmokeFailure(f"Phase34 row rendering hook contains prohibited browser/storage token: {token}")
+
+    return ["PASS Phase33/34 private DisplayEngine form view-model boundary"]
 
 
 def check_modern_ui_builtin_glyph_subset(root: Path) -> list[str]:

@@ -177,6 +177,116 @@ ModernDisplayFormRowIsActionLike (
 }
 
 /**
+  Return whether a row kind behaves as editable value content.
+
+  @param[in] Kind  Row kind to test.
+
+  @retval TRUE   The row represents editable value content.
+  @retval FALSE  The row is text/action/chrome-like only.
+**/
+BOOLEAN
+ModernDisplayFormRowIsEditable (
+  IN MODERN_DISPLAY_FORM_ROW_KIND  Kind
+  )
+{
+  return (BOOLEAN)(
+                    ModernDisplayFormRowIsChoiceLike (Kind) ||
+                    (Kind == ModernDisplayFormRowCheckbox) ||
+                    (Kind == ModernDisplayFormRowPassword) ||
+                    (Kind == ModernDisplayFormRowString)
+                    );
+}
+
+/**
+  Return whether a row kind has no value/action affordance.
+
+  @param[in] Kind  Row kind to test.
+
+  @retval TRUE   The row is display text only.
+  @retval FALSE  The row has another affordance.
+**/
+BOOLEAN
+ModernDisplayFormRowIsTextOnly (
+  IN MODERN_DISPLAY_FORM_ROW_KIND  Kind
+  )
+{
+  return (BOOLEAN)(
+                    (Kind == ModernDisplayFormRowText) ||
+                    (Kind == ModernDisplayFormRowSubtitle) ||
+                    (Kind == ModernDisplayFormRowUnknown)
+                    );
+}
+
+/**
+  Return whether a BrowserStatus value indicates the current page has invalid
+  or blocked input feedback to show.
+
+  @param[in] BrowserStatus  DisplayEngine BrowserStatus value.
+
+  @retval TRUE   The status represents invalid/warning/no-submit feedback.
+  @retval FALSE  The status is success or non-row-specific action feedback.
+**/
+STATIC
+BOOLEAN
+ModernDisplayBrowserStatusIsInvalid (
+  IN UINT32  BrowserStatus
+  )
+{
+  switch (BrowserStatus) {
+    case BROWSER_WARNING_IF:
+    case BROWSER_NO_SUBMIT_IF:
+    case BROWSER_INCONSISTENT_IF:
+    case BROWSER_SUBMIT_FAIL:
+      return TRUE;
+    default:
+      return FALSE;
+  }
+}
+
+/**
+  Map a private form row model to the shared Modern UI renderer row role.
+
+  @param[in] Row  Row model to inspect. May be NULL.
+
+  @return Renderer row role for conservative DisplayEngine row painting.
+**/
+MODERN_UI_ROW_ROLE
+ModernDisplayFormRowGetVisualRole (
+  IN CONST MODERN_DISPLAY_FORM_ROW  *Row OPTIONAL
+  )
+{
+  if (Row == NULL) {
+    return ModernUiRowNormal;
+  }
+
+  if ((Row->State & ModernDisplayFormRowStateInvalid) != 0) {
+    return ModernUiRowWarning;
+  }
+
+  if ((Row->State & ModernDisplayFormRowStateHighlighted) != 0) {
+    return ModernUiRowSelected;
+  }
+
+  if ((Row->State & ModernDisplayFormRowStateDisabled) != 0) {
+    return ModernUiRowDisabled;
+  }
+
+  if ((Row->State & ModernDisplayFormRowStateReadOnly) != 0) {
+    return ModernUiRowReadOnly;
+  }
+
+  if (Row->Kind == ModernDisplayFormRowSubtitle) {
+    return ModernUiRowSubtitle;
+  }
+
+  if (ModernDisplayFormRowIsActionLike (Row->Kind) && !ModernDisplayFormRowIsTextOnly (Row->Kind)) {
+    return ModernUiRowAction;
+  }
+
+  return ModernUiRowNormal;
+}
+
+/**
   Classify a DisplayEngine statement into a private Modern UI row model.
 
   @param[in]  Statement  DisplayEngine statement to classify. May be NULL.
@@ -194,6 +304,33 @@ ModernDisplayClassifyStatement (
   OUT MODERN_DISPLAY_FORM_ROW        *Row
   )
 {
+  return ModernDisplayClassifyStatementForForm (NULL, Statement, FALSE, Selected, Row);
+}
+
+/**
+  Classify a DisplayEngine statement into a private Modern UI row model with
+  optional page/form context.
+
+  @param[in]  FormData   DisplayEngine form that owns the statement. May be
+                         NULL when only statement-local state is available.
+  @param[in]  Statement  DisplayEngine statement to classify. May be NULL.
+  @param[in]  Highlight  TRUE when the row has keyboard highlight.
+  @param[in]  Selected   TRUE when the row is in edit/selection mode.
+  @param[out] Row        Row model to fill. Must not be NULL.
+
+  @retval EFI_SUCCESS            Row was filled. A NULL Statement produces an
+                                  Unknown row.
+  @retval EFI_INVALID_PARAMETER  Row is NULL.
+**/
+EFI_STATUS
+ModernDisplayClassifyStatementForForm (
+  IN  FORM_DISPLAY_ENGINE_FORM       *FormData OPTIONAL,
+  IN  FORM_DISPLAY_ENGINE_STATEMENT  *Statement OPTIONAL,
+  IN  BOOLEAN                        Highlight,
+  IN  BOOLEAN                        Selected,
+  OUT MODERN_DISPLAY_FORM_ROW        *Row
+  )
+{
   UINT32  State;
 
   if (Row == NULL) {
@@ -206,9 +343,20 @@ ModernDisplayClassifyStatement (
   Row->OpCode    = ((Statement != NULL) && (Statement->OpCode != NULL)) ? Statement->OpCode->OpCode : 0;
 
   State = 0;
+  ModernDisplayAddRowState (&State, ModernDisplayFormRowStateHighlighted, Highlight);
   ModernDisplayAddRowState (&State, ModernDisplayFormRowStateSelected, Selected);
+  if (FormData != NULL) {
+    ModernDisplayAddRowState (&State, ModernDisplayFormRowStateModal, (BOOLEAN)((FormData->Attribute & HII_DISPLAY_MODAL) != 0));
+    ModernDisplayAddRowState (&State, ModernDisplayFormRowStatePageChanged, FormData->SettingChangedFlag);
+    ModernDisplayAddRowState (
+      &State,
+      ModernDisplayFormRowStateInvalid,
+      (BOOLEAN)(Highlight && ModernDisplayBrowserStatusIsInvalid (FormData->BrowserStatus))
+      );
+  }
+
   if (Statement != NULL) {
-    ModernDisplayAddRowState (&State, ModernDisplayFormRowStateDisabled, (BOOLEAN)((Statement->Attribute & HII_DISPLAY_GRAYOUT) != 0));
+    ModernDisplayAddRowState (&State, ModernDisplayFormRowStateDisabled, (BOOLEAN)((Statement->Attribute & (HII_DISPLAY_GRAYOUT | HII_DISPLAY_LOCK)) != 0));
     ModernDisplayAddRowState (&State, ModernDisplayFormRowStateReadOnly, (BOOLEAN)((Statement->Attribute & HII_DISPLAY_READONLY) != 0));
     ModernDisplayAddRowState (&State, ModernDisplayFormRowStateChanged, Statement->SettingChangedFlag);
     ModernDisplayAddRowState (&State, ModernDisplayFormRowStateHexInput, ModernDisplayStatementUsesHexInput (Statement));
@@ -277,14 +425,16 @@ ModernDisplayFormModelBuild (
     Model->RowCount++;
   }
 
-  Status = ModernDisplayClassifyStatement (HighlightedStatement, Selected, &Model->HighlightedRow);
+  Status = ModernDisplayClassifyStatementForForm (
+             FormData,
+             HighlightedStatement,
+             Model->HasHighlightedRow,
+             Selected,
+             &Model->HighlightedRow
+             );
   if (EFI_ERROR (Status)) {
     ModernDisplayFormModelClear (Model);
     return Status;
-  }
-
-  if (Model->HasHighlightedRow) {
-    Model->HighlightedRow.State |= ModernDisplayFormRowStateHighlighted;
   }
 
   return EFI_SUCCESS;

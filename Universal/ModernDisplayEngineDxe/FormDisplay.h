@@ -77,27 +77,28 @@ extern BOOLEAN  gMisMatch;
 /**
   Draw a ModernSetup row background for one FormBrowser statement.
 
-  The DisplayEngine owns statement semantics. The customized display library
-  owns the GOP painting details behind the text-grid output.
+  The DisplayEngine supplies already-materialized form/statement data. The
+  customized display library owns the private row model and GOP painting details
+  behind the text-grid output.
 
+  @param[in] FormData   DisplayEngine form that owns Statement. May be NULL.
+  @param[in] Statement  Statement to classify for row rendering. May be NULL.
   @param[in] Column     Text-grid column where the row starts.
   @param[in] Row        Text-grid row to paint.
   @param[in] Width      Text-grid column count to paint.
-  @param[in] Highlight  TRUE when the row is selected.
-  @param[in] GrayOut    TRUE when the statement is disabled or grayed.
-  @param[in] Action     TRUE when the statement is an action-like row.
-  @param[in] Subtitle   TRUE when the statement is a subtitle row.
+  @param[in] Highlight  TRUE when the row has keyboard highlight.
+  @param[in] Selected   TRUE when the row is in edit/selection mode.
 **/
 VOID
 EFIAPI
 ModernDisplayDrawStatementRow (
+  IN FORM_DISPLAY_ENGINE_FORM       *FormData OPTIONAL,
+  IN FORM_DISPLAY_ENGINE_STATEMENT  *Statement OPTIONAL,
   IN UINTN    Column,
   IN UINTN    Row,
   IN UINTN    Width,
   IN BOOLEAN  Highlight,
-  IN BOOLEAN  GrayOut,
-  IN BOOLEAN  Action,
-  IN BOOLEAN  Subtitle
+  IN BOOLEAN  Selected
   );
 
 //

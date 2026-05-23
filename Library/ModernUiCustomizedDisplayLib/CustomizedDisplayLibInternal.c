@@ -401,26 +401,27 @@ ModernDisplayDrawPopupSurface (
   Draw a ModernSetup row background for one FormBrowser statement.
 
   The caller still prints all statement text through the native DisplayEngine
-  flow. This hook only paints the GOP row surface beneath that text.
+  flow. This hook classifies the already-materialized statement with the private
+  form row model and paints the GOP row surface beneath that text.
 
+  @param[in] FormData   DisplayEngine form that owns Statement. May be NULL.
+  @param[in] Statement  Statement to classify for row rendering. May be NULL.
   @param[in] Column     Text-grid column where the row starts.
   @param[in] Row        Text-grid row to paint.
   @param[in] Width      Text-grid column count to paint.
-  @param[in] Highlight  TRUE when the row is selected.
-  @param[in] GrayOut    TRUE when the statement is disabled or grayed.
-  @param[in] Action     TRUE when the statement is an action-like row.
-  @param[in] Subtitle   TRUE when the statement is a subtitle row.
+  @param[in] Highlight  TRUE when the row has keyboard highlight.
+  @param[in] Selected   TRUE when the row is in edit/selection mode.
 **/
 VOID
 EFIAPI
 ModernDisplayDrawStatementRow (
+  IN FORM_DISPLAY_ENGINE_FORM       *FormData OPTIONAL,
+  IN FORM_DISPLAY_ENGINE_STATEMENT  *Statement OPTIONAL,
   IN UINTN    Column,
   IN UINTN    Row,
   IN UINTN    Width,
   IN BOOLEAN  Highlight,
-  IN BOOLEAN  GrayOut,
-  IN BOOLEAN  Action,
-  IN BOOLEAN  Subtitle
+  IN BOOLEAN  Selected
   )
 {
   CONST MODERN_UI_THEME            *Theme;
@@ -431,6 +432,7 @@ ModernDisplayDrawStatementRow (
   UINTN                            PixelWidth;
   MODERN_UI_RECT                   RowRect;
   MODERN_UI_ROW_MODEL              RowModel;
+  MODERN_DISPLAY_FORM_ROW          FormRow;
 
   if ((Width == 0) || EFI_ERROR (ModernDisplayEnsureRenderer ())) {
     return;
@@ -447,16 +449,9 @@ ModernDisplayDrawStatementRow (
   RowModel.Prompt    = NULL;
   RowModel.Value     = NULL;
   RowModel.ValueType = ModernUiValueNone;
-  if (Highlight) {
-    RowModel.Role = ModernUiRowSelected;
-  } else if (GrayOut) {
-    RowModel.Role = ModernUiRowDisabled;
-  } else if (Subtitle) {
-    RowModel.Role = ModernUiRowSubtitle;
-  } else if (Action) {
-    RowModel.Role = ModernUiRowAction;
-  } else {
-    RowModel.Role = ModernUiRowNormal;
+  RowModel.Role      = ModernUiRowNormal;
+  if (!EFI_ERROR (ModernDisplayClassifyStatementForForm (FormData, Statement, Highlight, Selected, &FormRow))) {
+    RowModel.Role = ModernDisplayFormRowGetVisualRole (&FormRow);
   }
 
   ModernUiEngineDrawRows (&mModernRenderContext, &RowModel, 1, Theme);
