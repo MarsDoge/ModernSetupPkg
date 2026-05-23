@@ -2084,7 +2084,30 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         if token in row_surface_body:
             raise SmokeFailure(f"Phase34 row rendering hook contains prohibited browser/storage token: {token}")
 
-    return ["PASS Phase33/34 private DisplayEngine form view-model boundary"]
+    data_flow_doc = root / "Docs" / "DisplayEngineDynamicDataFlow.md"
+    data_flow_doc_zh = root / "Docs" / "DisplayEngineDynamicDataFlow.zh-CN.md"
+    for doc in (data_flow_doc, data_flow_doc_zh):
+        if not doc.exists():
+            raise SmokeFailure(f"missing DisplayEngine dynamic data flow contract: {doc}")
+        doc_text = doc.read_text(encoding="utf-8")
+        for token in (
+            "PEI",
+            "DXE",
+            "ModernSetupApp",
+            "DisplayEngine",
+            "REBOOT REQUIRED",
+            "SetVariable",
+            "RouteConfig",
+        ):
+            if token not in doc_text:
+                raise SmokeFailure(f"DisplayEngine dynamic data flow contract missing token {token}: {doc}")
+
+    display_renderer_text = "\n".join((internal_text, engine_text))
+    for token in ("PciIo", "IoRead", "MmioRead", "PcdSet", "SetVariable", "RouteConfig", "ExtractConfig", "HiiSetBrowserData"):
+        if token in display_renderer_text:
+            raise SmokeFailure(f"DisplayEngine renderer must not own hardware/config mutation token: {token}")
+
+    return ["PASS Phase33/34/36 private DisplayEngine form view-model and dynamic data boundary"]
 
 
 def check_modern_ui_builtin_glyph_subset(root: Path) -> list[str]:
