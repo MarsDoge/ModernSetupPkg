@@ -53,6 +53,15 @@ ModernDisplayStatementTextInset (
   IN UINTN  CellWidth
   );
 
+STATIC
+VOID
+ModernDisplayDrawRightRailDivider (
+  IN CONST MODERN_DISPLAY_LAYOUT  *Layout,
+  IN CONST MODERN_UI_THEME        *Theme,
+  IN UINTN                        CellWidth,
+  IN UINTN                        CellHeight
+  );
+
 /**
   Return GOP cell metrics that match the active text-mode grid.
 
@@ -266,6 +275,58 @@ ModernDisplayStatementTextInset (
   }
 
   return MIN (6, MAX (2, CellWidth / 3));
+}
+
+/**
+  Draw a lightweight divider between the statement list and right-side help rail.
+
+  This is a visual grouping hint only. FormBrowser still owns where help text is
+  printed and how it wraps; the divider simply makes the modern chrome read as
+  two regions: actionable statements on the left, contextual help on the right.
+
+  @param[in] Layout      Calculated DisplayEngine layout. Must not be NULL.
+  @param[in] Theme       Theme token table. Must not be NULL.
+  @param[in] CellWidth   Pixel width for one text column.
+  @param[in] CellHeight  Pixel height for one text row.
+**/
+STATIC
+VOID
+ModernDisplayDrawRightRailDivider (
+  IN CONST MODERN_DISPLAY_LAYOUT  *Layout,
+  IN CONST MODERN_UI_THEME        *Theme,
+  IN UINTN                        CellWidth,
+  IN UINTN                        CellHeight
+  )
+{
+  UINTN  X;
+  UINTN  Y;
+  UINTN  Height;
+
+  if ((Layout == NULL) || (Theme == NULL) || !Layout->RightRailVisible || (CellWidth == 0) || (CellHeight == 0)) {
+    return;
+  }
+
+  X      = (Layout->RightRailLeftColumn * CellWidth > 8) ? (Layout->RightRailLeftColumn * CellWidth - 8) : 0;
+  Y      = Layout->ContentTopRow * CellHeight;
+  Height = (Layout->ContentBottomRow > Layout->ContentTopRow) ?
+           ((Layout->ContentBottomRow - Layout->ContentTopRow) * CellHeight) :
+           0;
+
+  if (Height < 8) {
+    return;
+  }
+
+  ModernUiFillRect (
+    &mModernRenderContext,
+    (MODERN_UI_RECT){ X, Y + 8, 2, Height - 16 },
+    ModernUiBlendColor (Theme->AccentOrange, Theme->Background, 32)
+    );
+
+  ModernUiFillRect (
+    &mModernRenderContext,
+    (MODERN_UI_RECT){ X - 2, Y + 8, 6, 1 },
+    ModernUiBlendColor (Theme->AccentOrange, Theme->BackgroundBlack, 45)
+    );
 }
 
 /**
@@ -739,6 +800,7 @@ ModernDisplayDrawPageChrome (
   PageModel.StatusText    = NULL;
   PageModel.DrawRightRail = TRUE;
   ModernUiEngineDrawPage (&mModernRenderContext, &PageModel, Theme);
+  ModernDisplayDrawRightRailDivider (&Layout, Theme, CellWidth, CellHeight);
 
   if (PrintableTitle != NULL) {
     FreePool (PrintableTitle);
