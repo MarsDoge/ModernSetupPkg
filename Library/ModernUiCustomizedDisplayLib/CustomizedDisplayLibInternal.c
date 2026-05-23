@@ -53,6 +53,14 @@ ModernDisplayDrawStatementRowAccents (
   );
 
 STATIC
+VOID
+ModernDisplayDrawStatementValueLane (
+  IN CONST MODERN_UI_RECT              *RowRect,
+  IN CONST MODERN_DISPLAY_FORM_ROW     *FormRow,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+STATIC
 UINTN
 ModernDisplayStatementTextInset (
   IN UINTN  Column,
@@ -674,6 +682,56 @@ ModernDisplayFormRowAccentColor (
 }
 
 /**
+  Draw a subtle value lane on highlighted/editable rows.
+
+  Native FormBrowser still prints prompt/value text. This helper only paints a
+  GOP background hint on the right side of interactive rows so users can
+  distinguish the value/edit region from the prompt region.
+
+  @param[in] RowRect  Pixel row rectangle. Must not be NULL.
+  @param[in] FormRow  Private row model. Must not be NULL.
+  @param[in] Theme    Theme token table. Must not be NULL.
+**/
+STATIC
+VOID
+ModernDisplayDrawStatementValueLane (
+  IN CONST MODERN_UI_RECT           *RowRect,
+  IN CONST MODERN_DISPLAY_FORM_ROW  *FormRow,
+  IN CONST MODERN_UI_THEME          *Theme
+  )
+{
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  LaneColor;
+  UINTN                          LaneWidth;
+  UINTN                          LaneX;
+  UINTN                          LaneY;
+  UINTN                          LaneHeight;
+
+  if ((RowRect == NULL) || (FormRow == NULL) || (Theme == NULL) || (RowRect->Width < 160) || (RowRect->Height < 12)) {
+    return;
+  }
+
+  if (ModernDisplayFormRowIsTextOnly (FormRow->Kind) || ((FormRow->State & ModernDisplayFormRowStateHighlighted) == 0)) {
+    return;
+  }
+
+  if (((FormRow->State & ModernDisplayFormRowStateDisabled) != 0) || ((FormRow->State & ModernDisplayFormRowStateReadOnly) != 0)) {
+    return;
+  }
+
+  LaneWidth  = MAX (72, RowRect->Width / 3);
+  LaneWidth  = MIN (LaneWidth, RowRect->Width - 48);
+  LaneX      = RowRect->X + RowRect->Width - LaneWidth - 10;
+  LaneY      = RowRect->Y + 4;
+  LaneHeight = RowRect->Height - 8;
+  LaneColor  = ((FormRow->State & ModernDisplayFormRowStateSelected) != 0) ?
+               ModernUiBlendColor (Theme->AccentOrange, Theme->BackgroundBlack, 32) :
+               ModernUiBlendColor (Theme->SurfaceRaised, Theme->BackgroundBlack, 55);
+
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ LaneX, LaneY, LaneWidth, LaneHeight }, LaneColor);
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ LaneX, LaneY, 2, LaneHeight }, ModernDisplayFormRowAccentColor (FormRow, Theme));
+}
+
+/**
   Draw lightweight FormModel-driven accents over one statement row surface.
 
   The native DisplayEngine still prints the prompt/value text. This function only
@@ -795,6 +853,7 @@ ModernDisplayDrawStatementRow (
   }
 
   ModernUiEngineDrawRows (&mModernRenderContext, &RowModel, 1, Theme);
+  ModernDisplayDrawStatementValueLane (&RowRect, &FormRow, Theme);
   ModernDisplayDrawStatementRowAccents (&RowRect, &FormRow, Theme);
 }
 
