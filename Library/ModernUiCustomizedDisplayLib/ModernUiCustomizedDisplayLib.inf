@@ -24,6 +24,8 @@
   Colors.h
   CustomizedDisplayLibInternal.h
   CustomizedDisplayLibInternal.c
+  ModernDisplayFormModel.h
+  ModernDisplayFormModel.c
   CustomizedDisplayLib.uni
 
 [Packages]

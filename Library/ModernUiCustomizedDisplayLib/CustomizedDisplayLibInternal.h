@@ -77,6 +77,8 @@ typedef struct {
   BOOLEAN                  RightRailVisible;
 } MODERN_DISPLAY_LAYOUT;
 
+#include "ModernDisplayFormModel.h"
+
 //
 // Screen definitions
 //

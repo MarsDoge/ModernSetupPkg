@@ -1877,6 +1877,63 @@ def check_hii_bridge_view_model_boundary(root: Path) -> list[str]:
     return ["PASS HII bridge view-model/default-display-policy boundary"]
 
 
+def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
+    lib_dir = root / "Library" / "ModernUiCustomizedDisplayLib"
+    inf = lib_dir / "ModernUiCustomizedDisplayLib.inf"
+    header = lib_dir / "ModernDisplayFormModel.h"
+    source = lib_dir / "ModernDisplayFormModel.c"
+    customized = lib_dir / "CustomizedDisplayLib.c"
+    internal = lib_dir / "CustomizedDisplayLibInternal.h"
+    internal_c = lib_dir / "CustomizedDisplayLibInternal.c"
+
+    for path in (inf, header, source, customized, internal, internal_c):
+        if not path.exists():
+            raise SmokeFailure(f"missing Phase33 display form model file: {path.relative_to(root)}")
+
+    inf_sources = parse_inf_sources(inf)
+    for source_name in ("ModernDisplayFormModel.h", "ModernDisplayFormModel.c"):
+        if source_name not in inf_sources:
+            raise SmokeFailure(f"ModernUiCustomizedDisplayLib INF missing private form model source: {source_name}")
+
+    model_text = "\n".join(
+        strip_c_comments(path.read_text(encoding="utf-8")) for path in (header, source)
+    )
+    for token in (
+        "MODERN_DISPLAY_FORM_MODEL",
+        "MODERN_DISPLAY_FORM_ROW",
+        "MODERN_DISPLAY_FORM_ROW_KIND",
+        "MODERN_DISPLAY_FORM_ROW_STATE",
+        "ModernDisplayFormModelBuild",
+        "ModernDisplayFormModelClear",
+        "ModernDisplayClassifyStatement",
+        "FORM_DISPLAY_ENGINE_FORM",
+        "FORM_DISPLAY_ENGINE_STATEMENT",
+    ):
+        if token not in model_text:
+            raise SmokeFailure(f"Phase33 private form model missing token: {token}")
+
+    for token in ("RouteConfig", "ExtractConfig", "SetVariable", "HiiSetBrowserData"):
+        if token in model_text:
+            raise SmokeFailure(f"Phase33 private form model contains prohibited browser/storage token: {token}")
+
+    lib_text = "\n".join(
+        strip_c_comments(path.read_text(encoding="utf-8"))
+        for path in (inf, header, source, customized, internal, internal_c)
+    )
+    if "ModernUiHiiBridgeLib" in lib_text or "ModernUiHiiBridge.h" in lib_text:
+        raise SmokeFailure("ModernUiCustomizedDisplayLib must not depend on ModernUiHiiBridgeLib")
+
+    customized_text = strip_c_comments(customized.read_text(encoding="utf-8"))
+    if "ModernDisplayFormModelBuild" not in extract_c_function_body(customized_text, "DisplayPageFrame"):
+        raise SmokeFailure("DisplayPageFrame must build the private form model")
+    refresh_body = extract_c_function_body(customized_text, "RefreshKeyHelp")
+    for token in ("ModernDisplayClassifyStatement", "ModernDisplayFormRowIsChoiceLike", "ModernDisplayFormRowIsActionLike"):
+        if token not in refresh_body:
+            raise SmokeFailure(f"RefreshKeyHelp must consume the Phase33 row model/helper: {token}")
+
+    return ["PASS Phase33 private DisplayEngine form view-model boundary"]
+
+
 def check_modern_ui_builtin_glyph_subset(root: Path) -> list[str]:
     string_source = root / "Library" / "ModernUiStringLib" / "ModernUiStringLib.c"
     glyph_source = root / "Library" / "ModernUiRendererLib" / "ModernUiGlyphs.c"
@@ -2067,6 +2124,7 @@ def main() -> int:
         messages.extend(check_bilingual_documentation_contract(root))
         messages.extend(check_phase30_productization_validation_matrix(root))
         messages.extend(check_hii_bridge_view_model_boundary(root))
+        messages.extend(check_phase33_display_form_view_model_boundary(root))
         messages.extend(check_modern_ui_builtin_glyph_subset(root))
         messages.extend(check_ip_hygiene_notices(root))
         messages.extend(check_edk2_baseline_contract(root))
