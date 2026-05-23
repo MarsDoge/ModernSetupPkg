@@ -593,19 +593,20 @@ ModernUiEngineDrawPage (
   }
 
   if (!EFI_ERROR (gRT->GetTime (&Time, NULL))) {
-    TimeX = (Context->Width > 210) ? (Context->Width - 210) : (Model->Rect.X + 26);
+    TimeX = (Context->Width > 238) ? (Context->Width - 238) : (Model->Rect.X + 26);
     Status = ModernUiDrawTextFormatted (
                Context,
                TimeX,
                Model->Rect.Y + 6,
                Theme->Text,
                Theme->HeaderPattern,
-               L"%02d/%02d/%04d  %02d:%02d",
+               L"%02d/%02d/%04d  %02d:%02d:%02d",
                Time.Month,
                Time.Day,
                Time.Year,
                Time.Hour,
-               Time.Minute
+               Time.Minute,
+               Time.Second
                );
     if (EFI_ERROR (Status)) {
       return Status;
