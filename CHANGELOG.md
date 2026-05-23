@@ -14,6 +14,9 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase36 UX iteration: Modern footer hotkey help now reserves left-side text
+  columns for the GOP status chip, preventing key-help text from colliding with
+  live/unsaved/reboot-required state indicators.
 - Phase36 UX iteration: highlighted interactive rows now draw a subtle right-side
   value lane, making prompt/value separation clearer without taking ownership of
   FormBrowser text or value semantics.

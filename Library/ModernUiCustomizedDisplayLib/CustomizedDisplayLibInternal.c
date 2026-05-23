@@ -90,6 +90,12 @@ ModernDisplayPageStatusText (
   IN CONST FORM_DISPLAY_ENGINE_FORM  *FormData
   );
 
+STATIC
+UINTN
+ModernDisplayFooterStatusReservedColumns (
+  VOID
+  );
+
 /**
   Return GOP cell metrics that match the active text-mode grid.
 
@@ -1434,6 +1440,27 @@ LibGetStringWidth (
 }
 
 /**
+  Reserve text columns used by the Modern footer status chip.
+
+  Native hotkey help still owns its text output. When the GOP Modern renderer is
+  active, keep the left-most hotkey column from colliding with the status chip.
+
+  @return Number of text columns reserved at the left of the footer.
+**/
+STATIC
+UINTN
+ModernDisplayFooterStatusReservedColumns (
+  VOID
+  )
+{
+  if (!mModernRenderReady) {
+    return 0;
+  }
+
+  return 18;
+}
+
+/**
   Show all registered HotKey help strings on bottom Rows.
 
   @param FormData          The curent input form data info.
@@ -1452,6 +1479,7 @@ PrintHotKeyHelpString (
   UINTN                  ColumnIndexWidth;
   UINTN                  ColumnWidth;
   UINTN                  ColumnIndex;
+  UINTN                  FooterReservedColumns;
   UINTN                  Index;
   EFI_SCREEN_DESCRIPTOR  LocalScreen;
   LIST_ENTRY             *Link;
@@ -1462,6 +1490,7 @@ PrintHotKeyHelpString (
   CopyMem (&LocalScreen, &gScreenDimensions, sizeof (EFI_SCREEN_DESCRIPTOR));
   ColumnWidth           = (LocalScreen.RightColumn - LocalScreen.LeftColumn) / 3;
   BottomRowOfHotKeyHelp = LocalScreen.BottomRow - STATUS_BAR_HEIGHT - 3;
+  FooterReservedColumns = ModernDisplayFooterStatusReservedColumns ();
   ColumnStr             = gLibEmptyString;
 
   //
@@ -1482,8 +1511,14 @@ PrintHotKeyHelpString (
       CurrentCol       = LocalScreen.LeftColumn + ColumnWidth;
       ColumnIndexWidth = ColumnWidth;
     } else {
-      CurrentCol       = LocalScreen.LeftColumn + 2;
-      ColumnIndexWidth = ColumnWidth - 2;
+      CurrentCol       = LocalScreen.LeftColumn + 2 + FooterReservedColumns;
+      ColumnIndexWidth = (ColumnWidth > (FooterReservedColumns + 2)) ? (ColumnWidth - FooterReservedColumns - 2) : 0;
+    }
+
+    if (ColumnIndexWidth == 0) {
+      Link = GetNextNode (&FormData->HotKeyListHead, Link);
+      Index++;
+      continue;
     }
 
     CurrentRow = BottomRowOfHotKeyHelp - Index / 3;
