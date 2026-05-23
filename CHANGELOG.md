@@ -14,6 +14,10 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase36 UX iteration: DisplayEngine page status now normalizes through a
+  private page-state enum with an explicit future `REBOOT REQUIRED` state, so
+  reboot-after-save policy can be surfaced later without conflating it with
+  generic unsaved changes.
 - Phase36 UX iteration: the shared Modern UI footer now renders page status as a
   compact color-coded chip, giving live/refresh/unsaved/modal states a durable
   visual slot for future PEI/DXE/App data handoff and reboot-required flows.

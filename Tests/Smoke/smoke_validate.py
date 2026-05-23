@@ -2048,6 +2048,8 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         "ModernDisplayStatementTextInset",
         "ModernDisplayDrawRightRailDivider",
         "ModernDisplayPageStatusText",
+        "ModernDisplayPageState",
+        "ModernDisplayPageStateRebootRequired",
         "TextInset",
     ):
         if token not in internal_text:
@@ -2057,6 +2059,7 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
     for token in (
         "ModernUiEngineStatusColor",
         "LIVE REFRESH",
+        "REBOOT REQUIRED",
         "UNSAVED CHANGES",
         "MODAL VIEW",
         "ModernUiDrawTextFit",
