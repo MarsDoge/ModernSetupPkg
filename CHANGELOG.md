@@ -14,6 +14,7 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- phase32(app): apply DashboardDensity to Boot/Devices/Provider pages.
 - Phase30 XArch/productization validation docs and smoke gate coverage through
   `Docs/ProductizationValidationMatrix.md`, its zh-CN counterpart, doc-index
   links, and host-side checks for evidence wording, concrete ARCH values,

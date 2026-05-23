@@ -982,6 +982,27 @@ def c_function_definition_count(text: str, function_name: str) -> int:
     return len(pattern.findall(text))
 
 
+def extract_c_function_body(text: str, function_name: str) -> str:
+    pattern = re.compile(
+        rf"(^|\n)\s*(?:STATIC\s+)?[A-Z_][A-Z0-9_\s\*]+\s+{re.escape(function_name)}\s*\([^;]*?\)\s*\{{",
+        re.DOTALL,
+    )
+    match = pattern.search(text)
+    if match is None:
+        raise SmokeFailure(f"could not isolate C function body: {function_name}")
+
+    depth = 0
+    for index in range(match.end() - 1, len(text)):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[match.start() : index + 1]
+
+    raise SmokeFailure(f"unterminated C function body: {function_name}")
+
+
 def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
     app_dir = root / MODERN_SETUP_APP_DIR
     inf_sources = parse_inf_sources(root / MODERN_SETUP_APP_INF)
@@ -1110,6 +1131,23 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
         raise SmokeFailure("Dashboard group labels must sit clearly below the section title before cards begin")
     if "ModernSetupGetDashboardQuickGrid" not in actions_body or "MODERN_SETUP_DASHBOARD_QUICK_GRID" not in internal_body:
         raise SmokeFailure("Dashboard quick-card layout must use a shared grid helper contract")
+    if "MODERN_SETUP_PAGE_LIST_LAYOUT" not in internal_body:
+        raise SmokeFailure("ModernSetupAppInternal.h missing shared page-list layout contract")
+    for helper in ("DrawBoot", "DrawDevices", "DrawProviderSummaryPage"):
+        helper_body = extract_c_function_body(pages_body, helper)
+        if "ModernSetupGetPageListLayout" not in helper_body:
+            raise SmokeFailure(f"{helper} must use the shared page-list layout helper")
+    for helper, forbidden_tokens in {
+        "DrawBoot": ("* 58", "+ 62", "Panel.Width - 40", "Panel.X + 20"),
+        "DrawDevices": ("Panel.Width - 40", "Panel.X + 20", ">= 720"),
+    }.items():
+        helper_body = extract_c_function_body(pages_body, helper)
+        for token in forbidden_tokens:
+            if token in helper_body:
+                raise SmokeFailure(f"{helper} still contains hardcoded page-list geometry token: {token}")
+    page_layout_body = extract_c_function_body(actions_body, "ModernSetupGetPageListLayout")
+    if page_layout_body.count("Compact ?") < 2:
+        raise SmokeFailure("ModernSetupGetPageListLayout must expose compact and comfortable density branches")
     if "ModernSetupGetDashboardCategoryRoute" not in actions_body or "MODERN_SETUP_DASHBOARD_ROUTE" not in internal_body:
         raise SmokeFailure("Dashboard category landing routes must use the shared helper contract")
     if "ModernSetupGetDashboardCategoryRoute (DashboardSelection" not in app_body:

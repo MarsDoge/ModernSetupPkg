@@ -190,46 +190,51 @@ DrawProviderSummaryPage (
   IN UINTN                     RowCount
   )
 {
-  MODERN_UI_RECT  Content;
-  MODERN_UI_RECT  Panel;
-  UINTN           Index;
-  UINTN           RowY;
-  UINTN           RowStep;
-  UINTN           HeaderStep;
+  MODERN_SETUP_PAGE_LIST_LAYOUT  Layout;
+  UINTN                          Index;
+  UINTN                          RowY;
+  UINTN                          VisibleRows;
+  UINTN                          HeaderStep;
 
-  Content = ModernSetupContentRect (Ui);
-  Panel      = (MODERN_UI_RECT){ Content.X, Content.Y, Content.Width, MIN (Content.Height, 430) };
-  RowY       = Panel.Y + 58;
-  RowStep    = 28;
-  HeaderStep = 20;
+  if (!ModernSetupGetPageListLayout (Ui, mModernSetupPreferences.DashboardDensity, RowCount, FALSE, &Layout)) {
+    Layout.Panel = ModernSetupContentRect (Ui);
+    DrawProviderSummarySection (Ui, Theme, Layout.Panel, Section, TRUE);
+    ModernUiDrawFocusFrame (Ui, Layout.Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
+    return;
+  }
 
-  DrawProviderSummarySection (Ui, Theme, Panel, Section, TRUE);
-  ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
+  RowY        = Layout.FirstRowY;
+  VisibleRows = 0;
+  HeaderStep  = 20;
 
-  for (Index = 0; Index < RowCount; Index++) {
+  DrawProviderSummarySection (Ui, Theme, Layout.Panel, Section, TRUE);
+  ModernUiDrawFocusFrame (Ui, Layout.Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
+
+  for (Index = 0; (Index < RowCount) && (VisibleRows < Layout.MaxVisibleRows); Index++) {
     if ((Groups != NULL) && (Groups[Index] != NULL)) {
-      if ((RowY + 24) > (Panel.Y + Panel.Height)) {
+      if ((RowY + HeaderStep) > (Layout.Panel.Y + Layout.Panel.Height)) {
         break;
       }
 
-      DrawProviderSubsectionHeader (Ui, Theme, Panel.X + 22, RowY, Panel.Width - 44, Groups[Index]);
+      DrawProviderSubsectionHeader (Ui, Theme, Layout.RowX, RowY, Layout.RowWidth, Groups[Index]);
       RowY += HeaderStep;
     }
 
-    if ((RowY + 24) > (Panel.Y + Panel.Height)) {
+    if ((RowY + Layout.RowHeight) > (Layout.Panel.Y + Layout.Panel.Height)) {
       break;
     }
 
     DrawProviderSummaryInfoRow (
       Ui,
       Theme,
-      Panel.X + 22,
+      Layout.RowX,
       RowY,
-      Panel.Width - 44,
+      Layout.RowWidth,
       Labels[Index],
       Values[Index]
       );
-    RowY += RowStep;
+    RowY += Layout.RowStride;
+    VisibleRows++;
   }
 }
 
@@ -260,30 +265,40 @@ DrawBoot (
   CHAR16                        Value[96];
   CONST CHAR16                  *State;
   BOOLEAN                       IsSelected;
-  MODERN_UI_RECT                Panel;
-  UINTN                         RowX;
-  UINTN                         RowWidth;
-  UINTN                         MaxRows;
+  MODERN_SETUP_PAGE_LIST_LAYOUT  Layout;
   MODERN_UI_ROW_MODEL           RowModel;
 
-  Panel = ModernSetupContentRect (Ui);
-  RowX = Panel.X + 20;
-  RowWidth = Panel.Width - 40;
-  ModernUiDrawPanel (Ui, Panel, Theme);
-  ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
-  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, ModernUiGetString (ModernUiStringBootInstruction), Theme->MutedText, Theme->Surface);
+  if (!ModernSetupGetPageListLayout (Ui, mModernSetupPreferences.DashboardDensity, MAX_BOOT_ROWS, FALSE, &Layout)) {
+    Layout.Panel = ModernSetupContentRect (Ui);
+  }
+
+  ModernUiDrawPanel (Ui, Layout.Panel, Theme);
+  ModernUiDrawFocusFrame (Ui, Layout.Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
+  ModernUiDrawText (
+    Ui,
+    Layout.RowX,
+    Layout.Panel.Y + 20,
+    ModernUiGetString (ModernUiStringBootInstruction),
+    Theme->MutedText,
+    Theme->Surface
+    );
 
   BootOptions = NULL;
   Status = ModernSetupGetCachedBootOptions (&BootOptions, &BootOptionCount);
   if (EFI_ERROR (Status) || (BootOptions == NULL)) {
-    ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 66, ModernUiGetString (ModernUiStringNoBootOptions), Theme->Warning, Theme->Surface);
+    ModernUiDrawText (
+      Ui,
+      Layout.RowX,
+      Layout.FirstRowY,
+      ModernUiGetString (ModernUiStringNoBootOptions),
+      Theme->Warning,
+      Theme->Surface
+      );
     return;
   }
 
-  MaxRows = (Panel.Height > 96) ? ((Panel.Height - 92) / 58) : 0;
-  MaxRows = MIN (MaxRows, MAX_BOOT_ROWS);
-  for (Index = 0; (Index < BootOptionCount) && (Index < MaxRows); Index++) {
-    Y           = Panel.Y + 62 + Index * 58;
+  for (Index = 0; (Index < BootOptionCount) && (Index < Layout.MaxVisibleRows); Index++) {
+    Y           = Layout.FirstRowY + (Index * Layout.RowStride);
     State       = BootOptions[Index].Active ? ModernUiGetString (ModernUiStringActive) : ModernUiGetString (ModernUiStringInactive);
     IsSelected  = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
     UnicodeSPrint (
@@ -302,7 +317,7 @@ DrawBoot (
       BootOptions[Index].Hidden ? L" / Hidden / " : L" / ",
       BootOptions[Index].Category
       );
-    RowModel.Rect      = (MODERN_UI_RECT){ RowX, Y - 8, RowWidth, 42 };
+    RowModel.Rect      = (MODERN_UI_RECT){ Layout.RowX, Y - 8, Layout.RowWidth, Layout.RowHeight - 8 };
     RowModel.Prompt    = Line;
     RowModel.Value     = Value;
     RowModel.Role      = IsSelected ? ModernUiRowSelected : ModernUiRowNormal;
@@ -310,9 +325,9 @@ DrawBoot (
     ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
     ModernUiDrawTextFit (
       Ui,
-      RowX + 20,
+      Layout.RowX + Layout.HorizontalPad,
       Y + 18,
-      RowWidth - 40,
+      (Layout.RowWidth > (Layout.HorizontalPad * 2)) ? (Layout.RowWidth - (Layout.HorizontalPad * 2)) : Layout.RowWidth,
       BootOptions[Index].FilePathSummary,
       Theme->MutedText,
       IsSelected ? Theme->SelectedBand : Theme->Surface
@@ -320,7 +335,14 @@ DrawBoot (
   }
 
   if (BootOptionCount == 0) {
-    ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 66, ModernUiGetString (ModernUiStringNoBootOptions), Theme->Warning, Theme->Surface);
+    ModernUiDrawText (
+      Ui,
+      Layout.RowX,
+      Layout.FirstRowY,
+      ModernUiGetString (ModernUiStringNoBootOptions),
+      Theme->Warning,
+      Theme->Surface
+      );
   }
 }
 
@@ -720,32 +742,29 @@ DrawDevices (
   IN UINTN                     Selected
   )
 {
-  EFI_STATUS                Status;
-  MODERN_UI_DEVICE_ENTRY    *Entries;
-  UINTN                     EntryCount;
-  UINTN                     Index;
-  UINTN                     HiiCount;
-  UINTN                     VisibleHiiCount;
-  UINTN                     VisibleDeviceCount;
-  UINTN                     VisibleRows;
-  UINTN                     RowY;
-  CHAR16                    Line[168];
-  CHAR16                    Summary[96];
-  BOOLEAN                   IsSelected;
-  MODERN_UI_RECT            Panel;
-  UINTN                     RowX;
-  UINTN                     RowWidth;
-  MODERN_UI_ROW_MODEL       RowModel;
-  MODERN_UI_DEVICE_ENTRY    *SelectedEntry;
-  MODERN_UI_RECT            PreviewPanel;
-  UINTN                     ListWidth;
-  BOOLEAN                   ShowPreview;
+  EFI_STATUS                     Status;
+  MODERN_UI_DEVICE_ENTRY         *Entries;
+  UINTN                          EntryCount;
+  UINTN                          Index;
+  UINTN                          HiiCount;
+  UINTN                          VisibleHiiCount;
+  UINTN                          VisibleDeviceCount;
+  UINTN                          VisibleRows;
+  UINTN                          RowY;
+  CHAR16                         Line[168];
+  CHAR16                         Summary[96];
+  BOOLEAN                        IsSelected;
+  MODERN_SETUP_PAGE_LIST_LAYOUT  Layout;
+  MODERN_UI_ROW_MODEL            RowModel;
+  MODERN_UI_DEVICE_ENTRY         *SelectedEntry;
+  BOOLEAN                        ShowPreview;
 
-  Panel = ModernSetupContentRect (Ui);
-  RowX = Panel.X + 20;
-  RowWidth = Panel.Width - 40;
-  ModernUiDrawPanel (Ui, Panel, Theme);
-  ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
+  if (!ModernSetupGetPageListLayout (Ui, mModernSetupPreferences.DashboardDensity, MAX_DEVICE_ROWS, TRUE, &Layout)) {
+    Layout.Panel = ModernSetupContentRect (Ui);
+  }
+
+  ModernUiDrawPanel (Ui, Layout.Panel, Theme);
+  ModernUiDrawFocusFrame (Ui, Layout.Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
 
   Entries = NULL;
   Status = ModernUiDeviceDataGetEntries (&Entries, &EntryCount);
@@ -758,21 +777,14 @@ DrawDevices (
   VisibleHiiCount = 0;
   VisibleDeviceCount = 0;
   SelectedEntry = (Selected < EntryCount) ? &Entries[Selected] : NULL;
-  ShowPreview = (BOOLEAN)((SelectedEntry != NULL) && SelectedEntry->HasForm && (Panel.Width >= 720));
-  if (ShowPreview) {
-    ListWidth    = (Panel.Width - 56) / 2;
-    RowWidth     = ListWidth;
-    PreviewPanel = (MODERN_UI_RECT){ RowX + ListWidth + 16, Panel.Y + 54, Panel.Width - ListWidth - 56, Panel.Height - 74 };
-  } else {
-    PreviewPanel = (MODERN_UI_RECT){ 0, 0, 0, 0 };
-  }
+  ShowPreview = (BOOLEAN)((SelectedEntry != NULL) && SelectedEntry->HasForm && Layout.HasPreviewPane);
 
   for (Index = 0; Index < EntryCount; Index++) {
     if (Entries[Index].HasForm) {
       HiiCount++;
     }
 
-    if (Index < MAX_DEVICE_ROWS) {
+    if (Index < Layout.MaxVisibleRows) {
       if (Entries[Index].HasForm) {
         VisibleHiiCount++;
       } else {
@@ -782,62 +794,62 @@ DrawDevices (
   }
 
   UnicodeSPrint (Summary, sizeof (Summary), L"%u entries (%u HII, %u device)", EntryCount, HiiCount, EntryCount - HiiCount);
-  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, Summary, Theme->MutedText, Theme->Surface);
+  ModernUiDrawText (Ui, Layout.RowX, Layout.Panel.Y + 20, Summary, Theme->MutedText, Theme->Surface);
 
-  RowY = Panel.Y + 54;
+  RowY = Layout.FirstRowY;
   VisibleRows = 0;
 
   if (VisibleHiiCount > 0) {
-    DrawProviderSubsectionHeader (Ui, Theme, RowX, RowY, RowWidth, L"HII formsets");
+    DrawProviderSubsectionHeader (Ui, Theme, Layout.RowX, RowY, Layout.RowWidth, L"HII formsets");
     RowY += 26;
   }
 
-  for (Index = 0; (Index < EntryCount) && (Index < MAX_DEVICE_ROWS) && (VisibleRows < MAX_DEVICE_ROWS); Index++) {
+  for (Index = 0; (Index < EntryCount) && (Index < Layout.MaxVisibleRows) && (VisibleRows < Layout.MaxVisibleRows); Index++) {
     if (!Entries[Index].HasForm) {
       continue;
     }
 
     UnicodeSPrint (Line, sizeof (Line), L"%02u  %s", Index + 1, Entries[Index].Title);
     IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
-    RowModel.Rect      = (MODERN_UI_RECT){ RowX, RowY, RowWidth, 30 };
+    RowModel.Rect      = (MODERN_UI_RECT){ Layout.RowX, RowY, Layout.RowWidth, Layout.RowHeight };
     RowModel.Prompt    = Line;
     RowModel.Value     = L"HII >";
     RowModel.Role      = IsSelected ? ModernUiRowSelected : ModernUiRowNormal;
     RowModel.ValueType = ModernUiValueAction;
     ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
-    RowY += 36;
+    RowY += Layout.RowStride;
     VisibleRows++;
   }
 
-  if ((VisibleDeviceCount > 0) && (VisibleRows < MAX_DEVICE_ROWS)) {
+  if ((VisibleDeviceCount > 0) && (VisibleRows < Layout.MaxVisibleRows)) {
     RowY += (VisibleHiiCount > 0) ? 6 : 0;
-    DrawProviderSubsectionHeader (Ui, Theme, RowX, RowY, RowWidth, L"Device inventory");
+    DrawProviderSubsectionHeader (Ui, Theme, Layout.RowX, RowY, Layout.RowWidth, L"Device inventory");
     RowY += 26;
   }
 
-  for (Index = 0; (Index < EntryCount) && (Index < MAX_DEVICE_ROWS) && (VisibleRows < MAX_DEVICE_ROWS); Index++) {
+  for (Index = 0; (Index < EntryCount) && (Index < Layout.MaxVisibleRows) && (VisibleRows < Layout.MaxVisibleRows); Index++) {
     if (Entries[Index].HasForm) {
       continue;
     }
 
     UnicodeSPrint (Line, sizeof (Line), L"%02u  %s", Index + 1, Entries[Index].Title);
     IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
-    RowModel.Rect      = (MODERN_UI_RECT){ RowX, RowY, RowWidth, 30 };
+    RowModel.Rect      = (MODERN_UI_RECT){ Layout.RowX, RowY, Layout.RowWidth, Layout.RowHeight };
     RowModel.Prompt    = Line;
     RowModel.Value     = L"Device";
     RowModel.Role      = IsSelected ? ModernUiRowSelected : ModernUiRowNormal;
     RowModel.ValueType = ModernUiValueText;
     ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
-    RowY += 36;
+    RowY += Layout.RowStride;
     VisibleRows++;
   }
 
   if (EntryCount == 0) {
-    ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 66, L"No HII formsets found.", Theme->Warning, Theme->Surface);
+    ModernUiDrawText (Ui, Layout.RowX, Layout.FirstRowY, L"No HII formsets found.", Theme->Warning, Theme->Surface);
   }
 
   if (ShowPreview) {
-    DrawHiiReadOnlyPreview (Ui, Theme, PreviewPanel, SelectedEntry);
+    DrawHiiReadOnlyPreview (Ui, Theme, Layout.PreviewPanel, SelectedEntry);
   }
 
   ModernUiDeviceDataFreeEntries (Entries, EntryCount);

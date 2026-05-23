@@ -131,6 +131,19 @@ typedef struct {
 } MODERN_SETUP_DASHBOARD_QUICK_GRID;
 
 typedef struct {
+  MODERN_UI_RECT  Panel;
+  UINTN           RowX;
+  UINTN           RowWidth;
+  UINTN           RowHeight;
+  UINTN           RowStride;
+  UINTN           FirstRowY;
+  UINTN           MaxVisibleRows;
+  UINTN           HorizontalPad;
+  BOOLEAN         HasPreviewPane;
+  MODERN_UI_RECT  PreviewPanel;
+} MODERN_SETUP_PAGE_LIST_LAYOUT;
+
+typedef struct {
   SETUP_PAGE   Page;
   SETUP_FOCUS  Focus;
 } MODERN_SETUP_DASHBOARD_ROUTE;
@@ -278,6 +291,15 @@ ModernSetupGetDashboardQuickGrid (
   IN  MODERN_UI_RENDER_CONTEXT           *Ui,
   IN  UINT8                              DashboardDensity,
   OUT MODERN_SETUP_DASHBOARD_QUICK_GRID  *Grid
+  );
+
+BOOLEAN
+ModernSetupGetPageListLayout (
+  IN  MODERN_UI_RENDER_CONTEXT       *Ui,
+  IN  UINT8                          DashboardDensity,
+  IN  UINTN                          HardRowCap,
+  IN  BOOLEAN                        AllowPreviewPane,
+  OUT MODERN_SETUP_PAGE_LIST_LAYOUT  *Layout
   );
 
 BOOLEAN
