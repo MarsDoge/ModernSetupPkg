@@ -24,6 +24,14 @@ STATIC BOOLEAN                   mModernRenderReady;
 STATIC UINTN                     mModernCursorColumn;
 STATIC UINTN                     mModernCursorRow;
 
+typedef enum {
+  ModernDisplayPageStateLive,
+  ModernDisplayPageStateLiveRefresh,
+  ModernDisplayPageStateUnsaved,
+  ModernDisplayPageStateRebootRequired,
+  ModernDisplayPageStateModal
+} MODERN_DISPLAY_PAGE_STATE;
+
 STATIC
 UINTN
 ModernDisplayColumns (
@@ -60,6 +68,12 @@ ModernDisplayDrawRightRailDivider (
   IN CONST MODERN_UI_THEME        *Theme,
   IN UINTN                        CellWidth,
   IN UINTN                        CellHeight
+  );
+
+STATIC
+MODERN_DISPLAY_PAGE_STATE
+ModernDisplayPageState (
+  IN CONST FORM_DISPLAY_ENGINE_FORM  *FormData
   );
 
 STATIC
@@ -336,12 +350,46 @@ ModernDisplayDrawRightRailDivider (
 }
 
 /**
-  Return concise page-level status text for the Modern DisplayEngine footer.
+  Return normalized page-level state for the Modern DisplayEngine footer.
 
   This is intentionally presentation-only. It reflects FormBrowser-owned page
   state so future PEI/DXE/App data handoff and refresh flows have a stable UI
   place to surface "live", "changed", or "modal" state without moving policy or
-  storage semantics into the renderer.
+  storage semantics into the renderer. `RebootRequired` is kept as an explicit
+  UI state for a future platform/FormBrowser source; this helper does not infer
+  it from generic changed state.
+
+  @param[in] FormData  DisplayEngine form currently shown. May be NULL.
+
+  @return Normalized page status state.
+**/
+STATIC
+MODERN_DISPLAY_PAGE_STATE
+ModernDisplayPageState (
+  IN CONST FORM_DISPLAY_ENGINE_FORM  *FormData
+  )
+{
+  if (FormData == NULL) {
+    return ModernDisplayPageStateLive;
+  }
+
+  if ((FormData->Attribute & HII_DISPLAY_MODAL) != 0) {
+    return ModernDisplayPageStateModal;
+  }
+
+  if (FormData->SettingChangedFlag) {
+    return ModernDisplayPageStateUnsaved;
+  }
+
+  if (FormData->FormRefreshEvent != NULL) {
+    return ModernDisplayPageStateLiveRefresh;
+  }
+
+  return ModernDisplayPageStateLive;
+}
+
+/**
+  Return concise page-level status text for the Modern DisplayEngine footer.
 
   @param[in] FormData  DisplayEngine form currently shown. May be NULL.
 
@@ -353,23 +401,19 @@ ModernDisplayPageStatusText (
   IN CONST FORM_DISPLAY_ENGINE_FORM  *FormData
   )
 {
-  if (FormData == NULL) {
-    return NULL;
+  switch (ModernDisplayPageState (FormData)) {
+    case ModernDisplayPageStateModal:
+      return L"MODAL VIEW";
+    case ModernDisplayPageStateRebootRequired:
+      return L"REBOOT REQUIRED";
+    case ModernDisplayPageStateUnsaved:
+      return L"UNSAVED CHANGES";
+    case ModernDisplayPageStateLiveRefresh:
+      return L"LIVE REFRESH";
+    case ModernDisplayPageStateLive:
+    default:
+      return L"LIVE VIEW";
   }
-
-  if ((FormData->Attribute & HII_DISPLAY_MODAL) != 0) {
-    return L"MODAL VIEW";
-  }
-
-  if (FormData->SettingChangedFlag) {
-    return L"UNSAVED CHANGES";
-  }
-
-  if (FormData->FormRefreshEvent != NULL) {
-    return L"LIVE REFRESH";
-  }
-
-  return L"LIVE VIEW";
 }
 
 /**

@@ -433,7 +433,7 @@ ModernUiEngineStatusColor (
     return (EFI_GRAPHICS_OUTPUT_BLT_PIXEL){ 0, 0, 0, 0 };
   }
 
-  if (StrCmp (StatusText, L"UNSAVED CHANGES") == 0) {
+  if ((StrCmp (StatusText, L"UNSAVED CHANGES") == 0) || (StrCmp (StatusText, L"REBOOT REQUIRED") == 0)) {
     return Theme->Warning;
   }
 
