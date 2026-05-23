@@ -2046,6 +2046,7 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         "ModernDisplayFormRowIsTextOnly",
         "ModernUiStrokeRect",
         "ModernDisplayStatementTextInset",
+        "ModernDisplayDrawRightRailDivider",
         "TextInset",
     ):
         if token not in internal_text:

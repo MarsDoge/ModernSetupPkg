@@ -14,6 +14,9 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase36 UX iteration: the modern DisplayEngine page chrome now adds a subtle
+  right-rail divider, clarifying the split between the actionable statement list
+  and contextual help without changing FormBrowser help text placement.
 - Phase36 UX iteration: native FormBrowser prompt/value glyphs printed inside
   the modern statement list now receive a small GOP-only inset so text no longer
   crowds the accent rail or rounded row surface while preserving text-mode cursor
