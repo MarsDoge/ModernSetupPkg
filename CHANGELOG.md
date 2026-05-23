@@ -14,6 +14,10 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase36 UX iteration: native FormBrowser prompt/value glyphs printed inside
+  the modern statement list now receive a small GOP-only inset so text no longer
+  crowds the accent rail or rounded row surface while preserving text-mode cursor
+  accounting and FormBrowser ownership.
 - Phase36 DisplayEngine row visual polish: FormModel-driven row surfaces now add
   conservative GOP accents for editable/action rows, changed settings,
   invalid/warning feedback, and disabled/read-only states without changing

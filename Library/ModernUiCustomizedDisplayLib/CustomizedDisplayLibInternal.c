@@ -44,6 +44,15 @@ ModernDisplayDrawStatementRowAccents (
   IN CONST MODERN_UI_THEME             *Theme
   );
 
+STATIC
+UINTN
+ModernDisplayStatementTextInset (
+  IN UINTN  Column,
+  IN UINTN  Row,
+  IN UINTN  Width,
+  IN UINTN  CellWidth
+  );
+
 /**
   Return GOP cell metrics that match the active text-mode grid.
 
@@ -210,6 +219,53 @@ ModernDisplayCalculateLayout (
   Layout->Statement.RightColumn = Layout->ContentRightColumn;
 
   return EFI_SUCCESS;
+}
+
+/**
+  Return a small GOP text inset for native FormBrowser text printed inside the
+  modern statement list.
+
+  The DisplayEngine still owns prompt/value text placement in text-grid cells.
+  This helper only nudges the GOP glyph draw position inside the already assigned
+  cells so the text does not visually collide with the FormModel accent rail or
+  the rounded row surface. Cursor accounting and text-mode semantics stay
+  unchanged.
+
+  @param[in] Column     Text-grid column where the string starts.
+  @param[in] Row        Text-grid row where the string is printed.
+  @param[in] Width      Text-grid column count assigned to the print.
+  @param[in] CellWidth  Pixel width for one text column.
+
+  @return Pixel inset to add to the GOP text X coordinate.
+**/
+STATIC
+UINTN
+ModernDisplayStatementTextInset (
+  IN UINTN  Column,
+  IN UINTN  Row,
+  IN UINTN  Width,
+  IN UINTN  CellWidth
+  )
+{
+  MODERN_DISPLAY_LAYOUT  Layout;
+  UINTN                  EndColumn;
+
+  if ((Width == 0) || EFI_ERROR (ModernDisplayCalculateLayout (&Layout))) {
+    return 0;
+  }
+
+  EndColumn = Column + Width;
+  if ((Row < Layout.Statement.TopRow) || (Row >= Layout.Statement.BottomRow) ||
+      (EndColumn <= Layout.Statement.LeftColumn) || (Column >= Layout.Statement.RightColumn))
+  {
+    return 0;
+  }
+
+  if (Column <= (Layout.Statement.LeftColumn + 2)) {
+    return MIN (10, MAX (4, CellWidth / 2));
+  }
+
+  return MIN (6, MAX (2, CellWidth / 3));
 }
 
 /**
@@ -1487,6 +1543,7 @@ PrintInternal (
   UINTN   TextX;
   UINTN   TextY;
   UINTN   TextMaxWidth;
+  UINTN   TextInset;
   CHAR16  *Printable;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Foreground;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background;
@@ -1560,10 +1617,11 @@ PrintInternal (
     Printable = AllocateZeroPool ((StrLen (Buffer) + 1) * sizeof (CHAR16));
     if (Printable != NULL) {
       ModernDisplayCopyPrintable (Printable, StrLen (Buffer) + 1, Buffer);
-      TextX        = DrawColumn * CellWidth + 2;
+      TextInset    = ModernDisplayStatementTextInset (DrawColumn, DrawRow, DrawWidth, CellWidth);
+      TextX        = DrawColumn * CellWidth + 2 + TextInset;
       TextY        = DrawRow * CellHeight + ((CellHeight > 18) ? ((CellHeight - 18) / 2) : 0);
-      TextMaxWidth = (DrawWidth * CellWidth > 4) ?
-                     (DrawWidth * CellWidth - 4) :
+      TextMaxWidth = (DrawWidth * CellWidth > (4 + TextInset)) ?
+                     (DrawWidth * CellWidth - 4 - TextInset) :
                      DrawWidth * CellWidth;
       ModernUiDrawTextFit (
         &mModernRenderContext,
