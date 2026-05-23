@@ -62,6 +62,12 @@ ModernDisplayDrawRightRailDivider (
   IN UINTN                        CellHeight
   );
 
+STATIC
+CONST CHAR16 *
+ModernDisplayPageStatusText (
+  IN CONST FORM_DISPLAY_ENGINE_FORM  *FormData
+  );
+
 /**
   Return GOP cell metrics that match the active text-mode grid.
 
@@ -327,6 +333,43 @@ ModernDisplayDrawRightRailDivider (
     (MODERN_UI_RECT){ X - 2, Y + 8, 6, 1 },
     ModernUiBlendColor (Theme->AccentOrange, Theme->BackgroundBlack, 45)
     );
+}
+
+/**
+  Return concise page-level status text for the Modern DisplayEngine footer.
+
+  This is intentionally presentation-only. It reflects FormBrowser-owned page
+  state so future PEI/DXE/App data handoff and refresh flows have a stable UI
+  place to surface "live", "changed", or "modal" state without moving policy or
+  storage semantics into the renderer.
+
+  @param[in] FormData  DisplayEngine form currently shown. May be NULL.
+
+  @return Static status string, or NULL when there is no status to surface.
+**/
+STATIC
+CONST CHAR16 *
+ModernDisplayPageStatusText (
+  IN CONST FORM_DISPLAY_ENGINE_FORM  *FormData
+  )
+{
+  if (FormData == NULL) {
+    return NULL;
+  }
+
+  if ((FormData->Attribute & HII_DISPLAY_MODAL) != 0) {
+    return L"MODAL VIEW";
+  }
+
+  if (FormData->SettingChangedFlag) {
+    return L"UNSAVED CHANGES";
+  }
+
+  if (FormData->FormRefreshEvent != NULL) {
+    return L"LIVE REFRESH";
+  }
+
+  return L"LIVE VIEW";
 }
 
 /**
@@ -797,7 +840,7 @@ ModernDisplayDrawPageChrome (
   PageModel.SelectedTab   = ModernDisplaySelectChromeTab (PrintableTitle);
   PageModel.ProductName   = L"MODERN SETUP";
   PageModel.ModeName      = L"ADVANCED MODE";
-  PageModel.StatusText    = NULL;
+  PageModel.StatusText    = ModernDisplayPageStatusText (FormData);
   PageModel.DrawRightRail = TRUE;
   ModernUiEngineDrawPage (&mModernRenderContext, &PageModel, Theme);
   ModernDisplayDrawRightRailDivider (&Layout, Theme, CellWidth, CellHeight);

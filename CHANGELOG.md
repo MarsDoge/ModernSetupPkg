@@ -14,6 +14,10 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase36 UX iteration: DisplayEngine page chrome now surfaces FormBrowser-owned
+  page state in the footer (`LIVE VIEW`, `LIVE REFRESH`, `UNSAVED CHANGES`, or
+  `MODAL VIEW`), establishing a presentation slot for future PEI/DXE/App data
+  handoff and dynamic refresh without adding renderer-owned policy/storage logic.
 - Phase36 UX iteration: the modern DisplayEngine page chrome now adds a subtle
   right-rail divider, clarifying the split between the actionable statement list
   and contextual help without changing FormBrowser help text placement.
