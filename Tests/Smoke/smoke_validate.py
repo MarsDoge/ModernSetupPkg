@@ -2045,6 +2045,8 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         "ModernDisplayFormRowStateReadOnly",
         "ModernDisplayFormRowIsTextOnly",
         "ModernUiStrokeRect",
+        "ModernDisplayStatementTextInset",
+        "TextInset",
     ):
         if token not in internal_text:
             raise SmokeFailure(f"Phase36 DisplayEngine row polish missing FormModel-driven accent token: {token}")
