@@ -14,6 +14,9 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase36 UX iteration: highlighted interactive rows now draw a subtle right-side
+  value lane, making prompt/value separation clearer without taking ownership of
+  FormBrowser text or value semantics.
 - Phase36 UX iteration: the Modern UI header time now includes seconds, making
   redraw/refresh activity visible without adding a new timer path or changing
   FormBrowser event ownership.

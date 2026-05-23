@@ -2032,6 +2032,7 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         "ModernDisplayFormRowGetVisualRole",
         "MODERN_DISPLAY_FORM_ROW",
         "ModernDisplayDrawStatementRowAccents",
+        "ModernDisplayDrawStatementValueLane",
     ):
         if token not in row_surface_body:
             raise SmokeFailure(f"DisplayEngine row surface must consume the Phase34/36 row model/helper: {token}")
@@ -2048,6 +2049,7 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         "ModernDisplayStatementTextInset",
         "ModernDisplayDrawRightRailDivider",
         "ModernDisplayPageStatusText",
+        "ModernDisplayDrawStatementValueLane",
         "ModernDisplayPageState",
         "ModernDisplayPageStateRebootRequired",
         "TextInset",
