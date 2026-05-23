@@ -130,6 +130,99 @@ ModernSetupGetDashboardQuickGrid (
 }
 
 /**
+  Calculate the shared page-list row layout for setup pages.
+
+  DashboardDensity reuses the app-owned density preference so secondary setup
+  pages follow the same compact/comfortable visual rhythm as the Dashboard.
+  Compact uses shorter rows and less padding; Comfortable preserves the
+  original list spacing as closely as possible. The helper also owns the
+  Devices preview split so drawing and navigation share one row-cap decision.
+
+  @param[in]  Ui                Initialized render context. Must not be NULL.
+  @param[in]  DashboardDensity  Dashboard density preference. Compact selects
+                                the compact list metrics; all other values use
+                                comfortable metrics.
+  @param[in]  HardRowCap        Maximum rows the caller may show. Zero means no
+                                selectable rows are requested.
+  @param[in]  AllowPreviewPane  TRUE when the page can use a right preview pane.
+  @param[out] Layout            Receives the panel and list metrics. Must not be
+                                NULL. Zeroed on entry; left zeroed on FALSE.
+
+  @retval TRUE   The content rect can host at least one requested row.
+  @retval FALSE  Ui or Layout is NULL, HardRowCap is zero, or rows do not fit.
+**/
+BOOLEAN
+ModernSetupGetPageListLayout (
+  IN  MODERN_UI_RENDER_CONTEXT       *Ui,
+  IN  UINT8                          DashboardDensity,
+  IN  UINTN                          HardRowCap,
+  IN  BOOLEAN                        AllowPreviewPane,
+  OUT MODERN_SETUP_PAGE_LIST_LAYOUT  *Layout
+  )
+{
+  BOOLEAN  Compact;
+  UINTN    TitleArea;
+  UINTN    AvailableHeight;
+  UINTN    AvailableRows;
+  UINTN    PreviewGap;
+  UINTN    ListWidth;
+
+  if (Layout != NULL) {
+    ZeroMem (Layout, sizeof (*Layout));
+  }
+
+  if ((Ui == NULL) || (Layout == NULL) || (HardRowCap == 0)) {
+    return FALSE;
+  }
+
+  Compact               = (BOOLEAN)(DashboardDensity == ModernUiDashboardDensityCompact);
+  Layout->Panel         = ModernSetupContentRect (Ui);
+  Layout->RowHeight     = Compact ? 44 : 50;
+  Layout->RowStride     = Compact ? 50 : 58;
+  Layout->HorizontalPad = Compact ? 14 : 20;
+  TitleArea             = Compact ? 54 : 62;
+
+  if (Layout->Panel.Width < 600) {
+    Layout->HorizontalPad = MAX (6, Layout->HorizontalPad / 2);
+  }
+
+  Layout->RowX       = Layout->Panel.X + Layout->HorizontalPad;
+  Layout->RowWidth   = (Layout->Panel.Width > (Layout->HorizontalPad * 2)) ?
+                       (Layout->Panel.Width - (Layout->HorizontalPad * 2)) :
+                       MAX (1, Layout->Panel.Width);
+  Layout->FirstRowY  = Layout->Panel.Y + TitleArea;
+  AvailableHeight    = (Layout->Panel.Height > TitleArea) ? (Layout->Panel.Height - TitleArea) : 0;
+  AvailableRows      = (AvailableHeight >= Layout->RowHeight) ?
+                       ((AvailableHeight + Layout->RowStride - Layout->RowHeight) / Layout->RowStride) :
+                       0;
+  if ((AvailableRows == 0) && (AvailableHeight > 0)) {
+    AvailableRows = 1;
+  }
+
+  Layout->MaxVisibleRows = MIN (HardRowCap, AvailableRows);
+  if (Layout->MaxVisibleRows == 0) {
+    return FALSE;
+  }
+
+  if (AllowPreviewPane && (Layout->Panel.Width >= 720)) {
+    PreviewGap  = 16;
+    ListWidth   = (Layout->Panel.Width - (Layout->HorizontalPad * 2) - PreviewGap) / 2;
+    if (ListWidth >= 240) {
+      Layout->HasPreviewPane = TRUE;
+      Layout->RowWidth       = ListWidth;
+      Layout->PreviewPanel   = (MODERN_UI_RECT){
+                                 Layout->RowX + ListWidth + PreviewGap,
+                                 Layout->FirstRowY - 8,
+                                 Layout->Panel.Width - (Layout->HorizontalPad * 2) - ListWidth - PreviewGap,
+                                 (Layout->Panel.Height > (TitleArea + 12)) ? (Layout->Panel.Height - TitleArea - 12) : Layout->RowHeight
+                               };
+    }
+  }
+
+  return TRUE;
+}
+
+/**
   Resolve a Dashboard setup category card to its destination page and focus.
 
   The first two categories keep content focus so Enter can immediately act on
@@ -410,15 +503,18 @@ ModernSetupGetPageSelectableCount (
       }
     case PageBoot:
       {
-        MODERN_UI_RECT  Panel;
-        UINTN           MaxRows;
+        MODERN_SETUP_PAGE_LIST_LAYOUT  Layout;
 
-        Panel   = ModernSetupContentRect (Ui);
-        MaxRows = (Panel.Height > 96) ? ((Panel.Height - 92) / 58) : 0;
-        return MIN (ModernSetupGetBootCount (), MIN (MaxRows, MAX_BOOT_ROWS));
+        return ModernSetupGetPageListLayout (Ui, mModernSetupPreferences.DashboardDensity, MAX_BOOT_ROWS, FALSE, &Layout) ?
+               MIN (ModernSetupGetBootCount (), Layout.MaxVisibleRows) : 0;
       }
     case PageDevices:
-      return ModernSetupGetVisibleDeviceCount ();
+      {
+        MODERN_SETUP_PAGE_LIST_LAYOUT  Layout;
+
+        return ModernSetupGetPageListLayout (Ui, mModernSetupPreferences.DashboardDensity, MAX_DEVICE_ROWS, TRUE, &Layout) ?
+               MIN (ModernSetupGetVisibleDeviceCount (), Layout.MaxVisibleRows) : 0;
+      }
     case PagePreferences:
       return MODERN_SETUP_PREFERENCE_ROW_COUNT;
     case PageExit:
