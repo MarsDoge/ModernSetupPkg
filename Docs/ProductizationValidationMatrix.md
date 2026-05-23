@@ -28,6 +28,7 @@ The validation terms below describe current evidence only:
 - `Script`: a repository script exists and is checked for syntax/metadata.
 - `Manual`: local maintainer validation path is documented, but not CI-gated.
 - `Captured`: screenshot/screendump evidence exists for a path.
+- `Visual reviewed`: captured native-vs-modern screenshots were inspected by a maintainer; do not use this term for static smoke, build-only, or QEMU boot-only results.
 - `Build/script validation`: the script/overlay path is validated without claiming graphical runtime evidence.
 - `Planned`: documented target or behavior only; do not describe it as validated.
 
@@ -35,12 +36,18 @@ The validation terms below describe current evidence only:
 
 | XArch target | Concrete edk2 ARCH | Platform path | Primary scripts | Current maturity evidence | Productization validation notes |
 | --- | --- | --- | --- | --- | --- |
-| X64 / OVMF X64 | `X64` | `OvmfPkg/OvmfPkgX64` | `Scripts/build-ovmf-x64.sh`, `Scripts/run-ovmf-x64.sh`, `Scripts/capture-ovmf-x64.sh` | Manual OVMF build/run/capture path; smoke overlay generation; local/manual App validation. | Evidence supports target metadata, native/modern DisplayEngine overlay separation, and local screenshot capture path. |
+| X64 / OVMF X64 | `X64` | `OvmfPkg/OvmfPkgX64` | `Scripts/build-ovmf-x64.sh`, `Scripts/run-ovmf-x64.sh`, `Scripts/capture-ovmf-x64.sh`, `Scripts/capture-displayengine-ovmf-x64.sh` | Manual OVMF build/run/capture path; smoke overlay generation; local/manual App validation; Phase35 native-vs-modern DisplayEngine evidence path pending visual review. | Evidence supports target metadata, native/modern DisplayEngine overlay separation, and local screenshot capture path. The DisplayEngine A/B helper defaults to `${TMPDIR:-/tmp}/modernsetup-qemu/displayengine-ovmf-x64` and only becomes screenshot evidence after `--mode capture` produces artifacts. |
 | AARCH64 / ArmVirtQemu | `AARCH64` | `ArmVirtPkg/ArmVirtQemu` | `Scripts/build-armvirt.sh`, `Scripts/run-armvirt.sh`, `Scripts/capture-armvirt.sh`, `Scripts/build-modern-app.sh` | Captured ArmVirt before/after evidence; active build/run path; smoke overlay generation. | Primary compatibility capture path for native UiApp/FormBrowser plus ModernDisplayEngine. |
 | LOONGARCH64 / LoongArchVirtQemu | `LOONGARCH64` | `OvmfPkg/LoongArchVirt/LoongArchVirtQemu` | `Scripts/build-loongarchvirt.sh`, `Scripts/run-loongarchvirt.sh` | Active build/run script path; smoke overlay generation. | Evidence covers generated overlays and documented manual run path; external cross toolchain remains product-team responsibility. |
 | RISCV64 / RiscVVirtQemu | `RISCV64` | `OvmfPkg/RiscVVirt/RiscVVirtQemu` | `Scripts/build-riscvvirt.sh` | Build/script validation; smoke overlay generation. | RISCV64 remains Build/script validation in Phase30; graphical QEMU helper and captured UI evidence are not claimed. |
 
 `Scripts/xarch-validate.sh --all --mode dry-run --format json` is the fast target metadata smoke companion. In Phase30 the smoke gate asserts four target `PASS` results and preserves the RISCV64 `Build/script validation` maturity wording.
+
+## Phase35 DisplayEngine Visual Evidence Path
+
+`Tests/Manual/DisplayEngineOvmfX64Visual.md` documents the OVMF X64 native-vs-modern DisplayEngine visual workflow. `Scripts/capture-displayengine-ovmf-x64.sh` drives the existing OVMF overlay generator with `MODERN_SETUP_DISPLAY_ENGINE=native` and `MODERN_SETUP_DISPLAY_ENGINE=modern`, keeps artifacts separated under `overlays/native`, `overlays/modern`, `firmware/native`, `firmware/modern`, and optional `native`/`modern` capture directories, and preserves upstream edk2 platform files by writing overlays only under `Build/ModernSetupPkgOverlay`. The helper does not inspect pixels and does not mark visual equivalence as verified.
+
+Current Phase35 status in this matrix is `Script`/`Manual` foundation only. Static smoke can check that the helper and manual workflow exist; `--mode generate-only` can check overlay snapshots; `--mode build` can check firmware FD snapshots; only `--mode capture` with successful QEMU `screendump` output creates visual screenshot evidence, and the helper does not inspect pixels or mark visual equivalence as verified.
 
 ## Product Class Validation Matrix
 

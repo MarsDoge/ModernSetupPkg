@@ -57,6 +57,8 @@ EDK2_BASELINE_REQUIRED_SCRIPT_REFS = (
 )
 OVMF_CAPTURE_HELPER = Path("Scripts") / "capture-ovmf-x64.sh"
 OVMF_CAPTURE_DOC = Path("Tests") / "Manual" / "OvmfX64Qemu.md"
+DISPLAYENGINE_OVMF_VISUAL_HELPER = Path("Scripts") / "capture-displayengine-ovmf-x64.sh"
+DISPLAYENGINE_OVMF_VISUAL_DOC = Path("Tests") / "Manual" / "DisplayEngineOvmfX64Visual.md"
 PROHIBITED_DEFAULT_OVERLAY_TOKENS = (
     "ModernSetupApp",
     "ModernUiHiiBridgeLib",
@@ -923,6 +925,96 @@ def check_ovmf_capture_helper_contract(root: Path) -> list[str]:
             raise SmokeFailure(f"OVMF capture docs missing token: {token}")
 
     return ["PASS OVMF X64 QEMU screendump capture helper/docs contract"]
+
+
+def check_displayengine_ovmf_visual_validation_contract(root: Path) -> list[str]:
+    script = root / DISPLAYENGINE_OVMF_VISUAL_HELPER
+    manual_doc = root / DISPLAYENGINE_OVMF_VISUAL_DOC
+    validation_doc = root / "Docs" / "ProductizationValidationMatrix.md"
+    validation_doc_zh = root / "Docs" / "ProductizationValidationMatrix.zh-CN.md"
+
+    for path in (script, manual_doc, validation_doc, validation_doc_zh):
+        if not path.exists():
+            raise SmokeFailure(f"missing Phase35 DisplayEngine visual validation file: {path.relative_to(root)}")
+
+    script_text = script.read_text(encoding="utf-8")
+    required_script_tokens = (
+        "edk2-workspace.sh",
+        "DetectWorkspace",
+        "Scripts/build-ovmf-x64.sh",
+        "Scripts/capture-ovmf-x64.sh",
+        "MODERN_SETUP_DISPLAY_ENGINE=native",
+        "MODERN_SETUP_DISPLAY_ENGINE=modern",
+        "variants=(native modern)",
+        "GENERATE_ONLY",
+        "Build/ModernSetupPkgOverlay",
+        "CAPTURE_OUT_DIR",
+        "${TMPDIR:-/tmp}/modernsetup-qemu/displayengine-ovmf-x64",
+        "CAPTURE_WORK_DIR",
+        "Build/ModernSetupPkgCapture/DisplayEngineOvmfX64",
+        "overlays/${variant}",
+        "firmware/${variant}",
+        "displayengine-ovmf-x64-${variant}",
+        "--mode dry-run|generate-only|build|capture",
+        "BOOT_WAIT_SECONDS",
+        "SENDKEY_SEQUENCE",
+        "screendump",
+        "does not inspect pixels",
+    )
+    for token in required_script_tokens:
+        if token not in script_text:
+            raise SmokeFailure(f"{DISPLAYENGINE_OVMF_VISUAL_HELPER} missing Phase35 token: {token}")
+
+    prohibited_script_fragments = (
+        "rm -rf",
+        "SetVariable",
+        "HiiSetBrowserData",
+        "HiiUpdateForm",
+        "RouteConfig",
+        "ExtractConfig",
+        "EFI_HII_CONFIG_ACCESS_PROTOCOL",
+    )
+    for fragment in prohibited_script_fragments:
+        if fragment in script_text:
+            raise SmokeFailure(f"{DISPLAYENGINE_OVMF_VISUAL_HELPER} contains prohibited Phase35 fragment: {fragment}")
+
+    doc_text = "\n".join(
+        (
+            manual_doc.read_text(encoding="utf-8"),
+            validation_doc.read_text(encoding="utf-8"),
+            validation_doc_zh.read_text(encoding="utf-8"),
+        )
+    )
+    required_doc_tokens = (
+        "capture-displayengine-ovmf-x64.sh",
+        "MODERN_SETUP_DISPLAY_ENGINE=native",
+        "MODERN_SETUP_DISPLAY_ENGINE=modern",
+        "${TMPDIR:-/tmp}/modernsetup-qemu/displayengine-ovmf-x64",
+        "overlays/native",
+        "overlays/modern",
+        "firmware/native",
+        "firmware/modern",
+        "Static smoke",
+        "Generate-only",
+        "Build",
+        "QEMU boot",
+        "Visual screenshot",
+        "does not inspect pixels",
+        "not mark visual equivalence as verified",
+    )
+    for token in required_doc_tokens:
+        if token not in doc_text:
+            raise SmokeFailure(f"Phase35 DisplayEngine visual docs missing token: {token}")
+
+    visual_verified_patterns = (
+        re.compile(r"Phase35[^\n]{0,80}\bVerified\b", re.IGNORECASE),
+        re.compile(r"DisplayEngine[^\n]{0,80}\bVerified\b", re.IGNORECASE),
+    )
+    for pattern in visual_verified_patterns:
+        if pattern.search(doc_text):
+            raise SmokeFailure("Phase35 DisplayEngine visual docs must not mark visual validation as Verified")
+
+    return ["PASS Phase35 DisplayEngine OVMF X64 native-vs-modern visual validation foundation"]
 
 
 def strip_c_comments(text: str) -> str:
@@ -2154,6 +2246,7 @@ def main() -> int:
         messages.extend(check_ip_hygiene_notices(root))
         messages.extend(check_edk2_baseline_contract(root))
         messages.extend(check_ovmf_capture_helper_contract(root))
+        messages.extend(check_displayengine_ovmf_visual_validation_contract(root))
         messages.extend(check_xarch_docs_contract(root))
         messages.extend(check_xarch_runner_contract(root))
         messages.extend(check_xarch_runner_artifact_output(root))

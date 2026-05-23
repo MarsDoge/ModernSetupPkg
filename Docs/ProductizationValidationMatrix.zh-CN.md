@@ -28,6 +28,7 @@ XArch 是 ModernSetupPkg 的跨架构验证/产品化术语。XArch 不会替代
 - `Script`：仓库脚本存在，并被语法/元数据检查覆盖。
 - `Manual`：本地维护者验证路径已有文档，但不是 CI gate。
 - `Captured`：相关路径有截图或 screendump 证据。
+- `Visual reviewed`：维护者已检查 native-vs-modern 截图；不要将此术语用于 static smoke、仅构建或仅 QEMU 启动结果。
 - `Build/script validation`：脚本或 overlay 路径已验证，但不声明图形运行证据。
 - `Planned`：仅为规划或已记录目标，不应描述成已验证。
 
@@ -35,12 +36,18 @@ XArch 是 ModernSetupPkg 的跨架构验证/产品化术语。XArch 不会替代
 
 | XArch 目标 | 具体 edk2 ARCH | 平台路径 | 主要脚本 | 当前成熟度证据 | 产品化验证说明 |
 | --- | --- | --- | --- | --- | --- |
-| X64 / OVMF X64 | `X64` | `OvmfPkg/OvmfPkgX64` | `Scripts/build-ovmf-x64.sh`, `Scripts/run-ovmf-x64.sh`, `Scripts/capture-ovmf-x64.sh` | Manual OVMF 构建/运行/捕获路径；smoke overlay generation；本地/手动 App 验证。 | 证据覆盖目标元数据、native/modern DisplayEngine overlay 分离和本地截图捕获路径。 |
+| X64 / OVMF X64 | `X64` | `OvmfPkg/OvmfPkgX64` | `Scripts/build-ovmf-x64.sh`, `Scripts/run-ovmf-x64.sh`, `Scripts/capture-ovmf-x64.sh`, `Scripts/capture-displayengine-ovmf-x64.sh` | Manual OVMF 构建/运行/捕获路径；smoke overlay generation；本地/手动 App 验证；Phase35 native-vs-modern DisplayEngine 证据路径待 visual review。 | 证据覆盖目标元数据、native/modern DisplayEngine overlay 分离和本地截图捕获路径。DisplayEngine A/B helper 默认输出到 `${TMPDIR:-/tmp}/modernsetup-qemu/displayengine-ovmf-x64`，只有 `--mode capture` 产出 artifact 后才属于截图证据。 |
 | AARCH64 / ArmVirtQemu | `AARCH64` | `ArmVirtPkg/ArmVirtQemu` | `Scripts/build-armvirt.sh`, `Scripts/run-armvirt.sh`, `Scripts/capture-armvirt.sh`, `Scripts/build-modern-app.sh` | Captured ArmVirt before/after 证据；active 构建/运行路径；smoke overlay generation。 | native UiApp/FormBrowser 加 ModernDisplayEngine 的主要兼容性捕获路径。 |
 | LOONGARCH64 / LoongArchVirtQemu | `LOONGARCH64` | `OvmfPkg/LoongArchVirt/LoongArchVirtQemu` | `Scripts/build-loongarchvirt.sh`, `Scripts/run-loongarchvirt.sh` | Active 构建/运行脚本路径；smoke overlay generation。 | 证据覆盖生成 overlay 和已记录的手动运行路径；外部交叉工具链仍由产品团队负责。 |
 | RISCV64 / RiscVVirtQemu | `RISCV64` | `OvmfPkg/RiscVVirt/RiscVVirtQemu` | `Scripts/build-riscvvirt.sh` | Build/script validation；smoke overlay generation。 | Phase30 中 RISCV64 仍保持 Build/script validation；不声明图形 QEMU helper 或捕获 UI 证据。 |
 
 `Scripts/xarch-validate.sh --all --mode dry-run --format json` 是快速目标元数据 smoke 辅助检查。Phase30 smoke gate 会断言四个目标均为 `PASS`，并保持 RISCV64 的 `Build/script validation` 成熟度用语。
+
+## Phase35 DisplayEngine 视觉证据路径
+
+`Tests/Manual/DisplayEngineOvmfX64Visual.md` 记录 OVMF X64 native-vs-modern DisplayEngine 视觉工作流。`Scripts/capture-displayengine-ovmf-x64.sh` 使用 `MODERN_SETUP_DISPLAY_ENGINE=native` 和 `MODERN_SETUP_DISPLAY_ENGINE=modern` 两次驱动既有 OVMF overlay 生成器，将 artifact 分离到 `overlays/native`、`overlays/modern`、`firmware/native`、`firmware/modern` 以及可选的 `native`/`modern` capture 目录，并只在 `Build/ModernSetupPkgOverlay` 下写 overlay，保持 upstream edk2 平台文件不被修改。
+
+本矩阵中的 Phase35 当前状态仅为 `Script`/`Manual` foundation。Static smoke 可检查 helper 和手动工作流存在；`--mode generate-only` 可检查 overlay snapshot；`--mode build` 可检查 firmware FD snapshot；只有 `--mode capture` 成功产出 QEMU `screendump` 后才形成视觉截图证据，并且该 helper 不检查像素，也不会将视觉等价标记为 verified。
 
 ## 产品类别验证矩阵
 
