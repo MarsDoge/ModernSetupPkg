@@ -36,6 +36,14 @@ ModernDisplayRows (
   VOID
   );
 
+STATIC
+VOID
+ModernDisplayDrawStatementRowAccents (
+  IN CONST MODERN_UI_RECT              *RowRect,
+  IN CONST MODERN_DISPLAY_FORM_ROW     *FormRow,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
 /**
   Return GOP cell metrics that match the active text-mode grid.
 
@@ -398,6 +406,134 @@ ModernDisplayDrawPopupSurface (
 }
 
 /**
+  Select the accent color for a FormBrowser statement row.
+
+  The color is a visual hint only. It is derived from the private FormModel row
+  kind/state after FormBrowser has already materialized the statement. The helper
+  does not inspect IFR packages, route storage, or change browser behavior.
+
+  @param[in] FormRow  Private row model to inspect. May be NULL.
+  @param[in] Theme    Theme token table. Must not be NULL.
+
+  @return Accent color. NULL Theme returns zero.
+**/
+STATIC
+EFI_GRAPHICS_OUTPUT_BLT_PIXEL
+ModernDisplayFormRowAccentColor (
+  IN CONST MODERN_DISPLAY_FORM_ROW  *FormRow OPTIONAL,
+  IN CONST MODERN_UI_THEME          *Theme
+  )
+{
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Accent;
+
+  ZeroMem (&Accent, sizeof (Accent));
+  if (Theme == NULL) {
+    return Accent;
+  }
+
+  if (FormRow == NULL) {
+    return Theme->Border;
+  }
+
+  if ((FormRow->State & ModernDisplayFormRowStateInvalid) != 0) {
+    return Theme->WarningText;
+  }
+
+  if ((FormRow->State & ModernDisplayFormRowStateDisabled) != 0) {
+    return Theme->MutedText;
+  }
+
+  switch (FormRow->Kind) {
+    case ModernDisplayFormRowChoice:
+    case ModernDisplayFormRowOrderedList:
+    case ModernDisplayFormRowNumeric:
+    case ModernDisplayFormRowDate:
+    case ModernDisplayFormRowTime:
+      return Theme->AccentOrange;
+
+    case ModernDisplayFormRowCheckbox:
+    case ModernDisplayFormRowPassword:
+    case ModernDisplayFormRowString:
+      return Theme->AccentYellow;
+
+    case ModernDisplayFormRowReference:
+    case ModernDisplayFormRowAction:
+    case ModernDisplayFormRowResetButton:
+      return Theme->Success;
+
+    case ModernDisplayFormRowSubtitle:
+    case ModernDisplayFormRowText:
+    case ModernDisplayFormRowUnknown:
+    default:
+      return Theme->Border;
+  }
+}
+
+/**
+  Draw lightweight FormModel-driven accents over one statement row surface.
+
+  The native DisplayEngine still prints the prompt/value text. This function only
+  paints non-semantic GOP hints: editable/action accent rails, changed markers,
+  invalid borders, and disabled/read-only separators. Any draw failure leaves the
+  already-painted row surface in place and is intentionally ignored by callers.
+
+  @param[in] RowRect  Pixel row rectangle. Must not be NULL.
+  @param[in] FormRow  Private row model. Must not be NULL.
+  @param[in] Theme    Theme token table. Must not be NULL.
+**/
+STATIC
+VOID
+ModernDisplayDrawStatementRowAccents (
+  IN CONST MODERN_UI_RECT           *RowRect,
+  IN CONST MODERN_DISPLAY_FORM_ROW  *FormRow,
+  IN CONST MODERN_UI_THEME          *Theme
+  )
+{
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Accent;
+  UINTN                          AccentWidth;
+  UINTN                          MarkerSize;
+
+  if ((RowRect == NULL) || (FormRow == NULL) || (Theme == NULL) || (RowRect->Width == 0) || (RowRect->Height == 0)) {
+    return;
+  }
+
+  Accent      = ModernDisplayFormRowAccentColor (FormRow, Theme);
+  AccentWidth = ((FormRow->State & ModernDisplayFormRowStateHighlighted) != 0) ? 6 : 3;
+
+  if (!ModernDisplayFormRowIsTextOnly (FormRow->Kind) && (RowRect->Width > (AccentWidth + 4)) && (RowRect->Height > 6)) {
+    ModernUiFillRect (
+      &mModernRenderContext,
+      (MODERN_UI_RECT){ RowRect->X, RowRect->Y + 2, AccentWidth, RowRect->Height - 4 },
+      Accent
+      );
+  }
+
+  if ((FormRow->State & ModernDisplayFormRowStateChanged) != 0) {
+    MarkerSize = (RowRect->Height > 18) ? 6 : 4;
+    if ((RowRect->Width > (MarkerSize + 8)) && (RowRect->Height > (MarkerSize + 6))) {
+      ModernUiFillRect (
+        &mModernRenderContext,
+        (MODERN_UI_RECT){ RowRect->X + RowRect->Width - MarkerSize - 6, RowRect->Y + 4, MarkerSize, MarkerSize },
+        Theme->AccentYellow
+        );
+    }
+  }
+
+  if ((FormRow->State & ModernDisplayFormRowStateInvalid) != 0) {
+    ModernUiStrokeRect (&mModernRenderContext, *RowRect, Theme->WarningText);
+    return;
+  }
+
+  if (((FormRow->State & ModernDisplayFormRowStateDisabled) != 0) || ((FormRow->State & ModernDisplayFormRowStateReadOnly) != 0)) {
+    ModernUiFillRect (
+      &mModernRenderContext,
+      (MODERN_UI_RECT){ RowRect->X, RowRect->Y + RowRect->Height - 1, RowRect->Width, 1 },
+      ModernUiBlendColor (Theme->Border, Theme->Background, 50)
+      );
+  }
+}
+
+/**
   Draw a ModernSetup row background for one FormBrowser statement.
 
   The caller still prints all statement text through the native DisplayEngine
@@ -455,6 +591,7 @@ ModernDisplayDrawStatementRow (
   }
 
   ModernUiEngineDrawRows (&mModernRenderContext, &RowModel, 1, Theme);
+  ModernDisplayDrawStatementRowAccents (&RowRect, &FormRow, Theme);
 }
 
 /**

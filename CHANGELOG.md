@@ -14,6 +14,10 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase36 DisplayEngine row visual polish: FormModel-driven row surfaces now add
+  conservative GOP accents for editable/action rows, changed settings,
+  invalid/warning feedback, and disabled/read-only states without changing
+  FormBrowser text/value rendering or HII/config ownership.
 - Phase35 native-vs-modern DisplayEngine visual validation foundation for OVMF
   X64: `Scripts/capture-displayengine-ovmf-x64.sh` creates separated native and
   modern overlay/build/capture artifact paths under a safe TMPDIR default,

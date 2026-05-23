@@ -2031,9 +2031,23 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         "ModernDisplayClassifyStatementForForm",
         "ModernDisplayFormRowGetVisualRole",
         "MODERN_DISPLAY_FORM_ROW",
+        "ModernDisplayDrawStatementRowAccents",
     ):
         if token not in row_surface_body:
-            raise SmokeFailure(f"DisplayEngine row surface must consume the Phase34 row model/helper: {token}")
+            raise SmokeFailure(f"DisplayEngine row surface must consume the Phase34/36 row model/helper: {token}")
+
+    internal_text = strip_c_comments(internal_c.read_text(encoding="utf-8"))
+    for token in (
+        "ModernDisplayFormRowAccentColor",
+        "ModernDisplayFormRowStateChanged",
+        "ModernDisplayFormRowStateInvalid",
+        "ModernDisplayFormRowStateDisabled",
+        "ModernDisplayFormRowStateReadOnly",
+        "ModernDisplayFormRowIsTextOnly",
+        "ModernUiStrokeRect",
+    ):
+        if token not in internal_text:
+            raise SmokeFailure(f"Phase36 DisplayEngine row polish missing FormModel-driven accent token: {token}")
 
     form_display = root / "Universal" / "ModernDisplayEngineDxe" / "FormDisplay.c"
     form_display_text = strip_c_comments(form_display.read_text(encoding="utf-8"))
