@@ -252,7 +252,7 @@ DrawBoot (
   )
 {
   EFI_STATUS                    Status;
-  MODERN_UI_BOOT_OPTION         *BootOptions;
+  CONST MODERN_UI_BOOT_OPTION   *BootOptions;
   UINTN                         BootOptionCount;
   UINTN                         Index;
   UINTN                         Y;
@@ -274,7 +274,7 @@ DrawBoot (
   ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, ModernUiGetString (ModernUiStringBootInstruction), Theme->MutedText, Theme->Surface);
 
   BootOptions = NULL;
-  Status = ModernUiBootDataGetOptions (mModernSetupImageHandle, &BootOptions, &BootOptionCount);
+  Status = ModernSetupGetCachedBootOptions (&BootOptions, &BootOptionCount);
   if (EFI_ERROR (Status) || (BootOptions == NULL)) {
     ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 66, ModernUiGetString (ModernUiStringNoBootOptions), Theme->Warning, Theme->Surface);
     return;
@@ -322,8 +322,6 @@ DrawBoot (
   if (BootOptionCount == 0) {
     ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 66, ModernUiGetString (ModernUiStringNoBootOptions), Theme->Warning, Theme->Surface);
   }
-
-  ModernUiBootDataFreeOptions (BootOptions, BootOptionCount);
 }
 
 STATIC
