@@ -2050,6 +2050,7 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         "ModernDisplayDrawRightRailDivider",
         "ModernDisplayPageStatusText",
         "ModernDisplayDrawStatementValueLane",
+        "ModernDisplayFooterStatusReservedColumns",
         "ModernDisplayPageState",
         "ModernDisplayPageStateRebootRequired",
         "TextInset",
