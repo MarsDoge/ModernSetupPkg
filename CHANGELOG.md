@@ -14,6 +14,12 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase35 native-vs-modern DisplayEngine visual validation foundation for OVMF
+  X64: `Scripts/capture-displayengine-ovmf-x64.sh` creates separated native and
+  modern overlay/build/capture artifact paths under a safe TMPDIR default,
+  `Tests/Manual/DisplayEngineOvmfX64Visual.md` documents evidence levels and
+  limitations, and smoke checks enforce the script/doc contract without claiming
+  visual verification.
 - Phase34 DisplayEngine row rendering hardening: statement row GOP surfaces now
   classify highlighted/selected, disabled/locked, read-only, changed, invalid,
   modal, and action/text affordance state through the private FormModel helpers,
