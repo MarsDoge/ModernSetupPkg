@@ -14,6 +14,11 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase34 DisplayEngine row rendering hardening: statement row GOP surfaces now
+  classify highlighted/selected, disabled/locked, read-only, changed, invalid,
+  modal, and action/text affordance state through the private FormModel helpers,
+  keeping native FormBrowser HII semantics intact while reducing scattered visual
+  role decisions.
 - Phase33 DisplayEngine form view-model foundation: `ModernUiCustomizedDisplayLib`
   now has a private `ModernDisplayFormModel` layer that classifies borrowed
   FormBrowser DisplayEngine form/statement data into Modern UI row metadata,

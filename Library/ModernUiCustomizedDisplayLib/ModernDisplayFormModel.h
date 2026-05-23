@@ -50,7 +50,10 @@ typedef enum {
   ModernDisplayFormRowStateReadOnly   = BIT3,
   ModernDisplayFormRowStateChanged    = BIT4,
   ModernDisplayFormRowStateHexInput   = BIT5,
-  ModernDisplayFormRowStateAdjustable = BIT6
+  ModernDisplayFormRowStateAdjustable = BIT6,
+  ModernDisplayFormRowStateInvalid    = BIT7,
+  ModernDisplayFormRowStateModal      = BIT8,
+  ModernDisplayFormRowStatePageChanged = BIT9
 } MODERN_DISPLAY_FORM_ROW_STATE;
 
 /**
@@ -105,6 +108,30 @@ ModernDisplayClassifyStatement (
   );
 
 /**
+  Classify a DisplayEngine statement into a private Modern UI row model with
+  optional page/form context.
+
+  @param[in]  FormData   DisplayEngine form that owns the statement. May be
+                         NULL when only statement-local state is available.
+  @param[in]  Statement  DisplayEngine statement to classify. May be NULL.
+  @param[in]  Highlight  TRUE when the row has keyboard highlight.
+  @param[in]  Selected   TRUE when the row is in edit/selection mode.
+  @param[out] Row        Row model to fill. Must not be NULL.
+
+  @retval EFI_SUCCESS            Row was filled. A NULL Statement produces an
+                                  Unknown row.
+  @retval EFI_INVALID_PARAMETER  Row is NULL.
+**/
+EFI_STATUS
+ModernDisplayClassifyStatementForForm (
+  IN  FORM_DISPLAY_ENGINE_FORM       *FormData OPTIONAL,
+  IN  FORM_DISPLAY_ENGINE_STATEMENT  *Statement OPTIONAL,
+  IN  BOOLEAN                        Highlight,
+  IN  BOOLEAN                        Selected,
+  OUT MODERN_DISPLAY_FORM_ROW        *Row
+  );
+
+/**
   Return whether a row kind uses choice/list-style key help.
 
   @param[in] Kind  Row kind to test.
@@ -128,6 +155,44 @@ ModernDisplayFormRowIsChoiceLike (
 BOOLEAN
 ModernDisplayFormRowIsActionLike (
   IN MODERN_DISPLAY_FORM_ROW_KIND  Kind
+  );
+
+/**
+  Return whether a row kind behaves as editable value content.
+
+  @param[in] Kind  Row kind to test.
+
+  @retval TRUE   The row represents editable value content.
+  @retval FALSE  The row is text/action/chrome-like only.
+**/
+BOOLEAN
+ModernDisplayFormRowIsEditable (
+  IN MODERN_DISPLAY_FORM_ROW_KIND  Kind
+  );
+
+/**
+  Return whether a row kind has no value/action affordance.
+
+  @param[in] Kind  Row kind to test.
+
+  @retval TRUE   The row is display text only.
+  @retval FALSE  The row has another affordance.
+**/
+BOOLEAN
+ModernDisplayFormRowIsTextOnly (
+  IN MODERN_DISPLAY_FORM_ROW_KIND  Kind
+  );
+
+/**
+  Map a private form row model to the shared Modern UI renderer row role.
+
+  @param[in] Row  Row model to inspect. May be NULL.
+
+  @return Renderer row role for conservative DisplayEngine row painting.
+**/
+MODERN_UI_ROW_ROLE
+ModernDisplayFormRowGetVisualRole (
+  IN CONST MODERN_DISPLAY_FORM_ROW  *Row OPTIONAL
   );
 
 /**
