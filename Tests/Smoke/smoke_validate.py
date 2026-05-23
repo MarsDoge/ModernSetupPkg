@@ -2053,6 +2053,17 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         if token not in internal_text:
             raise SmokeFailure(f"Phase36 DisplayEngine row polish missing FormModel-driven accent token: {token}")
 
+    engine_text = strip_c_comments((root / "Library" / "ModernUiEngineLib" / "ModernUiEngineLib.c").read_text(encoding="utf-8"))
+    for token in (
+        "ModernUiEngineStatusColor",
+        "LIVE REFRESH",
+        "UNSAVED CHANGES",
+        "MODAL VIEW",
+        "ModernUiDrawTextFit",
+    ):
+        if token not in engine_text:
+            raise SmokeFailure(f"Phase36 DisplayEngine footer status chip missing token: {token}")
+
     form_display = root / "Universal" / "ModernDisplayEngineDxe" / "FormDisplay.c"
     form_display_text = strip_c_comments(form_display.read_text(encoding="utf-8"))
     display_one_menu = extract_c_function_body(form_display_text, "DisplayOneMenu")

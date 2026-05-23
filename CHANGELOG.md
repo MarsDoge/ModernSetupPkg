@@ -14,6 +14,9 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase36 UX iteration: the shared Modern UI footer now renders page status as a
+  compact color-coded chip, giving live/refresh/unsaved/modal states a durable
+  visual slot for future PEI/DXE/App data handoff and reboot-required flows.
 - Phase36 UX iteration: DisplayEngine page chrome now surfaces FormBrowser-owned
   page state in the footer (`LIVE VIEW`, `LIVE REFRESH`, `UNSAVED CHANGES`, or
   `MODAL VIEW`), establishing a presentation slot for future PEI/DXE/App data
