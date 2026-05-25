@@ -2109,10 +2109,13 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         "ModernDisplayPageState",
         "ModernDisplayPageStateRebootRequired",
         "ModernDisplayDrawFormTitleContext",
+        "ModernDisplayRightHelpStartColumn",
+        "ModernDisplayDrawRightHelpRailContext",
+        "CONTEXT HELP",
         "TextInset",
     ):
         if token not in internal_text:
-            raise SmokeFailure(f"Phase36/39 DisplayEngine row polish missing FormModel-driven accent/title token: {token}")
+            raise SmokeFailure(f"Phase36/39/40 DisplayEngine row polish missing FormModel-driven presentation token: {token}")
 
     title_context_body = extract_c_function_body(internal_text, "ModernDisplayDrawFormTitleContext")
     for token in (
@@ -2126,9 +2129,28 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
             raise SmokeFailure(f"Phase39 FormBrowser title context missing token: {token}")
 
     page_chrome_body = extract_c_function_body(internal_text, "ModernDisplayDrawPageChrome")
-    for token in ("FormData->FormTitle", "LibGetToken", "ModernDisplayDrawFormTitleContext"):
+    for token in ("FormData->FormTitle", "LibGetToken", "ModernDisplayDrawFormTitleContext", "ModernDisplayDrawRightHelpRailContext"):
         if token not in page_chrome_body:
-            raise SmokeFailure(f"Phase39 page chrome must render existing FormBrowser title context: {token}")
+            raise SmokeFailure(f"Phase39/40 page chrome must render existing FormBrowser presentation context: {token}")
+
+    right_help_body = extract_c_function_body(internal_text, "ModernDisplayDrawRightHelpRailContext")
+    for token in (
+        "ModernDisplayRightHelpStartColumn",
+        "ModernUiDrawTextFit",
+        "ModernUiFillRect",
+        "ModernUiBlendColor",
+        "Layout->ContentTopRow",
+        "Layout->Statement.TopRow",
+        "Layout->Statement.RightColumn",
+        "Theme->MutedText",
+        "Theme->BackgroundBlack",
+        "Theme->AccentOrange",
+    ):
+        if token not in right_help_body:
+            raise SmokeFailure(f"Phase40 FormBrowser right-help rail polish missing token: {token}")
+    for token in ("ConfigAccess", "RouteConfig", "ExtractConfig", "SetVariable", "HiiSetBrowserData", "HiiGetString"):
+        if token in right_help_body:
+            raise SmokeFailure(f"Phase40 right-help rail helper contains prohibited semantic/storage token: {token}")
 
     engine_text = strip_c_comments((root / "Library" / "ModernUiEngineLib" / "ModernUiEngineLib.c").read_text(encoding="utf-8"))
     for token in (

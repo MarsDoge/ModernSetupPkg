@@ -24,6 +24,8 @@ STATIC BOOLEAN                   mModernRenderReady;
 STATIC UINTN                     mModernCursorColumn;
 STATIC UINTN                     mModernCursorRow;
 
+#define MODERN_DISPLAY_HELP_LEFT_SKIPPED_COLUMNS  3
+
 typedef enum {
   ModernDisplayPageStateLive,
   ModernDisplayPageStateLiveRefresh,
@@ -72,6 +74,21 @@ ModernDisplayStatementTextInset (
 STATIC
 VOID
 ModernDisplayDrawRightRailDivider (
+  IN CONST MODERN_DISPLAY_LAYOUT  *Layout,
+  IN CONST MODERN_UI_THEME        *Theme,
+  IN UINTN                        CellWidth,
+  IN UINTN                        CellHeight
+  );
+
+STATIC
+UINTN
+ModernDisplayRightHelpStartColumn (
+  IN CONST MODERN_DISPLAY_LAYOUT  *Layout
+  );
+
+STATIC
+VOID
+ModernDisplayDrawRightHelpRailContext (
   IN CONST MODERN_DISPLAY_LAYOUT  *Layout,
   IN CONST MODERN_UI_THEME        *Theme,
   IN UINTN                        CellWidth,
@@ -370,6 +387,120 @@ ModernDisplayDrawRightRailDivider (
     &mModernRenderContext,
     (MODERN_UI_RECT){ X - 2, Y + 8, 6, 1 },
     ModernUiBlendColor (Theme->AccentOrange, Theme->BackgroundBlack, 45)
+    );
+}
+
+/**
+  Return the approximate native FormBrowser help column start.
+
+  The result mirrors the edk2 DisplayEngine prompt/option/help split only for
+  presentation alignment. It must not alter FormBrowser widths, wrapping, HII
+  ownership, or statement dimensions.
+
+  @param[in] Layout  Calculated DisplayEngine layout. Must not be NULL.
+
+  @return Text-grid column where the native help block starts, or Statement.RightColumn.
+**/
+STATIC
+UINTN
+ModernDisplayRightHelpStartColumn (
+  IN CONST MODERN_DISPLAY_LAYOUT  *Layout
+  )
+{
+  UINTN  StatementWidth;
+  UINTN  OptionBlockWidth;
+  UINTN  HelpBlockWidth;
+
+  if ((Layout == NULL) || (Layout->Statement.RightColumn <= Layout->Statement.LeftColumn)) {
+    return 0;
+  }
+
+  StatementWidth = Layout->Statement.RightColumn - Layout->Statement.LeftColumn;
+  if (StatementWidth <= (MODERN_DISPLAY_HELP_LEFT_SKIPPED_COLUMNS + 4)) {
+    return Layout->Statement.RightColumn;
+  }
+
+  OptionBlockWidth = (StatementWidth / 3) + 1;
+  if (OptionBlockWidth <= (MODERN_DISPLAY_HELP_LEFT_SKIPPED_COLUMNS + 1)) {
+    return Layout->Statement.RightColumn;
+  }
+
+  HelpBlockWidth = OptionBlockWidth - 1 - MODERN_DISPLAY_HELP_LEFT_SKIPPED_COLUMNS;
+  if ((HelpBlockWidth == 0) || (HelpBlockWidth >= StatementWidth)) {
+    return Layout->Statement.RightColumn;
+  }
+
+  return Layout->Statement.RightColumn - HelpBlockWidth;
+}
+
+/**
+  Draw a presentation-only label and divider for FormBrowser contextual help.
+
+  Native FormBrowser still owns the selected statement help text, wrapping, and
+  print positions. This helper only marks the existing help column visually so
+  the modern shell reads as statement list plus contextual-help region.
+
+  @param[in] Layout      Calculated DisplayEngine layout. Must not be NULL.
+  @param[in] Theme       Theme token table. Must not be NULL.
+  @param[in] CellWidth   Pixel width for one text column.
+  @param[in] CellHeight  Pixel height for one text row.
+**/
+STATIC
+VOID
+ModernDisplayDrawRightHelpRailContext (
+  IN CONST MODERN_DISPLAY_LAYOUT  *Layout,
+  IN CONST MODERN_UI_THEME        *Theme,
+  IN UINTN                        CellWidth,
+  IN UINTN                        CellHeight
+  )
+{
+  UINTN  HelpLeftColumn;
+  UINTN  LabelX;
+  UINTN  LabelY;
+  UINTN  LabelWidth;
+  UINTN  DividerX;
+  UINTN  DividerY;
+  UINTN  DividerHeight;
+
+  if ((Layout == NULL) || (Theme == NULL) || (CellWidth == 0) || (CellHeight == 0) ||
+      (Layout->Statement.TopRow <= Layout->ContentTopRow) ||
+      (Layout->Statement.RightColumn <= Layout->Statement.LeftColumn))
+  {
+    return;
+  }
+
+  HelpLeftColumn = ModernDisplayRightHelpStartColumn (Layout);
+  if ((HelpLeftColumn <= Layout->Statement.LeftColumn) || (HelpLeftColumn >= Layout->Statement.RightColumn)) {
+    return;
+  }
+
+  LabelX     = (HelpLeftColumn * CellWidth) + MIN (8, MAX (2, CellWidth / 2));
+  LabelY     = (Layout->ContentTopRow * CellHeight) + MIN (6, MAX (2, CellHeight / 5));
+  LabelWidth = (Layout->Statement.RightColumn - HelpLeftColumn) * CellWidth;
+
+  ModernUiDrawTextFit (
+    &mModernRenderContext,
+    LabelX,
+    LabelY,
+    LabelWidth,
+    L"CONTEXT HELP",
+    Theme->MutedText,
+    Theme->BackgroundBlack
+    );
+
+  DividerX      = (HelpLeftColumn * CellWidth > 6) ? (HelpLeftColumn * CellWidth - 6) : 0;
+  DividerY      = Layout->Statement.TopRow * CellHeight;
+  DividerHeight = (Layout->ContentBottomRow > Layout->Statement.TopRow) ?
+                  ((Layout->ContentBottomRow - Layout->Statement.TopRow) * CellHeight) :
+                  0;
+  if (DividerHeight < 8) {
+    return;
+  }
+
+  ModernUiFillRect (
+    &mModernRenderContext,
+    (MODERN_UI_RECT){ DividerX, DividerY + 6, 1, DividerHeight - 12 },
+    ModernUiBlendColor (Theme->AccentOrange, Theme->Background, 24)
     );
 }
 
@@ -1023,6 +1154,7 @@ ModernDisplayDrawPageChrome (
   ModernUiEngineDrawPage (&mModernRenderContext, &PageModel, Theme);
   ModernDisplayDrawRightRailDivider (&Layout, Theme, CellWidth, CellHeight);
   ModernDisplayDrawFormTitleContext (&Layout, Theme, CellWidth, CellHeight, PrintableTitle);
+  ModernDisplayDrawRightHelpRailContext (&Layout, Theme, CellWidth, CellHeight);
 
   if (PrintableTitle != NULL) {
     FreePool (PrintableTitle);
