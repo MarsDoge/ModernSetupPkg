@@ -953,7 +953,7 @@ ModernSetupHandlePreferenceInputKey (
   }
 
   Character = Event->UnicodeChar;
-  if (Character == CHAR_BACKSPACE) {
+  if ((Character == CHAR_BACKSPACE) || ((Character == CHAR_NULL) && (Event->ScanCode == SCAN_DELETE))) {
     if (mModernSetupPreferenceInputLength > 0) {
       mModernSetupPreferenceInputLength--;
       mModernSetupPreferenceInputBuffer[mModernSetupPreferenceInputLength] = L'\0';

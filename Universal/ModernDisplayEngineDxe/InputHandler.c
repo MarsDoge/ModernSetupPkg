@@ -903,6 +903,27 @@ TheKey2:
           case SCAN_DOWN:
             goto EnterCarriageReturn;
 
+          case SCAN_DELETE:
+            if (ManualInput) {
+              if (Count == 0) {
+                if (Negative) {
+                  Negative = FALSE;
+                  Column--;
+                  PrintStringAt (Column, Row, L" ");
+                }
+
+                break;
+              }
+
+              EditValue = PreviousNumber[Count - 1];
+              UpdateStatusBar (INPUT_ERROR, FALSE);
+              Count--;
+              Column--;
+              PrintStringAt (Column, Row, L" ");
+            }
+
+            break;
+
           case SCAN_ESC:
             return EFI_DEVICE_ERROR;
 
