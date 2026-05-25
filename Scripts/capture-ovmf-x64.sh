@@ -16,6 +16,7 @@ TOOL_CHAIN_TAG="${TOOL_CHAIN_TAG:-GCC}"
 QEMU_BIN="${QEMU_BIN:-qemu-system-x86_64}"
 MEMORY="${MEMORY:-1024}"
 BOOT_WAIT_SECONDS="${BOOT_WAIT_SECONDS:-10}"
+POST_SENDKEY_WAIT_SECONDS="${POST_SENDKEY_WAIT_SECONDS:-0}"
 SENDKEY_SEQUENCE="${SENDKEY_SEQUENCE:-}"
 RESET_VARS="${RESET_VARS:-1}"
 BOOT_APP="${BOOT_APP:-1}"
@@ -224,7 +225,7 @@ PY
 
 trap cleanup_qemu EXIT
 
-python3 - <<'PY' "${MONITOR_SOCK}" "${WORK_PPM}" "${BOOT_WAIT_SECONDS}" "${SENDKEY_SEQUENCE}"
+python3 - <<'PY' "${MONITOR_SOCK}" "${WORK_PPM}" "${BOOT_WAIT_SECONDS}" "${SENDKEY_SEQUENCE}" "${POST_SENDKEY_WAIT_SECONDS}"
 from pathlib import Path
 import socket
 import sys
@@ -234,6 +235,7 @@ sock_path = Path(sys.argv[1])
 ppm_path = Path(sys.argv[2])
 boot_wait = float(sys.argv[3])
 sequence = [key.strip() for key in sys.argv[4].split(",") if key.strip()]
+post_sendkey_wait = float(sys.argv[5])
 
 for _ in range(300):
     if sock_path.exists():
@@ -268,7 +270,17 @@ def command(text: str, delay: float = 0.2) -> None:
 drain()
 time.sleep(boot_wait)
 for key in sequence:
-    command(f"sendkey {key}", 0.5)
+    normalized = key.lower()
+    if normalized.startswith(("wait:", "sleep:")):
+        time.sleep(float(normalized.split(":", 1)[1]))
+        continue
+    if "@" in key:
+        key_name, hold_ms = key.rsplit("@", 1)
+        command(f"sendkey {key_name} {hold_ms}", 0.5)
+    else:
+        command(f"sendkey {key}", 0.5)
+if post_sendkey_wait > 0:
+    time.sleep(post_sendkey_wait)
 command(f"screendump {ppm_path}", 0.5)
 command("quit", 0.1)
 monitor.close()
