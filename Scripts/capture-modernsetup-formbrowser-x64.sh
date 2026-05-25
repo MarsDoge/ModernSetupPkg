@@ -10,9 +10,16 @@ set -euo pipefail
 PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Capture the replace-UiApp product flow:
-#   ModernSetupApp shell -> Devices tab -> selected HII/FormBrowser entry.
+#   OVMF boot selector -> EFI Firmware Setup -> ModernSetupApp shell
+#   -> Devices / HII list -> OVMF Platform Configuration FormBrowser entry.
 # The final screen should be a FormBrowser page rendered by ModernDisplayEngineDxe,
 # not the native UiApp entry point and not only the ModernSetupApp shell.
+#
+# Timing/key notes from local QEMU HMP validation:
+# - Fresh VARS may stop at the no-boot / boot selector path.
+# - Use a held Return (ret@1000) only for selecting EFI Firmware Setup there.
+# - Inside ModernSetupApp, use short ret key presses; enter and held ret can miss or
+#   over-trigger app actions.
 export TARGET="${TARGET:-RELEASE}"
 export MODERN_SETUP_DISPLAY_ENGINE="${MODERN_SETUP_DISPLAY_ENGINE:-modern}"
 export MODERN_SETUP_REPLACE_UIAPP="${MODERN_SETUP_REPLACE_UIAPP:-1}"
