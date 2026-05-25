@@ -2108,10 +2108,27 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         "ModernDisplayFooterStatusReservedColumns",
         "ModernDisplayPageState",
         "ModernDisplayPageStateRebootRequired",
+        "ModernDisplayDrawFormTitleContext",
         "TextInset",
     ):
         if token not in internal_text:
-            raise SmokeFailure(f"Phase36 DisplayEngine row polish missing FormModel-driven accent token: {token}")
+            raise SmokeFailure(f"Phase36/39 DisplayEngine row polish missing FormModel-driven accent/title token: {token}")
+
+    title_context_body = extract_c_function_body(internal_text, "ModernDisplayDrawFormTitleContext")
+    for token in (
+        "ModernUiDrawTextFit",
+        "Layout->ContentTopRow",
+        "Layout->Statement.TopRow",
+        "PrintableTitle",
+        "Theme->MutedText",
+    ):
+        if token not in title_context_body:
+            raise SmokeFailure(f"Phase39 FormBrowser title context missing token: {token}")
+
+    page_chrome_body = extract_c_function_body(internal_text, "ModernDisplayDrawPageChrome")
+    for token in ("FormData->FormTitle", "LibGetToken", "ModernDisplayDrawFormTitleContext"):
+        if token not in page_chrome_body:
+            raise SmokeFailure(f"Phase39 page chrome must render existing FormBrowser title context: {token}")
 
     engine_text = strip_c_comments((root / "Library" / "ModernUiEngineLib" / "ModernUiEngineLib.c").read_text(encoding="utf-8"))
     for token in (
