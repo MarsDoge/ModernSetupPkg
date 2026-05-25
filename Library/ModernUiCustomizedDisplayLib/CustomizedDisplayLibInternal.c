@@ -63,6 +63,14 @@ ModernDisplayDrawStatementValueLane (
   );
 
 STATIC
+VOID
+ModernDisplayDrawStatementValueLaneCue (
+  IN CONST MODERN_UI_RECT              *LaneRect,
+  IN CONST MODERN_DISPLAY_FORM_ROW     *FormRow,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+STATIC
 UINTN
 ModernDisplayStatementTextInset (
   IN UINTN  Column,
@@ -888,6 +896,52 @@ ModernDisplayFormRowAccentColor (
 }
 
 /**
+  Draw a subtle editable-value cue inside the value lane.
+
+  Native FormBrowser remains responsible for printing the value text. This helper
+  only adds a GOP outline, underline, and trailing cap so the existing value area
+  reads as an editable chip without changing statement dimensions or wrapping.
+
+  @param[in] LaneRect  Pixel value-lane rectangle. Must not be NULL.
+  @param[in] FormRow   Private row model. Must not be NULL.
+  @param[in] Theme     Theme token table. Must not be NULL.
+**/
+STATIC
+VOID
+ModernDisplayDrawStatementValueLaneCue (
+  IN CONST MODERN_UI_RECT           *LaneRect,
+  IN CONST MODERN_DISPLAY_FORM_ROW  *FormRow,
+  IN CONST MODERN_UI_THEME          *Theme
+  )
+{
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  OutlineColor;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  AccentColor;
+  UINTN                          CapWidth;
+
+  if ((LaneRect == NULL) || (FormRow == NULL) || (Theme == NULL) || (LaneRect->Width < 24) || (LaneRect->Height < 8)) {
+    return;
+  }
+
+  AccentColor  = ModernDisplayFormRowAccentColor (FormRow, Theme);
+  OutlineColor = ((FormRow->State & ModernDisplayFormRowStateSelected) != 0) ?
+                 Theme->AccentYellow :
+                 ModernUiBlendColor (Theme->Border, Theme->BackgroundBlack, 62);
+  CapWidth     = MIN (4, MAX (2, LaneRect->Width / 24));
+
+  ModernUiStrokeRect (&mModernRenderContext, *LaneRect, OutlineColor);
+  ModernUiFillRect (
+    &mModernRenderContext,
+    (MODERN_UI_RECT){ LaneRect->X + 2, LaneRect->Y + LaneRect->Height - 2, LaneRect->Width - 4, 1 },
+    ModernUiBlendColor (AccentColor, Theme->BackgroundBlack, 60)
+    );
+  ModernUiFillRect (
+    &mModernRenderContext,
+    (MODERN_UI_RECT){ LaneRect->X + LaneRect->Width - CapWidth - 2, LaneRect->Y + 3, CapWidth, LaneRect->Height - 6 },
+    ModernUiBlendColor (AccentColor, Theme->BackgroundBlack, 72)
+    );
+}
+
+/**
   Draw a subtle value lane on highlighted/editable rows.
 
   Native FormBrowser still prints prompt/value text. This helper only paints a
@@ -907,6 +961,7 @@ ModernDisplayDrawStatementValueLane (
   )
 {
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  LaneColor;
+  MODERN_UI_RECT                 LaneRect;
   UINTN                          LaneWidth;
   UINTN                          LaneX;
   UINTN                          LaneY;
@@ -924,17 +979,26 @@ ModernDisplayDrawStatementValueLane (
     return;
   }
 
-  LaneWidth  = MAX (72, RowRect->Width / 3);
-  LaneWidth  = MIN (LaneWidth, RowRect->Width - 48);
-  LaneX      = RowRect->X + RowRect->Width - LaneWidth - 10;
+  LaneWidth  = MIN (MAX (120, RowRect->Width / 3), RowRect->Width - 48);
+  LaneX      = RowRect->X + MAX (160, RowRect->Width / 2);
+  if ((LaneX + LaneWidth + 10) > (RowRect->X + RowRect->Width)) {
+    LaneWidth = RowRect->X + RowRect->Width - LaneX - 10;
+  }
+
+  if (LaneWidth < 64) {
+    return;
+  }
+
   LaneY      = RowRect->Y + 4;
   LaneHeight = RowRect->Height - 8;
   LaneColor  = ((FormRow->State & ModernDisplayFormRowStateSelected) != 0) ?
                ModernUiBlendColor (Theme->AccentOrange, Theme->BackgroundBlack, 32) :
                ModernUiBlendColor (Theme->SurfaceRaised, Theme->BackgroundBlack, 55);
+  LaneRect   = (MODERN_UI_RECT){ LaneX, LaneY, LaneWidth, LaneHeight };
 
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ LaneX, LaneY, LaneWidth, LaneHeight }, LaneColor);
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ LaneX, LaneY, 2, LaneHeight }, ModernDisplayFormRowAccentColor (FormRow, Theme));
+  ModernUiFillRect (&mModernRenderContext, LaneRect, LaneColor);
+  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ LaneX, LaneY, 3, LaneHeight }, Theme->AccentYellow);
+  ModernDisplayDrawStatementValueLaneCue (&LaneRect, FormRow, Theme);
 }
 
 /**
