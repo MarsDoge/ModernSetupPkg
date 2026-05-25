@@ -267,6 +267,7 @@ DrawBoot (
   BOOLEAN                       BootNextPresent;
   CONST CHAR16                  *State;
   BOOLEAN                       IsSelected;
+  BOOLEAN                       IsDefaultBootCandidate;
   MODERN_SETUP_PAGE_LIST_LAYOUT  Layout;
   MODERN_UI_ROW_MODEL           RowModel;
 
@@ -308,8 +309,9 @@ DrawBoot (
 
   for (Index = 0; (Index < BootOptionCount) && (Index < Layout.MaxVisibleRows); Index++) {
     Y           = Layout.FirstRowY + (Index * Layout.RowStride);
-    State       = BootOptions[Index].Active ? ModernUiGetString (ModernUiStringActive) : ModernUiGetString (ModernUiStringInactive);
-    IsSelected  = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
+    State                  = BootOptions[Index].Active ? ModernUiGetString (ModernUiStringActive) : ModernUiGetString (ModernUiStringInactive);
+    IsSelected             = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
+    IsDefaultBootCandidate = ModernSetupBootOptionIsDefaultBootCandidate (&BootOptions[Index]);
     UnicodeSPrint (
       Line,
       sizeof (Line),
@@ -321,10 +323,12 @@ DrawBoot (
     UnicodeSPrint (
       Value,
       sizeof (Value),
-      L"%s%s%s%s%s",
+      L"%s%s%s%s%s%s%s",
       State,
       BootOptions[Index].Hidden ? L" / Hidden / " : L" / ",
       BootOptions[Index].Category,
+      IsDefaultBootCandidate ? L"" : L" / ",
+      IsDefaultBootCandidate ? L"" : L"Manual/App only",
       (BootNextPresent && (BootNext == BootOptions[Index].OptionNumber)) ? L" / " : L"",
       (BootNextPresent && (BootNext == BootOptions[Index].OptionNumber)) ? L"BootNext" : L""
       );
