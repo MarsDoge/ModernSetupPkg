@@ -1221,6 +1221,14 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
     provider_body = strip_c_comments(provider.read_text(encoding="utf-8"))
     if c_function_definition_count(provider_body, "ModernSetupGetProviderSnapshot") != 1:
         raise SmokeFailure("ModernSetupAppProvider.c must define ModernSetupGetProviderSnapshot exactly once")
+    if c_function_definition_count(provider_body, "ModernSetupGetCachedProviderSnapshot") != 1:
+        raise SmokeFailure("Phase43 provider cache must define ModernSetupGetCachedProviderSnapshot exactly once")
+    if c_function_definition_count(provider_body, "ModernSetupInvalidateProviderSnapshotCache") != 1:
+        raise SmokeFailure("Phase43 provider cache must expose explicit invalidation")
+    cached_provider_body = extract_c_function_body(provider_body, "ModernSetupGetCachedProviderSnapshot")
+    for token in ("mModernSetupProviderSnapshotCacheValid", "mModernSetupProviderSnapshotCache", "ModernSetupGetProviderSnapshot (&mModernSetupProviderSnapshotCache)", "CopyMem (Snapshot, &mModernSetupProviderSnapshotCache"):
+        if token not in cached_provider_body:
+            raise SmokeFailure(f"Phase43 cached provider snapshot missing token: {token}")
     if c_function_definition_count(provider_body, "ModernSetupGetProviderHealthSummary") != 1:
         raise SmokeFailure("ModernSetupAppProvider.c must define ModernSetupGetProviderHealthSummary exactly once")
     if c_function_definition_count(provider_body, "ModernSetupGetProviderHealthStateText") != 1:
@@ -1236,6 +1244,14 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
     actions_body = strip_c_comments((app_dir / "ModernSetupAppActions.c").read_text(encoding="utf-8"))
     if "ModernSetupGetProviderHealthSummary" not in dashboard_body:
         raise SmokeFailure("ModernSetupAppDashboard.c must render health derived from the provider snapshot")
+    if "ModernSetupGetCachedProviderSnapshot (&Providers)" not in dashboard_body:
+        raise SmokeFailure("Phase43 Dashboard must reuse cached provider snapshot")
+    if "ModernSetupGetProviderSnapshot (&Providers)" in dashboard_body:
+        raise SmokeFailure("Phase43 Dashboard must not refresh provider snapshot directly on redraw")
+    if "ModernSetupGetCachedProviderSnapshot" not in pages_body:
+        raise SmokeFailure("Phase43 provider pages must reuse cached provider snapshots")
+    if "ModernSetupGetProviderSnapshot (&Providers)" in pages_body:
+        raise SmokeFailure("Phase43 provider pages must not refresh provider snapshot directly on redraw")
     if "ModernSetupGetProviderHealthStateText" not in dashboard_body:
         raise SmokeFailure("ModernSetupAppDashboard.c must show provider health state text")
     if "ProviderHealth." not in dashboard_body:
@@ -1297,6 +1313,23 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
         raise SmokeFailure("ModernSetupGetPageListLayout must expose compact and comfortable density branches")
     if "ModernSetupGetDashboardCategoryRoute" not in actions_body or "MODERN_SETUP_DASHBOARD_ROUTE" not in internal_body:
         raise SmokeFailure("Dashboard category landing routes must use the shared helper contract")
+    for token in (
+        "mModernSetupDeviceEntriesCache",
+        "mModernSetupDeviceEntriesCacheValid",
+        "ModernSetupGetCachedDeviceEntries",
+        "ModernSetupInvalidateDeviceEntriesCache",
+        "ModernUiDeviceDataGetEntries (&mModernSetupDeviceEntriesCache",
+        "ModernUiDeviceDataFreeEntries",
+    ):
+        if token not in actions_body:
+            raise SmokeFailure(f"Phase43 device cache missing token: {token}")
+    if "ModernSetupGetCachedDeviceEntries (&Entries, &EntryCount)" not in pages_body:
+        raise SmokeFailure("Phase43 Devices page must draw from cached device entries")
+    if "ModernUiDeviceDataGetEntries (&Entries, &EntryCount)" in pages_body:
+        raise SmokeFailure("Phase43 Devices page must not enumerate HII/device entries directly during redraw")
+    open_device_body = extract_c_function_body(actions_body, "ModernSetupOpenSelectedDeviceEntry")
+    if "ModernSetupInvalidateDeviceEntriesCache ()" not in open_device_body or "ModernSetupInvalidateProviderSnapshotCache ()" not in open_device_body:
+        raise SmokeFailure("Phase43 native FormBrowser handoff must invalidate app-side data caches")
     if "ModernSetupGetDashboardCategoryRoute (DashboardSelection" not in app_body:
         raise SmokeFailure("Dashboard Enter handling must resolve category landing routes through the shared helper")
     if "mDashboardCategoryRoutes[DASHBOARD_QUICK_CARD_COUNT]" not in actions_body:
@@ -1347,7 +1380,7 @@ def check_phase25_server_inventory_summary(root: Path) -> list[str]:
     server_body = pages_body[start:end]
 
     for token in (
-        "ModernSetupGetProviderSnapshot (&Providers)",
+        "ModernSetupGetCachedProviderSnapshot (&Providers)",
         "ModernSetupGetProviderHealthSummary (&Providers, &ProviderHealth)",
         "Providers.Management",
         "Providers.Performance",

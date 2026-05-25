@@ -19,6 +19,9 @@ STATIC CONST EFI_GUID  mNativeFallbackAppGuid = { 0x462CAA21, 0x7614, 0x4503, { 
 STATIC MODERN_UI_BOOT_OPTION  *mModernSetupBootOptionsCache;
 STATIC UINTN                  mModernSetupBootOptionCountCache;
 STATIC BOOLEAN                mModernSetupBootOptionsCacheValid;
+STATIC MODERN_UI_DEVICE_ENTRY *mModernSetupDeviceEntriesCache;
+STATIC UINTN                  mModernSetupDeviceEntryCountCache;
+STATIC BOOLEAN                mModernSetupDeviceEntriesCacheValid;
 
 STATIC CONST MODERN_SETUP_DASHBOARD_ROUTE  mDashboardCategoryRoutes[DASHBOARD_QUICK_CARD_COUNT] = {
   { PageBoot,        SetupFocusContent },
@@ -430,6 +433,52 @@ ModernSetupInvalidateBootOptionsCache (
   mModernSetupBootOptionsCacheValid = FALSE;
 }
 
+EFI_STATUS
+ModernSetupGetCachedDeviceEntries (
+  OUT CONST MODERN_UI_DEVICE_ENTRY  **Entries,
+  OUT UINTN                         *EntryCount
+  )
+{
+  EFI_STATUS  Status;
+
+  if ((Entries == NULL) || (EntryCount == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (!mModernSetupDeviceEntriesCacheValid) {
+    ModernSetupInvalidateDeviceEntriesCache ();
+    Status = ModernUiDeviceDataGetEntries (&mModernSetupDeviceEntriesCache, &mModernSetupDeviceEntryCountCache);
+    if (EFI_ERROR (Status)) {
+      mModernSetupDeviceEntriesCache      = NULL;
+      mModernSetupDeviceEntryCountCache   = 0;
+      return Status;
+    }
+
+    mModernSetupDeviceEntriesCacheValid = TRUE;
+  }
+
+  *Entries    = mModernSetupDeviceEntriesCache;
+  *EntryCount = mModernSetupDeviceEntryCountCache;
+  return EFI_SUCCESS;
+}
+
+VOID
+ModernSetupInvalidateDeviceEntriesCache (
+  VOID
+  )
+{
+  if (mModernSetupDeviceEntriesCache != NULL) {
+    ModernUiDeviceDataFreeEntries (
+      mModernSetupDeviceEntriesCache,
+      mModernSetupDeviceEntryCountCache
+      );
+  }
+
+  mModernSetupDeviceEntriesCache      = NULL;
+  mModernSetupDeviceEntryCountCache   = 0;
+  mModernSetupDeviceEntriesCacheValid = FALSE;
+}
+
 /**
   Count visible boot options from the cached Boot#### snapshot.
 
@@ -464,17 +513,16 @@ ModernSetupGetVisibleDeviceCount (
   VOID
   )
 {
-  EFI_STATUS              Status;
-  MODERN_UI_DEVICE_ENTRY  *Entries;
-  UINTN                   EntryCount;
+  EFI_STATUS                    Status;
+  CONST MODERN_UI_DEVICE_ENTRY  *Entries;
+  UINTN                         EntryCount;
 
   Entries = NULL;
-  Status = ModernUiDeviceDataGetEntries (&Entries, &EntryCount);
+  Status = ModernSetupGetCachedDeviceEntries (&Entries, &EntryCount);
   if (EFI_ERROR (Status)) {
     return 0;
   }
 
-  ModernUiDeviceDataFreeEntries (Entries, EntryCount);
   return MIN (EntryCount, MAX_DEVICE_ROWS);
 }
 
@@ -579,25 +627,26 @@ ModernSetupOpenSelectedDeviceEntry (
   IN UINTN  Selection
   )
 {
-  EFI_STATUS              Status;
-  MODERN_UI_DEVICE_ENTRY  *Entries;
-  UINTN                   EntryCount;
-  MODERN_UI_DEVICE_ENTRY  Entry;
+  EFI_STATUS                    Status;
+  CONST MODERN_UI_DEVICE_ENTRY  *Entries;
+  UINTN                         EntryCount;
+  MODERN_UI_DEVICE_ENTRY        Entry;
 
   Entries = NULL;
-  Status = ModernUiDeviceDataGetEntries (&Entries, &EntryCount);
+  Status = ModernSetupGetCachedDeviceEntries (&Entries, &EntryCount);
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
   if ((Entries == NULL) || (Selection >= EntryCount)) {
-    ModernUiDeviceDataFreeEntries (Entries, EntryCount);
     return EFI_NOT_FOUND;
   }
 
   CopyMem (&Entry, &Entries[Selection], sizeof (Entry));
-  ModernUiDeviceDataFreeEntries (Entries, EntryCount);
-  return ModernUiDeviceDataOpenEntry (&Entry);
+  Status = ModernUiDeviceDataOpenEntry (&Entry);
+  ModernSetupInvalidateDeviceEntriesCache ();
+  ModernSetupInvalidateProviderSnapshotCache ();
+  return Status;
 }
 
 /**

@@ -743,7 +743,7 @@ DrawDevices (
   )
 {
   EFI_STATUS                     Status;
-  MODERN_UI_DEVICE_ENTRY         *Entries;
+  CONST MODERN_UI_DEVICE_ENTRY   *Entries;
   UINTN                          EntryCount;
   UINTN                          Index;
   UINTN                          HiiCount;
@@ -756,7 +756,7 @@ DrawDevices (
   BOOLEAN                        IsSelected;
   MODERN_SETUP_PAGE_LIST_LAYOUT  Layout;
   MODERN_UI_ROW_MODEL            RowModel;
-  MODERN_UI_DEVICE_ENTRY         *SelectedEntry;
+  CONST MODERN_UI_DEVICE_ENTRY   *SelectedEntry;
   BOOLEAN                        ShowPreview;
 
   if (!ModernSetupGetPageListLayout (Ui, mModernSetupPreferences.DashboardDensity, MAX_DEVICE_ROWS, TRUE, &Layout)) {
@@ -767,7 +767,7 @@ DrawDevices (
   ModernUiDrawFocusFrame (Ui, Layout.Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
 
   Entries = NULL;
-  Status = ModernUiDeviceDataGetEntries (&Entries, &EntryCount);
+  Status = ModernSetupGetCachedDeviceEntries (&Entries, &EntryCount);
   if (EFI_ERROR (Status)) {
     ModernUiDrawText (Ui, 280, 150, ModernUiGetString (ModernUiStringUnableEnumerateHandles), Theme->Warning, Theme->Surface);
     return;
@@ -851,8 +851,6 @@ DrawDevices (
   if (ShowPreview) {
     DrawHiiReadOnlyPreview (Ui, Theme, Layout.PreviewPanel, SelectedEntry);
   }
-
-  ModernUiDeviceDataFreeEntries (Entries, EntryCount);
 }
 
 
@@ -884,7 +882,7 @@ DrawSecurity (
   CONST CHAR16    *Tcg2Text;
   CONST CHAR16    *TreeText;
 
-  ModernSetupGetProviderSnapshot (&Providers);
+  ModernSetupGetCachedProviderSnapshot (&Providers);
   Summary = &Providers.Security;
 
   SecureBootText = (Summary->SecureBoot == ModernUiSecurityStateEnabled) ? ModernUiGetString (ModernUiStringEnabled) :
@@ -931,7 +929,7 @@ DrawFirmware (
   CONST CHAR16                    *Values[5];
   CONST CHAR16                    *Groups[5];
 
-  ModernSetupGetProviderSnapshot (&Providers);
+  ModernSetupGetCachedProviderSnapshot (&Providers);
   Summary = &Providers.Firmware;
 
   Groups[0] = NULL;
@@ -992,7 +990,7 @@ DrawDiagnostics (
   CONST CHAR16                          *Values[8];
   CONST CHAR16                          *Groups[8];
 
-  ModernSetupGetProviderSnapshot (&Providers);
+  ModernSetupGetCachedProviderSnapshot (&Providers);
   ModernSetupGetProviderHealthSummary (&Providers, &ProviderHealth);
   Summary = &Providers.Diagnostics;
 
@@ -1068,7 +1066,7 @@ DrawManagement (
   CONST CHAR16                    *Values[3];
   CONST CHAR16                    *Groups[3];
 
-  ModernSetupGetProviderSnapshot (&Providers);
+  ModernSetupGetCachedProviderSnapshot (&Providers);
   Summary = &Providers.Management;
 
   Groups[0] = NULL;
@@ -1220,7 +1218,7 @@ DrawPower (
   UINTN                           RowStep;
   CHAR16                          ProviderText[96];
 
-  ModernSetupGetProviderSnapshot (&Providers);
+  ModernSetupGetCachedProviderSnapshot (&Providers);
   Summary = &Providers.Power;
   Health  = &Providers.HardwareHealth;
 
@@ -1325,7 +1323,7 @@ DrawPerformance (
   CONST CHAR16                      *Values[11];
   CONST CHAR16                      *Groups[11];
 
-  ModernSetupGetProviderSnapshot (&Providers);
+  ModernSetupGetCachedProviderSnapshot (&Providers);
   Summary         = &Providers.Performance;
   Pcie            = &Providers.Pcie;
   PcieUnavailable = ModernUiGetString (ModernUiStringNotAvailable);
@@ -1485,7 +1483,7 @@ DrawServerInventorySummary (
   CHAR16                                NativePolicyText[112];
   CONST CHAR16                          *UnknownText;
 
-  ModernSetupGetProviderSnapshot (&Providers);
+  ModernSetupGetCachedProviderSnapshot (&Providers);
   ModernSetupGetProviderHealthSummary (&Providers, &ProviderHealth);
 
   UnknownText = ModernUiGetString (ModernUiStringUnknown);

@@ -15,6 +15,9 @@
 
 #include "ModernSetupAppInternal.h"
 
+STATIC MODERN_SETUP_PROVIDER_SNAPSHOT  mModernSetupProviderSnapshotCache;
+STATIC BOOLEAN                         mModernSetupProviderSnapshotCacheValid;
+
 /**
   Copy the localized Unknown text into a fixed provider text buffer.
 
@@ -242,4 +245,53 @@ ModernSetupGetProviderSnapshot (
   }
 
   return EFI_SUCCESS;
+}
+
+/**
+  Return a cached provider snapshot for app-session redraws.
+
+  Provider data is read-only presentation state. Caching avoids repeating
+  platform/provider enumeration on every page redraw while preserving an
+  explicit invalidation boundary for native handoffs.
+
+  @param[out] Snapshot  Receives the cached snapshot. Must not be NULL.
+
+  @retval EFI_SUCCESS            Snapshot was filled.
+  @retval EFI_INVALID_PARAMETER  Snapshot is NULL.
+  @retval others                 Provider collection failed before cache fill.
+**/
+EFI_STATUS
+ModernSetupGetCachedProviderSnapshot (
+  OUT MODERN_SETUP_PROVIDER_SNAPSHOT  *Snapshot
+  )
+{
+  EFI_STATUS  Status;
+
+  if (Snapshot == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (!mModernSetupProviderSnapshotCacheValid) {
+    Status = ModernSetupGetProviderSnapshot (&mModernSetupProviderSnapshotCache);
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+
+    mModernSetupProviderSnapshotCacheValid = TRUE;
+  }
+
+  CopyMem (Snapshot, &mModernSetupProviderSnapshotCache, sizeof (*Snapshot));
+  return EFI_SUCCESS;
+}
+
+/**
+  Invalidate app-session provider snapshot cache.
+**/
+VOID
+ModernSetupInvalidateProviderSnapshotCache (
+  VOID
+  )
+{
+  ZeroMem (&mModernSetupProviderSnapshotCache, sizeof (mModernSetupProviderSnapshotCache));
+  mModernSetupProviderSnapshotCacheValid = FALSE;
 }

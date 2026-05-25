@@ -327,6 +327,10 @@ UefiMain (
           ((OldPage == PageExit) && (OldExitSelection == 1)))))
     {
       ModernSetupInvalidateBootOptionsCache ();
+      if ((OldPage == PageDevices) || ((OldPage == PageExit) && (OldExitSelection == 1))) {
+        ModernSetupInvalidateDeviceEntriesCache ();
+        ModernSetupInvalidateProviderSnapshotCache ();
+      }
     }
 
     if (Redraw && (Event.Type != ModernUiInputEnter) &&

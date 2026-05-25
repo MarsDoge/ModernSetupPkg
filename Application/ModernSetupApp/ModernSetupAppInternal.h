@@ -177,6 +177,27 @@ extern CHAR16      mModernSetupPreferenceInputBuffer[MODERN_UI_PREFERENCES_PROFI
 extern UINTN       mModernSetupPreferenceInputLength;
 extern MODERN_UI_PREFERENCES  mModernSetupPreferences;
 
+EFI_STATUS
+ModernSetupGetCachedProviderSnapshot (
+  OUT MODERN_SETUP_PROVIDER_SNAPSHOT  *Snapshot
+  );
+
+VOID
+ModernSetupInvalidateProviderSnapshotCache (
+  VOID
+  );
+
+EFI_STATUS
+ModernSetupGetCachedDeviceEntries (
+  OUT CONST MODERN_UI_DEVICE_ENTRY  **Entries,
+  OUT UINTN                         *EntryCount
+  );
+
+VOID
+ModernSetupInvalidateDeviceEntriesCache (
+  VOID
+  );
+
 MODERN_UI_RECT
 ModernSetupContentRect (
   IN MODERN_UI_RENDER_CONTEXT  *Ui
