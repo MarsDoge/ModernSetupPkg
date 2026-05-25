@@ -79,6 +79,16 @@ ModernDisplayDrawRightRailDivider (
   );
 
 STATIC
+VOID
+ModernDisplayDrawFormTitleContext (
+  IN CONST MODERN_DISPLAY_LAYOUT  *Layout,
+  IN CONST MODERN_UI_THEME        *Theme,
+  IN UINTN                        CellWidth,
+  IN UINTN                        CellHeight,
+  IN CONST CHAR16                 *PrintableTitle
+  );
+
+STATIC
 MODERN_DISPLAY_PAGE_STATE
 ModernDisplayPageState (
   IN CONST FORM_DISPLAY_ENGINE_FORM  *FormData
@@ -360,6 +370,65 @@ ModernDisplayDrawRightRailDivider (
     &mModernRenderContext,
     (MODERN_UI_RECT){ X - 2, Y + 8, 6, 1 },
     ModernUiBlendColor (Theme->AccentOrange, Theme->BackgroundBlack, 45)
+    );
+}
+
+/**
+  Draw the current FormBrowser form title in the content-top context row.
+
+  This is presentation-only: the title comes from FormBrowser-owned FormData and
+  is already consumed by the chrome tab classifier. The helper only mirrors that
+  existing title into the reserved gap above statement rows so screenshots and
+  operators have visible page context without changing statement layout, HII
+  routing, or storage semantics.
+
+  @param[in] Layout          Calculated DisplayEngine layout. Must not be NULL.
+  @param[in] Theme           Theme token table. Must not be NULL.
+  @param[in] CellWidth       Pixel width for one text column.
+  @param[in] CellHeight      Pixel height for one text row.
+  @param[in] PrintableTitle  Printable form title text. May be NULL.
+**/
+STATIC
+VOID
+ModernDisplayDrawFormTitleContext (
+  IN CONST MODERN_DISPLAY_LAYOUT  *Layout,
+  IN CONST MODERN_UI_THEME        *Theme,
+  IN UINTN                        CellWidth,
+  IN UINTN                        CellHeight,
+  IN CONST CHAR16                 *PrintableTitle
+  )
+{
+  UINTN  TitleLeftColumn;
+  UINTN  TitleRightColumn;
+  UINTN  TitleX;
+  UINTN  TitleY;
+  UINTN  TitleWidth;
+
+  if ((Layout == NULL) || (Theme == NULL) || (PrintableTitle == NULL) ||
+      (PrintableTitle[0] == CHAR_NULL) || (CellWidth == 0) || (CellHeight == 0) ||
+      (Layout->Statement.TopRow <= Layout->ContentTopRow))
+  {
+    return;
+  }
+
+  TitleLeftColumn  = Layout->ContentLeftColumn;
+  TitleRightColumn = Layout->RightRailVisible ? Layout->RightRailLeftColumn - 2 : Layout->ContentRightColumn;
+  if (TitleRightColumn <= TitleLeftColumn) {
+    return;
+  }
+
+  TitleX     = TitleLeftColumn * CellWidth;
+  TitleY     = (Layout->ContentTopRow * CellHeight) + MIN (6, MAX (2, CellHeight / 5));
+  TitleWidth = (TitleRightColumn - TitleLeftColumn) * CellWidth;
+
+  ModernUiDrawTextFit (
+    &mModernRenderContext,
+    TitleX,
+    TitleY,
+    TitleWidth,
+    PrintableTitle,
+    Theme->MutedText,
+    Theme->BackgroundBlack
     );
 }
 
@@ -953,6 +1022,7 @@ ModernDisplayDrawPageChrome (
   PageModel.DrawRightRail = TRUE;
   ModernUiEngineDrawPage (&mModernRenderContext, &PageModel, Theme);
   ModernDisplayDrawRightRailDivider (&Layout, Theme, CellWidth, CellHeight);
+  ModernDisplayDrawFormTitleContext (&Layout, Theme, CellWidth, CellHeight, PrintableTitle);
 
   if (PrintableTitle != NULL) {
     FreePool (PrintableTitle);
