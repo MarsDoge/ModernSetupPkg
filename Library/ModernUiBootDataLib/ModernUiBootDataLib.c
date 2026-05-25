@@ -16,8 +16,12 @@
 #include <Library/PrintLib.h>
 #include <Library/UefiBootManagerLib.h>
 #include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
+#include <Guid/GlobalVariable.h>
 #include <Protocol/LoadedImage.h>
 #include <ModernUi/ModernUiBootData.h>
+
+#define MODERN_UI_BOOT_POLICY_VARIABLE_ATTRS  (EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS)
 
 /**
   Return whether a boot option points at the current setup application.
@@ -294,5 +298,167 @@ ModernUiBootDataBootOption (
   }
 
   EfiBootManagerFreeLoadOptions (BootOptions, BootOptionCount);
+  return Status;
+}
+
+EFI_STATUS
+EFIAPI
+ModernUiBootDataGetBootNext (
+  OUT UINT16   *OptionNumber,
+  OUT BOOLEAN  *Present
+  )
+{
+  EFI_STATUS  Status;
+  UINTN       DataSize;
+  UINT32      Attributes;
+  UINT16      Value;
+
+  if ((OptionNumber == NULL) || (Present == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  *OptionNumber = 0;
+  *Present      = FALSE;
+  DataSize      = sizeof (Value);
+  Attributes    = 0;
+  Status = gRT->GetVariable (
+                  L"BootNext",
+                  &gEfiGlobalVariableGuid,
+                  &Attributes,
+                  &DataSize,
+                  &Value
+                  );
+  if (Status == EFI_NOT_FOUND) {
+    return EFI_SUCCESS;
+  }
+
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  if (DataSize != sizeof (Value)) {
+    return EFI_COMPROMISED_DATA;
+  }
+
+  *OptionNumber = Value;
+  *Present      = TRUE;
+  return EFI_SUCCESS;
+}
+
+EFI_STATUS
+EFIAPI
+ModernUiBootDataSetBootNext (
+  IN UINT16  OptionNumber
+  )
+{
+  return gRT->SetVariable (
+                L"BootNext",
+                &gEfiGlobalVariableGuid,
+                MODERN_UI_BOOT_POLICY_VARIABLE_ATTRS,
+                sizeof (OptionNumber),
+                &OptionNumber
+                );
+}
+
+EFI_STATUS
+EFIAPI
+ModernUiBootDataClearBootNext (
+  VOID
+  )
+{
+  return gRT->SetVariable (
+                L"BootNext",
+                &gEfiGlobalVariableGuid,
+                MODERN_UI_BOOT_POLICY_VARIABLE_ATTRS,
+                0,
+                NULL
+                );
+}
+
+EFI_STATUS
+EFIAPI
+ModernUiBootDataSwapBootOrderOptions (
+  IN UINT16  FirstOptionNumber,
+  IN UINT16  SecondOptionNumber
+  )
+{
+  EFI_STATUS  Status;
+  UINTN       DataSize;
+  UINT32      Attributes;
+  UINT16      *BootOrder;
+  UINTN       EntryCount;
+  UINTN       Index;
+  UINTN       FirstIndex;
+  UINTN       SecondIndex;
+  UINT16      Temp;
+
+  if (FirstOptionNumber == SecondOptionNumber) {
+    return EFI_SUCCESS;
+  }
+
+  DataSize = 0;
+  Status = gRT->GetVariable (
+                  L"BootOrder",
+                  &gEfiGlobalVariableGuid,
+                  NULL,
+                  &DataSize,
+                  NULL
+                  );
+  if (Status != EFI_BUFFER_TOO_SMALL) {
+    return Status;
+  }
+
+  if ((DataSize == 0) || ((DataSize % sizeof (UINT16)) != 0)) {
+    return EFI_COMPROMISED_DATA;
+  }
+
+  BootOrder = AllocateZeroPool (DataSize);
+  if (BootOrder == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
+
+  Attributes = 0;
+  Status = gRT->GetVariable (
+                  L"BootOrder",
+                  &gEfiGlobalVariableGuid,
+                  &Attributes,
+                  &DataSize,
+                  BootOrder
+                  );
+  if (EFI_ERROR (Status)) {
+    FreePool (BootOrder);
+    return Status;
+  }
+
+  EntryCount  = DataSize / sizeof (UINT16);
+  FirstIndex  = EntryCount;
+  SecondIndex = EntryCount;
+  for (Index = 0; Index < EntryCount; Index++) {
+    if (BootOrder[Index] == FirstOptionNumber) {
+      FirstIndex = Index;
+    }
+
+    if (BootOrder[Index] == SecondOptionNumber) {
+      SecondIndex = Index;
+    }
+  }
+
+  if ((FirstIndex >= EntryCount) || (SecondIndex >= EntryCount)) {
+    FreePool (BootOrder);
+    return EFI_NOT_FOUND;
+  }
+
+  Temp                   = BootOrder[FirstIndex];
+  BootOrder[FirstIndex]  = BootOrder[SecondIndex];
+  BootOrder[SecondIndex] = Temp;
+
+  Status = gRT->SetVariable (
+                  L"BootOrder",
+                  &gEfiGlobalVariableGuid,
+                  MODERN_UI_BOOT_POLICY_VARIABLE_ATTRS,
+                  DataSize,
+                  BootOrder
+                  );
+  FreePool (BootOrder);
   return Status;
 }
