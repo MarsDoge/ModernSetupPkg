@@ -361,6 +361,11 @@ ModernSetupMoveSelectedBootOption (
   IN BOOLEAN  MoveUp
   );
 
+BOOLEAN
+ModernSetupBootOptionIsDefaultBootCandidate (
+  IN CONST MODERN_UI_BOOT_OPTION  *Option
+  );
+
 EFI_STATUS
 ModernSetupOpenSelectedDeviceEntry (
   IN UINTN  Selection

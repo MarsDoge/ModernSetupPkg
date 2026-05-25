@@ -670,6 +670,10 @@ ModernSetupMoveSelectedBootOption (
     return EFI_NOT_FOUND;
   }
 
+  if (!ModernSetupBootOptionIsDefaultBootCandidate (&Options[Selection])) {
+    return EFI_UNSUPPORTED;
+  }
+
   if (MoveUp) {
     if (Selection == 0) {
       return EFI_ALREADY_STARTED;
@@ -684,12 +688,28 @@ ModernSetupMoveSelectedBootOption (
     OtherSelection = Selection + 1;
   }
 
+  if (!ModernSetupBootOptionIsDefaultBootCandidate (&Options[OtherSelection])) {
+    return EFI_UNSUPPORTED;
+  }
+
   Status = ModernUiBootDataSwapBootOrderOptions (
              Options[Selection].OptionNumber,
              Options[OtherSelection].OptionNumber
              );
   ModernSetupInvalidateBootOptionsCache ();
   return Status;
+}
+
+BOOLEAN
+ModernSetupBootOptionIsDefaultBootCandidate (
+  IN CONST MODERN_UI_BOOT_OPTION  *Option
+  )
+{
+  if (Option == NULL) {
+    return FALSE;
+  }
+
+  return (BOOLEAN)((Option->Attributes & LOAD_OPTION_CATEGORY) == LOAD_OPTION_CATEGORY_BOOT);
 }
 
 /**

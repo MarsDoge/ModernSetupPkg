@@ -162,7 +162,12 @@ UefiMain (
             BootSelection--;
           }
 
-          UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"BootOrder move up: %r", Status);
+          if (Status == EFI_UNSUPPORTED) {
+            UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"Use N=BootNext for App/Shell entries");
+          } else {
+            UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"BootOrder move up: %r", Status);
+          }
+
           Redraw = TRUE;
           break;
         case L'-':
@@ -172,7 +177,12 @@ UefiMain (
             BootSelection++;
           }
 
-          UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"BootOrder move down: %r", Status);
+          if (Status == EFI_UNSUPPORTED) {
+            UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"Use N=BootNext for App/Shell entries");
+          } else {
+            UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"BootOrder move down: %r", Status);
+          }
+
           Redraw = TRUE;
           break;
         default:

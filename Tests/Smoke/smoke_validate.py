@@ -1449,21 +1449,27 @@ def check_phase25_server_inventory_summary(root: Path) -> list[str]:
         "ModernSetupSetSelectedBootNext",
         "ModernSetupClearBootNext",
         "ModernSetupMoveSelectedBootOption",
+        "ModernSetupBootOptionIsDefaultBootCandidate",
+        "LOAD_OPTION_CATEGORY_BOOT",
+        "EFI_UNSUPPORTED",
         "ModernSetupInvalidateBootOptionsCache ()",
     ):
         if token not in actions_body:
-            raise SmokeFailure(f"Phase44 Boot policy app action missing token: {token}")
+            raise SmokeFailure(f"Phase44/45 Boot policy app action missing token: {token}")
     for token in (
         "ModernUiBootDataGetBootNext",
         "BootNext",
         "N=BootNext",
         "+/-=Move",
+        "Manual/App only",
     ):
         if token not in pages_body:
-            raise SmokeFailure(f"Phase44 Boot page missing policy affordance token: {token}")
+            raise SmokeFailure(f"Phase44/45 Boot page missing policy affordance token: {token}")
     for token in ("L'n'", "L'N'", "L'c'", "L'C'", "L'+'", "L'='", "L'-'", "L'_'"):
         if token not in app_body:
             raise SmokeFailure(f"Phase44 Boot policy keyboard handling missing token: {token}")
+    if "Use N=BootNext for App/Shell entries" not in app_body:
+        raise SmokeFailure("Phase45 BootOrder must explain App/Shell entries require BootNext/manual launch")
 
     if "Timeout" in boot_data_lib_body:
         raise SmokeFailure("Phase44 must not implement firmware Timeout policy yet")
