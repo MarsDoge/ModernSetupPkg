@@ -1533,8 +1533,8 @@ def check_phase27_app_owned_input_preferences(root: Path) -> list[str]:
         raise SmokeFailure("Preferences variable attributes must reject runtime access")
     if "Event.Type == ModernUiInputOther" not in app_main:
         raise SmokeFailure("Printable/backspace input must be routed to Preferences input popup")
-    if "CHAR_BACKSPACE" not in actions:
-        raise SmokeFailure("Preferences input popup must handle backspace")
+    if "CHAR_BACKSPACE" not in actions or "SCAN_DELETE" not in actions:
+        raise SmokeFailure("Preferences input popup must handle backspace and delete")
     if "ModernSetupCommitPreferencePopup (StatusMessage, sizeof (StatusMessage))" not in app_main:
         raise SmokeFailure("Enter must commit numeric/string Preferences input popups")
     if "ModernSetupCancelPreferencePopup ()" not in app_main:
@@ -2229,7 +2229,20 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         if token in display_renderer_text:
             raise SmokeFailure(f"DisplayEngine renderer must not own hardware/config mutation token: {token}")
 
-    return ["PASS Phase33/34/36 private DisplayEngine form view-model and dynamic data boundary"]
+    input_handler = root / "Universal" / "ModernDisplayEngineDxe" / "InputHandler.c"
+    input_handler_text = strip_c_comments(input_handler.read_text(encoding="utf-8"))
+    numeric_input_body = extract_c_function_body(input_handler_text, "GetNumericInput")
+    for token in ("SCAN_DELETE", "CHAR_BACKSPACE", "PreviousNumber[Count - 1]", "PrintStringAt (Column, Row, L\" \")"):
+        if token not in numeric_input_body:
+            raise SmokeFailure(f"Phase42 numeric input deletion contract missing token: {token}")
+    selection_popup_body = extract_c_function_body(input_handler_text, "GetSelectionInputPopUp")
+    for token in ("GetPickListColor", "PrintStringAt (Start + 2, Index2, StringPtr)", "CurrentOption = OneOfOption", "Index2"):
+        if token not in selection_popup_body:
+            raise SmokeFailure(f"Phase42 selection popup text-only highlight contract missing token: {token}")
+    if "PrintStringAtWithWidth (Start + 1, Index2" in selection_popup_body:
+        raise SmokeFailure("Phase42 selection popup must not fill the whole option row by default")
+
+    return ["PASS Phase33/34/36/42 private DisplayEngine form view-model, input, and dynamic data boundary"]
 
 
 def check_modern_ui_builtin_glyph_subset(root: Path) -> list[str]:
