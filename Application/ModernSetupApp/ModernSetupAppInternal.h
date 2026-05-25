@@ -346,6 +346,22 @@ ModernSetupLaunchSelectedBootOption (
   );
 
 EFI_STATUS
+ModernSetupSetSelectedBootNext (
+  IN UINTN  Selection
+  );
+
+EFI_STATUS
+ModernSetupClearBootNext (
+  VOID
+  );
+
+EFI_STATUS
+ModernSetupMoveSelectedBootOption (
+  IN UINTN    Selection,
+  IN BOOLEAN  MoveUp
+  );
+
+EFI_STATUS
 ModernSetupOpenSelectedDeviceEntry (
   IN UINTN  Selection
   );

@@ -32,6 +32,10 @@
   PrintLib
   UefiBootManagerLib
   UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
 
 [Protocols]
   gEfiLoadedImageProtocolGuid
+
+[Guids]
+  gEfiGlobalVariableGuid

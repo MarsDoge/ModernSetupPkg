@@ -1362,6 +1362,8 @@ def check_phase25_server_inventory_summary(root: Path) -> list[str]:
     actions = app_dir / "ModernSetupAppActions.c"
     internal = app_dir / "ModernSetupAppInternal.h"
     provider = app_dir / "ModernSetupAppProvider.c"
+    boot_data_header = root / "Include" / "ModernUi" / "ModernUiBootData.h"
+    boot_data_lib = root / "Library" / "ModernUiBootDataLib" / "ModernUiBootDataLib.c"
 
     pages_body = strip_c_comments(pages.read_text(encoding="utf-8"))
     dashboard_body = strip_c_comments(dashboard.read_text(encoding="utf-8"))
@@ -1369,6 +1371,9 @@ def check_phase25_server_inventory_summary(root: Path) -> list[str]:
     actions_body = strip_c_comments(actions.read_text(encoding="utf-8"))
     internal_body = strip_c_comments(internal.read_text(encoding="utf-8"))
     provider_body = strip_c_comments(provider.read_text(encoding="utf-8"))
+    app_body = strip_c_comments((app_dir / "ModernSetupApp.c").read_text(encoding="utf-8"))
+    boot_data_header_body = strip_c_comments(boot_data_header.read_text(encoding="utf-8"))
+    boot_data_lib_body = strip_c_comments(boot_data_lib.read_text(encoding="utf-8"))
 
     if not re.search(r"\bSTATIC\s+VOID\s+MODERN_SETUP_NOINLINE\s+DrawServerInventorySummary\s*\(", pages_body):
         raise SmokeFailure("DrawServerInventorySummary must exist and be MODERN_SETUP_NOINLINE")
@@ -1397,6 +1402,7 @@ def check_phase25_server_inventory_summary(root: Path) -> list[str]:
 
     if not re.search(r"EFI_ERROR\s*\(\s*Providers\.PcieStatus\s*\)", server_body):
         raise SmokeFailure("Server Inventory must gate PCIe counts on Providers.PcieStatus")
+
     for token in ("ModernUiPcieDataGetSummary", "ModernUiManagementDataGetSummary", "ModernUiPerformanceDataGetSummary"):
         if token in pages_body or token in dashboard_body or token in actions_body:
             raise SmokeFailure(f"UI page/dashboard/actions bypass provider snapshot with direct provider call: {token}")
@@ -1421,6 +1427,46 @@ def check_phase25_server_inventory_summary(root: Path) -> list[str]:
     for token in ("PcdServerInventory", "ServerInventoryVar", "ServerInventoryPolicy"):
         if token in dec_text:
             raise SmokeFailure(f"writable/setup token unexpectedly added for Server Inventory: {token}")
+
+    for token in (
+        "ModernUiBootDataGetBootNext",
+        "ModernUiBootDataSetBootNext",
+        "ModernUiBootDataClearBootNext",
+        "ModernUiBootDataSwapBootOrderOptions",
+    ):
+        if token not in boot_data_header_body:
+            raise SmokeFailure(f"Phase44 Boot policy API missing header token: {token}")
+    for token in (
+        'L"BootNext"',
+        'L"BootOrder"',
+        "gRT->GetVariable",
+        "gRT->SetVariable",
+        "EFI_VARIABLE_NON_VOLATILE | EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS",
+    ):
+        if token not in boot_data_lib_body:
+            raise SmokeFailure(f"Phase44 Boot policy variable boundary missing token: {token}")
+    for token in (
+        "ModernSetupSetSelectedBootNext",
+        "ModernSetupClearBootNext",
+        "ModernSetupMoveSelectedBootOption",
+        "ModernSetupInvalidateBootOptionsCache ()",
+    ):
+        if token not in actions_body:
+            raise SmokeFailure(f"Phase44 Boot policy app action missing token: {token}")
+    for token in (
+        "ModernUiBootDataGetBootNext",
+        "BootNext",
+        "N=BootNext",
+        "+/-=Move",
+    ):
+        if token not in pages_body:
+            raise SmokeFailure(f"Phase44 Boot page missing policy affordance token: {token}")
+    for token in ("L'n'", "L'N'", "L'c'", "L'C'", "L'+'", "L'='", "L'-'", "L'_'"):
+        if token not in app_body:
+            raise SmokeFailure(f"Phase44 Boot policy keyboard handling missing token: {token}")
+
+    if "Timeout" in boot_data_lib_body:
+        raise SmokeFailure("Phase44 must not implement firmware Timeout policy yet")
 
     return ["PASS Phase25 Server Inventory read-only summary/dashboard contract"]
 

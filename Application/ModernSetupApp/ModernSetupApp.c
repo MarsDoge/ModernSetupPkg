@@ -141,6 +141,49 @@ UefiMain (
       ResetConfirmationPending = FALSE;
     }
 
+    if ((Focus == SetupFocusContent) && (Page == PageBoot) && (Event.Type == ModernUiInputOther)) {
+      switch (Event.UnicodeChar) {
+        case L'n':
+        case L'N':
+          Status = ModernSetupSetSelectedBootNext (BootSelection);
+          UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"BootNext set: %r", Status);
+          Redraw = TRUE;
+          break;
+        case L'c':
+        case L'C':
+          Status = ModernSetupClearBootNext ();
+          UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"BootNext cleared: %r", Status);
+          Redraw = TRUE;
+          break;
+        case L'+':
+        case L'=':
+          Status = ModernSetupMoveSelectedBootOption (BootSelection, TRUE);
+          if (!EFI_ERROR (Status) && (BootSelection > 0)) {
+            BootSelection--;
+          }
+
+          UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"BootOrder move up: %r", Status);
+          Redraw = TRUE;
+          break;
+        case L'-':
+        case L'_':
+          Status = ModernSetupMoveSelectedBootOption (BootSelection, FALSE);
+          if (!EFI_ERROR (Status)) {
+            BootSelection++;
+          }
+
+          UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"BootOrder move down: %r", Status);
+          Redraw = TRUE;
+          break;
+        default:
+          break;
+      }
+
+      if (Redraw) {
+        continue;
+      }
+    }
+
     switch (Event.Type) {
       case ModernUiInputUp:
         if ((Focus == SetupFocusContent) && (Page == PagePreferences) && mModernSetupPreferencePopupOpen) {

@@ -77,4 +77,30 @@ ModernUiBootDataBootOption (
   IN UINT16  OptionNumber
   );
 
+EFI_STATUS
+EFIAPI
+ModernUiBootDataGetBootNext (
+  OUT UINT16   *OptionNumber,
+  OUT BOOLEAN  *Present
+  );
+
+EFI_STATUS
+EFIAPI
+ModernUiBootDataSetBootNext (
+  IN UINT16  OptionNumber
+  );
+
+EFI_STATUS
+EFIAPI
+ModernUiBootDataClearBootNext (
+  VOID
+  );
+
+EFI_STATUS
+EFIAPI
+ModernUiBootDataSwapBootOrderOptions (
+  IN UINT16  FirstOptionNumber,
+  IN UINT16  SecondOptionNumber
+  );
+
 #endif

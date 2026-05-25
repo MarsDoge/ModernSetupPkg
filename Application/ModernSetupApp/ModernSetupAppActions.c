@@ -613,6 +613,85 @@ ModernSetupLaunchSelectedBootOption (
   return ModernUiBootDataBootOption (OptionNumber);
 }
 
+EFI_STATUS
+ModernSetupSetSelectedBootNext (
+  IN UINTN  Selection
+  )
+{
+  EFI_STATUS                   Status;
+  CONST MODERN_UI_BOOT_OPTION  *Options;
+  UINTN                        OptionCount;
+
+  Options = NULL;
+  Status = ModernSetupGetCachedBootOptions (&Options, &OptionCount);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  if ((Options == NULL) || (Selection >= OptionCount)) {
+    return EFI_NOT_FOUND;
+  }
+
+  Status = ModernUiBootDataSetBootNext (Options[Selection].OptionNumber);
+  ModernSetupInvalidateBootOptionsCache ();
+  return Status;
+}
+
+EFI_STATUS
+ModernSetupClearBootNext (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+
+  Status = ModernUiBootDataClearBootNext ();
+  ModernSetupInvalidateBootOptionsCache ();
+  return Status;
+}
+
+EFI_STATUS
+ModernSetupMoveSelectedBootOption (
+  IN UINTN    Selection,
+  IN BOOLEAN  MoveUp
+  )
+{
+  EFI_STATUS                   Status;
+  CONST MODERN_UI_BOOT_OPTION  *Options;
+  UINTN                        OptionCount;
+  UINTN                        OtherSelection;
+
+  Options = NULL;
+  Status = ModernSetupGetCachedBootOptions (&Options, &OptionCount);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  if ((Options == NULL) || (Selection >= OptionCount)) {
+    return EFI_NOT_FOUND;
+  }
+
+  if (MoveUp) {
+    if (Selection == 0) {
+      return EFI_ALREADY_STARTED;
+    }
+
+    OtherSelection = Selection - 1;
+  } else {
+    if ((Selection + 1) >= OptionCount) {
+      return EFI_ALREADY_STARTED;
+    }
+
+    OtherSelection = Selection + 1;
+  }
+
+  Status = ModernUiBootDataSwapBootOrderOptions (
+             Options[Selection].OptionNumber,
+             Options[OtherSelection].OptionNumber
+             );
+  ModernSetupInvalidateBootOptionsCache ();
+  return Status;
+}
+
 /**
   Open one visible device/HII entry through native FormBrowser2.
 

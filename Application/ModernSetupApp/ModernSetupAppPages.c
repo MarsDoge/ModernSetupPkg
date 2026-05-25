@@ -263,6 +263,8 @@ DrawBoot (
   UINTN                         Y;
   CHAR16                        Line[160];
   CHAR16                        Value[96];
+  UINT16                        BootNext;
+  BOOLEAN                       BootNextPresent;
   CONST CHAR16                  *State;
   BOOLEAN                       IsSelected;
   MODERN_SETUP_PAGE_LIST_LAYOUT  Layout;
@@ -278,10 +280,17 @@ DrawBoot (
     Ui,
     Layout.RowX,
     Layout.Panel.Y + 20,
-    ModernUiGetString (ModernUiStringBootInstruction),
+    L"Enter=Launch  N=BootNext  C=Clear BootNext  +/-=Move BootOrder",
     Theme->MutedText,
     Theme->Surface
     );
+
+  BootNext        = 0;
+  BootNextPresent = FALSE;
+  Status          = ModernUiBootDataGetBootNext (&BootNext, &BootNextPresent);
+  if (EFI_ERROR (Status)) {
+    BootNextPresent = FALSE;
+  }
 
   BootOptions = NULL;
   Status = ModernSetupGetCachedBootOptions (&BootOptions, &BootOptionCount);
@@ -312,10 +321,12 @@ DrawBoot (
     UnicodeSPrint (
       Value,
       sizeof (Value),
-      L"%s%s%s",
+      L"%s%s%s%s%s",
       State,
       BootOptions[Index].Hidden ? L" / Hidden / " : L" / ",
-      BootOptions[Index].Category
+      BootOptions[Index].Category,
+      (BootNextPresent && (BootNext == BootOptions[Index].OptionNumber)) ? L" / " : L"",
+      (BootNextPresent && (BootNext == BootOptions[Index].OptionNumber)) ? L"BootNext" : L""
       );
     RowModel.Rect      = (MODERN_UI_RECT){ Layout.RowX, Y - 8, Layout.RowWidth, Layout.RowHeight - 8 };
     RowModel.Prompt    = Line;
