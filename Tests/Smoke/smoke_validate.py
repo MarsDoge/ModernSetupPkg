@@ -2105,6 +2105,7 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         "ModernDisplayDrawRightRailDivider",
         "ModernDisplayPageStatusText",
         "ModernDisplayDrawStatementValueLane",
+        "ModernDisplayDrawStatementValueLaneCue",
         "ModernDisplayFooterStatusReservedColumns",
         "ModernDisplayPageState",
         "ModernDisplayPageStateRebootRequired",
@@ -2132,6 +2133,33 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
     for token in ("FormData->FormTitle", "LibGetToken", "ModernDisplayDrawFormTitleContext", "ModernDisplayDrawRightHelpRailContext"):
         if token not in page_chrome_body:
             raise SmokeFailure(f"Phase39/40 page chrome must render existing FormBrowser presentation context: {token}")
+
+    value_lane_body = extract_c_function_body(internal_text, "ModernDisplayDrawStatementValueLane")
+    for token in (
+        "ModernDisplayDrawStatementValueLaneCue",
+        "ModernDisplayFormRowIsTextOnly",
+        "ModernDisplayFormRowStateHighlighted",
+        "ModernDisplayFormRowStateDisabled",
+        "ModernDisplayFormRowStateReadOnly",
+    ):
+        if token not in value_lane_body:
+            raise SmokeFailure(f"Phase41 value lane polish missing guarded draw token: {token}")
+
+    value_lane_cue_body = extract_c_function_body(internal_text, "ModernDisplayDrawStatementValueLaneCue")
+    for token in (
+        "ModernUiStrokeRect",
+        "ModernUiFillRect",
+        "ModernUiBlendColor",
+        "ModernDisplayFormRowAccentColor",
+        "ModernDisplayFormRowStateSelected",
+        "Theme->AccentYellow",
+        "Theme->Border",
+    ):
+        if token not in value_lane_cue_body:
+            raise SmokeFailure(f"Phase41 value lane cue helper missing presentation token: {token}")
+    for token in ("ConfigAccess", "RouteConfig", "ExtractConfig", "SetVariable", "HiiSetBrowserData", "HiiGetString"):
+        if token in value_lane_cue_body:
+            raise SmokeFailure(f"Phase41 value lane cue helper contains prohibited semantic/storage token: {token}")
 
     right_help_body = extract_c_function_body(internal_text, "ModernDisplayDrawRightHelpRailContext")
     for token in (
