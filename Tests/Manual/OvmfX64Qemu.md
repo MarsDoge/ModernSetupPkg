@@ -115,6 +115,50 @@ Scripts/capture-ovmf-x64.sh
 
 The helper starts `qemu-system-x86_64` headless with `-display none`, `-vga std`, USB keyboard/tablet input, a Unix HMP monitor socket, a pidfile, and a serial log. The Python monitor driver waits for `BOOT_WAIT_SECONDS`, optionally sends the comma-separated `SENDKEY_SEQUENCE`, runs QEMU monitor `screendump`, then quits QEMU. The canonical artifact is PPM; the helper also creates PNG opportunistically with Python Pillow, `pnmtopng`, ImageMagick `magick`/`convert`, or `sips` when available.
 
+### replace-UiApp FormBrowser capture
+
+Use the Phase37 replace-flow wrapper when validating the full product path from
+firmware FV ModernSetupApp into a native HII page rendered by
+ModernDisplayEngineDxe:
+
+```sh
+cd /path/to/ModernSetupPkg
+TARGET=RELEASE MODERN_SETUP_DISPLAY_ENGINE=modern MODERN_SETUP_REPLACE_UIAPP=1 Scripts/build-ovmf-x64.sh
+CAPTURE_OUT_DIR=/tmp/modernsetup-replace-formbrowser Scripts/capture-modernsetup-formbrowser-x64.sh
+```
+
+This wrapper intentionally defaults to `BOOT_APP=0`. Do not use `BOOT_APP=1` for
+this check: that boots the ESP app path, which is useful for app-shell captures
+but can produce misleading `Not Found` results for FV-relative fallback and
+FormBrowser handoff checks.
+
+Fresh OVMF VARS can stop at the no-boot / boot selector path before entering
+`EFI Firmware Setup`. The stable local QEMU HMP sequence uses `ret@1000` only for
+that boot-selector confirmation, then short `ret` key presses inside
+ModernSetupApp:
+
+```text
+enter,wait:3,ret@1000,wait:8,down,right,ret,wait:2,down,down,down,down,ret,wait:6
+```
+
+Expected visual result:
+
+- `MODERN SETUP` / `ADVANCED MODE` chrome is visible.
+- The selected HII entry is `OVMF Platform Configuration` from the Devices / HII
+  list.
+- The final FormBrowser page contains `Preferred Resolution at Next Boot`,
+  `Change Preferred Resolution for Next Boot`, `Commit Changes and Exit`, and
+  `Discard Changes and Exit`.
+- ModernDisplayEngine affordances are visible: orange selected row, right help
+  rail, and footer key help such as `F9=Reset to Defaults`, `F10=Save`, and
+  `Esc=Exit`.
+
+If the screenshot shows only the ModernSetupApp dashboard/card grid, app input
+probably used `enter` instead of short `ret`. If it shows the Devices page with
+HII rows but no FormBrowser content, the second short `ret` did not land on a
+stable HII entry. If it shows the OVMF boot selector, the held `ret@1000` did not
+select `EFI Firmware Setup` or the timing needs local adjustment.
+
 Recent local validation reached the ModernSetupApp front page at 1280x800 using a local edk2 OVMF build and ESP. The visible title was `现代UEFI设置工具`, the page showed `高级模式`, and several CJK glyphs rendered as boxes. A system OVMF fallback booted but reported Access Denied for the unsigned `BOOTX64.EFI`, so prefer the local edk2 OVMF build for app captures.
 
 Expected result:

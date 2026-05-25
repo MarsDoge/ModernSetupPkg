@@ -56,6 +56,7 @@ EDK2_BASELINE_REQUIRED_SCRIPT_REFS = (
     Path("Scripts") / "capture-ovmf-x64.sh",
 )
 OVMF_CAPTURE_HELPER = Path("Scripts") / "capture-ovmf-x64.sh"
+OVMF_REPLACE_FORMBROWSER_CAPTURE_HELPER = Path("Scripts") / "capture-modernsetup-formbrowser-x64.sh"
 OVMF_CAPTURE_DOC = Path("Tests") / "Manual" / "OvmfX64Qemu.md"
 DISPLAYENGINE_OVMF_VISUAL_HELPER = Path("Scripts") / "capture-displayengine-ovmf-x64.sh"
 DISPLAYENGINE_OVMF_VISUAL_DOC = Path("Tests") / "Manual" / "DisplayEngineOvmfX64Visual.md"
@@ -926,6 +927,60 @@ def check_ovmf_capture_helper_contract(root: Path) -> list[str]:
 
     return ["PASS OVMF X64 QEMU screendump capture helper/docs contract"]
 
+
+def check_replace_formbrowser_capture_contract(root: Path) -> list[str]:
+    script = root / OVMF_REPLACE_FORMBROWSER_CAPTURE_HELPER
+    base_script = root / OVMF_CAPTURE_HELPER
+    manual_doc = root / OVMF_CAPTURE_DOC
+
+    for path in (script, base_script, manual_doc):
+        if not path.exists():
+            raise SmokeFailure(f"missing replace FormBrowser capture contract file: {path.relative_to(root)}")
+
+    script_text = script.read_text(encoding="utf-8")
+    base_script_text = base_script.read_text(encoding="utf-8")
+    manual_text = manual_doc.read_text(encoding="utf-8")
+
+    required_wrapper_tokens = (
+        "MODERN_SETUP_DISPLAY_ENGINE:-modern",
+        "MODERN_SETUP_REPLACE_UIAPP:-1",
+        "BOOT_APP:-0",
+        "POST_SENDKEY_WAIT_SECONDS",
+        "ret@1000",
+        "down,right,ret",
+        "OVMF Platform Configuration",
+        "capture-ovmf-x64.sh",
+    )
+    for token in required_wrapper_tokens:
+        if token not in script_text:
+            raise SmokeFailure(f"{OVMF_REPLACE_FORMBROWSER_CAPTURE_HELPER} missing replace-flow token: {token}")
+
+    required_base_tokens = (
+        "POST_SENDKEY_WAIT_SECONDS",
+        "wait:",
+        "sleep:",
+        "hold_ms",
+        "sendkey {key_name} {hold_ms}",
+    )
+    for token in required_base_tokens:
+        if token not in base_script_text:
+            raise SmokeFailure(f"{OVMF_CAPTURE_HELPER} missing replace-flow capture primitive: {token}")
+
+    required_doc_tokens = (
+        "capture-modernsetup-formbrowser-x64.sh",
+        "replace-UiApp FormBrowser",
+        "BOOT_APP=0",
+        "BOOT_APP=1",
+        "ret@1000",
+        "short `ret`",
+        "OVMF Platform Configuration",
+        "Preferred Resolution at Next Boot",
+    )
+    for token in required_doc_tokens:
+        if token not in manual_text:
+            raise SmokeFailure(f"replace FormBrowser capture docs missing token: {token}")
+
+    return ["PASS replace-UiApp FormBrowser capture validation contract"]
 
 def check_displayengine_ovmf_visual_validation_contract(root: Path) -> list[str]:
     script = root / DISPLAYENGINE_OVMF_VISUAL_HELPER
@@ -2305,6 +2360,7 @@ def main() -> int:
         messages.extend(check_ip_hygiene_notices(root))
         messages.extend(check_edk2_baseline_contract(root))
         messages.extend(check_ovmf_capture_helper_contract(root))
+        messages.extend(check_replace_formbrowser_capture_contract(root))
         messages.extend(check_displayengine_ovmf_visual_validation_contract(root))
         messages.extend(check_xarch_docs_contract(root))
         messages.extend(check_xarch_runner_contract(root))
