@@ -16,6 +16,10 @@
 #include <ModernUi/ModernUiEngine.h>
 
 #define MODERN_UI_ENGINE_RIGHT_RAIL_MIN_WIDTH  1000
+#define MODERN_UI_ROW_VALUE_LANE_WIDTH         300
+#define MODERN_UI_ROW_VALUE_BOX_WIDTH          280
+#define MODERN_UI_ROW_VALUE_LANE_GAP           16
+#define MODERN_UI_ROW_VALUE_LANE_MIN_WIDTH     (MODERN_UI_ROW_VALUE_LANE_WIDTH + MODERN_UI_ROW_VALUE_LANE_GAP + 80)
 
 /**
   Return a display string for the current build architecture.
@@ -672,10 +676,12 @@ ModernUiEngineDrawRows (
   )
 {
   UINTN                          Index;
+  UINTN                          PromptWidth;
   BOOLEAN                        Selected;
   BOOLEAN                        Disabled;
   BOOLEAN                        Action;
   BOOLEAN                        Subtitle;
+  BOOLEAN                        HasValue;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  TextColor;
   EFI_STATUS                     Status;
@@ -689,6 +695,7 @@ ModernUiEngineDrawRows (
     Disabled = (BOOLEAN)((Rows[Index].Role == ModernUiRowDisabled) || (Rows[Index].Role == ModernUiRowReadOnly));
     Action   = (BOOLEAN)(Rows[Index].Role == ModernUiRowAction);
     Subtitle = (BOOLEAN)(Rows[Index].Role == ModernUiRowSubtitle);
+    HasValue = (BOOLEAN)((Rows[Index].Value != NULL) && (Rows[Index].Value[0] != CHAR_NULL));
     Background = ModernUiGetSelectableRowBackground (Selected, Disabled, Action, Subtitle, Theme);
     TextColor  = Disabled ? Theme->MutedText : (Selected ? Theme->Text : Theme->MutedText);
     if (Rows[Index].Role == ModernUiRowWarning) {
@@ -701,11 +708,16 @@ ModernUiEngineDrawRows (
     }
 
     if ((Rows[Index].Prompt != NULL) && (Rows[Index].Prompt[0] != CHAR_NULL)) {
+      PromptWidth = (Rows[Index].Rect.Width > 32) ? (Rows[Index].Rect.Width - 32) : Rows[Index].Rect.Width;
+      if (HasValue && (Rows[Index].Rect.Width > MODERN_UI_ROW_VALUE_LANE_MIN_WIDTH)) {
+        PromptWidth = Rows[Index].Rect.Width - MODERN_UI_ROW_VALUE_LANE_WIDTH - MODERN_UI_ROW_VALUE_LANE_GAP - 16;
+      }
+
       Status = ModernUiDrawTextFit (
                  Context,
                  Rows[Index].Rect.X + 16,
                  Rows[Index].Rect.Y + ((Rows[Index].Rect.Height > 18) ? ((Rows[Index].Rect.Height - 18) / 2) : 0),
-                 (Rows[Index].Rect.Width > 32) ? (Rows[Index].Rect.Width - 32) : Rows[Index].Rect.Width,
+                 PromptWidth,
                  Rows[Index].Prompt,
                  TextColor,
                  Background
@@ -715,7 +727,7 @@ ModernUiEngineDrawRows (
       }
     }
 
-    if ((Rows[Index].Value != NULL) && (Rows[Index].Value[0] != CHAR_NULL)) {
+    if (HasValue) {
       Status = ModernUiEngineDrawValue (
                  Context,
                  &(MODERN_UI_VALUE_MODEL){
@@ -754,9 +766,9 @@ ModernUiEngineDrawValue (
   }
 
   Rect = Value->Rect;
-  if (Rect.Width > 240) {
-    Rect.X     = Rect.X + Rect.Width - 240;
-    Rect.Width = 220;
+  if (Rect.Width > MODERN_UI_ROW_VALUE_LANE_MIN_WIDTH) {
+    Rect.X     = Rect.X + Rect.Width - MODERN_UI_ROW_VALUE_LANE_WIDTH;
+    Rect.Width = MODERN_UI_ROW_VALUE_BOX_WIDTH;
   }
 
   if ((Value->Type == ModernUiValueOneOf) || (Value->Type == ModernUiValueText)) {

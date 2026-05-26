@@ -125,26 +125,68 @@ ModernSetupDrawTabs (
   UINTN                          Index;
   MODERN_UI_TAB_MODEL            Tabs[ARRAY_SIZE (mPages)];
   UINTN                          SelectedTab;
+  UINTN                          FirstVisibleTab;
+  UINTN                          VisibleTabCount;
+  UINTN                          LocalSelectedTab;
+  UINTN                          TabCapacity;
+  MODERN_UI_RECT                 TabRect;
+  MODERN_UI_RECT                 DrawTabRect;
 
   SelectedTab = 0;
   for (Index = 0; Index < ARRAY_SIZE (mPages); Index++) {
     if (mPages[Index].Page == Page) {
       SelectedTab = Index;
     }
-    Tabs[Index].Text = ModernSetupGetCompactTabLabel (Index);
+  }
+
+  TabRect         = (MODERN_UI_RECT){ SCREEN_MARGIN, TOP_BAR_HEIGHT, (Ui->Width > (SCREEN_MARGIN * 2)) ? (Ui->Width - (SCREEN_MARGIN * 2)) : Ui->Width, TAB_BAR_HEIGHT };
+  DrawTabRect     = TabRect;
+  VisibleTabCount = ARRAY_SIZE (mPages);
+  FirstVisibleTab = 0;
+  if ((VisibleTabCount > 0) && ((TabRect.Width / VisibleTabCount) < 118)) {
+    TabCapacity = TabRect.Width / 132;
+    if (TabCapacity < 5) {
+      TabCapacity = 5;
+    }
+
+    if (TabCapacity < VisibleTabCount) {
+      VisibleTabCount = TabCapacity;
+      FirstVisibleTab = (SelectedTab > (VisibleTabCount / 2)) ? (SelectedTab - (VisibleTabCount / 2)) : 0;
+      if ((FirstVisibleTab + VisibleTabCount) > ARRAY_SIZE (mPages)) {
+        FirstVisibleTab = ARRAY_SIZE (mPages) - VisibleTabCount;
+      }
+    }
+  }
+
+  for (Index = 0; Index < VisibleTabCount; Index++) {
+    Tabs[Index].Text = ModernSetupGetCompactTabLabel (FirstVisibleTab + Index);
+  }
+
+  LocalSelectedTab = SelectedTab - FirstVisibleTab;
+  if (((FirstVisibleTab > 0) || ((FirstVisibleTab + VisibleTabCount) < ARRAY_SIZE (mPages))) && (DrawTabRect.Width > 48)) {
+    DrawTabRect.X     += 18;
+    DrawTabRect.Width -= 36;
   }
 
   ModernUiEngineDrawTabs (
     Ui,
-    (MODERN_UI_RECT){ SCREEN_MARGIN, TOP_BAR_HEIGHT, Ui->Width - (SCREEN_MARGIN * 2), TAB_BAR_HEIGHT },
+    DrawTabRect,
     Tabs,
-    ARRAY_SIZE (Tabs),
-    SelectedTab,
+    VisibleTabCount,
+    LocalSelectedTab,
     Theme
     );
 
+  if (FirstVisibleTab > 0) {
+    ModernUiDrawText (Ui, TabRect.X + 4, TOP_BAR_HEIGHT + 10, L"<", Theme->AccentYellow, Theme->BackgroundBlack);
+  }
+
+  if ((FirstVisibleTab + VisibleTabCount) < ARRAY_SIZE (mPages)) {
+    ModernUiDrawText (Ui, TabRect.X + TabRect.Width - 12, TOP_BAR_HEIGHT + 10, L">", Theme->AccentYellow, Theme->BackgroundBlack);
+  }
+
   if (Focus == SetupFocusNav) {
-    ModernUiFillRect (Ui, (MODERN_UI_RECT){ SCREEN_MARGIN, TOP_BAR_HEIGHT + TAB_BAR_HEIGHT - 3, Ui->Width - (SCREEN_MARGIN * 2), 2 }, Theme->Accent);
+    ModernUiFillRect (Ui, (MODERN_UI_RECT){ TabRect.X, TOP_BAR_HEIGHT + TAB_BAR_HEIGHT - 3, TabRect.Width, 2 }, Theme->Accent);
   }
 }
 
