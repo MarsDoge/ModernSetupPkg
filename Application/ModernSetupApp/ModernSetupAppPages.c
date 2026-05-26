@@ -326,14 +326,12 @@ DrawBoot (
     UnicodeSPrint (
       Value,
       sizeof (Value),
-      L"%s%s%s%s%s%s%s",
+      L"%s%s|%s%s%s",
       State,
-      BootOptions[Index].Hidden ? L" / Hidden / " : L" / ",
+      BootOptions[Index].Hidden ? L"|Hid" : L"",
       BootOptions[Index].Category,
-      IsDefaultBootCandidate ? L"" : L" / ",
-      IsDefaultBootCandidate ? L"" : L"Manual only",
-      (BootNextPresent && (BootNext == BootOptions[Index].OptionNumber)) ? L" / " : L"",
-      (BootNextPresent && (BootNext == BootOptions[Index].OptionNumber)) ? L"BootNext" : L""
+      IsDefaultBootCandidate ? L"" : L"|Manual only",
+      (BootNextPresent && (BootNext == BootOptions[Index].OptionNumber)) ? L"|Next" : L""
       );
     RowModel.Rect      = (MODERN_UI_RECT){ Layout.RowX, Y - 8, Layout.RowWidth, Layout.RowHeight - 8 };
     RowModel.Prompt    = Line;
