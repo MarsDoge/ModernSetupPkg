@@ -322,6 +322,10 @@ UefiMain (
           StatusMessage[0] = L'\0';
           Redraw = TRUE;
         } else if (Page == PageDashboard) {
+          if (ModernSetupDashboardSelectionRequestsContinue (DashboardSelection)) {
+            return EFI_SUCCESS;
+          }
+
           if (ModernSetupGetDashboardCategoryRoute (DashboardSelection, &DashboardRoute)) {
             Page  = DashboardRoute.Page;
             Focus = DashboardRoute.Focus;

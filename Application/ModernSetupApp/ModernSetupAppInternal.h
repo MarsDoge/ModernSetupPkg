@@ -48,7 +48,8 @@
 #define SCREEN_MARGIN      24
 #define MAX_BOOT_ROWS      9
 #define MAX_DEVICE_ROWS    9
-#define DASHBOARD_QUICK_CARD_COUNT  7
+#define DASHBOARD_QUICK_CARD_COUNT  8
+#define MODERN_SETUP_DASHBOARD_CONTINUE_CARD  0
 #define DASHBOARD_SECTION_TITLE_TOP 12
 #define DASHBOARD_QUICK_CARD_TOP    64
 #define DASHBOARD_QUICK_CARD_GAP    40
@@ -327,6 +328,11 @@ BOOLEAN
 ModernSetupGetDashboardCategoryRoute (
   IN  UINTN                         Selection,
   OUT MODERN_SETUP_DASHBOARD_ROUTE  *Route
+  );
+
+BOOLEAN
+ModernSetupDashboardSelectionRequestsContinue (
+  IN UINTN  Selection
   );
 
 EFI_STATUS

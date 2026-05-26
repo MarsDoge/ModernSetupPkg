@@ -24,13 +24,14 @@ STATIC UINTN                  mModernSetupDeviceEntryCountCache;
 STATIC BOOLEAN                mModernSetupDeviceEntriesCacheValid;
 
 STATIC CONST MODERN_SETUP_DASHBOARD_ROUTE  mDashboardCategoryRoutes[DASHBOARD_QUICK_CARD_COUNT] = {
-  { PageBoot,        SetupFocusContent },
-  { PageDevices,     SetupFocusContent },
-  { PageDiagnostics, SetupFocusNav     },
-  { PageFirmware,    SetupFocusNav     },
-  { PagePower,       SetupFocusNav     },
-  { PagePerformance, SetupFocusNav     },
-  { PageServerInventory, SetupFocusNav }
+  { PageExit,            SetupFocusContent },
+  { PageBoot,            SetupFocusContent },
+  { PageDevices,         SetupFocusContent },
+  { PageDiagnostics,     SetupFocusNav     },
+  { PageFirmware,        SetupFocusNav     },
+  { PagePower,           SetupFocusNav     },
+  { PagePerformance,     SetupFocusNav     },
+  { PageServerInventory, SetupFocusNav     }
 };
 
 BOOLEAN         mModernSetupLanguageDropdownOpen;
@@ -250,6 +251,26 @@ ModernSetupGetDashboardCategoryRoute (
 
   *Route = mDashboardCategoryRoutes[Selection];
   return TRUE;
+}
+
+/**
+  Return TRUE when a Dashboard selection is the native-style Continue action.
+
+  Native UiApp exposes Continue directly on its front page. ModernSetup keeps
+  the same fast path on Dashboard so Enter leaves setup with EFI_SUCCESS
+  without changing Boot####, BootNext, HII, or platform policy state.
+
+  @param[in] Selection  Zero-based Dashboard Quick Access selection.
+
+  @retval TRUE   Selection is the Dashboard Continue card.
+  @retval FALSE  Selection is a setup category card.
+**/
+BOOLEAN
+ModernSetupDashboardSelectionRequestsContinue (
+  IN UINTN  Selection
+  )
+{
+  return (BOOLEAN)(Selection == MODERN_SETUP_DASHBOARD_CONTINUE_CARD);
 }
 
 /**
