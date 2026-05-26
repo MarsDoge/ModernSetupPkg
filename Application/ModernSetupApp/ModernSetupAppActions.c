@@ -42,6 +42,7 @@ UINTN           mModernSetupPreferencePopupSelection;
 MODERN_SETUP_PREFERENCE_POPUP_KIND  mModernSetupPreferencePopupKind;
 CHAR16          mModernSetupPreferenceInputBuffer[MODERN_UI_PREFERENCES_PROFILE_NAME_CHARS];
 UINTN           mModernSetupPreferenceInputLength;
+STATIC BOOLEAN  mModernSetupPreferenceInputEdited;
 MODERN_UI_PREFERENCES  mModernSetupPreferences;
 
 /**
@@ -990,6 +991,7 @@ ModernSetupOpenPreferenceInputPopup (
   mModernSetupPreferencePopupSelection = 0;
   mModernSetupPreferencePopupKind      = Kind;
   mModernSetupPreferencePopupOpen      = TRUE;
+  mModernSetupPreferenceInputEdited    = FALSE;
   ZeroMem (mModernSetupPreferenceInputBuffer, sizeof (mModernSetupPreferenceInputBuffer));
 
   if (Kind == ModernSetupPreferencePopupNumericInput) {
@@ -1003,6 +1005,29 @@ ModernSetupOpenPreferenceInputPopup (
                                         mModernSetupPreferenceInputBuffer,
                                         MODERN_UI_PREFERENCES_PROFILE_NAME_CHARS
                                         );
+}
+
+/**
+  Start editing a seeded Preferences input popup.
+
+  Numeric/string input popups display the current value as their initial text.
+  The first printable key should replace that seed, matching normal setup UI
+  field editing, instead of appending to values such as the default "5" boot
+  timeout and accidentally creating out-of-range values like "51".
+**/
+STATIC
+VOID
+ModernSetupBeginPreferenceInputEdit (
+  VOID
+  )
+{
+  if (mModernSetupPreferenceInputEdited) {
+    return;
+  }
+
+  ZeroMem (mModernSetupPreferenceInputBuffer, sizeof (mModernSetupPreferenceInputBuffer));
+  mModernSetupPreferenceInputLength = 0;
+  mModernSetupPreferenceInputEdited = TRUE;
 }
 
 STATIC
@@ -1059,6 +1084,7 @@ ModernSetupCancelPreferencePopup (
 {
   mModernSetupPreferencePopupOpen = FALSE;
   mModernSetupPreferencePopupKind = ModernSetupPreferencePopupNone;
+  mModernSetupPreferenceInputEdited = FALSE;
 }
 
 VOID
@@ -1164,6 +1190,7 @@ ModernSetupHandlePreferenceInputKey (
 
   Character = Event->UnicodeChar;
   if ((Character == CHAR_BACKSPACE) || ((Character == CHAR_NULL) && (Event->ScanCode == SCAN_DELETE))) {
+    ModernSetupBeginPreferenceInputEdit ();
     if (mModernSetupPreferenceInputLength > 0) {
       mModernSetupPreferenceInputLength--;
       mModernSetupPreferenceInputBuffer[mModernSetupPreferenceInputLength] = L'\0';
@@ -1180,6 +1207,8 @@ ModernSetupHandlePreferenceInputKey (
   } else if (!ModernSetupPreferenceIsPrintableAscii (Character)) {
     return;
   }
+
+  ModernSetupBeginPreferenceInputEdit ();
 
   if (NumericInput) {
     if (mModernSetupPreferenceInputLength >= 2) {

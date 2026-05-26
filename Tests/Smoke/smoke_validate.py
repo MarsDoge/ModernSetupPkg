@@ -1687,6 +1687,12 @@ def check_phase27_app_owned_input_preferences(root: Path) -> list[str]:
         raise SmokeFailure("Input preference commit must persist through ModernUiPreferencesLib")
     if "mModernSetupPreferences.BootTimeoutSeconds" not in actions or "mModernSetupPreferences.ProfileName" not in actions:
         raise SmokeFailure("Input preference commit must bind both persisted fields")
+    if "mModernSetupPreferenceInputEdited" not in actions or "ModernSetupBeginPreferenceInputEdit" not in actions:
+        raise SmokeFailure("Input preference popup must track first edit so typed values replace seeded current values")
+    if "ZeroMem (mModernSetupPreferenceInputBuffer, sizeof (mModernSetupPreferenceInputBuffer))" not in actions:
+        raise SmokeFailure("First edit of a seeded input popup must clear the old value before appending typed characters")
+    if actions.count("ModernSetupBeginPreferenceInputEdit ()") < 2:
+        raise SmokeFailure("Printable and delete/backspace input must both begin editing seeded Preferences input popups")
 
     for path in sorted(app_dir.glob("ModernSetupApp*.c")):
         body = strip_c_comments(path.read_text(encoding="utf-8"))
