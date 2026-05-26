@@ -651,6 +651,7 @@ ModernSetupLaunchSelectedBootOption (
   EFI_STATUS                   Status;
   CONST MODERN_UI_BOOT_OPTION  *Options;
   UINTN                        OptionCount;
+  UINTN                        VisibleOptionCount;
   UINT16                       OptionNumber;
 
   Options = NULL;
@@ -659,7 +660,8 @@ ModernSetupLaunchSelectedBootOption (
     return Status;
   }
 
-  if ((Options == NULL) || (Selection >= OptionCount)) {
+  VisibleOptionCount = MIN (OptionCount, MAX_BOOT_ROWS);
+  if ((Options == NULL) || (Selection >= VisibleOptionCount)) {
     return EFI_NOT_FOUND;
   }
 
@@ -677,6 +679,7 @@ ModernSetupSetSelectedBootNext (
   EFI_STATUS                   Status;
   CONST MODERN_UI_BOOT_OPTION  *Options;
   UINTN                        OptionCount;
+  UINTN                        VisibleOptionCount;
 
   Options = NULL;
   Status = ModernSetupGetCachedBootOptions (&Options, &OptionCount);
@@ -684,7 +687,8 @@ ModernSetupSetSelectedBootNext (
     return Status;
   }
 
-  if ((Options == NULL) || (Selection >= OptionCount)) {
+  VisibleOptionCount = MIN (OptionCount, MAX_BOOT_ROWS);
+  if ((Options == NULL) || (Selection >= VisibleOptionCount)) {
     return EFI_NOT_FOUND;
   }
 
@@ -714,6 +718,7 @@ ModernSetupMoveSelectedBootOption (
   EFI_STATUS                   Status;
   CONST MODERN_UI_BOOT_OPTION  *Options;
   UINTN                        OptionCount;
+  UINTN                        VisibleOptionCount;
   UINTN                        OtherSelection;
 
   Options = NULL;
@@ -722,7 +727,8 @@ ModernSetupMoveSelectedBootOption (
     return Status;
   }
 
-  if ((Options == NULL) || (Selection >= OptionCount)) {
+  VisibleOptionCount = MIN (OptionCount, MAX_BOOT_ROWS);
+  if ((Options == NULL) || (Selection >= VisibleOptionCount)) {
     return EFI_NOT_FOUND;
   }
 
@@ -737,7 +743,7 @@ ModernSetupMoveSelectedBootOption (
 
     OtherSelection = Selection - 1;
   } else {
-    if ((Selection + 1) >= OptionCount) {
+    if ((Selection + 1) >= VisibleOptionCount) {
       return EFI_ALREADY_STARTED;
     }
 

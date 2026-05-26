@@ -1519,6 +1519,17 @@ def check_phase25_server_inventory_summary(root: Path) -> list[str]:
     ):
         if token not in actions_body:
             raise SmokeFailure(f"Phase49 native boot tools fallback selection helper missing action token: {token}")
+    for helper in (
+        "ModernSetupLaunchSelectedBootOption",
+        "ModernSetupSetSelectedBootNext",
+        "ModernSetupMoveSelectedBootOption",
+    ):
+        helper_body = extract_c_function_body(actions_body, helper)
+        if "VisibleOptionCount = MIN (OptionCount, MAX_BOOT_ROWS)" not in helper_body:
+            raise SmokeFailure(f"Phase50 Boot action must clamp {helper} to visible Boot page rows")
+    move_boot_body = extract_c_function_body(actions_body, "ModernSetupMoveSelectedBootOption")
+    if "(Selection + 1) >= VisibleOptionCount" not in move_boot_body:
+        raise SmokeFailure("Phase50 BootOrder move-down must not step from the last visible Boot#### row onto the native fallback row")
     if "ModernSetupLaunchUiAppFallback" in pages_body:
         raise SmokeFailure("Phase49 native boot tools fallback row must render only; launch dispatch stays in ModernSetupApp.c")
 
