@@ -34,7 +34,7 @@
 **/
 STATIC
 BOOLEAN
-IsCurrentApplicationBootOption (
+ModernUiBootDataOptionIsCurrentApplication (
   IN EFI_HANDLE                CurrentImageHandle OPTIONAL,
   IN EFI_DEVICE_PATH_PROTOCOL  *FilePath OPTIONAL
   )
@@ -81,13 +81,50 @@ IsCurrentApplicationBootOption (
 }
 
 /**
+  Return whether a boot option is the native Boot Manager Menu app.
+
+  Native BootManagerMenuApp's IgnoreBootOption() explicitly keeps the Boot
+  Manager Menu visible before applying hidden/inactive filtering. Keep the same
+  exception here so ModernSetupApp mirrors native menu membership without
+  reimplementing native boot semantics.
+
+  @param[in] BootOption  Boot option to inspect. Must not be NULL.
+
+  @retval TRUE   Option number matches the native Boot Manager Menu option.
+  @retval FALSE  Option is different or the native option is unavailable.
+**/
+STATIC
+BOOLEAN
+ModernUiBootDataOptionIsBootManagerMenu (
+  IN CONST EFI_BOOT_MANAGER_LOAD_OPTION  *BootOption
+  )
+{
+  EFI_STATUS                    Status;
+  EFI_BOOT_MANAGER_LOAD_OPTION  BootManagerMenu;
+  BOOLEAN                       Match;
+
+  if (BootOption == NULL) {
+    return FALSE;
+  }
+
+  Status = EfiBootManagerGetBootManagerMenu (&BootManagerMenu);
+  if (EFI_ERROR (Status)) {
+    return FALSE;
+  }
+
+  Match = (BOOLEAN)(BootOption->OptionNumber == BootManagerMenu.OptionNumber);
+  EfiBootManagerFreeLoadOption (&BootManagerMenu);
+  return Match;
+}
+
+/**
   Return whether a Boot Manager load option should be exposed by the front page.
 
   @param[in] CurrentImageHandle  Current app image handle. May be NULL.
   @param[in] BootOption          Boot option to inspect. Must not be NULL.
 
-  @retval TRUE   Option is a platform boot entry.
-  @retval FALSE  Option is NULL or points at the current app.
+  @retval TRUE   Option matches native BootManagerMenuApp membership.
+  @retval FALSE  Option is NULL or native BootManagerMenuApp would ignore it.
 **/
 STATIC
 BOOLEAN
@@ -100,7 +137,24 @@ ShouldExposeBootOption (
     return FALSE;
   }
 
-  return (BOOLEAN)!IsCurrentApplicationBootOption (CurrentImageHandle, BootOption->FilePath);
+  //
+  // Boot option filter mirrors native BootManagerMenuApp IgnoreBootOption:
+  // hide ourselves, preserve the Boot Manager Menu exception, and hide
+  // hidden/inactive entries from the default Boot page membership.
+  //
+  if (ModernUiBootDataOptionIsCurrentApplication (CurrentImageHandle, BootOption->FilePath)) {
+    return FALSE;
+  }
+
+  if (ModernUiBootDataOptionIsBootManagerMenu (BootOption)) {
+    return TRUE;
+  }
+
+  if (((BootOption->Attributes & LOAD_OPTION_HIDDEN) != 0) || ((BootOption->Attributes & LOAD_OPTION_ACTIVE) == 0)) {
+    return FALSE;
+  }
+
+  return TRUE;
 }
 
 /**

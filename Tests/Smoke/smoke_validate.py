@@ -1487,6 +1487,18 @@ def check_phase25_server_inventory_summary(root: Path) -> list[str]:
     if "Use N=BootNext for App/Shell entries" not in app_body:
         raise SmokeFailure("Phase45 BootOrder must explain App/Shell entries require BootNext/manual launch")
 
+    for token in (
+        "LOAD_OPTION_HIDDEN",
+        "LOAD_OPTION_ACTIVE",
+        "ModernUiBootDataOptionIsBootManagerMenu",
+        "ModernUiBootDataOptionIsCurrentApplication",
+        "EfiBootManagerGetBootManagerMenu",
+    ):
+        if token not in boot_data_lib_body:
+            raise SmokeFailure(f"Phase48 native BootManagerMenuApp filter parity missing token: {token}")
+    if "LOAD_OPTION_HIDDEN" in pages_body:
+        raise SmokeFailure("Phase48 native BootManagerMenuApp filter parity must stay in BootDataLib, not the UI page renderer")
+
     if "Timeout" in boot_data_lib_body:
         raise SmokeFailure("Phase44 must not implement firmware Timeout policy yet")
 
