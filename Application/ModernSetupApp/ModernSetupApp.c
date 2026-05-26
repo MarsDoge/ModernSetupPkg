@@ -142,51 +142,56 @@ UefiMain (
     }
 
     if ((Focus == SetupFocusContent) && (Page == PageBoot) && (Event.Type == ModernUiInputOther)) {
-      switch (Event.UnicodeChar) {
-        case L'n':
-        case L'N':
-          Status = ModernSetupSetSelectedBootNext (BootSelection);
-          UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"BootNext set: %r", Status);
-          Redraw = TRUE;
-          break;
-        case L'c':
-        case L'C':
-          Status = ModernSetupClearBootNext ();
-          UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"BootNext cleared: %r", Status);
-          Redraw = TRUE;
-          break;
-        case L'+':
-        case L'=':
-          Status = ModernSetupMoveSelectedBootOption (BootSelection, TRUE);
-          if (!EFI_ERROR (Status) && (BootSelection > 0)) {
-            BootSelection--;
-          }
+      if (ModernSetupBootSelectionIsNativeFallback (BootSelection, ModernSetupGetPageSelectableCount (&Ui, PageBoot))) {
+        UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"Press Enter to open Native Boot Manager / Boot Maintenance");
+        Redraw = TRUE;
+      } else {
+        switch (Event.UnicodeChar) {
+          case L'n':
+          case L'N':
+            Status = ModernSetupSetSelectedBootNext (BootSelection);
+            UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"BootNext set: %r", Status);
+            Redraw = TRUE;
+            break;
+          case L'c':
+          case L'C':
+            Status = ModernSetupClearBootNext ();
+            UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"BootNext cleared: %r", Status);
+            Redraw = TRUE;
+            break;
+          case L'+':
+          case L'=':
+            Status = ModernSetupMoveSelectedBootOption (BootSelection, TRUE);
+            if (!EFI_ERROR (Status) && (BootSelection > 0)) {
+              BootSelection--;
+            }
 
-          if (Status == EFI_UNSUPPORTED) {
-            UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"Use N=BootNext for App/Shell entries");
-          } else {
-            UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"BootOrder move up: %r", Status);
-          }
+            if (Status == EFI_UNSUPPORTED) {
+              UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"Use N=BootNext for App/Shell entries");
+            } else {
+              UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"BootOrder move up: %r", Status);
+            }
 
-          Redraw = TRUE;
-          break;
-        case L'-':
-        case L'_':
-          Status = ModernSetupMoveSelectedBootOption (BootSelection, FALSE);
-          if (!EFI_ERROR (Status)) {
-            BootSelection++;
-          }
+            Redraw = TRUE;
+            break;
+          case L'-':
+          case L'_':
+            Status = ModernSetupMoveSelectedBootOption (BootSelection, FALSE);
+            if (!EFI_ERROR (Status)) {
+              BootSelection++;
+            }
 
-          if (Status == EFI_UNSUPPORTED) {
-            UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"Use N=BootNext for App/Shell entries");
-          } else {
-            UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"BootOrder move down: %r", Status);
-          }
+            if (Status == EFI_UNSUPPORTED) {
+              UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"Use N=BootNext for App/Shell entries");
+            } else {
+              UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"BootOrder move down: %r", Status);
+            }
 
-          Redraw = TRUE;
-          break;
-        default:
-          break;
+            Redraw = TRUE;
+            break;
+          default:
+            break;
+        }
       }
 
       if (Redraw) {
@@ -334,7 +339,11 @@ UefiMain (
           StatusMessage[0] = L'\0';
           Redraw = TRUE;
         } else if (Page == PageBoot) {
-          Status = ModernSetupLaunchSelectedBootOption (BootSelection);
+          if (ModernSetupBootSelectionIsNativeFallback (BootSelection, ModernSetupGetPageSelectableCount (&Ui, PageBoot))) {
+            Status = ModernSetupLaunchUiAppFallback (ImageHandle);
+          } else {
+            Status = ModernSetupLaunchSelectedBootOption (BootSelection);
+          }
           UnicodeSPrint (StatusMessage, sizeof (StatusMessage), ModernUiGetString (ModernUiStringClassicReturnedFormat), Status);
           Redraw = TRUE;
         } else if (Page == PageDevices) {

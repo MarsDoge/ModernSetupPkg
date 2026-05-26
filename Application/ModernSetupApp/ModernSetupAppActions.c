@@ -524,6 +524,41 @@ ModernSetupGetBootCount (
 }
 
 /**
+  Return selectable Boot page rows: visible Boot#### rows plus native tools.
+
+  Native UiApp/BootManagerMenuApp own Boot Maintenance and platform boot policy
+  internals. ModernSetup exposes one explicit fallback row to those native boot
+  tools instead of reimplementing them.
+
+  @return Number of Boot page selectable rows.
+**/
+UINTN
+ModernSetupGetBootSelectableCount (
+  VOID
+  )
+{
+  return MIN (ModernSetupGetBootCount (), MAX_BOOT_ROWS) + MODERN_SETUP_NATIVE_BOOT_TOOLS_ROW_COUNT;
+}
+
+/**
+  Return whether a Boot page selection is the native boot tools fallback row.
+
+  @param[in] Selection        Zero-based Boot page selection.
+  @param[in] SelectableCount  Current Boot page selectable row count.
+
+  @retval TRUE   Selection opens native Boot Manager / Boot Maintenance.
+  @retval FALSE  Selection maps to a visible Boot#### row.
+**/
+BOOLEAN
+ModernSetupBootSelectionIsNativeFallback (
+  IN UINTN  Selection,
+  IN UINTN  SelectableCount
+  )
+{
+  return (BOOLEAN)((SelectableCount > 0) && (Selection == (SelectableCount - 1)));
+}
+
+/**
   Count visible device-path rows for the Devices page.
 
   @return Number of device-path rows that can be selected in the current v1
@@ -574,8 +609,8 @@ ModernSetupGetPageSelectableCount (
       {
         MODERN_SETUP_PAGE_LIST_LAYOUT  Layout;
 
-        return ModernSetupGetPageListLayout (Ui, mModernSetupPreferences.DashboardDensity, MAX_BOOT_ROWS, FALSE, &Layout) ?
-               MIN (ModernSetupGetBootCount (), Layout.MaxVisibleRows) : 0;
+        return ModernSetupGetPageListLayout (Ui, mModernSetupPreferences.DashboardDensity, MAX_BOOT_ROWS + MODERN_SETUP_NATIVE_BOOT_TOOLS_ROW_COUNT, FALSE, &Layout) ?
+               MIN (ModernSetupGetBootSelectableCount (), Layout.MaxVisibleRows) : 0;
       }
     case PageDevices:
       {
