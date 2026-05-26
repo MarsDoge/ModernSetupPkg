@@ -14,6 +14,10 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Phase49 ModernSetupApp: the Boot page now ends with a native boot-tools entry
+  row; pressing Enter on it opens the native Boot Manager / Boot Maintenance via
+  `SendForm()` instead of launching a boot option, and the per-entry BootNext /
+  BootOrder keys (N/C/+/-) are suppressed while that fallback row is selected.
 - Phase36 architecture guard: documented the PEI -> DXE services ->
   ModernSetupApp/DisplayEngine dynamic data/configuration pipeline in English and
   zh-CN, with smoke coverage that keeps DisplayEngine focused on rendering state
@@ -221,6 +225,17 @@ this file as both a release log and a lightweight development progress record.
 
 ### Changed
 
+- Phase48 ModernSetupApp Boot membership: the Boot page option filter now
+  mirrors native `BootManagerMenuApp` `IgnoreBootOption()` semantics — it hides
+  the running app and any HIDDEN/INACTIVE entries while preserving the Boot
+  Manager Menu exception, so the list matches the native menu without
+  reimplementing boot semantics.
+- Phase50 ModernSetupApp: Boot selection and BootNext/BootOrder move actions are
+  now clamped to the visible row count (`MIN(OptionCount, MAX_BOOT_ROWS)`), so
+  keyboard actions can no longer target boot entries scrolled off screen.
+- ModernSetupApp visual/copy polish: refined setup-page affordances and wording,
+  the Dashboard first screen, tab windowing, and the highlighted boot value lane
+  for clearer prompt/value separation.
 - The main package DSC now builds only the DisplayEngine path:
   `ModernDisplayEngineDxe`, `ModernUiCustomizedDisplayLib`,
   `ModernUiEngineLib`, `ModernUiRendererLib`, and `ModernUiThemeLib`.
@@ -298,6 +313,10 @@ this file as both a release log and a lightweight development progress record.
 
 ### Fixed
 
+- Fixed seeded ModernSetupApp Preferences input editing: the first printable key
+  now replaces the pre-filled current value (e.g. the default boot timeout "5")
+  instead of appending to it, preventing accidental out-of-range values like
+  "51".
 - Changed ModernSetupApp Boot page Enter behavior to launch the selected
   visible Boot#### entry through UefiBootManagerLib; native Boot Manager remains
   available as the Exit-page fallback.
