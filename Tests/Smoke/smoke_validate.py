@@ -1482,12 +1482,14 @@ def check_phase25_server_inventory_summary(root: Path) -> list[str]:
     for token in (
         "ModernUiBootDataGetBootNext",
         "BootNext",
-        "N=BootNext",
-        "C=Clear",
+        "N=Next boot",
+        "C=Clear next",
         "+/-=Move",
-        "Manual only",
-        "Boot policy writes stay on Boot#### rows",
-        "default boot entries",
+        "L\"On\"",
+        "L\"/Hid\"",
+        "L\"/Next\"",
+        "Only default Boot#### rows can move",
+        "app/shell/manual entries use Enter or Next boot",
     ):
         if token not in pages_body:
             raise SmokeFailure(f"Phase44/45/46 Boot page missing policy affordance token: {token}")
@@ -1545,6 +1547,17 @@ def check_phase25_server_inventory_summary(root: Path) -> list[str]:
 
     if "Timeout" in boot_data_lib_body:
         raise SmokeFailure("Phase44 must not implement firmware Timeout policy yet")
+
+    for token in (
+        "DrawProviderSummaryPageHint",
+        "Read-only provider summary. N/A means this platform did not report that capability.",
+        "Native setup preview",
+        "Read-only mirror. Enter opens native FormBrowser for edits.",
+        "HII rows open native setup. Inventory rows are read-only device-path context.",
+        "Shown %u. Native-only %u, fallback %u, unsupported %u.",
+    ):
+        if token not in pages_body:
+            raise SmokeFailure(f"IBV-style page affordance polish missing token: {token}")
 
     return ["PASS Phase25 Server Inventory read-only summary/dashboard contract"]
 
@@ -2145,10 +2158,10 @@ def check_hii_bridge_view_model_boundary(root: Path) -> list[str]:
         "MODERN_UI_HII_VIEW",
         "ModernUiHiiBridgeBuildView",
         "ModernUiHiiBridgeResolveText",
-        "Read-only HII preview",
-        "preview does not edit settings",
+        "Native setup preview",
+        "Read-only mirror. Enter opens native FormBrowser for edits.",
         "HiiPreviewPolicyReasonText",
-        "Preview:",
+        "Shown %u. Native-only %u, fallback %u, unsupported %u.",
         "Firmware-owned behavior",
         "Native fallback required",
         "Unsupported IFR construct",

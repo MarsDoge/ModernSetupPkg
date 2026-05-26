@@ -88,6 +88,32 @@ DrawProviderSummarySection (
   ModernUiDrawTextFit (Ui, Rect.X + 18, Rect.Y + 16, Rect.Width - 36, Title, Accent ? Theme->AccentYellow : Theme->MutedText, PanelColor);
 }
 
+STATIC
+VOID
+DrawProviderSummaryPageHint (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN MODERN_UI_RECT            Rect
+  )
+{
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background;
+
+  if ((Ui == NULL) || (Theme == NULL) || (Rect.Width < 160)) {
+    return;
+  }
+
+  Background = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
+  ModernUiDrawTextFit (
+    Ui,
+    Rect.X + 18,
+    Rect.Y + 38,
+    Rect.Width - 36,
+    L"Read-only provider summary. N/A means this platform did not report that capability.",
+    Theme->MutedText,
+    Background
+    );
+}
+
 /**
   Draw a lightweight provider-page subsection label.
 
@@ -208,6 +234,7 @@ DrawProviderSummaryPage (
   HeaderStep  = 20;
 
   DrawProviderSummarySection (Ui, Theme, Layout.Panel, Section, TRUE);
+  DrawProviderSummaryPageHint (Ui, Theme, Layout.Panel);
   ModernUiDrawFocusFrame (Ui, Layout.Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
 
   for (Index = 0; (Index < RowCount) && (VisibleRows < Layout.MaxVisibleRows); Index++) {
@@ -281,7 +308,7 @@ DrawBoot (
     Ui,
     Layout.RowX,
     Layout.Panel.Y + 20,
-    L"Actions: Enter=Boot  N=BootNext  C=Clear  +/-=Move default boot entries",
+    L"Enter=Boot  N=Next boot  C=Clear next  +/-=Move default rows",
     Theme->MutedText,
     Theme->Surface
     );
@@ -290,7 +317,7 @@ DrawBoot (
     Layout.RowX,
     Layout.Panel.Y + 38,
     Layout.RowWidth,
-    L"Boot policy writes stay on Boot#### rows; app/shell entries use Enter or BootNext",
+    L"Only default Boot#### rows can move; app/shell/manual entries use Enter or Next boot.",
     Theme->MutedText,
     Theme->Surface
     );
@@ -312,7 +339,7 @@ DrawBoot (
 
   for (Index = 0; (Index < BootOptionCount) && (Index < MAX_BOOT_ROWS) && ((Index + MODERN_SETUP_NATIVE_BOOT_TOOLS_ROW_COUNT) < Layout.MaxVisibleRows); Index++) {
     Y           = Layout.FirstRowY + (Index * Layout.RowStride);
-    State                  = BootOptions[Index].Active ? ModernUiGetString (ModernUiStringActive) : ModernUiGetString (ModernUiStringInactive);
+    State                  = BootOptions[Index].Active ? L"On" : L"Off";
     IsSelected             = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
     IsDefaultBootCandidate = ModernSetupBootOptionIsDefaultBootCandidate (&BootOptions[Index]);
     UnicodeSPrint (
@@ -326,12 +353,12 @@ DrawBoot (
     UnicodeSPrint (
       Value,
       sizeof (Value),
-      L"%s%s|%s%s%s",
+      L"%s%s/%s%s%s",
       State,
-      BootOptions[Index].Hidden ? L"|Hid" : L"",
+      BootOptions[Index].Hidden ? L"/Hid" : L"",
       BootOptions[Index].Category,
-      IsDefaultBootCandidate ? L"" : L"|Manual only",
-      (BootNextPresent && (BootNext == BootOptions[Index].OptionNumber)) ? L"|Next" : L""
+      IsDefaultBootCandidate ? L"" : L"/Next",
+      (BootNextPresent && (BootNext == BootOptions[Index].OptionNumber)) ? L"/BootNext" : L""
       );
     RowModel.Rect      = (MODERN_UI_RECT){ Layout.RowX, Y - 8, Layout.RowWidth, Layout.RowHeight - 8 };
     RowModel.Prompt    = Line;
@@ -633,13 +660,13 @@ DrawHiiReadOnlyPreview (
   }
 
   Background = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
-  DrawProviderSummarySection (Ui, Theme, Rect, L"Read-only HII preview", TRUE);
+  DrawProviderSummarySection (Ui, Theme, Rect, L"Native setup preview", TRUE);
   ModernUiDrawTextFit (
     Ui,
     Rect.X + 18,
     Rect.Y + 40,
     Rect.Width - 36,
-    L"Enter opens native FormBrowser; preview does not edit settings.",
+    L"Read-only mirror. Enter opens native FormBrowser for edits.",
     Theme->MutedText,
     Background
     );
@@ -711,7 +738,7 @@ DrawHiiReadOnlyPreview (
   UnicodeSPrint (
     Summary,
     sizeof (Summary),
-    L"Preview: %u shown, %u native-only, %u native fallback, %u unsupported.",
+    L"Shown %u. Native-only %u, fallback %u, unsupported %u.",
     ShownItems,
     NativeOnlyItems,
     FallbackItems,
@@ -835,6 +862,15 @@ DrawDevices (
 
   UnicodeSPrint (Summary, sizeof (Summary), L"%u entries (%u HII, %u device)", EntryCount, HiiCount, EntryCount - HiiCount);
   ModernUiDrawText (Ui, Layout.RowX, Layout.Panel.Y + 20, Summary, Theme->MutedText, Theme->Surface);
+  ModernUiDrawTextFit (
+    Ui,
+    Layout.RowX,
+    Layout.Panel.Y + 38,
+    Layout.RowWidth,
+    L"HII rows open native setup. Inventory rows are read-only device-path context.",
+    Theme->MutedText,
+    Theme->Surface
+    );
 
   RowY = Layout.FirstRowY;
   VisibleRows = 0;
