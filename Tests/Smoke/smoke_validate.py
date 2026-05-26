@@ -1353,6 +1353,19 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
     for token in ("MODERN_SETUP_DASHBOARD_CONTINUE_CARD", "ModernUiStringExitContinue", "Continue boot flow"):
         if token not in dashboard_body:
             raise SmokeFailure(f"Dashboard native Continue card missing token: {token}")
+    if "ModernUiStringOpenEnter" in extract_c_function_body(dashboard_body, "DrawDashboardTile"):
+        raise SmokeFailure("Dashboard card action lane must use compact Enter/回车 text, not wide Open/Enter copy")
+    for token in ("DashboardEnterActionText", "DashboardProviderHealthText", "系统状态", "平台健康", "Provider状态"):
+        if token not in dashboard_body:
+            raise SmokeFailure(f"Dashboard polish guard missing localized/compact token: {token}")
+    glyph_source = root / "Library" / "ModernUiRendererLib" / "ModernUiGlyphs.c"
+    if glyph_source.exists():
+        glyph_body = glyph_source.read_text(encoding="utf-8")
+        glyph_codepoints = {int(value, 16) for value in re.findall(r"\{\s*(0x[0-9A-Fa-f]{4})", glyph_body)}
+        for literal in re.findall(r'L"((?:[^"\\\\]|\\\\.)*)"', dashboard.read_text(encoding="utf-8")):
+            for char in literal:
+                if ord(char) > 0x7F and ord(char) not in glyph_codepoints:
+                    raise SmokeFailure(f"Dashboard literal uses uncovered built-in glyph U+{ord(char):04X}: {char}")
     for provider_field in ("Firmware", "Power", "Performance", "Diagnostics"):
         if f"Providers.{provider_field}." not in dashboard_body:
             raise SmokeFailure(
