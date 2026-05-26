@@ -285,12 +285,12 @@ ModernSetupDrawDashboard (
   } else {
     UnicodeSPrint (ProviderIssueText, sizeof (ProviderIssueText), L"%s unavailable", ProviderHealth.FirstIssueName);
   }
-  UnicodeSPrint (ProviderDetailText, sizeof (ProviderDetailText), L"%u/%u ready, %u unavailable", ProviderHealth.ReadyProviders, ProviderHealth.TotalProviders, ProviderHealth.UnavailableProviders);
+  UnicodeSPrint (ProviderDetailText, sizeof (ProviderDetailText), L"Coverage %u/%u, unavailable %u", ProviderHealth.ReadyProviders, ProviderHealth.TotalProviders, ProviderHealth.UnavailableProviders);
   UnicodeSPrint (FirmwareValueText, sizeof (FirmwareValueText), L"%s %s", Providers.Firmware.Vendor, Providers.Firmware.Revision);
   UnicodeSPrint (
     FirmwareDetailText,
     sizeof (FirmwareDetailText),
-    L"Capsule runtime %s",
+    L"Capsule runtime: %s",
     DashboardPresenceText (Providers.Firmware.CapsuleRuntimeServices)
     );
   UnicodeSPrint (PowerValueText, sizeof (PowerValueText), L"%s", Providers.Power.ChassisThermalState);
@@ -308,7 +308,7 @@ ModernSetupDrawDashboard (
     UnicodeSPrint (
       PowerDetailText,
       sizeof (PowerDetailText),
-      L"ACPI %s / SMBIOS %s",
+      L"ACPI: %s / SMBIOS: %s",
       DashboardPresenceText (DashboardAnyCapability (Providers.Power.AcpiTablePresent, Providers.Power.AcpiSdtProtocolPresent)),
       DashboardPresenceText (DashboardAnyCapability (Providers.Power.SmbiosChassisPresent, Providers.Power.SmbiosPowerSupplyPresent))
       );
@@ -360,7 +360,7 @@ ModernSetupDrawDashboard (
   UnicodeSPrint (
     ServerDetailText,
     sizeof (ServerDetailText),
-    L"Read-only inventory / native owns policy"
+    L"Read-only; native owns policy"
     );
 
   TopHeight   = (mModernSetupPreferences.DashboardDensity == ModernUiDashboardDensityCompact) ?
@@ -430,29 +430,29 @@ ModernSetupDrawDashboard (
 
       switch (CardIndex) {
         case MODERN_SETUP_DASHBOARD_CONTINUE_CARD:
-          DrawDashboardTile (Ui, Theme, QuickCard, ModernUiGetString (ModernUiStringExitContinue), L"Continue native boot flow", L"Same as native UiApp Continue", TRUE, (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
+          DrawDashboardTile (Ui, Theme, QuickCard, ModernUiGetString (ModernUiStringExitContinue), L"Continue boot flow", L"Same as native Continue", TRUE, (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
           break;
         case 1:
           DrawDashboardTile (Ui, Theme, QuickCard, ModernUiGetString (ModernUiStringBootOptions), BootCount, BootDetailText, TRUE, (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
           break;
         case 2:
-          DrawDashboardTile (Ui, Theme, QuickCard, L"Devices / HII", DeviceCount, DeviceDetailText, TRUE, (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
+          DrawDashboardTile (Ui, Theme, QuickCard, L"Devices", DeviceCount, DeviceDetailText, TRUE, (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
           break;
         case 3:
-          DrawDashboardTile (Ui, Theme, QuickCard, L"Provider Health", ModernSetupGetProviderHealthStateText (ProviderHealth.State), ProviderDetailText, (BOOLEAN)(ProviderHealth.State == ModernSetupProviderHealthReady), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
+          DrawDashboardTile (Ui, Theme, QuickCard, L"Provider Status", ModernSetupGetProviderHealthStateText (ProviderHealth.State), ProviderDetailText, (BOOLEAN)(ProviderHealth.State == ModernSetupProviderHealthReady), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
           break;
         case 4:
           DrawDashboardTile (Ui, Theme, QuickCard, L"Firmware", FirmwareValueText, FirmwareDetailText, (BOOLEAN)!EFI_ERROR (Providers.FirmwareStatus), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
           break;
         case 5:
-          DrawDashboardTile (Ui, Theme, QuickCard, L"Power / Thermal", PowerValueText, PowerDetailText, (BOOLEAN)!EFI_ERROR (Providers.PowerStatus), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
+          DrawDashboardTile (Ui, Theme, QuickCard, L"Power", PowerValueText, PowerDetailText, (BOOLEAN)!EFI_ERROR (Providers.PowerStatus), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
           break;
         case 6:
           DrawDashboardTile (Ui, Theme, QuickCard, L"Performance", PerformanceValueText, PerformanceDetailText, (BOOLEAN)!EFI_ERROR (Providers.PerformanceStatus), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
           break;
         case 7:
         default:
-          DrawDashboardTile (Ui, Theme, QuickCard, L"Server Inventory", ServerValueText, ServerDetailText, (BOOLEAN)(!EFI_ERROR (Providers.ManagementStatus) || !EFI_ERROR (Providers.PcieStatus)), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
+          DrawDashboardTile (Ui, Theme, QuickCard, L"Assets", ServerValueText, ServerDetailText, (BOOLEAN)(!EFI_ERROR (Providers.ManagementStatus) || !EFI_ERROR (Providers.PcieStatus)), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
           break;
       }
     }

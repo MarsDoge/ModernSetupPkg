@@ -252,9 +252,9 @@ APP_PROVIDER_SNAPSHOT_FIELDS = (
     "Pcie",
 )
 DASHBOARD_EXPANDED_CARD_TOKENS = (
-    "Provider Health",
+    "Provider Status",
     "Firmware",
-    "Power / Thermal",
+    "Power",
     "Performance",
     "BootDetailText",
     "DeviceDetailText",
@@ -1350,7 +1350,7 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
     for token in DASHBOARD_EXPANDED_CARD_TOKENS:
         if token not in dashboard_body:
             raise SmokeFailure(f"ModernSetupAppDashboard.c missing expanded Dashboard card token: {token}")
-    for token in ("MODERN_SETUP_DASHBOARD_CONTINUE_CARD", "ModernUiStringExitContinue", "Continue native boot flow"):
+    for token in ("MODERN_SETUP_DASHBOARD_CONTINUE_CARD", "ModernUiStringExitContinue", "Continue boot flow"):
         if token not in dashboard_body:
             raise SmokeFailure(f"Dashboard native Continue card missing token: {token}")
     for provider_field in ("Firmware", "Power", "Performance", "Diagnostics"):
@@ -1430,8 +1430,8 @@ def check_phase25_server_inventory_summary(root: Path) -> list[str]:
         raise SmokeFailure("Server Inventory page dispatch is missing")
     if "PageServerInventory" not in actions_body or "mDashboardCategoryRoutes[DASHBOARD_QUICK_CARD_COUNT]" not in actions_body:
         raise SmokeFailure("Server Inventory dashboard route is missing or route table is not count-aligned")
-    if "Server Inventory" not in dashboard_body or "ServerValueText" not in dashboard_body:
-        raise SmokeFailure("Dashboard missing Server Inventory card")
+    if "Assets" not in dashboard_body or "ServerValueText" not in dashboard_body:
+        raise SmokeFailure("Dashboard missing Assets inventory card")
 
     dec_text = (root / "ModernSetupPkg.dec").read_text(encoding="utf-8")
     for token in ("PcdServerInventory", "ServerInventoryVar", "ServerInventoryPolicy"):
@@ -1470,14 +1470,11 @@ def check_phase25_server_inventory_summary(root: Path) -> list[str]:
         "ModernUiBootDataGetBootNext",
         "BootNext",
         "N=BootNext",
+        "C=Clear",
         "+/-=Move",
-        "Manual/App only",
-        "Set BootNext",
-        "Clear BootNext",
-        "Move Up",
-        "Move Down",
-        "Saved immediately to NVRAM",
-        "Default boot entries only",
+        "Manual only",
+        "Boot policy writes stay on Boot#### rows",
+        "default boot entries",
     ):
         if token not in pages_body:
             raise SmokeFailure(f"Phase44/45/46 Boot page missing policy affordance token: {token}")
@@ -1500,7 +1497,7 @@ def check_phase25_server_inventory_summary(root: Path) -> list[str]:
         raise SmokeFailure("Phase48 native BootManagerMenuApp filter parity must stay in BootDataLib, not the UI page renderer")
 
     for token in (
-        "Native Boot Manager",
+        "Native Boot Tools",
         "Boot Maintenance",
         "ModernSetupBootSelectionIsNativeFallback",
     ):
@@ -1652,8 +1649,8 @@ def check_phase27_app_owned_input_preferences(root: Path) -> list[str]:
         "mModernSetupPreferenceInputLength",
         "ModernUiValueNumeric",
         "ModernUiValueString",
-        "UI Boot Countdown",
-        "Setup Profile Name",
+        "Boot countdown",
+        "Profile name",
         "Digits only, range 0..30",
         "Printable ASCII, max 31 chars",
     ):

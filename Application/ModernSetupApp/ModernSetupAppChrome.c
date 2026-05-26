@@ -35,8 +35,8 @@ STATIC CONST CHAR16  *mEnglishCompactTabLabels[] = {
   L"Mgmt",
   L"Power",
   L"Perf",
-  L"Server",
-  L"Pref",
+  L"Assets",
+  L"Prefs",
   L"Exit"
 };
 
@@ -50,7 +50,7 @@ STATIC CONST CHAR16  *mChineseCompactTabLabels[] = {
   L"管理",
   L"电源",
   L"性能",
-  L"Server",
+  L"资产",
   L"偏好",
   L"退出"
 };

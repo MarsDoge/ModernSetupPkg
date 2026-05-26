@@ -281,7 +281,7 @@ DrawBoot (
     Ui,
     Layout.RowX,
     Layout.Panel.Y + 20,
-    L"Actions: N=BootNext (Set BootNext)  C=Clear BootNext  +/-=Move BootOrder (Move Up/Move Down)",
+    L"Actions: Enter=Boot  N=BootNext  C=Clear  +/-=Move default boot entries",
     Theme->MutedText,
     Theme->Surface
     );
@@ -290,7 +290,7 @@ DrawBoot (
     Layout.RowX,
     Layout.Panel.Y + 38,
     Layout.RowWidth,
-    L"Saved immediately to NVRAM; Default boot entries only; App/Shell use BootNext or Enter",
+    L"Boot policy writes stay on Boot#### rows; app/shell entries use Enter or BootNext",
     Theme->MutedText,
     Theme->Surface
     );
@@ -331,7 +331,7 @@ DrawBoot (
       BootOptions[Index].Hidden ? L" / Hidden / " : L" / ",
       BootOptions[Index].Category,
       IsDefaultBootCandidate ? L"" : L" / ",
-      IsDefaultBootCandidate ? L"" : L"Manual/App only",
+      IsDefaultBootCandidate ? L"" : L"Manual only",
       (BootNextPresent && (BootNext == BootOptions[Index].OptionNumber)) ? L" / " : L"",
       (BootNextPresent && (BootNext == BootOptions[Index].OptionNumber)) ? L"BootNext" : L""
       );
@@ -355,8 +355,8 @@ DrawBoot (
   Y = Layout.FirstRowY + (Index * Layout.RowStride);
   IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && ModernSetupBootSelectionIsNativeFallback (Selected, MIN (ModernSetupGetBootSelectableCount (), Layout.MaxVisibleRows)));
   RowModel.Rect      = (MODERN_UI_RECT){ Layout.RowX, Y - 8, Layout.RowWidth, Layout.RowHeight - 8 };
-  RowModel.Prompt    = L"Native Boot Manager / Boot Maintenance";
-  RowModel.Value     = L"Open native >";
+  RowModel.Prompt    = L"Native Boot Tools";
+  RowModel.Value     = L"Open >";
   RowModel.Role      = IsSelected ? ModernUiRowSelected : ModernUiRowNormal;
   RowModel.ValueType = ModernUiValueText;
   ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
@@ -365,7 +365,7 @@ DrawBoot (
     Layout.RowX + Layout.HorizontalPad,
     Y + 18,
     (Layout.RowWidth > (Layout.HorizontalPad * 2)) ? (Layout.RowWidth - (Layout.HorizontalPad * 2)) : Layout.RowWidth,
-    L"Open edk2 native boot tools; platform owns boot policy",
+    L"Open edk2 Boot Manager / Boot Maintenance; platform owns boot policy",
     Theme->MutedText,
     IsSelected ? Theme->SelectedBand : Theme->Surface
     );
@@ -941,6 +941,7 @@ DrawSecurity (
   ModernUiDrawTextFormatted (Ui, Panel.X + 20, Panel.Y + 168, Theme->MutedText, Theme->Surface, L"db: %s    dbx: %s", DbText, DbxText);
   ModernUiDrawTextFormatted (Ui, Panel.X + 20, Panel.Y + 200, Theme->MutedText, Theme->Surface, L"TCG2: %s    TrEE: %s", Tcg2Text, TreeText);
   ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 252, ModernUiGetString (ModernUiStringSecurityReadOnly), Theme->MutedText, Theme->Surface);
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 284, L"Unavailable means this OVMF/demo platform did not report that capability.", Theme->MutedText, Theme->Surface);
 }
 
 /**
@@ -961,9 +962,9 @@ DrawFirmware (
 {
   MODERN_SETUP_PROVIDER_SNAPSHOT  Providers;
   MODERN_UI_FIRMWARE_SUMMARY      *Summary;
-  CONST CHAR16                    *Labels[5];
-  CONST CHAR16                    *Values[5];
-  CONST CHAR16                    *Groups[5];
+  CONST CHAR16                    *Labels[6];
+  CONST CHAR16                    *Values[6];
+  CONST CHAR16                    *Groups[6];
 
   ModernSetupGetCachedProviderSnapshot (&Providers);
   Summary = &Providers.Firmware;
@@ -973,6 +974,7 @@ DrawFirmware (
   Groups[2] = NULL;
   Groups[3] = NULL;
   Groups[4] = NULL;
+  Groups[5] = NULL;
 
   Labels[0] = ModernUiGetString (ModernUiStringFirmwareVendor);
   Groups[0] = ModernUiGetString (ModernUiStringGroupFirmware);
@@ -985,6 +987,8 @@ DrawFirmware (
   Values[3] = CapabilityText (Summary->CapsuleArchProtocol);
   Labels[4] = ModernUiGetString (ModernUiStringCapsuleReport);
   Values[4] = Summary->CapsuleReportPresent ? ModernUiGetString (ModernUiStringPresent) : ModernUiGetString (ModernUiStringNotAvailable);
+  Labels[5] = L"Ownership";
+  Values[5] = L"Read-only summary; native capsule flow owns updates";
 
   DrawProviderSummaryPage (
     Ui,
@@ -1098,9 +1102,9 @@ DrawManagement (
 {
   MODERN_SETUP_PROVIDER_SNAPSHOT  Providers;
   MODERN_UI_MANAGEMENT_SUMMARY    *Summary;
-  CONST CHAR16                    *Labels[3];
-  CONST CHAR16                    *Values[3];
-  CONST CHAR16                    *Groups[3];
+  CONST CHAR16                    *Labels[5];
+  CONST CHAR16                    *Values[5];
+  CONST CHAR16                    *Groups[5];
 
   ModernSetupGetCachedProviderSnapshot (&Providers);
   Summary = &Providers.Management;
@@ -1108,6 +1112,8 @@ DrawManagement (
   Groups[0] = NULL;
   Groups[1] = NULL;
   Groups[2] = NULL;
+  Groups[3] = NULL;
+  Groups[4] = NULL;
 
   Labels[0] = ModernUiGetString (ModernUiStringIpmi);
   Groups[0] = ModernUiGetString (ModernUiStringGroupManagement);
@@ -1116,6 +1122,10 @@ DrawManagement (
   Values[1] = CapabilityText (Summary->RedfishDiscoverPresent);
   Labels[2] = ModernUiGetString (ModernUiStringManagementInterface);
   Values[2] = CapabilityText (Summary->SmbiosManagementInterfacePresent);
+  Labels[3] = L"Expected sources";
+  Values[3] = L"IPMI / Redfish / SMBIOS management records";
+  Labels[4] = L"OVMF state";
+  Values[4] = L"No BMC interface reported by this platform";
 
   DrawProviderSummaryPage (
     Ui,
@@ -1383,7 +1393,7 @@ DrawPerformance (
   Values[1] = CapabilityText (Summary->MemoryInventoryPresent);
   Labels[2] = ModernUiGetString (ModernUiStringCpuIo2);
   Values[2] = CapabilityText (Summary->CpuIo2ProtocolPresent);
-  Labels[3] = ModernUiGetString (ModernUiStringVirtualizationPolicy);
+  Labels[3] = L"Virtualization Policy";
   Values[3] = CapabilityText (Summary->VirtualizationPolicyEntryPresent);
   Labels[4] = ModernUiGetString (ModernUiStringRasPolicy);
   Values[4] = CapabilityText (Summary->RasPolicyEntryPresent);
@@ -1438,13 +1448,13 @@ DrawPerformance (
   Values[5] = EFI_ERROR (Providers.PcieStatus) ? PcieUnavailable : PcieFabric;
   Labels[6] = L"PCIe Inventory";
   Values[6] = EFI_ERROR (Providers.PcieStatus) ? PcieUnavailable : PcieInventory;
-  Labels[7] = L"Native Policy Entries";
+  Labels[7] = L"Native Policy";
   Values[7] = EFI_ERROR (Providers.PcieStatus) ? PcieUnavailable : PcieNativePolicy;
-  Labels[8] = L"Fabric Policy Entries";
+  Labels[8] = L"Fabric Policy";
   Values[8] = EFI_ERROR (Providers.PcieStatus) ? PcieUnavailable : PcieFabricPolicy;
-  Labels[9] = L"Isolation Entries";
+  Labels[9] = L"Isolation";
   Values[9] = EFI_ERROR (Providers.PcieStatus) ? PcieUnavailable : PcieIsolation;
-  Labels[10] = L"Device Capabilities";
+  Labels[10] = L"Device Caps";
   Values[10] = EFI_ERROR (Providers.PcieStatus) ? PcieUnavailable : PcieDeviceCapabilities;
 
   DrawProviderSummaryPage (
@@ -1705,11 +1715,11 @@ DrawPreferences (
   MODERN_UI_POPUP_MODEL  PopupModel;
 
   Prompts[MODERN_SETUP_PREFERENCE_ROW_THEME]                  = L"Theme";
-  Prompts[MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY]      = L"Dashboard Density";
-  Prompts[MODERN_SETUP_PREFERENCE_ROW_BOOT_TIMEOUT]           = L"UI Boot Countdown";
-  Prompts[MODERN_SETUP_PREFERENCE_ROW_PROFILE_NAME]           = L"Setup Profile Name";
-  Prompts[MODERN_SETUP_PREFERENCE_ROW_REMEMBER_LAST_PAGE]     = L"Remember Last Page";
-  Prompts[MODERN_SETUP_PREFERENCE_ROW_SHOW_ADVANCED_HINTS]    = L"Show Advanced Hints";
+  Prompts[MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY]      = ModernUiGetString (ModernUiStringPreferenceDensity);
+  Prompts[MODERN_SETUP_PREFERENCE_ROW_BOOT_TIMEOUT]           = L"Boot countdown";
+  Prompts[MODERN_SETUP_PREFERENCE_ROW_PROFILE_NAME]           = L"Profile name";
+  Prompts[MODERN_SETUP_PREFERENCE_ROW_REMEMBER_LAST_PAGE]     = ModernUiGetString (ModernUiStringPreferenceRememberLastPage);
+  Prompts[MODERN_SETUP_PREFERENCE_ROW_SHOW_ADVANCED_HINTS]    = ModernUiGetString (ModernUiStringPreferenceShowAdvancedHints);
   Prompts[MODERN_SETUP_PREFERENCE_ROW_CONFIRM_RESET]          = ModernUiGetString (ModernUiStringPreferenceConfirmReset);
 
   Panel = ModernSetupContentRect (Ui);
