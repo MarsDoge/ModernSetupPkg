@@ -341,6 +341,9 @@ DrawBoot (
     RowModel.Role      = IsSelected ? ModernUiRowSelected : ModernUiRowNormal;
     RowModel.ValueType = ModernUiValueText;
     ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
+    if (IsSelected) {
+      ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowModel.Rect.X + 4, RowModel.Rect.Y + 4, 4, RowModel.Rect.Height - 8 }, Theme->AccentYellow);
+    }
     ModernUiDrawTextFit (
       Ui,
       Layout.RowX + Layout.HorizontalPad,
@@ -360,6 +363,9 @@ DrawBoot (
   RowModel.Role      = IsSelected ? ModernUiRowSelected : ModernUiRowNormal;
   RowModel.ValueType = ModernUiValueText;
   ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
+  if (IsSelected) {
+    ModernUiFillRect (Ui, (MODERN_UI_RECT){ RowModel.Rect.X + 4, RowModel.Rect.Y + 4, 4, RowModel.Rect.Height - 8 }, Theme->AccentYellow);
+  }
   ModernUiDrawTextFit (
     Ui,
     Layout.RowX + Layout.HorizontalPad,
@@ -1102,9 +1108,9 @@ DrawManagement (
 {
   MODERN_SETUP_PROVIDER_SNAPSHOT  Providers;
   MODERN_UI_MANAGEMENT_SUMMARY    *Summary;
-  CONST CHAR16                    *Labels[5];
-  CONST CHAR16                    *Values[5];
-  CONST CHAR16                    *Groups[5];
+  CONST CHAR16                    *Labels[6];
+  CONST CHAR16                    *Values[6];
+  CONST CHAR16                    *Groups[6];
 
   ModernSetupGetCachedProviderSnapshot (&Providers);
   Summary = &Providers.Management;
@@ -1114,6 +1120,7 @@ DrawManagement (
   Groups[2] = NULL;
   Groups[3] = NULL;
   Groups[4] = NULL;
+  Groups[5] = NULL;
 
   Labels[0] = ModernUiGetString (ModernUiStringIpmi);
   Groups[0] = ModernUiGetString (ModernUiStringGroupManagement);
@@ -1122,10 +1129,13 @@ DrawManagement (
   Values[1] = CapabilityText (Summary->RedfishDiscoverPresent);
   Labels[2] = ModernUiGetString (ModernUiStringManagementInterface);
   Values[2] = CapabilityText (Summary->SmbiosManagementInterfacePresent);
-  Labels[3] = L"Expected sources";
-  Values[3] = L"IPMI / Redfish / SMBIOS management records";
-  Labels[4] = L"OVMF state";
-  Values[4] = L"No BMC interface reported by this platform";
+  Labels[3] = L"Platform note";
+  Groups[3] = L"Empty-state";
+  Values[3] = L"OVMF normally reports no BMC interface";
+  Labels[4] = L"Expected sources";
+  Values[4] = L"IPMI / Redfish / SMBIOS records";
+  Labels[5] = L"Ownership";
+  Values[5] = L"Native platform firmware owns BMC policy";
 
   DrawProviderSummaryPage (
     Ui,
@@ -1581,20 +1591,16 @@ DrawServerInventorySummary (
     UnicodeSPrint (
       IsolationText,
       sizeof (IsolationText),
-      L"IOMMU %s / ACS %s (%u) / ARI %s (%u)",
+      L"IOMMU %s / ACS %u / ARI %u",
       CapabilityText (Providers.Pcie.IommuPolicyEntryPresent || Providers.Pcie.IoMmuProtocolPresent),
-      CapabilityText (Providers.Pcie.AcsPolicyEntryPresent),
       Providers.Pcie.AcsDeviceCount,
-      CapabilityText (Providers.Pcie.AriPolicyEntryPresent),
       Providers.Pcie.AriDeviceCount
       );
     UnicodeSPrint (
       NativePolicyText,
       sizeof (NativePolicyText),
-      L"SR-IOV %s (%u) / ReBAR %s (%u) / Above4G %s",
-      CapabilityText (Providers.Pcie.SriovPolicyEntryPresent),
+      L"SR-IOV %u / ReBAR %u / 4G %s",
       Providers.Pcie.SriovDeviceCount,
-      CapabilityText (Providers.Pcie.ResizeBarPolicyEntryPresent),
       Providers.Pcie.ResizableBarDeviceCount,
       CapabilityText (Providers.Pcie.Above4GPolicyEntryPresent)
       );
@@ -1603,7 +1609,7 @@ DrawServerInventorySummary (
   Content    = ModernSetupContentRect (Ui);
   Panel      = (MODERN_UI_RECT){ Content.X, Content.Y, Content.Width, MIN (Content.Height, 540) };
   Background = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
-  DrawProviderSummarySection (Ui, Theme, Panel, L"Server Inventory Summary", TRUE);
+  DrawProviderSummarySection (Ui, Theme, Panel, L"Asset Summary", TRUE);
   ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
   ModernUiDrawTextFit (
     Ui,
@@ -1649,11 +1655,11 @@ DrawServerInventorySummary (
   RowY += 22;
   DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"SMBIOS / ACPI", SmbiosAcpiText);
   RowY += 26;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Provider Health", ModernSetupGetProviderHealthStateText (ProviderHealth.State));
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Provider state", ModernSetupGetProviderHealthStateText (ProviderHealth.State));
   RowY += 26;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Provider Coverage", ProviderCoverage);
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Coverage", ProviderCoverage);
   RowY += 26;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Provider Issue", ProviderIssue);
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"First issue", ProviderIssue);
   RowY += 26;
   DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, ModernUiGetString (ModernUiStringRasPolicy), SnapshotCapabilityText (Providers.PerformanceStatus, Providers.Performance.RasPolicyEntryPresent));
 
@@ -1669,15 +1675,15 @@ DrawServerInventorySummary (
   RowY += 26;
   DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Endpoints / Bridges", DeviceText);
   RowY += 26;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"IOMMU / ACS / ARI", IsolationText);
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Isolation caps", IsolationText);
   RowY += 26;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"SR-IOV / ReBAR / Above4G", NativePolicyText);
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Policy caps", NativePolicyText);
   RowY += 36;
   DrawProviderSubsectionHeader (Ui, Theme, Column.X, RowY, Column.Width, L"Inventory Note");
   RowY += 22;
   DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Policy ownership", L"Native HII/FormBrowser");
   RowY += 26;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"ModernSetupApp role", L"Read-only snapshot display");
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"App role", L"Read-only display");
 }
 
 /**

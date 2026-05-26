@@ -164,17 +164,39 @@ ModernSetupDrawFooter (
   IN CONST CHAR16              *StatusMessage
   )
 {
-  UINTN  Y;
+  UINTN                         Y;
+  CONST CHAR16                   *HelpText;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  HelpBackground;
 
   Y = Ui->Height - FOOTER_HEIGHT;
   ModernUiEngineDrawFooter (Ui, (MODERN_UI_RECT){ 0, Y, Ui->Width, FOOTER_HEIGHT }, StatusMessage, Theme);
   if ((StatusMessage != NULL) && (StatusMessage[0] != L'\0')) {
     return;
-  } else if (Focus == SetupFocusNav) {
-    ModernUiDrawText (Ui, SCREEN_MARGIN, Y + 10, ModernUiGetString (ModernUiStringFooterNav), Theme->MutedText, Theme->SurfaceRaised);
-  } else {
-    ModernUiDrawText (Ui, SCREEN_MARGIN, Y + 10, ModernUiGetString (ModernUiStringFooterContent), Theme->MutedText, Theme->SurfaceRaised);
   }
+
+  HelpText       = (Focus == SetupFocusNav) ? ModernUiGetString (ModernUiStringFooterNav) : ModernUiGetString (ModernUiStringFooterContent);
+  HelpBackground = ModernUiBlendColor (Theme->BackgroundBlack, Theme->SelectedBand, 28);
+  if ((Ui->Width > (SCREEN_MARGIN * 2)) && (FOOTER_HEIGHT >= 28)) {
+    ModernUiFillRect (
+      Ui,
+      (MODERN_UI_RECT){ SCREEN_MARGIN - 6, Y + 6, Ui->Width - ((SCREEN_MARGIN - 6) * 2), 24 },
+      HelpBackground
+      );
+    ModernUiFillRect (
+      Ui,
+      (MODERN_UI_RECT){ SCREEN_MARGIN - 6, Y + 6, 4, 24 },
+      (Focus == SetupFocusNav) ? Theme->AccentYellow : Theme->AccentOrange
+      );
+  }
+
+  ModernUiDrawText (
+    Ui,
+    SCREEN_MARGIN + 8,
+    Y + 10,
+    HelpText,
+    (Focus == SetupFocusNav) ? Theme->AccentYellow : Theme->Text,
+    HelpBackground
+    );
 }
 
 /**
