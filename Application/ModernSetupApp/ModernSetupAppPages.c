@@ -281,7 +281,16 @@ DrawBoot (
     Ui,
     Layout.RowX,
     Layout.Panel.Y + 20,
-    L"Enter=Launch  N=BootNext  C=Clear BootNext  +/-=Move BootOrder",
+    L"Actions: N=BootNext (Set BootNext)  C=Clear BootNext  +/-=Move BootOrder (Move Up/Move Down)",
+    Theme->MutedText,
+    Theme->Surface
+    );
+  ModernUiDrawTextFit (
+    Ui,
+    Layout.RowX,
+    Layout.Panel.Y + 38,
+    Layout.RowWidth,
+    L"Saved immediately to NVRAM; Default boot entries only; App/Shell use BootNext or Enter",
     Theme->MutedText,
     Theme->Surface
     );

@@ -1462,9 +1462,15 @@ def check_phase25_server_inventory_summary(root: Path) -> list[str]:
         "N=BootNext",
         "+/-=Move",
         "Manual/App only",
+        "Set BootNext",
+        "Clear BootNext",
+        "Move Up",
+        "Move Down",
+        "Saved immediately to NVRAM",
+        "Default boot entries only",
     ):
         if token not in pages_body:
-            raise SmokeFailure(f"Phase44/45 Boot page missing policy affordance token: {token}")
+            raise SmokeFailure(f"Phase44/45/46 Boot page missing policy affordance token: {token}")
     for token in ("L'n'", "L'N'", "L'c'", "L'C'", "L'+'", "L'='", "L'-'", "L'_'"):
         if token not in app_body:
             raise SmokeFailure(f"Phase44 Boot policy keyboard handling missing token: {token}")
