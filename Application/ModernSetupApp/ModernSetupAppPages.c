@@ -271,7 +271,7 @@ DrawBoot (
   MODERN_SETUP_PAGE_LIST_LAYOUT  Layout;
   MODERN_UI_ROW_MODEL           RowModel;
 
-  if (!ModernSetupGetPageListLayout (Ui, mModernSetupPreferences.DashboardDensity, MAX_BOOT_ROWS, FALSE, &Layout)) {
+  if (!ModernSetupGetPageListLayout (Ui, mModernSetupPreferences.DashboardDensity, MAX_BOOT_ROWS + MODERN_SETUP_NATIVE_BOOT_TOOLS_ROW_COUNT, FALSE, &Layout)) {
     Layout.Panel = ModernSetupContentRect (Ui);
   }
 
@@ -303,20 +303,14 @@ DrawBoot (
   }
 
   BootOptions = NULL;
+  BootOptionCount = 0;
   Status = ModernSetupGetCachedBootOptions (&BootOptions, &BootOptionCount);
   if (EFI_ERROR (Status) || (BootOptions == NULL)) {
-    ModernUiDrawText (
-      Ui,
-      Layout.RowX,
-      Layout.FirstRowY,
-      ModernUiGetString (ModernUiStringNoBootOptions),
-      Theme->Warning,
-      Theme->Surface
-      );
-    return;
+    BootOptions = NULL;
+    BootOptionCount = 0;
   }
 
-  for (Index = 0; (Index < BootOptionCount) && (Index < Layout.MaxVisibleRows); Index++) {
+  for (Index = 0; (Index < BootOptionCount) && (Index < MAX_BOOT_ROWS) && ((Index + MODERN_SETUP_NATIVE_BOOT_TOOLS_ROW_COUNT) < Layout.MaxVisibleRows); Index++) {
     Y           = Layout.FirstRowY + (Index * Layout.RowStride);
     State                  = BootOptions[Index].Active ? ModernUiGetString (ModernUiStringActive) : ModernUiGetString (ModernUiStringInactive);
     IsSelected             = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
@@ -358,11 +352,29 @@ DrawBoot (
       );
   }
 
+  Y = Layout.FirstRowY + (Index * Layout.RowStride);
+  IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && ModernSetupBootSelectionIsNativeFallback (Selected, MIN (ModernSetupGetBootSelectableCount (), Layout.MaxVisibleRows)));
+  RowModel.Rect      = (MODERN_UI_RECT){ Layout.RowX, Y - 8, Layout.RowWidth, Layout.RowHeight - 8 };
+  RowModel.Prompt    = L"Native Boot Manager / Boot Maintenance";
+  RowModel.Value     = L"Open native >";
+  RowModel.Role      = IsSelected ? ModernUiRowSelected : ModernUiRowNormal;
+  RowModel.ValueType = ModernUiValueText;
+  ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
+  ModernUiDrawTextFit (
+    Ui,
+    Layout.RowX + Layout.HorizontalPad,
+    Y + 18,
+    (Layout.RowWidth > (Layout.HorizontalPad * 2)) ? (Layout.RowWidth - (Layout.HorizontalPad * 2)) : Layout.RowWidth,
+    L"Open edk2 native boot tools; platform owns boot policy",
+    Theme->MutedText,
+    IsSelected ? Theme->SelectedBand : Theme->Surface
+    );
+
   if (BootOptionCount == 0) {
     ModernUiDrawText (
       Ui,
       Layout.RowX,
-      Layout.FirstRowY,
+      Y + Layout.RowStride,
       ModernUiGetString (ModernUiStringNoBootOptions),
       Theme->Warning,
       Theme->Surface

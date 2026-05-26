@@ -1499,6 +1499,29 @@ def check_phase25_server_inventory_summary(root: Path) -> list[str]:
     if "LOAD_OPTION_HIDDEN" in pages_body:
         raise SmokeFailure("Phase48 native BootManagerMenuApp filter parity must stay in BootDataLib, not the UI page renderer")
 
+    for token in (
+        "Native Boot Manager",
+        "Boot Maintenance",
+        "ModernSetupBootSelectionIsNativeFallback",
+    ):
+        if token not in pages_body:
+            raise SmokeFailure(f"Phase49 native boot tools fallback row missing page token: {token}")
+    for token in (
+        "ModernSetupBootSelectionIsNativeFallback (BootSelection, ModernSetupGetPageSelectableCount (&Ui, PageBoot))",
+        "ModernSetupLaunchUiAppFallback (ImageHandle)",
+        "ModernSetupLaunchSelectedBootOption (BootSelection)",
+    ):
+        if token not in app_body:
+            raise SmokeFailure(f"Phase49 native boot tools fallback dispatch missing app token: {token}")
+    for token in (
+        "ModernSetupGetBootSelectableCount",
+        "ModernSetupBootSelectionIsNativeFallback",
+    ):
+        if token not in actions_body:
+            raise SmokeFailure(f"Phase49 native boot tools fallback selection helper missing action token: {token}")
+    if "ModernSetupLaunchUiAppFallback" in pages_body:
+        raise SmokeFailure("Phase49 native boot tools fallback row must render only; launch dispatch stays in ModernSetupApp.c")
+
     if "Timeout" in boot_data_lib_body:
         raise SmokeFailure("Phase44 must not implement firmware Timeout policy yet")
 

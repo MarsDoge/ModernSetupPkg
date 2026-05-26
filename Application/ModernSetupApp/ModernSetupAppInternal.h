@@ -47,6 +47,7 @@
 #define FOOTER_HEIGHT      36
 #define SCREEN_MARGIN      24
 #define MAX_BOOT_ROWS      9
+#define MODERN_SETUP_NATIVE_BOOT_TOOLS_ROW_COUNT  1
 #define MAX_DEVICE_ROWS    9
 #define DASHBOARD_QUICK_CARD_COUNT  8
 #define MODERN_SETUP_DASHBOARD_CONTINUE_CARD  0
@@ -295,6 +296,17 @@ ModernSetupSetPageSelection (
 UINTN
 ModernSetupGetBootCount (
   VOID
+  );
+
+UINTN
+ModernSetupGetBootSelectableCount (
+  VOID
+  );
+
+BOOLEAN
+ModernSetupBootSelectionIsNativeFallback (
+  IN UINTN  Selection,
+  IN UINTN  SelectableCount
   );
 
 UINTN
