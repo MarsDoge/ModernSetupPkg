@@ -414,39 +414,43 @@ ModernSetupDrawDashboard (
       CardX     = QuickPanel.X + 20 + ((CardIndex % Grid.CardsPerRow) * (Grid.CardWidth + Grid.CardGap));
       CardY     = QuickPanel.Y + Grid.CardTop + ((CardIndex / Grid.CardsPerRow) * (Grid.CardHeight + Grid.CardGap));
       QuickCard = (MODERN_UI_RECT){ CardX, CardY, Grid.CardWidth, Grid.CardHeight };
-      if ((CardIndex == 0) || (CardIndex == 2) || (CardIndex == 4) || (CardIndex == 6)) {
+      if ((CardIndex == MODERN_SETUP_DASHBOARD_CONTINUE_CARD) || (CardIndex == 1) || (CardIndex == 3) || (CardIndex == 5) || (CardIndex == 7)) {
         DrawDashboardQuickGroupLabel (
           Ui,
           Theme,
           QuickCard,
           ModernUiGetString (
-            (CardIndex == 0) ? ModernUiStringGroupBootDevices :
-            ((CardIndex == 2) ? ModernUiStringGroupPlatformHealth :
-            ((CardIndex == 4) ? ModernUiStringGroupPowerPerformance : ModernUiStringGroupManagement))
+            (CardIndex == MODERN_SETUP_DASHBOARD_CONTINUE_CARD) ? ModernUiStringPageExit :
+            ((CardIndex == 1) ? ModernUiStringGroupBootDevices :
+            ((CardIndex == 3) ? ModernUiStringGroupPlatformHealth :
+            ((CardIndex == 5) ? ModernUiStringGroupPowerPerformance : ModernUiStringGroupManagement)))
             )
           );
       }
 
       switch (CardIndex) {
-        case 0:
-          DrawDashboardTile (Ui, Theme, QuickCard, ModernUiGetString (ModernUiStringBootOptions), BootCount, BootDetailText, TRUE, (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
+        case MODERN_SETUP_DASHBOARD_CONTINUE_CARD:
+          DrawDashboardTile (Ui, Theme, QuickCard, ModernUiGetString (ModernUiStringExitContinue), L"Continue native boot flow", L"Same as native UiApp Continue", TRUE, (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
           break;
         case 1:
-          DrawDashboardTile (Ui, Theme, QuickCard, L"Devices / HII", DeviceCount, DeviceDetailText, TRUE, (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
+          DrawDashboardTile (Ui, Theme, QuickCard, ModernUiGetString (ModernUiStringBootOptions), BootCount, BootDetailText, TRUE, (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
           break;
         case 2:
-          DrawDashboardTile (Ui, Theme, QuickCard, L"Provider Health", ModernSetupGetProviderHealthStateText (ProviderHealth.State), ProviderDetailText, (BOOLEAN)(ProviderHealth.State == ModernSetupProviderHealthReady), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
+          DrawDashboardTile (Ui, Theme, QuickCard, L"Devices / HII", DeviceCount, DeviceDetailText, TRUE, (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
           break;
         case 3:
-          DrawDashboardTile (Ui, Theme, QuickCard, L"Firmware", FirmwareValueText, FirmwareDetailText, (BOOLEAN)!EFI_ERROR (Providers.FirmwareStatus), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
+          DrawDashboardTile (Ui, Theme, QuickCard, L"Provider Health", ModernSetupGetProviderHealthStateText (ProviderHealth.State), ProviderDetailText, (BOOLEAN)(ProviderHealth.State == ModernSetupProviderHealthReady), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
           break;
         case 4:
-          DrawDashboardTile (Ui, Theme, QuickCard, L"Power / Thermal", PowerValueText, PowerDetailText, (BOOLEAN)!EFI_ERROR (Providers.PowerStatus), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
+          DrawDashboardTile (Ui, Theme, QuickCard, L"Firmware", FirmwareValueText, FirmwareDetailText, (BOOLEAN)!EFI_ERROR (Providers.FirmwareStatus), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
           break;
         case 5:
-          DrawDashboardTile (Ui, Theme, QuickCard, L"Performance", PerformanceValueText, PerformanceDetailText, (BOOLEAN)!EFI_ERROR (Providers.PerformanceStatus), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
+          DrawDashboardTile (Ui, Theme, QuickCard, L"Power / Thermal", PowerValueText, PowerDetailText, (BOOLEAN)!EFI_ERROR (Providers.PowerStatus), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
           break;
         case 6:
+          DrawDashboardTile (Ui, Theme, QuickCard, L"Performance", PerformanceValueText, PerformanceDetailText, (BOOLEAN)!EFI_ERROR (Providers.PerformanceStatus), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
+          break;
+        case 7:
         default:
           DrawDashboardTile (Ui, Theme, QuickCard, L"Server Inventory", ServerValueText, ServerDetailText, (BOOLEAN)(!EFI_ERROR (Providers.ManagementStatus) || !EFI_ERROR (Providers.PcieStatus)), (BOOLEAN)((Focus == SetupFocusContent) && (Selection == CardIndex)));
           break;

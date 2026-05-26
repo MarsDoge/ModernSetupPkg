@@ -1260,8 +1260,9 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
     count_match = re.search(r"#define\s+DASHBOARD_QUICK_CARD_COUNT\s+(\d+)", internal_body)
     if count_match is None:
         raise SmokeFailure("ModernSetupAppInternal.h missing DASHBOARD_QUICK_CARD_COUNT")
-    if int(count_match.group(1)) < 6:
-        raise SmokeFailure("Dashboard quick-card expansion must expose at least six cards")
+    dashboard_quick_card_count = int(count_match.group(1))
+    if dashboard_quick_card_count < 8:
+        raise SmokeFailure("Dashboard quick-card expansion must expose native Continue plus setup category cards")
     if "DASHBOARD_QUICK_CARD_COUNT" not in dashboard_body:
         raise SmokeFailure("ModernSetupAppDashboard.c must layout cards from DASHBOARD_QUICK_CARD_COUNT")
     if "DASHBOARD_QUICK_VALUE_MIN_HEIGHT" not in dashboard_body:
@@ -1330,10 +1331,16 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
     open_device_body = extract_c_function_body(actions_body, "ModernSetupOpenSelectedDeviceEntry")
     if "ModernSetupInvalidateDeviceEntriesCache ()" not in open_device_body or "ModernSetupInvalidateProviderSnapshotCache ()" not in open_device_body:
         raise SmokeFailure("Phase43 native FormBrowser handoff must invalidate app-side data caches")
+    if "ModernSetupDashboardSelectionRequestsContinue (DashboardSelection)" not in app_body:
+        raise SmokeFailure("Dashboard Enter handling must support native UiApp-style Continue directly from the front page")
+    if "return EFI_SUCCESS;" not in app_body:
+        raise SmokeFailure("Dashboard Continue must leave setup with EFI_SUCCESS like native UiApp Continue")
     if "ModernSetupGetDashboardCategoryRoute (DashboardSelection" not in app_body:
         raise SmokeFailure("Dashboard Enter handling must resolve category landing routes through the shared helper")
     if "mDashboardCategoryRoutes[DASHBOARD_QUICK_CARD_COUNT]" not in actions_body:
         raise SmokeFailure("Dashboard category route table must stay aligned with the visible card count")
+    if "ModernSetupDashboardSelectionRequestsContinue" not in actions_body or "MODERN_SETUP_DASHBOARD_CONTINUE_CARD" not in internal_body:
+        raise SmokeFailure("Dashboard Continue card must use a named shared route/action contract")
     if actions_body.count("SetupFocusContent") < 2 or actions_body.count("SetupFocusNav") < 4:
         raise SmokeFailure("Dashboard category routes must preserve content focus for Boot/Devices and nav focus for overview pages")
     if "DashboardSelection >= DashboardGrid.CardsPerRow" not in app_body:
@@ -1343,6 +1350,9 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
     for token in DASHBOARD_EXPANDED_CARD_TOKENS:
         if token not in dashboard_body:
             raise SmokeFailure(f"ModernSetupAppDashboard.c missing expanded Dashboard card token: {token}")
+    for token in ("MODERN_SETUP_DASHBOARD_CONTINUE_CARD", "ModernUiStringExitContinue", "Continue native boot flow"):
+        if token not in dashboard_body:
+            raise SmokeFailure(f"Dashboard native Continue card missing token: {token}")
     for provider_field in ("Firmware", "Power", "Performance", "Diagnostics"):
         if f"Providers.{provider_field}." not in dashboard_body:
             raise SmokeFailure(
