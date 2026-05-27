@@ -14,6 +14,14 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Modern UI header chrome: the shared header band (used by both `ModernSetupApp`
+  and the modern DisplayEngine) now fades `HeaderPattern` down to the background
+  instead of the older hard top-half/bottom-half split, and the product name,
+  mode label, and clock are laid out by measured width (left-anchored,
+  centred, right-aligned) instead of fixed column offsets — keeping the header
+  seam-free and collision-free from the 1024x768 floor through 1280x800
+  captures. Verified by app X64 CLANGDWARF build, smoke, and a 1280x800 OVMF
+  X64 screendump.
 - Phase49 ModernSetupApp: the Boot page now ends with a native boot-tools entry
   row; pressing Enter on it opens the native Boot Manager / Boot Maintenance via
   `SendForm()` instead of launching a boot option, and the per-entry BootNext /
