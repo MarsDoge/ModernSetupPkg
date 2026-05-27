@@ -49,6 +49,20 @@ XArch 是 ModernSetupPkg 的跨架构验证/产品化术语。XArch 不会替代
 
 本矩阵中的 Phase35 当前状态仅为 `Script`/`Manual` foundation。Static smoke 可检查 helper 和手动工作流存在；`--mode generate-only` 可检查 overlay snapshot；`--mode build` 可检查 firmware FD snapshot；只有 `--mode capture` 成功产出 QEMU `screendump` 后才形成视觉截图证据，并且该 helper 不检查像素，也不会将视觉等价标记为 verified。
 
+## Phase32 响应式页面布局矩阵
+
+Phase32（`ModernSetupGetPageListLayout`，`Application/ModernSetupApp/ModernSetupAppActions.c`，已在 `038a156` 落地）让 Boot/Devices/provider 摘要页的列表行高、padding、可见行上限以及 Devices 预览分栏跟随 app 自有的 `DashboardDensity` 偏好和当前内容矩形；绘制与键盘行数共用同一 helper，smoke 固化其 compact/comfortable 分支。
+
+分辨率下限（适用于下表每一行）：`SelectPreferredGopMode`（`Library/ModernUiRendererLib/ModernUiRendererLib.c`，`MODERN_UI_TARGET_WIDTH` 1024、`MODERN_UI_TARGET_HEIGHT` 768）在当前 GOP 模式已 `>=1024x768` 时保持不变，否则升到满足下限的最小合格模式，因此只要存在合格模式，800x600 这类 < 1024 的模式 App 不会用到。这覆盖了最初 800x600 / 1024x768 / 1280x800 的设想：App 不会在 1024x768 下限之下渲染设置页。
+
+| 页面 | 受测的 helper 驱动布局 | 捕获分辨率（OVMF X64） | 证据 | 结果 |
+| --- | --- | --- | --- | --- |
+| Boot | 密度行、可见行上限、右侧值列、原生 boot-tools 行 | 1280x800（固件 GOP 默认，达下限） | `Captured` | 行无截断；串口日志无 `Exception`/`#PF`/`ASSERT`。 |
+| Devices | 密度行加 `>=720` 宽度的 native-setup 预览分栏 | 1280x800 | `Captured` | 左列表与预览栏均渲染；无缺字方块、无值列重叠。 |
+| Firmware（provider 摘要） | 只读 provider 摘要的密度行 | 1280x800 | `Captured` | 本地化 zh 标签与 `N/A`/只读状态渲染干净。 |
+
+经 `Scripts/capture-ovmf-x64.sh`（`BOOT_APP=1` 加 tab `SENDKEY_SEQUENCE`）在重建当前 `main` HEAD 的 App ESP 后捕获；作为「仅 modern App」产物审阅，**不是** native-vs-modern 的 maintainer `Visual reviewed` 签署。截图默认输出到 `${TMPDIR:-/tmp}/modernsetup-qemu`，不作为资产提交。
+
 ## 产品类别验证矩阵
 
 | 产品类别 | 有证据支持的 App 角色 | 原生 owner / 边界 | 当前验证证据 |

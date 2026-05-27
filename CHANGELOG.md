@@ -71,6 +71,12 @@ this file as both a release log and a lightweight development progress record.
   decisions through the new row helper without promoting `ModernUiHiiBridgeLib`
   or taking HII/config ownership.
 - phase32(app): apply DashboardDensity to Boot/Devices/Provider pages.
+  `Docs/ProductizationValidationMatrix.md` (and zh-CN) now records the responsive
+  page-layout evidence: the renderer pins the App to a 1024x768 floor via
+  `SelectPreferredGopMode`, so sub-1024 modes such as 800x600 are not reached
+  when a qualifying mode exists, and OVMF X64 Boot/Devices/Firmware-provider pages
+  were screendump-inspected at the firmware default 1280x800 (modern-App-only,
+  not a native-vs-modern maintainer Visual reviewed sign-off).
 - Phase30 XArch/productization validation docs and smoke gate coverage through
   `Docs/ProductizationValidationMatrix.md`, its zh-CN counterpart, doc-index
   links, and host-side checks for evidence wording, concrete ARCH values,
