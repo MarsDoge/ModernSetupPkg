@@ -121,6 +121,92 @@ DrawPatternBand (
 }
 
 /**
+  Fill the header band: a solid title strip on top, fading to black below.
+
+  The top @c SolidTop pixels stay solid @c HeaderPattern so the header text
+  (drawn against a @c HeaderPattern background by the caller) sits on a matching
+  fill with no glyph-cell halo. Below that strip the band eases from
+  @c HeaderPattern down to @c BackgroundBlack, replacing the older hard
+  top-half/bottom-half two-tone split that left a visible seam across the middle
+  of the header. The fade starts at @c HeaderPattern so there is no seam where
+  the solid strip meets the gradient. For very short headers the solid strip is
+  capped at half the height and the fade fills whatever remains.
+
+  @param[in] Context  Initialized render context. Must not be NULL.
+  @param[in] Rect     Pixel rectangle to fill. Width and height must be nonzero.
+  @param[in] Theme    Theme token table. Must not be NULL.
+
+  @retval EFI_SUCCESS            Header band was drawn.
+  @retval EFI_INVALID_PARAMETER  Context or Theme is NULL, or Rect is empty.
+  @retval others                 Status returned by renderer primitives.
+**/
+STATIC
+EFI_STATUS
+DrawHeaderGradient (
+  IN MODERN_UI_RENDER_CONTEXT  *Context,
+  IN MODERN_UI_RECT            Rect,
+  IN CONST MODERN_UI_THEME     *Theme
+  )
+{
+  UINTN       SolidTop;
+  UINTN       FadeHeight;
+  UINTN       BandCount;
+  UINTN       BandHeight;
+  UINTN       Index;
+  UINTN       BandY;
+  UINTN       Ratio;
+  EFI_STATUS  Status;
+
+  if ((Context == NULL) || (Theme == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  //
+  // 26px clears the 18px header glyph row plus its top inset, so the title,
+  // mode, and clock all sit on solid HeaderPattern. Short headers fall back to
+  // a half-height strip.
+  //
+  SolidTop = (Rect.Height >= 36) ? 26 : (Rect.Height / 2);
+  Status   = ModernUiFillRect (Context, (MODERN_UI_RECT){ Rect.X, Rect.Y, Rect.Width, SolidTop }, Theme->HeaderPattern);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  FadeHeight = Rect.Height - SolidTop;
+  if (FadeHeight == 0) {
+    return EFI_SUCCESS;
+  }
+
+  //
+  // Render the fade as a few horizontal bands. Each descends a little further
+  // toward BackgroundBlack; the first band stays at HeaderPattern (ratio 0) so
+  // it meets the solid strip seamlessly, and the last band absorbs any rounding
+  // remainder so the wash reaches the exact baseline without spilling past it.
+  //
+  BandCount  = (FadeHeight >= 6) ? 6 : FadeHeight;
+  BandHeight = FadeHeight / BandCount;
+  for (Index = 0; Index < BandCount; Index++) {
+    BandY  = Rect.Y + SolidTop + (Index * BandHeight);
+    Ratio  = (BandCount > 1) ? ((Index * 82) / (BandCount - 1)) : 82;
+    Status = ModernUiFillRect (
+               Context,
+               (MODERN_UI_RECT){
+                 Rect.X,
+                 BandY,
+                 Rect.Width,
+                 (Index == (BandCount - 1)) ? ((Rect.Y + Rect.Height) - BandY) : BandHeight
+               },
+               ModernUiBlendColor (Theme->HeaderPattern, Theme->BackgroundBlack, Ratio)
+               );
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+  }
+
+  return EFI_SUCCESS;
+}
+
+/**
   Draw a three-pixel accent glow strip.
 
   @param[in] Context  Initialized render context. Must not be NULL.
@@ -516,10 +602,19 @@ ModernUiEngineDrawPage (
   IN CONST MODERN_UI_THEME      *Theme
   )
 {
-  EFI_TIME    Time;
-  UINTN       ModeX;
-  UINTN       TimeX;
-  EFI_STATUS  Status;
+  EFI_TIME       Time;
+  CONST CHAR16   *ProductName;
+  CONST CHAR16   *ModeName;
+  CHAR16         TimeText[40];
+  UINTN          TextY;
+  UINTN          LeftEdge;
+  UINTN          RightEdge;
+  UINTN          ProductEnd;
+  UINTN          TimeStart;
+  UINTN          ModeX;
+  UINTN          ModeWidth;
+  UINTN          TimeWidth;
+  EFI_STATUS     Status;
 
   if ((Context == NULL) || (Model == NULL) || (Theme == NULL)) {
     return EFI_INVALID_PARAMETER;
@@ -530,16 +625,7 @@ ModernUiEngineDrawPage (
     return Status;
   }
 
-  Status = ModernUiFillRect (Context, Model->Rect, Theme->BackgroundBlack);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
-  Status = ModernUiFillRect (
-             Context,
-             (MODERN_UI_RECT){ Model->Rect.X, Model->Rect.Y, Model->Rect.Width, Model->Rect.Height / 2 },
-             Theme->HeaderPattern
-             );
+  Status = DrawHeaderGradient (Context, Model->Rect, Theme);
   if (EFI_ERROR (Status)) {
     return Status;
   }
@@ -554,36 +640,61 @@ ModernUiEngineDrawPage (
     return Status;
   }
 
-  Status = ModernUiDrawText (Context, Model->Rect.X + 26, Model->Rect.Y + 6, (Model->ProductName == NULL) ? L"MODERN SETUP" : Model->ProductName, Theme->Text, Theme->HeaderPattern);
+  //
+  // Lay the header out from both edges inward: the product name anchors the
+  // left, the clock is right-aligned by its measured width, and the mode label
+  // is centred in whatever gap remains. Measuring instead of using fixed column
+  // offsets keeps the three labels balanced and collision-free from the 1024px
+  // resolution floor up through wide captures.
+  //
+  TextY       = Model->Rect.Y + 6;
+  LeftEdge    = Model->Rect.X + 26;
+  RightEdge   = (Model->Rect.Width > 52) ? (Model->Rect.X + Model->Rect.Width - 26) : (Model->Rect.X + Model->Rect.Width);
+  ProductName = (Model->ProductName == NULL) ? L"MODERN SETUP" : Model->ProductName;
+  ModeName    = (Model->ModeName == NULL) ? L"ADVANCED MODE" : Model->ModeName;
+
+  Status = ModernUiDrawText (Context, LeftEdge, TextY, ProductName, Theme->Text, Theme->HeaderPattern);
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
-  ModeX = (Context->Width > 190) ? ((Context->Width - 190) / 2) : (Model->Rect.X + 26);
-  Status = ModernUiDrawText (Context, ModeX, Model->Rect.Y + 6, (Model->ModeName == NULL) ? L"ADVANCED MODE" : Model->ModeName, Theme->AccentOrange, Theme->HeaderPattern);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
+  ProductEnd = LeftEdge + ModernUiMeasureText (ProductName);
+  TimeStart  = RightEdge;
   if (!EFI_ERROR (gRT->GetTime (&Time, NULL))) {
-    TimeX = (Context->Width > 238) ? (Context->Width - 238) : (Model->Rect.X + 26);
-    Status = ModernUiDrawTextFormatted (
-               Context,
-               TimeX,
-               Model->Rect.Y + 6,
-               Theme->Text,
-               Theme->HeaderPattern,
-               L"%02d/%02d/%04d  %02d:%02d:%02d",
-               Time.Month,
-               Time.Day,
-               Time.Year,
-               Time.Hour,
-               Time.Minute,
-               Time.Second
-               );
+    UnicodeSPrint (
+      TimeText,
+      sizeof (TimeText),
+      L"%02d/%02d/%04d  %02d:%02d:%02d",
+      Time.Month,
+      Time.Day,
+      Time.Year,
+      Time.Hour,
+      Time.Minute,
+      Time.Second
+      );
+    TimeWidth = ModernUiMeasureText (TimeText);
+    TimeStart = (RightEdge > (ProductEnd + 16 + TimeWidth)) ? (RightEdge - TimeWidth) : (ProductEnd + 16);
+    Status    = ModernUiDrawText (Context, TimeStart, TextY, TimeText, Theme->Text, Theme->HeaderPattern);
     if (EFI_ERROR (Status)) {
       return Status;
     }
+  }
+
+  //
+  // Centre the mode label in the gap between the product name and the clock,
+  // then clamp it so it never overruns either neighbour on a narrow header.
+  //
+  ModeWidth = ModernUiMeasureText (ModeName);
+  ModeX     = LeftEdge;
+  if ((TimeStart > (ProductEnd + 24)) && ((TimeStart - ProductEnd) > ModeWidth)) {
+    ModeX = ProductEnd + (((TimeStart - ProductEnd) - ModeWidth) / 2);
+  } else if (ProductEnd + 16 + ModeWidth <= RightEdge) {
+    ModeX = ProductEnd + 16;
+  }
+
+  Status = ModernUiDrawText (Context, ModeX, TextY, ModeName, Theme->AccentOrange, Theme->HeaderPattern);
+  if (EFI_ERROR (Status)) {
+    return Status;
   }
 
   Status = ModernUiEngineDrawTabs (Context, Model->Rect, Model->Tabs, Model->TabCount, Model->SelectedTab, Theme);
