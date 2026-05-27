@@ -202,6 +202,14 @@ ModernSetupGetProviderSnapshot (
   Snapshot->PlatformStatus = ModernUiPlatformDataGetSummary (&Platform);
   if (!EFI_ERROR (Snapshot->PlatformStatus)) {
     CopyMem (&Snapshot->Platform, &Platform, sizeof (Snapshot->Platform));
+    //
+    // The platform provider leaves the form factor empty when SMBIOS Type 3 is
+    // unavailable. Surface the localized Unknown text instead of an empty value
+    // so it does not duplicate the generic platform name.
+    //
+    if (Snapshot->Platform.FormFactor[0] == L'\0') {
+      SetUnknownText (Snapshot->Platform.FormFactor, ARRAY_SIZE (Snapshot->Platform.FormFactor));
+    }
   }
 
   Snapshot->SecurityStatus = ModernUiSecurityDataGetSummary (&Security);
