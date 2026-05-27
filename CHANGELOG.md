@@ -225,6 +225,20 @@ this file as both a release log and a lightweight development progress record.
 
 ### Changed
 
+- ModernSetupApp default theme is now Graphite Gold (previously the
+  system/orange default), so fresh installs open with the warmer graphite base
+  and gold accent palette on first launch.
+- Modern UI chrome refresh: the header status band is now a flat shelf (a single
+  faint top sheen plus a baseline hairline) instead of vertical "vent" bars and
+  horizontal striations, and the top tabs mark the active tab with a bright
+  underline and a soft background tint instead of a boxed outline plus left
+  accent bar. This affects both `ModernSetupApp` and the shared DisplayEngine
+  chrome via `ModernUiEngineLib`.
+- ModernSetupApp Simplified Chinese: the "Form Factor", "Boot Mode", "Category",
+  and "Device Path" labels are now localized (外形规格 / 启动模式 / 类别 /
+  设备路径), and the Devices count reuses the shared "%u 项" count format. Six
+  CJK glyphs (别外径格规路) were regenerated into the built-in glyph table to
+  cover the new strings.
 - Phase48 ModernSetupApp Boot membership: the Boot page option filter now
   mirrors native `BootManagerMenuApp` `IgnoreBootOption()` semantics — it hides
   the running app and any HIDDEN/INACTIVE entries while preserving the Boot
@@ -313,6 +327,10 @@ this file as both a release log and a lightweight development progress record.
 
 ### Fixed
 
+- ModernSetupApp Dashboard no longer echoes the generic platform name as the
+  form factor: when SMBIOS Type 3 is unavailable the platform provider now
+  reports an empty form factor and the app surfaces its localized Unknown/N/A
+  text instead of duplicating the "UEFI platform" value.
 - Fixed seeded ModernSetupApp Preferences input editing: the first printable key
   now replaces the pre-filled current value (e.g. the default boot timeout "5")
   instead of appending to it, preventing accidental out-of-range values like
