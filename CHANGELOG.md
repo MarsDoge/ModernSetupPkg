@@ -225,6 +225,11 @@ this file as both a release log and a lightweight development progress record.
 
 ### Changed
 
+- ModernSetupApp Dashboard Quick Access polish: cards now carry a subtle raised
+  depth (a faint inner top highlight plus a bottom shadow hairline), and the
+  category headers are grid-aware -- a category that wraps across a grid row now
+  repeats its header at the wrapped row start instead of leaving a header-less
+  card stranded under a neighbouring column.
 - ModernSetupApp default theme is now Graphite Gold (previously the
   system/orange default), so fresh installs open with the warmer graphite base
   and gold accent palette on first launch.
