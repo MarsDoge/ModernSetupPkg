@@ -350,7 +350,7 @@ ModernSetupDrawDashboard (
   PanelBackground = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
   UnicodeSPrint (Resolution, sizeof (Resolution), L"%u x %u", Ui->Width, Ui->Height);
   UnicodeSPrint (BootCount, sizeof (BootCount), ModernUiGetString (ModernUiStringBootCountFormat), ModernSetupGetBootCount ());
-  UnicodeSPrint (DeviceCount, sizeof (DeviceCount), L"%u entries", ModernSetupGetVisibleDeviceCount ());
+  UnicodeSPrint (DeviceCount, sizeof (DeviceCount), ModernUiGetString (ModernUiStringBootCountFormat), ModernSetupGetVisibleDeviceCount ());
   ModernSetupGetCachedProviderSnapshot (&Providers);
   ModernSetupGetProviderHealthSummary (&Providers, &ProviderHealth);
 
