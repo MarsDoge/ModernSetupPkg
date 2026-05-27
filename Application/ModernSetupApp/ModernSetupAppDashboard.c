@@ -28,6 +28,23 @@ DashboardEnterActionText (
   VOID
   );
 
+//
+// Category header shown above the Quick Access cards, indexed by card index.
+// Cards that belong to the same category repeat the same label id so a category
+// that wraps across a grid row still shows its header at the wrapped row start
+// instead of leaving an orphaned, header-less card.
+//
+STATIC CONST MODERN_UI_STRING_ID  mDashboardCardGroupLabel[DASHBOARD_QUICK_CARD_COUNT] = {
+  ModernUiStringPageExit,               // 0  Continue boot (Exit group)
+  ModernUiStringGroupBootDevices,       // 1  Boot options
+  ModernUiStringGroupBootDevices,       // 2  Devices
+  ModernUiStringGroupPlatformHealth,    // 3  Provider status
+  ModernUiStringGroupPlatformHealth,    // 4  Firmware
+  ModernUiStringGroupPowerPerformance,  // 5  Power
+  ModernUiStringGroupPowerPerformance,  // 6  Performance
+  ModernUiStringGroupManagement         // 7  Assets / management
+};
+
 /**
   Draw one dashboard label/value row.
 
@@ -137,6 +154,14 @@ DrawDashboardTile (
   if (Selected) {
     ModernUiFillRect (Ui, (MODERN_UI_RECT){ Rect.X, Rect.Y, Rect.Width, 2 }, Theme->GlowOrange);
     ModernUiFillRect (Ui, (MODERN_UI_RECT){ Rect.X, Rect.Y + Rect.Height - 3, Rect.Width, 2 }, Theme->AccentOrange);
+  } else {
+    //
+    // Subtle raised-card depth: a faint inner highlight on the top edge and a
+    // soft shadow hairline on the bottom edge lift each tile off the section
+    // panel without adding a hard outline.
+    //
+    ModernUiFillRect (Ui, (MODERN_UI_RECT){ Rect.X + 1, Rect.Y + 1, (Rect.Width > 2) ? (Rect.Width - 2) : 1, 1 }, ModernUiBlendColor (TileColor, Theme->Text, 10));
+    ModernUiFillRect (Ui, (MODERN_UI_RECT){ Rect.X + 1, Rect.Y + Rect.Height - 2, (Rect.Width > 2) ? (Rect.Width - 2) : 1, 1 }, ModernUiBlendColor (TileColor, Theme->BackgroundBlack, 55));
   }
 
   ModernUiFillRect (Ui, (MODERN_UI_RECT){ Rect.X, Rect.Y, Selected ? 7 : 4, Rect.Height }, (Emphasis || Selected) ? Theme->AccentYellow : Theme->AccentSoft);
@@ -498,18 +523,18 @@ ModernSetupDrawDashboard (
       CardX     = QuickPanel.X + 20 + ((CardIndex % Grid.CardsPerRow) * (Grid.CardWidth + Grid.CardGap));
       CardY     = QuickPanel.Y + Grid.CardTop + ((CardIndex / Grid.CardsPerRow) * (Grid.CardHeight + Grid.CardGap));
       QuickCard = (MODERN_UI_RECT){ CardX, CardY, Grid.CardWidth, Grid.CardHeight };
-      if ((CardIndex == MODERN_SETUP_DASHBOARD_CONTINUE_CARD) || (CardIndex == 1) || (CardIndex == 3) || (CardIndex == 5) || (CardIndex == 7)) {
-        DrawDashboardQuickGroupLabel (
-          Ui,
-          Theme,
-          QuickCard,
-          ModernUiGetString (
-            (CardIndex == MODERN_SETUP_DASHBOARD_CONTINUE_CARD) ? ModernUiStringPageExit :
-            ((CardIndex == 1) ? ModernUiStringGroupBootDevices :
-            ((CardIndex == 3) ? ModernUiStringGroupPlatformHealth :
-            ((CardIndex == 5) ? ModernUiStringGroupPowerPerformance : ModernUiStringGroupManagement)))
-            )
-          );
+      //
+      // Draw the category header above a card when it is the first card of its
+      // category or when it starts a grid row. The row-start case keeps a
+      // category that wraps across the row boundary (e.g. Platform Health when
+      // it spans the last column of one row and the first column of the next)
+      // from leaving a header-less card stranded under a neighbouring column.
+      //
+      if ((CardIndex == 0) ||
+          (mDashboardCardGroupLabel[CardIndex] != mDashboardCardGroupLabel[CardIndex - 1]) ||
+          ((Grid.CardsPerRow > 0) && ((CardIndex % Grid.CardsPerRow) == 0)))
+      {
+        DrawDashboardQuickGroupLabel (Ui, Theme, QuickCard, ModernUiGetString (mDashboardCardGroupLabel[CardIndex]));
       }
 
       switch (CardIndex) {
