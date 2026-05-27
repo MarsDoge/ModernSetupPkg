@@ -88,45 +88,32 @@ DrawPatternBand (
   IN CONST MODERN_UI_THEME     *Theme
   )
 {
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  FaintAccent;
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  FaintBorder;
-  UINTN                          X;
-  UINTN                          LineY;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  TopSheen;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Baseline;
   EFI_STATUS                     Status;
 
   if ((Context == NULL) || (Theme == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
     return EFI_INVALID_PARAMETER;
   }
 
-  FaintAccent = ModernUiBlendColor (Theme->HeaderPattern, Theme->AccentOrange, 18);
-  FaintBorder = ModernUiBlendColor (Theme->HeaderPattern, Theme->Border, 24);
+  //
+  // Modern flat status bar: a single faint top sheen line plus a slightly
+  // stronger baseline hairline give the band quiet depth and a clean shelf
+  // separation, replacing the older vertical "vent" bars and horizontal
+  // striations that read as dated firmware texture.
+  //
+  TopSheen = ModernUiBlendColor (Theme->HeaderPattern, Theme->Text, 8);
+  Baseline = ModernUiBlendColor (Theme->HeaderPattern, Theme->Border, 40);
 
-  for (LineY = Rect.Y + 12; LineY < (Rect.Y + Rect.Height); LineY += 32) {
-    Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ Rect.X, LineY, Rect.Width, 1 }, FaintBorder);
-    if (EFI_ERROR (Status)) {
-      return Status;
-    }
+  Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ Rect.X, Rect.Y, Rect.Width, 1 }, TopSheen);
+  if (EFI_ERROR (Status)) {
+    return Status;
   }
 
-  for (X = Rect.X + 48; X < (Rect.X + Rect.Width); X += 112) {
-    Status = ModernUiFillRect (
-               Context,
-               (MODERN_UI_RECT){ X, Rect.Y + 6, 2, (Rect.Height > 12) ? (Rect.Height - 12) : 1 },
-               FaintAccent
-               );
+  if (Rect.Height > 1) {
+    Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ Rect.X, Rect.Y + Rect.Height - 1, Rect.Width, 1 }, Baseline);
     if (EFI_ERROR (Status)) {
       return Status;
-    }
-
-    if ((X + 10) < (Rect.X + Rect.Width)) {
-      Status = ModernUiFillRect (
-                 Context,
-                 (MODERN_UI_RECT){ X + 10, Rect.Y + 2, 1, (Rect.Height > 4) ? (Rect.Height - 4) : 1 },
-                 FaintBorder
-                 );
-      if (EFI_ERROR (Status)) {
-        return Status;
-      }
     }
   }
 
@@ -367,33 +354,15 @@ ModernUiEngineDrawTabs (
     TextWidth = ModernUiMeasureText (Tabs[TabIndex].Text);
     TabRect   = (MODERN_UI_RECT){ X + 14, TabY + 2, (TabWidth > 28) ? (TabWidth - 28) : TabWidth, 28 };
     if (TabIndex == SelectedTab) {
+      //
+      // Modern flat tab: a soft background tint marks the active tab without a
+      // hard outline or left bar; the bright underline indicator drawn below is
+      // the primary affordance.
+      //
       Status = ModernUiFillRect (
                  Context,
                  TabRect,
-                 ModernUiBlendColor (Theme->BackgroundBlack, Theme->SelectedBand, 78)
-                 );
-      if (EFI_ERROR (Status)) {
-        return Status;
-      }
-
-      Status = ModernUiFillRect (
-                 Context,
-                 (MODERN_UI_RECT){ TabRect.X, TabRect.Y, 4, TabRect.Height },
-                 Theme->AccentYellow
-                 );
-      if (EFI_ERROR (Status)) {
-        return Status;
-      }
-
-      Status = ModernUiStrokeRect (Context, TabRect, Theme->PopupBorder);
-      if (EFI_ERROR (Status)) {
-        return Status;
-      }
-
-      Status = DrawGlowStrip (
-                 Context,
-                 (MODERN_UI_RECT){ TabRect.X, TabY + 32, TabRect.Width, 3 },
-                 Theme
+                 ModernUiBlendColor (Theme->BackgroundBlack, Theme->SelectedBand, 34)
                  );
       if (EFI_ERROR (Status)) {
         return Status;
@@ -402,8 +371,8 @@ ModernUiEngineDrawTabs (
 
     Status = ModernUiFillRect (
                Context,
-               (MODERN_UI_RECT){ X + 18, TabY + 30, (TabWidth > 36) ? (TabWidth - 36) : TabWidth, 2 },
-               (TabIndex == SelectedTab) ? Theme->AccentYellow : ModernUiBlendColor (Theme->BackgroundBlack, Theme->AccentOrange, 45)
+               (MODERN_UI_RECT){ X + 18, TabY + 30, (TabWidth > 36) ? (TabWidth - 36) : TabWidth, (TabIndex == SelectedTab) ? 3 : 1 },
+               (TabIndex == SelectedTab) ? Theme->AccentYellow : ModernUiBlendColor (Theme->BackgroundBlack, Theme->Border, 60)
                );
     if (EFI_ERROR (Status)) {
       return Status;
@@ -416,7 +385,7 @@ ModernUiEngineDrawTabs (
                (TabWidth > 24) ? (TabWidth - 24) : TabWidth,
                Tabs[TabIndex].Text,
                (TabIndex == SelectedTab) ? Theme->AccentYellow : ModernUiBlendColor (Theme->Text, Theme->AccentOrange, 35),
-               (TabIndex == SelectedTab) ? ModernUiBlendColor (Theme->BackgroundBlack, Theme->SelectedBand, 78) : Theme->BackgroundBlack
+               (TabIndex == SelectedTab) ? ModernUiBlendColor (Theme->BackgroundBlack, Theme->SelectedBand, 34) : Theme->BackgroundBlack
                );
     if (EFI_ERROR (Status)) {
       return Status;
