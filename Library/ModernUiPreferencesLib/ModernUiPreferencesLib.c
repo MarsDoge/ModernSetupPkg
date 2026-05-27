@@ -132,7 +132,7 @@ ModernUiPreferencesResetToDefaults (
   Preferences->Signature         = MODERN_UI_PREFERENCES_SIGNATURE;
   Preferences->Version           = MODERN_UI_PREFERENCES_VERSION;
   Preferences->Size              = sizeof (*Preferences);
-  Preferences->ThemeId           = MODERN_UI_PREFERENCES_THEME_SYSTEM;
+  Preferences->ThemeId           = MODERN_UI_PREFERENCES_THEME_GRAPHITE_GOLD;
   Preferences->DashboardDensity  = ModernUiDashboardDensityComfortable;
   Preferences->RememberLastPage  = TRUE;
   Preferences->ShowAdvancedHints = TRUE;
