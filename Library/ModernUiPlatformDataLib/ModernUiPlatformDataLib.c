@@ -156,7 +156,11 @@ GetFormFactorName (
     case MiscChassisTypeHandHeld:
       return L"Embedded / appliance";
     default:
-      return L"UEFI platform";
+      //
+      // Unrecognized chassis type: report empty so the consumer can show its
+      // own localized "unknown" text instead of duplicating the platform name.
+      //
+      return L"";
   }
 }
 
@@ -183,8 +187,13 @@ GetSmbiosFormFactor (
     return;
   }
 
-  UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"UEFI platform");
-  Smbios = NULL;
+  //
+  // Default to empty (form factor not reported). When SMBIOS Type 3 is absent
+  // the consumer applies its own localized "unknown" text rather than echoing
+  // the generic platform name.
+  //
+  Buffer[0] = L'\0';
+  Smbios    = NULL;
   Status = gBS->LocateProtocol (&gEfiSmbiosProtocolGuid, NULL, (VOID **)&Smbios);
   if (EFI_ERROR (Status) || (Smbios == NULL)) {
     return;
