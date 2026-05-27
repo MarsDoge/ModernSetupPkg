@@ -49,6 +49,20 @@ The validation terms below describe current evidence only:
 
 Current Phase35 status in this matrix is `Script`/`Manual` foundation only. Static smoke can check that the helper and manual workflow exist; `--mode generate-only` can check overlay snapshots; `--mode build` can check firmware FD snapshots; only `--mode capture` with successful QEMU `screendump` output creates visual screenshot evidence, and the helper does not inspect pixels or mark visual equivalence as verified.
 
+## Phase32 Responsive Page Layout Matrix
+
+Phase32 (`ModernSetupGetPageListLayout`, `Application/ModernSetupApp/ModernSetupAppActions.c`, landed in `038a156`) drives Boot/Devices/provider-summary list rows, padding, the visible row cap, and the Devices preview split from the app-owned `DashboardDensity` preference and the active content rect; drawing and keyboard row counts share the helper, and smoke fixes its compact/comfortable branches.
+
+Resolution floor (applies to every row below): `SelectPreferredGopMode` (`Library/ModernUiRendererLib/ModernUiRendererLib.c`, `MODERN_UI_TARGET_WIDTH` 1024, `MODERN_UI_TARGET_HEIGHT` 768) keeps the active GOP mode when it is already `>=1024x768` and otherwise promotes to the smallest qualifying mode, so a sub-1024 mode such as 800x600 is not reached when a qualifying mode exists. This supersedes the original 800x600 / 1024x768 / 1280x800 split: the App does not render setup pages below its 1024x768 floor.
+
+| Page | Helper-driven layout under test | Resolution captured (OVMF X64) | Evidence | Result |
+| --- | --- | --- | --- | --- |
+| Boot | Density rows, visible row cap, right value lane, native boot-tools row | 1280x800 (firmware GOP default, at/above floor) | `Captured` | Rows render without clipping; serial log has no `Exception`/`#PF`/`ASSERT`. |
+| Devices | Density rows plus the `>=720`-width native-setup preview split | 1280x800 | `Captured` | Left list and preview pane both render; no missing-glyph squares or value-lane overlap. |
+| Firmware (provider summary) | Density rows for the read-only provider summary | 1280x800 | `Captured` | Localized zh labels and `N/A`/read-only states render cleanly. |
+
+Captured via `Scripts/capture-ovmf-x64.sh` (`BOOT_APP=1` plus a tab `SENDKEY_SEQUENCE`) after rebuilding the App ESP at the current `main` HEAD; inspected as modern-App-only artifacts, which is **not** a native-vs-modern maintainer `Visual reviewed` sign-off. Captures default to `${TMPDIR:-/tmp}/modernsetup-qemu` and are not committed as assets.
+
 ## Product Class Validation Matrix
 
 | Product class | Evidence-backed App role | Native owner / boundary | Current validation evidence |
