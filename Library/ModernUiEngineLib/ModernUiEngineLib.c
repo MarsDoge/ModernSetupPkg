@@ -83,6 +83,27 @@ GetPlatformName (
 }
 
 /**
+  Return the top Y that vertically centres a single text line within a box.
+
+  Centres one MODERN_UI_TEXT_LINE_HEIGHT line inside a box of the given height.
+  When the box is no taller than a line the text is top-aligned (offset zero).
+
+  @param[in] BoxY       Top pixel Y of the box.
+  @param[in] BoxHeight  Box height in pixels.
+
+  @return Pixel Y at which to draw the text line.
+**/
+STATIC
+UINTN
+ModernUiBoxTextY (
+  IN UINTN  BoxY,
+  IN UINTN  BoxHeight
+  )
+{
+  return BoxY + ((BoxHeight > MODERN_UI_TEXT_LINE_HEIGHT) ? ((BoxHeight - MODERN_UI_TEXT_LINE_HEIGHT) / 2) : 0);
+}
+
+/**
   Draw a procedural header pattern band.
 
   @param[in] Context  Initialized render context. Must not be NULL.
@@ -520,6 +541,79 @@ ModernUiEngineStatusColor (
   return Theme->AccentOrange;
 }
 
+/**
+  Draw a status pill: the base badge shape of the Modern UI vocabulary.
+
+  Fills the pill body with a faint accent-tinted surface, paints a solid accent
+  bar down the left edge plus a one-pixel top sheen, then draws the label
+  vertically centred (via ModernUiBoxTextY) and inset past the accent bar. The
+  caller owns the pill's position and size through Rect; the interior geometry
+  derives from the shared text tokens so the label never crowds the edges (the
+  earlier inline chip pinned an 18px label into a 20px box, which looked clipped).
+
+  @param[in] Context  Initialized render context. Must not be NULL.
+  @param[in] Rect     Pill bounding box. Width and height must be nonzero.
+  @param[in] Text     Label text. Must not be NULL.
+  @param[in] Accent   Accent color for the left bar and the label.
+  @param[in] Theme    Theme token table. Must not be NULL.
+
+  @retval EFI_SUCCESS            Pill was drawn.
+  @retval EFI_INVALID_PARAMETER  A required pointer is NULL or Rect is empty.
+  @retval others                 Status returned by renderer primitives.
+**/
+STATIC
+EFI_STATUS
+ModernUiEngineDrawStatusPill (
+  IN MODERN_UI_RENDER_CONTEXT       *Context,
+  IN MODERN_UI_RECT                 Rect,
+  IN CONST CHAR16                   *Text,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Accent,
+  IN CONST MODERN_UI_THEME          *Theme
+  )
+{
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Fill;
+  UINTN                          TextWidth;
+  EFI_STATUS                     Status;
+
+  if ((Context == NULL) || (Text == NULL) || (Theme == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Fill = ModernUiBlendColor (Theme->BackgroundBlack, Accent, 16);
+
+  Status = ModernUiFillRect (Context, Rect, Fill);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ Rect.X, Rect.Y, 4, Rect.Height }, Accent);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  if (Rect.Width > 4) {
+    Status = ModernUiFillRect (
+               Context,
+               (MODERN_UI_RECT){ Rect.X + 4, Rect.Y, Rect.Width - 4, 1 },
+               ModernUiBlendColor (Accent, Theme->BackgroundBlack, 55)
+               );
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+  }
+
+  TextWidth = (Rect.Width > (MODERN_UI_BOX_TEXT_INSET * 2)) ? (Rect.Width - (MODERN_UI_BOX_TEXT_INSET * 2)) : Rect.Width;
+  return ModernUiDrawTextFit (
+           Context,
+           Rect.X + MODERN_UI_BOX_TEXT_INSET,
+           ModernUiBoxTextY (Rect.Y, Rect.Height),
+           TextWidth,
+           Text,
+           Accent,
+           Fill
+           );
+}
+
 EFI_STATUS
 EFIAPI
 ModernUiEngineDrawFooter (
@@ -560,47 +654,26 @@ ModernUiEngineDrawFooter (
     }
   }
 
-  if ((StatusText != NULL) && (StatusText[0] != CHAR_NULL) && (Rect.Width > 80) && (Rect.Height > 22)) {
+  //
+  // Status pill, drawn through the shared pill primitive. The pill sits just
+  // under the footer's top border and is sized to comfortably contain one text
+  // line (height = line + 6) so the label stays vertically centred instead of
+  // crammed. The height guard keeps the pill from overflowing a short footer.
+  //
+  if ((StatusText != NULL) && (StatusText[0] != CHAR_NULL) && (Rect.Width > 80) &&
+      (Rect.Height >= (MODERN_UI_TEXT_LINE_HEIGHT + 12)))
+  {
     StatusColor  = ModernUiEngineStatusColor (StatusText, Theme);
     TextWidth    = ModernUiMeasureText (StatusText);
     MaxChipWidth = (Rect.Width > 96) ? (Rect.Width - 48) : Rect.Width;
     ChipWidth    = MIN (MaxChipWidth, TextWidth + 42);
 
-    Status = ModernUiFillRect (
-               Context,
-               (MODERN_UI_RECT){ Rect.X + 18, Rect.Y + 7, ChipWidth, 20 },
-               ModernUiBlendColor (Theme->BackgroundBlack, StatusColor, 16)
-               );
-    if (EFI_ERROR (Status)) {
-      return Status;
-    }
-
-    Status = ModernUiFillRect (
-               Context,
-               (MODERN_UI_RECT){ Rect.X + 18, Rect.Y + 7, 4, 20 },
-               StatusColor
-               );
-    if (EFI_ERROR (Status)) {
-      return Status;
-    }
-
-    Status = ModernUiFillRect (
-               Context,
-               (MODERN_UI_RECT){ Rect.X + 22, Rect.Y + 7, ChipWidth - 4, 1 },
-               ModernUiBlendColor (StatusColor, Theme->BackgroundBlack, 55)
-               );
-    if (EFI_ERROR (Status)) {
-      return Status;
-    }
-
-    return ModernUiDrawTextFit (
+    return ModernUiEngineDrawStatusPill (
              Context,
-             Rect.X + 34,
-             Rect.Y + 11,
-             (ChipWidth > 30) ? (ChipWidth - 30) : ChipWidth,
+             (MODERN_UI_RECT){ Rect.X + 18, Rect.Y + 6, ChipWidth, MODERN_UI_TEXT_LINE_HEIGHT + 6 },
              StatusText,
              StatusColor,
-             ModernUiBlendColor (Theme->BackgroundBlack, StatusColor, 16)
+             Theme
              );
   }
 
@@ -757,27 +830,6 @@ ModernUiEngineDrawPage (
   }
 
   return EFI_SUCCESS;
-}
-
-/**
-  Return the top Y that vertically centres a single text line within a box.
-
-  Centres one MODERN_UI_TEXT_LINE_HEIGHT line inside a box of the given height.
-  When the box is no taller than a line the text is top-aligned (offset zero).
-
-  @param[in] BoxY       Top pixel Y of the box.
-  @param[in] BoxHeight  Box height in pixels.
-
-  @return Pixel Y at which to draw the text line.
-**/
-STATIC
-UINTN
-ModernUiBoxTextY (
-  IN UINTN  BoxY,
-  IN UINTN  BoxHeight
-  )
-{
-  return BoxY + ((BoxHeight > MODERN_UI_TEXT_LINE_HEIGHT) ? ((BoxHeight - MODERN_UI_TEXT_LINE_HEIGHT) / 2) : 0);
 }
 
 /**

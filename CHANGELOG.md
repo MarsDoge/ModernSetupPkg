@@ -247,6 +247,16 @@ this file as both a release log and a lightweight development progress record.
 
 ### Changed
 
+- Modern UI engine: added a `ModernUiEngineDrawStatusPill` primitive (second entry
+  in the base shape vocabulary) and refactored the footer status badge onto it.
+  The badge is now sized to comfortably contain one text line (height = line + 6)
+  with the label vertically centred via the shared `ModernUiBoxTextY` helper,
+  fixing the cramped/clipped look of the old fixed 20px chip with text pinned at
+  +11. Verified clean in the app footer (status message centred and legible). The
+  in-setup DisplayEngine badge still shows a separate draw-order overdraw clipping
+  its top — that is tracked for the DisplayEngine row/badge integration step, not a
+  pill-geometry issue. App-local; no public API or PCD change. Verified by smoke,
+  OVMF X64 + app X64 CLANGDWARF builds.
 - Modern UI engine: began a base graphics-primitive vocabulary. Introduced named
   metric tokens (`MODERN_UI_TEXT_LINE_HEIGHT`, `MODERN_UI_BOX_TEXT_INSET`) plus a
   `ModernUiBoxTextY` vertical-centring helper, and extracted the per-row drawing
