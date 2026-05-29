@@ -21,6 +21,19 @@
 #define MODERN_UI_ROW_VALUE_LANE_GAP           16
 #define MODERN_UI_ROW_VALUE_LANE_MIN_WIDTH     (MODERN_UI_ROW_VALUE_LANE_WIDTH + MODERN_UI_ROW_VALUE_LANE_GAP + 80)
 
+//
+// Base metric tokens for the Modern UI shape vocabulary. Primitives derive their
+// geometry from these named tokens instead of repeating raw pixel offsets, so a
+// row/box/pill stays consistently aligned and can be polished in one place.
+//
+// MODERN_UI_TEXT_LINE_HEIGHT mirrors the renderer's built-in glyph cell height
+// (MODERN_UI_BUILTIN_GLYPH_HEIGHT) and is the unit used to vertically centre a
+// single line of text inside a box. MODERN_UI_BOX_TEXT_INSET is the symmetric
+// left/right padding for text inside a row or value box.
+//
+#define MODERN_UI_TEXT_LINE_HEIGHT             18
+#define MODERN_UI_BOX_TEXT_INSET               16
+
 /**
   Return a display string for the current build architecture.
 
@@ -746,6 +759,122 @@ ModernUiEngineDrawPage (
   return EFI_SUCCESS;
 }
 
+/**
+  Return the top Y that vertically centres a single text line within a box.
+
+  Centres one MODERN_UI_TEXT_LINE_HEIGHT line inside a box of the given height.
+  When the box is no taller than a line the text is top-aligned (offset zero).
+
+  @param[in] BoxY       Top pixel Y of the box.
+  @param[in] BoxHeight  Box height in pixels.
+
+  @return Pixel Y at which to draw the text line.
+**/
+STATIC
+UINTN
+ModernUiBoxTextY (
+  IN UINTN  BoxY,
+  IN UINTN  BoxHeight
+  )
+{
+  return BoxY + ((BoxHeight > MODERN_UI_TEXT_LINE_HEIGHT) ? ((BoxHeight - MODERN_UI_TEXT_LINE_HEIGHT) / 2) : 0);
+}
+
+/**
+  Draw one statement row: the base row shape of the Modern UI vocabulary.
+
+  Paints the role-derived selection surface, then the prompt text, then the
+  value (if any) through the value-lane primitive. All geometry comes from the
+  shared metric tokens (text inset, line height, value lane) so every row stays
+  aligned and the row shape can be polished in one place. The prompt lane shrinks
+  to clear the value lane only when the row has a value and is wide enough to
+  host one; otherwise the prompt uses the full inset-to-inset width.
+
+  @param[in] Context  Initialized render context. Must not be NULL.
+  @param[in] Row      Row model to draw. Must not be NULL.
+  @param[in] Theme    Theme token table. Must not be NULL.
+
+  @retval EFI_SUCCESS            Row was drawn.
+  @retval EFI_INVALID_PARAMETER  A required pointer is NULL.
+  @retval others                 Status returned by renderer primitives.
+**/
+STATIC
+EFI_STATUS
+ModernUiEngineDrawStatementRow (
+  IN MODERN_UI_RENDER_CONTEXT   *Context,
+  IN CONST MODERN_UI_ROW_MODEL  *Row,
+  IN CONST MODERN_UI_THEME      *Theme
+  )
+{
+  BOOLEAN                        Selected;
+  BOOLEAN                        Disabled;
+  BOOLEAN                        Action;
+  BOOLEAN                        Subtitle;
+  BOOLEAN                        HasValue;
+  UINTN                          PromptWidth;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  TextColor;
+  EFI_STATUS                     Status;
+
+  if ((Context == NULL) || (Row == NULL) || (Theme == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Selected   = (BOOLEAN)(Row->Role == ModernUiRowSelected);
+  Disabled   = (BOOLEAN)((Row->Role == ModernUiRowDisabled) || (Row->Role == ModernUiRowReadOnly));
+  Action     = (BOOLEAN)(Row->Role == ModernUiRowAction);
+  Subtitle   = (BOOLEAN)(Row->Role == ModernUiRowSubtitle);
+  HasValue   = (BOOLEAN)((Row->Value != NULL) && (Row->Value[0] != CHAR_NULL));
+  Background = ModernUiGetSelectableRowBackground (Selected, Disabled, Action, Subtitle, Theme);
+  TextColor  = Disabled ? Theme->MutedText : (Selected ? Theme->Text : Theme->MutedText);
+  if (Row->Role == ModernUiRowWarning) {
+    TextColor = Theme->WarningText;
+  }
+
+  Status = ModernUiDrawSelectableRow (Context, Row->Rect, Selected, Disabled, Action, Subtitle, Theme);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  if ((Row->Prompt != NULL) && (Row->Prompt[0] != CHAR_NULL)) {
+    PromptWidth = (Row->Rect.Width > (MODERN_UI_BOX_TEXT_INSET * 2)) ? (Row->Rect.Width - (MODERN_UI_BOX_TEXT_INSET * 2)) : Row->Rect.Width;
+    if (HasValue && (Row->Rect.Width > MODERN_UI_ROW_VALUE_LANE_MIN_WIDTH)) {
+      PromptWidth = Row->Rect.Width - MODERN_UI_ROW_VALUE_LANE_WIDTH - MODERN_UI_ROW_VALUE_LANE_GAP - MODERN_UI_BOX_TEXT_INSET;
+    }
+
+    Status = ModernUiDrawTextFit (
+               Context,
+               Row->Rect.X + MODERN_UI_BOX_TEXT_INSET,
+               ModernUiBoxTextY (Row->Rect.Y, Row->Rect.Height),
+               PromptWidth,
+               Row->Prompt,
+               TextColor,
+               Background
+               );
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+  }
+
+  if (HasValue) {
+    Status = ModernUiEngineDrawValue (
+               Context,
+               &(MODERN_UI_VALUE_MODEL){
+                 Row->Rect,
+                 Row->Value,
+                 Row->ValueType,
+                 Selected
+               },
+               Theme
+               );
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
+  }
+
+  return EFI_SUCCESS;
+}
+
 EFI_STATUS
 EFIAPI
 ModernUiEngineDrawRows (
@@ -755,72 +884,17 @@ ModernUiEngineDrawRows (
   IN CONST MODERN_UI_THEME      *Theme
   )
 {
-  UINTN                          Index;
-  UINTN                          PromptWidth;
-  BOOLEAN                        Selected;
-  BOOLEAN                        Disabled;
-  BOOLEAN                        Action;
-  BOOLEAN                        Subtitle;
-  BOOLEAN                        HasValue;
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background;
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  TextColor;
-  EFI_STATUS                     Status;
+  UINTN       Index;
+  EFI_STATUS  Status;
 
   if ((Context == NULL) || (Theme == NULL) || ((RowCount > 0) && (Rows == NULL))) {
     return EFI_INVALID_PARAMETER;
   }
 
   for (Index = 0; Index < RowCount; Index++) {
-    Selected = (BOOLEAN)(Rows[Index].Role == ModernUiRowSelected);
-    Disabled = (BOOLEAN)((Rows[Index].Role == ModernUiRowDisabled) || (Rows[Index].Role == ModernUiRowReadOnly));
-    Action   = (BOOLEAN)(Rows[Index].Role == ModernUiRowAction);
-    Subtitle = (BOOLEAN)(Rows[Index].Role == ModernUiRowSubtitle);
-    HasValue = (BOOLEAN)((Rows[Index].Value != NULL) && (Rows[Index].Value[0] != CHAR_NULL));
-    Background = ModernUiGetSelectableRowBackground (Selected, Disabled, Action, Subtitle, Theme);
-    TextColor  = Disabled ? Theme->MutedText : (Selected ? Theme->Text : Theme->MutedText);
-    if (Rows[Index].Role == ModernUiRowWarning) {
-      TextColor = Theme->WarningText;
-    }
-
-    Status = ModernUiDrawSelectableRow (Context, Rows[Index].Rect, Selected, Disabled, Action, Subtitle, Theme);
+    Status = ModernUiEngineDrawStatementRow (Context, &Rows[Index], Theme);
     if (EFI_ERROR (Status)) {
       return Status;
-    }
-
-    if ((Rows[Index].Prompt != NULL) && (Rows[Index].Prompt[0] != CHAR_NULL)) {
-      PromptWidth = (Rows[Index].Rect.Width > 32) ? (Rows[Index].Rect.Width - 32) : Rows[Index].Rect.Width;
-      if (HasValue && (Rows[Index].Rect.Width > MODERN_UI_ROW_VALUE_LANE_MIN_WIDTH)) {
-        PromptWidth = Rows[Index].Rect.Width - MODERN_UI_ROW_VALUE_LANE_WIDTH - MODERN_UI_ROW_VALUE_LANE_GAP - 16;
-      }
-
-      Status = ModernUiDrawTextFit (
-                 Context,
-                 Rows[Index].Rect.X + 16,
-                 Rows[Index].Rect.Y + ((Rows[Index].Rect.Height > 18) ? ((Rows[Index].Rect.Height - 18) / 2) : 0),
-                 PromptWidth,
-                 Rows[Index].Prompt,
-                 TextColor,
-                 Background
-                 );
-      if (EFI_ERROR (Status)) {
-        return Status;
-      }
-    }
-
-    if (HasValue) {
-      Status = ModernUiEngineDrawValue (
-                 Context,
-                 &(MODERN_UI_VALUE_MODEL){
-                   Rows[Index].Rect,
-                   Rows[Index].Value,
-                   Rows[Index].ValueType,
-                   Selected
-                 },
-                 Theme
-                 );
-      if (EFI_ERROR (Status)) {
-        return Status;
-      }
     }
   }
 
@@ -857,9 +931,9 @@ ModernUiEngineDrawValue (
 
   return ModernUiDrawTextFit (
            Context,
-           Rect.X + 16,
-           Rect.Y + ((Rect.Height > 18) ? ((Rect.Height - 18) / 2) : 0),
-           (Rect.Width > 32) ? (Rect.Width - 32) : Rect.Width,
+           Rect.X + MODERN_UI_BOX_TEXT_INSET,
+           ModernUiBoxTextY (Rect.Y, Rect.Height),
+           (Rect.Width > (MODERN_UI_BOX_TEXT_INSET * 2)) ? (Rect.Width - (MODERN_UI_BOX_TEXT_INSET * 2)) : Rect.Width,
            Value->Text,
            Value->Selected ? Theme->Text : Theme->MutedText,
            ModernUiGetSelectableRowBackground (Value->Selected, FALSE, FALSE, FALSE, Theme)

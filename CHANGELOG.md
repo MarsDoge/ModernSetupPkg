@@ -247,6 +247,16 @@ this file as both a release log and a lightweight development progress record.
 
 ### Changed
 
+- Modern UI engine: began a base graphics-primitive vocabulary. Introduced named
+  metric tokens (`MODERN_UI_TEXT_LINE_HEIGHT`, `MODERN_UI_BOX_TEXT_INSET`) plus a
+  `ModernUiBoxTextY` vertical-centring helper, and extracted the per-row drawing
+  in `ModernUiEngineDrawRows` into a single `ModernUiEngineDrawStatementRow`
+  primitive that `ModernUiEngineDrawValue` shares. Behaviour-preserving (no pixel
+  change; verified by app X64 capture of the dashboard and Boot page), this
+  replaces scattered raw pixel offsets so row/box geometry is defined and polished
+  in one place. Groundwork for moving the DisplayEngine's menu rows off edk2's
+  text-grid column truncation onto graphical primitives. App-local; no public API
+  or PCD change. Verified by smoke + app X64 CLANGDWARF build.
 - ModernSetupApp Dashboard Quick Access polish: cards now carry a subtle raised
   depth (a faint inner top highlight plus a bottom shadow hairline), and the
   category headers are grid-aware -- a category that wraps across a grid row now
