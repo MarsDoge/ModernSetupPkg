@@ -83,8 +83,11 @@ STATIC CONST MODERN_UI_THEME  mGraphiteGoldTheme = {
 /**
   Return the active built-in theme token table.
 
-  The returned pointer is owned by this library and must not be freed or
-  modified by the caller.
+  The table is selected by the build-time PcdModernSetupTheme value:
+  0 resolves to the orange theme, 1 to the deep-red theme, and 2 to the
+  graphite/gold theme (the default, matching the ModernSetupApp front page).
+  Any unrecognized value falls back to the orange theme. The returned pointer
+  is owned by this library and must not be freed or modified by the caller.
 
   @return Non-NULL pointer to immutable theme tokens.
 **/
@@ -94,11 +97,14 @@ ModernUiGetTheme (
   VOID
   )
 {
-  if (FixedPcdGet8 (PcdModernSetupTheme) == 1) {
-    return &mRedTheme;
+  switch (FixedPcdGet8 (PcdModernSetupTheme)) {
+    case 1:
+      return &mRedTheme;
+    case 2:
+      return &mGraphiteGoldTheme;
+    default:
+      return &mOrangeTheme;
   }
-
-  return &mOrangeTheme;
 }
 
 /**

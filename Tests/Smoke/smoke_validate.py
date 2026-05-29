@@ -2536,7 +2536,7 @@ def check_overlay_generation(root: Path) -> list[str]:
                 dsc = workspace / "Build" / "ModernSetupPkgOverlay" / dsc_name
                 if engine == "modern":
                     assert_contains(dsc, "ModernUiEngineLib|ModernSetupPkg/Library/ModernUiEngineLib/ModernUiEngineLib.inf")
-                    assert_contains(dsc, "gModernSetupPkgTokenSpaceGuid.PcdModernSetupTheme|0x00")
+                    assert_contains(dsc, "gModernSetupPkgTokenSpaceGuid.PcdModernSetupTheme|0x02")
                     if not any("ModernDisplayEngineDxe" in path.read_text(encoding="utf-8") for path in generated):
                         raise SmokeFailure(f"{platform} modern overlay did not reference ModernDisplayEngineDxe")
                 else:

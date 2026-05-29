@@ -14,7 +14,7 @@ WORKSPACE="$(DetectWorkspace)"
 TARGET="${TARGET:-DEBUG}"
 TOOL_CHAIN_TAG="${TOOL_CHAIN_TAG:-GCC}"
 JOBS="${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
-MODERN_SETUP_THEME="${MODERN_SETUP_THEME:-orange}"
+MODERN_SETUP_THEME="${MODERN_SETUP_THEME:-graphite-gold}"
 MODERN_SETUP_DISPLAY_ENGINE="${MODERN_SETUP_DISPLAY_ENGINE:-modern}"
 MODERN_SETUP_REPLACE_UIAPP="${MODERN_SETUP_REPLACE_UIAPP:-0}"
 GENERATE_ONLY="${GENERATE_ONLY:-0}"
@@ -53,11 +53,13 @@ theme_pcd = {
     "red": "0x01",
     "accent-red": "0x01",
     "dark-red": "0x01",
+    "graphite-gold": "0x02",
+    "graphite": "0x02",
 }.get(theme_name)
 if theme_pcd is None:
     raise SystemExit(
         f"Unsupported MODERN_SETUP_THEME={theme_name!r}; "
-        "use orange, amber, dark-orange, red, accent-red, or dark-red"
+        "use orange, amber, dark-orange, red, accent-red, dark-red, graphite, or graphite-gold"
     )
 if display_engine not in {"modern", "native"}:
     raise SystemExit(
