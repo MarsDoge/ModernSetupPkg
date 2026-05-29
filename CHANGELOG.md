@@ -14,6 +14,14 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- ModernSetupApp header clock now updates live while the front page is idle. The
+  app loop arms a one-second periodic timer and waits on it alongside the
+  keyboard/pointer sources, repainting only the header clock text in place on
+  each tick (no full-frame redraw, so no flicker on the direct-to-GOP renderer).
+  Setting the date/time is unchanged — that still belongs to the native setup
+  forms reached via `SendForm()`; this only keeps the displayed clock from
+  freezing between keystrokes. The change is entirely app-local (no public API
+  or PCD changes). Verified by app X64 CLANGDWARF build and smoke.
 - Modern UI header chrome: the shared header band (used by both `ModernSetupApp`
   and the modern DisplayEngine) now fades `HeaderPattern` down to the background
   instead of the older hard top-half/bottom-half split, and the product name,

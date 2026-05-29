@@ -212,6 +212,12 @@ ModernSetupDrawHeader (
   );
 
 VOID
+ModernSetupRefreshHeaderClock (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme
+  );
+
+VOID
 ModernSetupDrawTabs (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,

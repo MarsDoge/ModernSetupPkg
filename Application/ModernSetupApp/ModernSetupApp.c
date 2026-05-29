@@ -13,6 +13,29 @@
 EFI_HANDLE      mModernSetupImageHandle;
 
 /**
+  Cancel and release the header-clock refresh timer, if one was armed.
+
+  Called on every path that leaves the front-page loop so re-entering the
+  application does not leak a periodic timer event. Safe to call with a NULL
+  handle, which is what the loop holds when the timer could not be created.
+
+  @param[in] TickEvent  Timer event handle, or NULL if none was armed.
+**/
+STATIC
+VOID
+ModernSetupDisarmClock (
+  IN EFI_EVENT  TickEvent
+  )
+{
+  if (TickEvent == NULL) {
+    return;
+  }
+
+  gBS->SetTimer (TickEvent, TimerCancel, 0);
+  gBS->CloseEvent (TickEvent);
+}
+
+/**
   ModernSetupApp entry point.
 
   @param[in] ImageHandle  UEFI image handle for this application.
@@ -64,6 +87,11 @@ UefiMain (
   BOOLEAN                   OldResetConfirmationPending;
   MODERN_UI_PREFERENCES     OldPreferences;
   CHAR16                    OldStatusMessage[96];
+  EFI_EVENT                 TickEvent;
+  EFI_EVENT                 WaitSet[3];
+  EFI_EVENT                 KeyEvent;
+  UINTN                     WaitCount;
+  UINTN                     WaitIndex;
 
   gBS->SetWatchdogTimer (0, 0, 0, NULL);
   mModernSetupImageHandle = ImageHandle;
@@ -81,6 +109,22 @@ UefiMain (
     ModernUiPreferencesResetToDefaults (&mModernSetupPreferences);
   }
   ModernUiInputInit (&Input);
+
+  //
+  // Arm a one-second periodic timer so the idle loop wakes to refresh the
+  // header clock even when no key is pressed. 10,000,000 is one second in the
+  // 100 ns units SetTimer expects. If the timer cannot be created the loop
+  // falls back to a plain blocking input wait and the clock simply does not
+  // advance until the next keystroke.
+  //
+  TickEvent = NULL;
+  Status    = gBS->CreateEvent (EVT_TIMER, TPL_CALLBACK, NULL, NULL, &TickEvent);
+  if (EFI_ERROR (Status)) {
+    TickEvent = NULL;
+  } else {
+    gBS->SetTimer (TickEvent, TimerPeriodic, 10000000);
+  }
+
   Theme         = ModernUiGetThemeForPreference (mModernSetupPreferences.ThemeId);
   Page          = PageDashboard;
   Focus         = SetupFocusNav;
@@ -98,6 +142,34 @@ UefiMain (
       Theme = ModernUiGetThemeForPreference (mModernSetupPreferences.ThemeId);
       ModernSetupDrawCurrentPage (&Ui, Theme, Page, Focus, DashboardSelection, BootSelection, DeviceSelection, PreferencesSelection, ExitSelection, StatusMessage);
       Redraw = FALSE;
+    }
+
+    //
+    // When the clock timer is armed, wait on it alongside the input sources
+    // (tick last, so a pending keystroke or pointer event wins the race and is
+    // serviced by ModernUiReadInput below). A timer wake only repaints the
+    // header clock in place and loops again without disturbing the rest of the
+    // frame.
+    //
+    if (TickEvent != NULL) {
+      KeyEvent = (Input.TextInEx != NULL) ? Input.TextInEx->WaitForKeyEx :
+                 ((Input.TextIn != NULL) ? Input.TextIn->WaitForKey : NULL);
+      WaitCount = 0;
+      if (KeyEvent != NULL) {
+        WaitSet[WaitCount++] = KeyEvent;
+      }
+
+      if ((Input.Pointer != NULL) && (Input.Pointer->WaitForInput != NULL)) {
+        WaitSet[WaitCount++] = Input.Pointer->WaitForInput;
+      }
+
+      WaitSet[WaitCount++] = TickEvent;
+
+      Status = gBS->WaitForEvent (WaitCount, WaitSet, &WaitIndex);
+      if (!EFI_ERROR (Status) && (WaitSet[WaitIndex] == TickEvent)) {
+        ModernSetupRefreshHeaderClock (&Ui, Theme);
+        continue;
+      }
     }
 
     Status = ModernUiReadInput (&Input, &Event);
@@ -315,6 +387,7 @@ UefiMain (
           Focus  = SetupFocusNav;
           Redraw = TRUE;
         } else {
+          ModernSetupDisarmClock (TickEvent);
           return EFI_SUCCESS;
         }
 
@@ -328,6 +401,7 @@ UefiMain (
           Redraw = TRUE;
         } else if (Page == PageDashboard) {
           if (ModernSetupDashboardSelectionRequestsContinue (DashboardSelection)) {
+            ModernSetupDisarmClock (TickEvent);
             return EFI_SUCCESS;
           }
 
@@ -360,6 +434,7 @@ UefiMain (
         } else if (Page == PageExit) {
           if (ExitSelection == 0) {
             ResetConfirmationPending = FALSE;
+            ModernSetupDisarmClock (TickEvent);
             return EFI_SUCCESS;
           } else if (ExitSelection == 1) {
             ResetConfirmationPending = FALSE;
