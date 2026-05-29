@@ -255,6 +255,16 @@ this file as both a release log and a lightweight development progress record.
 - ModernSetupApp default theme is now Graphite Gold (previously the
   system/orange default), so fresh installs open with the warmer graphite base
   and gold accent palette on first launch.
+- The in-setup DisplayEngine now defaults to Graphite Gold as well, closing the
+  theme seam where the Graphite Gold front page jumped to orange after
+  `SendForm()` entered a real setup form. `PcdModernSetupTheme` gains value
+  `2 = graphite/gold` and its default changes from `0x00` to `0x02`;
+  `ModernUiGetTheme()` maps the new value, and the `MODERN_SETUP_THEME` build
+  switch gains `graphite-gold`/`graphite` (now the default across the OVMF X64,
+  ArmVirt, LoongArchVirt, and RiscVVirt scripts). `orange`/`red` remain
+  selectable for integrators who want the older palette. **This is a public PCD
+  default + semantics change and requires `core-api` review before the batch PR
+  merges.** Verified by smoke (overlay dry run now asserts `|0x02`).
 - Modern UI chrome refresh: the header status band is now a flat shelf (a single
   faint top sheen plus a baseline hairline) instead of vertical "vent" bars and
   horizontal striations, and the top tabs mark the active tab with a bright

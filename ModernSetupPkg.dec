@@ -51,5 +51,7 @@
 [PcdsFixedAtBuild]
   gModernSetupPkgTokenSpaceGuid.PcdModernSetupDefaultLanguage|"zh-Hans"|VOID*|0x00000001
   ## Selects the built-in DisplayEngine theme.
-  #  0 = black/orange, 1 = black/deep-red/yellow.
-  gModernSetupPkgTokenSpaceGuid.PcdModernSetupTheme|0x00|UINT8|0x00000002
+  #  0 = black/orange, 1 = black/deep-red/yellow, 2 = graphite/gold.
+  #  Defaults to graphite/gold so in-setup pages match the ModernSetupApp
+  #  front-page default theme; integrators may override to 0 or 1.
+  gModernSetupPkgTokenSpaceGuid.PcdModernSetupTheme|0x02|UINT8|0x00000002
