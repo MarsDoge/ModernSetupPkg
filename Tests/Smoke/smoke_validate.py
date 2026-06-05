@@ -67,6 +67,17 @@ PROHIBITED_DEFAULT_OVERLAY_TOKENS = (
     "ModernUiHiiBridge.h",
     "ModernUiPageAdapter.h",
 )
+# The experimental LVGL rendering backend (Experimental/LvglSpikePkg and the
+# LVGL-backed renderer) is selected only by MODERN_SETUP_DISPLAY_ENGINE=lvgl and
+# must never appear in a default (native/modern) generated overlay. These tokens
+# are checked against the *generated* overlays only -- the build scripts
+# themselves legitimately reference them inside the lvgl branch.
+PROHIBITED_DEFAULT_OVERLAY_LVGL_TOKENS = (
+    "LvglCoreLib",
+    "ModernUiLvglRendererLib",
+    "LvglSpikePkg",
+    "LvglDisplayEngineDxe",
+)
 PROHIBITED_THEME_ALIAS_TOKENS = (
     "\x61\x6f\x72\x75\x73",
     "\x61\x73\x75\x73",
@@ -2263,7 +2274,6 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         "ModernDisplayFormRowGetVisualRole",
         "MODERN_DISPLAY_FORM_ROW",
         "ModernDisplayDrawStatementRowAccents",
-        "ModernDisplayDrawStatementValueLane",
     ):
         if token not in row_surface_body:
             raise SmokeFailure(f"DisplayEngine row surface must consume the Phase34/36 row model/helper: {token}")
@@ -2280,8 +2290,8 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         "ModernDisplayStatementTextInset",
         "ModernDisplayDrawRightRailDivider",
         "ModernDisplayPageStatusText",
-        "ModernDisplayDrawStatementValueLane",
-        "ModernDisplayDrawStatementValueLaneCue",
+        "ModernDisplayKindToValueType",
+        "ModernDisplayDrawStatementRowCue",
         "ModernDisplayFooterStatusReservedColumns",
         "ModernDisplayPageState",
         "ModernDisplayPageStateRebootRequired",
@@ -2310,32 +2320,42 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         if token not in page_chrome_body:
             raise SmokeFailure(f"Phase39/40 page chrome must render existing FormBrowser presentation context: {token}")
 
-    value_lane_body = extract_c_function_body(internal_text, "ModernDisplayDrawStatementValueLane")
+    # Per-opcode control affordance: the DisplayEngine reuses the SHARED engine
+    # cue vocabulary (ModernUiEngineDrawControlCue) rather than carrying its own
+    # shape switch. The adapter only maps its row kind to the shared value type;
+    # the affordance shapes themselves live once in ModernUiEngineLib so the App
+    # value lane and the in-setup row read identically.
+    kind_cue_body = extract_c_function_body(internal_text, "ModernDisplayKindToValueType")
     for token in (
-        "ModernDisplayDrawStatementValueLaneCue",
+        "ModernDisplayFormRowCheckbox",
+        "ModernUiValueCheckbox",
+        "ModernDisplayFormRowNumeric",
+        "ModernUiValueNumeric",
+        "ModernDisplayFormRowOrderedList",
+        "ModernUiValueOrderedList",
+    ):
+        if token not in kind_cue_body:
+            raise SmokeFailure(f"Phase41 control cue kind mapper missing mapping token: {token}")
+
+    # The post-text overlay draws the affordance only on editable rows and only
+    # after native text has been printed; it must classify already-materialized
+    # statement data, delegate to the shared engine cue, and never read/write
+    # HII or storage.
+    row_cue_body = extract_c_function_body(internal_text, "ModernDisplayDrawStatementRowCue")
+    for token in (
+        "ModernDisplayClassifyStatementForForm",
         "ModernDisplayFormRowIsTextOnly",
-        "ModernDisplayFormRowStateHighlighted",
         "ModernDisplayFormRowStateDisabled",
         "ModernDisplayFormRowStateReadOnly",
+        "ModernUiEngineDrawControlCue",
+        "ModernDisplayKindToValueType",
     ):
-        if token not in value_lane_body:
-            raise SmokeFailure(f"Phase41 value lane polish missing guarded draw token: {token}")
-
-    value_lane_cue_body = extract_c_function_body(internal_text, "ModernDisplayDrawStatementValueLaneCue")
-    for token in (
-        "ModernUiStrokeRect",
-        "ModernUiFillRect",
-        "ModernUiBlendColor",
-        "ModernDisplayFormRowAccentColor",
-        "ModernDisplayFormRowStateSelected",
-        "Theme->AccentYellow",
-        "Theme->Border",
-    ):
-        if token not in value_lane_cue_body:
-            raise SmokeFailure(f"Phase41 value lane cue helper missing presentation token: {token}")
-    for token in ("ConfigAccess", "RouteConfig", "ExtractConfig", "SetVariable", "HiiSetBrowserData", "HiiGetString"):
-        if token in value_lane_cue_body:
-            raise SmokeFailure(f"Phase41 value lane cue helper contains prohibited semantic/storage token: {token}")
+        if token not in row_cue_body:
+            raise SmokeFailure(f"Phase41 control cue overlay missing guarded draw token: {token}")
+    for body in (kind_cue_body, row_cue_body):
+        for token in ("ConfigAccess", "RouteConfig", "ExtractConfig", "SetVariable", "HiiSetBrowserData", "HiiGetString"):
+            if token in body:
+                raise SmokeFailure(f"Phase41 control cue helper contains prohibited semantic/storage token: {token}")
 
     right_help_body = extract_c_function_body(internal_text, "ModernDisplayDrawRightHelpRailContext")
     for token in (
@@ -2368,6 +2388,34 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
     ):
         if token not in engine_text:
             raise SmokeFailure(f"Phase36 DisplayEngine footer status chip missing token: {token}")
+
+    # The shared control-cue vocabulary is the single home for per-type
+    # affordance shapes; both the App value lane and the DisplayEngine row cue
+    # delegate to it, so the shapes are defined exactly once here. It is built
+    # only from renderer primitives and keys on the engine value type.
+    control_cue_body = extract_c_function_body(engine_text, "ModernUiEngineDrawControlCue")
+    for token in (
+        "ModernUiValueCheckbox",
+        "ModernUiValueOneOf",
+        "ModernUiValueOrderedList",
+        "ModernUiValueNumeric",
+        "ModernUiValueDateTime",
+        "ModernUiValuePassword",
+        "ModernUiValueString",
+        "ModernUiValueAction",
+        "ModernUiFillTriangle",
+        "ModernUiStrokeRect",
+        "ModernUiFillRect",
+    ):
+        if token not in control_cue_body:
+            raise SmokeFailure(f"Phase41 shared control cue vocabulary missing affordance token: {token}")
+    # The App value lane must route through the shared cue, not invent its own.
+    draw_value_body = extract_c_function_body(engine_text, "ModernUiEngineDrawValue")
+    if "ModernUiEngineDrawControlCue" not in draw_value_body:
+        raise SmokeFailure("Phase41 App value lane must delegate control affordances to ModernUiEngineDrawControlCue")
+    for token in ("ConfigAccess", "RouteConfig", "ExtractConfig", "SetVariable", "HiiSetBrowserData", "HiiGetString"):
+        if token in control_cue_body:
+            raise SmokeFailure(f"Phase41 shared control cue contains prohibited semantic/storage token: {token}")
 
     form_display = root / "Universal" / "ModernDisplayEngineDxe" / "FormDisplay.c"
     form_display_text = strip_c_comments(form_display.read_text(encoding="utf-8"))
@@ -2532,6 +2580,9 @@ def check_overlay_generation(root: Path) -> list[str]:
                     if not generated_path.exists():
                         raise SmokeFailure(f"missing generated overlay file: {generated_path}")
                     assert_not_contains_any(generated_path, PROHIBITED_DEFAULT_OVERLAY_TOKENS)
+                    # The LVGL backend is experimental and lvgl-mode only; it must
+                    # never leak into a default native/modern overlay.
+                    assert_not_contains_any(generated_path, PROHIBITED_DEFAULT_OVERLAY_LVGL_TOKENS)
 
                 dsc = workspace / "Build" / "ModernSetupPkgOverlay" / dsc_name
                 if engine == "modern":
