@@ -14,6 +14,67 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- DisplayEngine per-opcode control affordances: each editable FormBrowser
+  statement now shows a distinct, non-semantic cue glyph keyed on its control
+  kind — checkbox box, numeric `+`, one-of/choice `▼`, ordered-list up/down,
+  string caret, date/time segment ticks, and reference/action `▶`. Cues are
+  drawn purely from renderer primitives, so they render identically through the
+  GOP and LVGL backends, and are composited by a post-text overlay
+  (`ModernDisplayDrawStatementRowCue`, called at the end of `DisplayOneMenu`) so
+  the native highlight text background no longer overpaints them. Read-only and
+  grayed/disabled rows intentionally get no cue. edk2 keeps all HII/value/storage
+  ownership; the cue helpers are smoke-guarded against
+  `ConfigAccess`/`RouteConfig`/`ExtractConfig`/`SetVariable`/`HiiGetString`.
+- Unified control-affordance vocabulary across the front-page App and the
+  in-setup DisplayEngine: the per-control cue shapes now live in one shared
+  function, `ModernUiEngineDrawControlCue` (`ModernUiEngineLib`), keyed on
+  `MODERN_UI_VALUE_TYPE` and built from a new shared `ModernUiFillTriangle`
+  renderer primitive plus `ModernUiFillRect`/`ModernUiStrokeRect`. The App value
+  lane (`ModernUiEngineDrawValue`) now paints the matching cue just left of the
+  value box, and the DisplayEngine row overlay maps its row kind to the value
+  type (`ModernDisplayKindToValueType`) and delegates to the same function — so a
+  checkbox/drop-down/numeric/date-time/password/string/ordered-list/action
+  control reads identically in both surfaces. The DisplayEngine's former private
+  `ModernDisplayDrawKindCue`/`ModernDisplayCueTriangle` shape copies are removed.
+- `build-ovmf-x64.sh` gains `MODERN_SETUP_DEMO_DRIVER_SAMPLE=0|1` (default `0`):
+  when `1`, edk2 `DriverSampleDxe` is added to the OVMF overlay (reachable via
+  Device Manager) as a control-rich VFR for exercising the DisplayEngine control
+  affordances. Off by default; never in a shipped overlay.
+- Experimental LVGL renderer-swap mode (`experimental/lvgl-spike` branch only):
+  `MODERN_SETUP_DISPLAY_ENGINE=lvgl` now keeps the existing
+  `ModernDisplayEngineDxe` (all FormBrowser/HII/interaction ownership unchanged)
+  but resolves the `ModernUiRendererLib` class to a new LVGL-backed
+  implementation, `Library/ModernUiLvglRendererLib`. Every primitive composites
+  through LVGL's software draw pipeline into a persistent full-screen XRGB8888
+  shadow canvas, then BLTs only the touched region to GOP: geometry (fills,
+  borders, panels, rows, cards, progress, value boxes, drop-downs) via
+  `lv_draw_rect`, ASCII text via `lv_draw_label` (Montserrat), and non-ASCII
+  (CJK) runs via the firmware HII font composited into the same canvas (LVGL
+  bundles no CJK coverage). The library keeps the exact `ModernUiRenderer.h` API
+  and the original 8 px-cell text-measurement model, so layouts in the display
+  engine and `ModernSetupApp` are unchanged. Verified on OVMF X64: the live UiApp
+  FormBrowser front page renders end-to-end through LVGL. `LvglCoreLib` +
+  `IntrinsicLib` are force-linked only into the lvgl-mode overlay; never in a
+  default overlay. The earlier standalone `LvglDisplayEngineDxe` remains as a
+  separate from-scratch reference and is no longer wired into the OVMF overlay.
+  CJK is handled by compositing the package's embedded bitmap glyphs
+  (`ModernUiGlyphs.c`) into the LVGL canvas, with the firmware HII font as a
+  secondary fallback for code points without an embedded glyph. `lvgl` mode also
+  composes with `MODERN_SETUP_REPLACE_UIAPP=1`: the `ModernSetupApp` front-page
+  shell then renders through the same LVGL pipeline (IntrinsicLib is force-linked
+  into the app component in lvgl mode). Verified on OVMF X64 — both the UiApp
+  FormBrowser front page and the full ModernSetupApp dashboard (zh labels +
+  English values + all chrome) render end-to-end through LVGL.
+- Experimental LVGL rendering-backend spike (`experimental/lvgl-spike` branch only;
+  `Experimental/LvglSpikePkg`, never in a default overlay or `ModernSetupApp`).
+  Pins `External/lvgl` at a tagged v9.5.0-derived baseline and validates that
+  LVGL core + software renderer + its upstream UEFI port build under edk2 GCC on
+  a hard architecture: `LvglSpikeProbe.efi` compiles for LoongArch64 and was run
+  on real LoongArch hardware, drawing an LVGL UI straight to GOP (standalone-app
+  path, not via any DisplayEngine). The ~3-site LoongArch64/RISC-V64 UEFI
+  arch-gate change was contributed upstream and is now in the pinned baseline, so
+  `External/lvgl` is consumed pristine (no local patch, no build-time patching).
+  See `Experimental/LvglSpikePkg/README.md`.
 - ModernSetupApp header clock now updates live while the front page is idle. The
   app loop arms a one-second periodic timer and waits on it alongside the
   keyboard/pointer sources, repainting only the header clock text in place on

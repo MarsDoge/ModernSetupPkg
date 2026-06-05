@@ -54,21 +54,6 @@ ModernDisplayDrawStatementRowAccents (
   IN CONST MODERN_UI_THEME             *Theme
   );
 
-STATIC
-VOID
-ModernDisplayDrawStatementValueLane (
-  IN CONST MODERN_UI_RECT              *RowRect,
-  IN CONST MODERN_DISPLAY_FORM_ROW     *FormRow,
-  IN CONST MODERN_UI_THEME             *Theme
-  );
-
-STATIC
-VOID
-ModernDisplayDrawStatementValueLaneCue (
-  IN CONST MODERN_UI_RECT              *LaneRect,
-  IN CONST MODERN_DISPLAY_FORM_ROW     *FormRow,
-  IN CONST MODERN_UI_THEME             *Theme
-  );
 
 STATIC
 UINTN
@@ -896,109 +881,47 @@ ModernDisplayFormRowAccentColor (
 }
 
 /**
-  Draw a subtle editable-value cue inside the value lane.
+  Map a DisplayEngine form-row kind to the shared engine control value type.
 
-  Native FormBrowser remains responsible for printing the value text. This helper
-  only adds a GOP outline, underline, and trailing cap so the existing value area
-  reads as an editable chip without changing statement dimensions or wrapping.
+  This lets the in-setup DisplayEngine reuse the exact same per-control
+  affordance vocabulary (ModernUiEngineDrawControlCue) that the front-page App
+  value lane uses, so the same control type reads identically in both surfaces.
+  Text-only / subtitle / unknown kinds map to ModernUiValueNone (no cue).
 
-  @param[in] LaneRect  Pixel value-lane rectangle. Must not be NULL.
-  @param[in] FormRow   Private row model. Must not be NULL.
-  @param[in] Theme     Theme token table. Must not be NULL.
+  @param[in] Kind  DisplayEngine form-row kind.
+
+  @return The matching MODERN_UI_VALUE_TYPE, or ModernUiValueNone when the kind
+          carries no control affordance.
 **/
 STATIC
-VOID
-ModernDisplayDrawStatementValueLaneCue (
-  IN CONST MODERN_UI_RECT           *LaneRect,
-  IN CONST MODERN_DISPLAY_FORM_ROW  *FormRow,
-  IN CONST MODERN_UI_THEME          *Theme
+MODERN_UI_VALUE_TYPE
+ModernDisplayKindToValueType (
+  IN MODERN_DISPLAY_FORM_ROW_KIND  Kind
   )
 {
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  OutlineColor;
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  AccentColor;
-  UINTN                          CapWidth;
-
-  if ((LaneRect == NULL) || (FormRow == NULL) || (Theme == NULL) || (LaneRect->Width < 24) || (LaneRect->Height < 8)) {
-    return;
+  switch (Kind) {
+    case ModernDisplayFormRowCheckbox:
+      return ModernUiValueCheckbox;
+    case ModernDisplayFormRowChoice:
+      return ModernUiValueOneOf;
+    case ModernDisplayFormRowOrderedList:
+      return ModernUiValueOrderedList;
+    case ModernDisplayFormRowNumeric:
+      return ModernUiValueNumeric;
+    case ModernDisplayFormRowDate:
+    case ModernDisplayFormRowTime:
+      return ModernUiValueDateTime;
+    case ModernDisplayFormRowPassword:
+      return ModernUiValuePassword;
+    case ModernDisplayFormRowString:
+      return ModernUiValueString;
+    case ModernDisplayFormRowReference:
+    case ModernDisplayFormRowAction:
+    case ModernDisplayFormRowResetButton:
+      return ModernUiValueAction;
+    default:
+      return ModernUiValueNone;
   }
-
-  AccentColor  = ModernDisplayFormRowAccentColor (FormRow, Theme);
-  OutlineColor = ((FormRow->State & ModernDisplayFormRowStateSelected) != 0) ?
-                 Theme->AccentYellow :
-                 ModernUiBlendColor (Theme->Border, Theme->BackgroundBlack, 62);
-  CapWidth     = MIN (4, MAX (2, LaneRect->Width / 24));
-
-  ModernUiStrokeRect (&mModernRenderContext, *LaneRect, OutlineColor);
-  ModernUiFillRect (
-    &mModernRenderContext,
-    (MODERN_UI_RECT){ LaneRect->X + 2, LaneRect->Y + LaneRect->Height - 2, LaneRect->Width - 4, 1 },
-    ModernUiBlendColor (AccentColor, Theme->BackgroundBlack, 60)
-    );
-  ModernUiFillRect (
-    &mModernRenderContext,
-    (MODERN_UI_RECT){ LaneRect->X + LaneRect->Width - CapWidth - 2, LaneRect->Y + 3, CapWidth, LaneRect->Height - 6 },
-    ModernUiBlendColor (AccentColor, Theme->BackgroundBlack, 72)
-    );
-}
-
-/**
-  Draw a subtle value lane on highlighted/editable rows.
-
-  Native FormBrowser still prints prompt/value text. This helper only paints a
-  GOP background hint on the right side of interactive rows so users can
-  distinguish the value/edit region from the prompt region.
-
-  @param[in] RowRect  Pixel row rectangle. Must not be NULL.
-  @param[in] FormRow  Private row model. Must not be NULL.
-  @param[in] Theme    Theme token table. Must not be NULL.
-**/
-STATIC
-VOID
-ModernDisplayDrawStatementValueLane (
-  IN CONST MODERN_UI_RECT           *RowRect,
-  IN CONST MODERN_DISPLAY_FORM_ROW  *FormRow,
-  IN CONST MODERN_UI_THEME          *Theme
-  )
-{
-  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  LaneColor;
-  MODERN_UI_RECT                 LaneRect;
-  UINTN                          LaneWidth;
-  UINTN                          LaneX;
-  UINTN                          LaneY;
-  UINTN                          LaneHeight;
-
-  if ((RowRect == NULL) || (FormRow == NULL) || (Theme == NULL) || (RowRect->Width < 160) || (RowRect->Height < 12)) {
-    return;
-  }
-
-  if (ModernDisplayFormRowIsTextOnly (FormRow->Kind) || ((FormRow->State & ModernDisplayFormRowStateHighlighted) == 0)) {
-    return;
-  }
-
-  if (((FormRow->State & ModernDisplayFormRowStateDisabled) != 0) || ((FormRow->State & ModernDisplayFormRowStateReadOnly) != 0)) {
-    return;
-  }
-
-  LaneWidth  = MIN (MAX (120, RowRect->Width / 3), RowRect->Width - 48);
-  LaneX      = RowRect->X + MAX (160, RowRect->Width / 2);
-  if ((LaneX + LaneWidth + 10) > (RowRect->X + RowRect->Width)) {
-    LaneWidth = RowRect->X + RowRect->Width - LaneX - 10;
-  }
-
-  if (LaneWidth < 64) {
-    return;
-  }
-
-  LaneY      = RowRect->Y + 4;
-  LaneHeight = RowRect->Height - 8;
-  LaneColor  = ((FormRow->State & ModernDisplayFormRowStateSelected) != 0) ?
-               ModernUiBlendColor (Theme->AccentOrange, Theme->BackgroundBlack, 32) :
-               ModernUiBlendColor (Theme->SurfaceRaised, Theme->BackgroundBlack, 55);
-  LaneRect   = (MODERN_UI_RECT){ LaneX, LaneY, LaneWidth, LaneHeight };
-
-  ModernUiFillRect (&mModernRenderContext, LaneRect, LaneColor);
-  ModernUiFillRect (&mModernRenderContext, (MODERN_UI_RECT){ LaneX, LaneY, 3, LaneHeight }, Theme->AccentYellow);
-  ModernDisplayDrawStatementValueLaneCue (&LaneRect, FormRow, Theme);
 }
 
 /**
@@ -1123,8 +1046,94 @@ ModernDisplayDrawStatementRow (
   }
 
   ModernUiEngineDrawRows (&mModernRenderContext, &RowModel, 1, Theme);
-  ModernDisplayDrawStatementValueLane (&RowRect, &FormRow, Theme);
   ModernDisplayDrawStatementRowAccents (&RowRect, &FormRow, Theme);
+}
+
+/**
+  Draw a per-opcode control affordance over an already-painted statement row.
+
+  This runs AFTER native FormBrowser has printed the row's prompt/value text
+  (and its highlight background), so the affordance is composited on top rather
+  than being overpainted. It paints only a small non-semantic cue glyph at the
+  row's right edge (clear of the value text) to make each control type read
+  distinctly. It classifies already-materialized statement data and never reads,
+  writes, or owns any HII/FormBrowser value or semantics.
+
+  @param[in] FormData   DisplayEngine form that owns Statement. May be NULL.
+  @param[in] Statement  Statement to classify. May be NULL (then no cue).
+  @param[in] Column     Text-grid column where the row starts.
+  @param[in] Row        Text-grid row of the statement.
+  @param[in] Width      Text-grid column count of the row.
+  @param[in] Highlight  TRUE when the row currently has keyboard highlight.
+  @param[in] Selected   TRUE when the row is in edit/selection mode.
+**/
+VOID
+EFIAPI
+ModernDisplayDrawStatementRowCue (
+  IN FORM_DISPLAY_ENGINE_FORM       *FormData OPTIONAL,
+  IN FORM_DISPLAY_ENGINE_STATEMENT  *Statement OPTIONAL,
+  IN UINTN    Column,
+  IN UINTN    Row,
+  IN UINTN    Width,
+  IN BOOLEAN  Highlight,
+  IN BOOLEAN  Selected
+  )
+{
+  CONST MODERN_UI_THEME          *Theme;
+  UINTN                          CellWidth;
+  UINTN                          CellHeight;
+  UINTN                          X;
+  UINTN                          Y;
+  UINTN                          PixelWidth;
+  UINTN                          CueSide;
+  MODERN_DISPLAY_FORM_ROW        FormRow;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  CueColor;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  FillColor;
+
+  if ((Statement == NULL) || (Width == 0) || EFI_ERROR (ModernDisplayEnsureRenderer ())) {
+    return;
+  }
+
+  if (EFI_ERROR (ModernDisplayClassifyStatementForForm (FormData, Statement, Highlight, Selected, &FormRow))) {
+    return;
+  }
+
+  //
+  // Only editable controls get a type affordance; text/subtitle and
+  // disabled/read-only rows do not.
+  //
+  if (ModernDisplayFormRowIsTextOnly (FormRow.Kind) ||
+      ((FormRow.State & (ModernDisplayFormRowStateDisabled | ModernDisplayFormRowStateReadOnly)) != 0))
+  {
+    return;
+  }
+
+  Theme = ModernUiGetTheme ();
+  ModernDisplayGetCellMetrics (&CellWidth, &CellHeight);
+
+  X          = Column * CellWidth;
+  Y          = Row * CellHeight;
+  PixelWidth = Width * CellWidth;
+  if ((PixelWidth < 48) || (CellHeight < 10)) {
+    return;
+  }
+
+  CueSide = MIN (CellHeight - 6, 14);
+
+  //
+  // High-contrast cue: dark on the bright selected band, bright yellow on the
+  // dark surface. The cue sits at the row's right edge, clear of value text.
+  //
+  CueColor  = (Highlight || Selected) ? Theme->BackgroundBlack : Theme->AccentYellow;
+  FillColor = ModernUiBlendColor (Theme->AccentOrange, Theme->BackgroundBlack, 70);
+
+  ModernUiEngineDrawControlCue (
+    &mModernRenderContext,
+    (MODERN_UI_RECT){ X + PixelWidth - CueSide - 8, Y + (CellHeight - CueSide) / 2, CueSide, CueSide },
+    ModernDisplayKindToValueType (FormRow.Kind),
+    CueColor,
+    FillColor
+    );
 }
 
 /**

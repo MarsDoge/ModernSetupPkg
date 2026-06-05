@@ -36,6 +36,13 @@ export PATH="/opt/homebrew/bin:${PATH}"
 export WORKSPACE
 export GCC_LOONGARCH64_PREFIX
 ConfigureModernSetupPackagePath
+# Experimental LvglSpikePkg is only consumed by MODERN_SETUP_DISPLAY_ENGINE=lvgl;
+# making it resolvable here is harmless for native/modern.
+AppendPackagePath "${PKG_DIR}/Experimental"
+export PACKAGES_PATH
+
+# LoongArch64/RISC-V64 UEFI support is upstream in the pinned External/lvgl
+# baseline; the submodule is consumed pristine with no local patching.
 
 if [[ ! -d "${WORKSPACE}/MdePkg" || ! -d "${WORKSPACE}/OvmfPkg/LoongArchVirt" ]]; then
   echo "WORKSPACE does not look like an edk2 checkout with LoongArchVirt: ${WORKSPACE}" >&2
@@ -71,9 +78,9 @@ if theme_pcd is None:
         f"Unsupported MODERN_SETUP_THEME={theme_name!r}; "
         "use orange, amber, dark-orange, red, accent-red, dark-red, graphite, or graphite-gold"
     )
-if display_engine not in {"modern", "native"}:
+if display_engine not in {"modern", "native", "lvgl"}:
     raise SystemExit(
-        f"Unsupported MODERN_SETUP_DISPLAY_ENGINE={display_engine!r}; use modern or native"
+        f"Unsupported MODERN_SETUP_DISPLAY_ENGINE={display_engine!r}; use modern, native, or lvgl"
     )
 if include_app_flag not in {"0", "1", "false", "true", "no", "yes"}:
     raise SystemExit(
@@ -86,23 +93,59 @@ if replace_uiapp_flag not in {"0", "1", "false", "true", "no", "yes"}:
 replace_uiapp = replace_uiapp_flag in {"1", "true", "yes"}
 include_modern_setup_app = (include_app_flag in {"1", "true", "yes"}) or replace_uiapp
 
-modern_setup_app_component = "  ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf"
-modern_setup_app_component_boot_manager_fallback = """  ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf {
-    <BuildOptions>
-      GCC:*_*_*_CC_FLAGS = -DMODERN_SETUP_NATIVE_FALLBACK_BOOT_MANAGER_MENU=1
-  }"""
+# In lvgl mode the ModernSetupApp shell and the ModernDisplayEngine both pull the
+# LVGL-backed renderer, so they force-link compiler intrinsics (memcpy/memset).
+_app_lvgl_intrinsics = (
+    "    <LibraryClasses>\n"
+    "      NULL|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf\n"
+    if display_engine == "lvgl"
+    else ""
+)
+modern_setup_app_component = (
+    "  ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf"
+    if display_engine != "lvgl"
+    else (
+        "  ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf {\n"
+        f"{_app_lvgl_intrinsics}"
+        "  }"
+    )
+)
+modern_setup_app_component_boot_manager_fallback = (
+    "  ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf {\n"
+    "    <BuildOptions>\n"
+    "      GCC:*_*_*_CC_FLAGS = -DMODERN_SETUP_NATIVE_FALLBACK_BOOT_MANAGER_MENU=1\n"
+    f"{_app_lvgl_intrinsics}"
+    "  }"
+)
 modern_setup_app_fdf_inf = "INF  ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf"
 modern_setup_app_uiapp_fdf_inf = "INF  RuleOverride = MODERN_SETUP_UIAPP ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf"
 modern_display_component = "  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
+modern_display_component_lvgl = (
+    "  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf {\n"
+    "    <LibraryClasses>\n"
+    "      NULL|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf\n"
+    "  }"
+)
 modern_display_fdf_inf = "INF  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
 boot_manager_menu_component = "  MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf"
 boot_manager_menu_fdf_inf = "INF  MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf"
 driver_sample_component = "  MdeModulePkg/Universal/DriverSampleDxe/DriverSampleDxe.inf"
 driver_sample_fdf_inf = "INF  MdeModulePkg/Universal/DriverSampleDxe/DriverSampleDxe.inf"
-library_block = """  ModernUiEngineLib|ModernSetupPkg/Library/ModernUiEngineLib/ModernUiEngineLib.inf
-  ModernUiRendererLib|ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
-  ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
-"""
+# LVGL core (upstream lvgl sources as a BASE library); resolved only in lvgl mode
+# and consumed transitively through the LVGL renderer library.
+lvgl_library_block = "  LvglCoreLib|LvglSpikePkg/Library/LvglLib/LvglCoreLib.inf\n"
+# The renderer library class resolves to the LVGL-backed implementation in lvgl
+# mode and to the hand-rolled GOP rasterizer otherwise (identical API).
+renderer_inf = (
+    "ModernSetupPkg/Library/ModernUiLvglRendererLib/ModernUiRendererLib.inf"
+    if display_engine == "lvgl"
+    else "ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf"
+)
+library_block = (
+    "  ModernUiEngineLib|ModernSetupPkg/Library/ModernUiEngineLib/ModernUiEngineLib.inf\n"
+    f"  ModernUiRendererLib|{renderer_inf}\n"
+    "  ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf\n"
+)
 app_library_block = """  ModernUiPlatformDataLib|ModernSetupPkg/Library/ModernUiPlatformDataLib/ModernUiPlatformDataLib.inf
   ModernUiBootDataLib|ModernSetupPkg/Library/ModernUiBootDataLib/ModernUiBootDataLib.inf
   ModernUiDeviceDataLib|ModernSetupPkg/Library/ModernUiDeviceDataLib/ModernUiDeviceDataLib.inf
@@ -133,8 +176,10 @@ dsc = dsc.replace(
     1,
 )
 if "ModernUiEngineLib|ModernSetupPkg" not in dsc:
-    if display_engine == "modern" or include_modern_setup_app:
+    if (display_engine == "modern" or display_engine == "lvgl") or include_modern_setup_app:
         dsc = dsc.replace("[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + library_block, 1)
+if display_engine == "lvgl" and "LvglCoreLib|LvglSpikePkg" not in dsc:
+    dsc = dsc.replace("[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + lvgl_library_block, 1)
 if include_modern_setup_app and "ModernUiPlatformDataLib|ModernSetupPkg" not in dsc:
     dsc = dsc.replace("[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + app_library_block, 1)
 if include_modern_setup_app and modern_setup_app_component not in dsc:
@@ -166,7 +211,7 @@ if replace_uiapp:
             driver_sample_component + "\n  OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.inf {",
             1,
         )
-if display_engine == "modern":
+if (display_engine == "modern" or display_engine == "lvgl"):
     dsc = dsc.replace(
         "  CustomizedDisplayLib             | MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf",
         "  CustomizedDisplayLib             | ModernSetupPkg/Library/ModernUiCustomizedDisplayLib/ModernUiCustomizedDisplayLib.inf",
@@ -174,7 +219,7 @@ if display_engine == "modern":
     )
     dsc = dsc.replace(
         "  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf",
-        modern_display_component,
+        modern_display_component_lvgl if display_engine == "lvgl" else modern_display_component,
         1,
     )
 if enable_driver_sample and driver_sample_component not in dsc:
@@ -183,7 +228,7 @@ if enable_driver_sample and driver_sample_component not in dsc:
         driver_sample_component + "\n  MdeModulePkg/Application/UiApp/UiApp.inf {",
         1,
     )
-if display_engine == "modern":
+if (display_engine == "modern" or display_engine == "lvgl"):
     dsc += (
         "\n[PcdsFixedAtBuild]\n"
         f"  gModernSetupPkgTokenSpaceGuid.PcdModernSetupTheme|{theme_pcd}\n"
@@ -202,7 +247,7 @@ fdf = fdf.replace(
     "!include OvmfPkg/LoongArchVirt/VarStore.fdf.inc",
     1,
 )
-if display_engine == "modern":
+if (display_engine == "modern" or display_engine == "lvgl"):
     fdf = fdf.replace(
         "INF  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf",
         modern_display_fdf_inf,

@@ -2637,6 +2637,21 @@ DisplayOneMenu (
     }
   }
 
+  //
+  // Overlay the per-opcode control affordance AFTER all row text (and its
+  // highlight background) has been printed, so the cue is composited on top
+  // instead of being overpainted by the native text background.
+  //
+  ModernDisplayDrawStatementRowCue (
+    gFormData,
+    Statement,
+    BeginCol,
+    MenuOption->Row,
+    RowWidth,
+    Highlight,
+    (BOOLEAN)(gUserInput->SelectedStatement == Statement)
+    );
+
   return EFI_SUCCESS;
 }
 

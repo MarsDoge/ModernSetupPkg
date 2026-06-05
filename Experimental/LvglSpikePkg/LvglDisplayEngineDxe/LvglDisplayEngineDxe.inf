@@ -1,0 +1,64 @@
+## @file
+#  LvglDisplayEngineDxe -- experimental EDKII_FORM_DISPLAY_ENGINE_PROTOCOL backend
+#  that renders native SetupBrowser forms with LVGL. SetupBrowser keeps IFR/config
+#  ownership; this only renders. experimental/lvgl-spike only; never default overlay.
+#
+#  Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION     = 0x00010005
+  BASE_NAME       = LvglDisplayEngineDxe
+  FILE_GUID       = 4D9A7E22-6C13-4B80-9F1E-2A7C5D03AB04
+  MODULE_TYPE     = DXE_DRIVER
+  VERSION_STRING  = 1.0
+  ENTRY_POINT     = InitializeLvglDisplayEngine
+
+[Sources]
+  LvglDisplayEngineDxe.c
+  LvglFormRenderer.c
+  LvglDisplayEngineDxe.h
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  LvglSpikePkg/LvglSpikePkg.dec
+
+[LibraryClasses]
+  UefiDriverEntryPoint
+  UefiBootServicesTableLib
+  UefiLib
+  BaseLib
+  BaseMemoryLib
+  MemoryAllocationLib
+  DebugLib
+  PrintLib
+  HiiLib
+  UefiHiiServicesLib
+  LvglCoreLib
+
+[Protocols]
+  gEdkiiFormDisplayEngineProtocolGuid     ## PRODUCES
+  gEfiGraphicsOutputProtocolGuid          ## CONSUMES
+  gEfiSimplePointerProtocolGuid           ## CONSUMES
+  gEfiAbsolutePointerProtocolGuid         ## CONSUMES
+  gEfiSimpleTextInputExProtocolGuid       ## CONSUMES
+  gEfiSimpleTextInProtocolGuid            ## CONSUMES
+  gEfiEdidActiveProtocolGuid              ## CONSUMES
+  gEfiTimestampProtocolGuid               ## CONSUMES
+  gEfiLoadedImageProtocolGuid             ## CONSUMES
+  gEfiSimpleFileSystemProtocolGuid        ## CONSUMES
+  gEfiDevicePathProtocolGuid              ## CONSUMES
+
+[Guids]
+  gEfiFileInfoGuid
+
+[Depex]
+  TRUE
+
+[BuildOptions]
+  # LvglDisplayEngineDxe.c includes <lvgl/lvgl.h> via LvglCoreLib.h, which pulls
+  # lv_conf.h (in Library/LvglLib, on the package include path) via
+  # LV_CONF_INCLUDE_SIMPLE.
+  GCC:*_*_*_CC_FLAGS = -DLV_CONF_INCLUDE_SIMPLE

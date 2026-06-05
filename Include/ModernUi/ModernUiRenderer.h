@@ -31,6 +31,12 @@ typedef struct {
   UINTN                           Height;
 } MODERN_UI_RENDER_CONTEXT;
 
+typedef enum {
+  ModernUiTriDown,    ///< Apex points down (drop-down chevron).
+  ModernUiTriUp,      ///< Apex points up.
+  ModernUiTriRight    ///< Apex points right (navigate / activate arrow).
+} MODERN_UI_TRI_DIR;
+
 /**
   Blend two GOP colors by percentage weight.
 
@@ -120,6 +126,31 @@ EFIAPI
 ModernUiStrokeRect (
   IN MODERN_UI_RENDER_CONTEXT          *Context,
   IN MODERN_UI_RECT                    Rect,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL     Color
+  );
+
+/**
+  Fill an isosceles triangle inscribed in a rectangle.
+
+  The triangle is built from one-pixel renderer fill spans so it renders
+  identically through the GOP and LVGL backends. Used to compose chevron and
+  arrow control affordances.
+
+  @param[in] Context  Initialized render context. Must not be NULL.
+  @param[in] Rect     Bounding rectangle. Zero width or height is ignored.
+  @param[in] Dir      Apex direction (down / up / right).
+  @param[in] Color    Fill color.
+
+  @retval EFI_SUCCESS            Triangle was drawn (or Rect was empty).
+  @retval EFI_INVALID_PARAMETER  Context is NULL.
+  @retval others                 Status from the first failing fill span.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiFillTriangle (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN MODERN_UI_TRI_DIR                 Dir,
   IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL     Color
   );
 

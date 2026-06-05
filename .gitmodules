@@ -1,3 +1,6 @@
 [submodule "External/edk2"]
 	path = External/edk2
 	url = https://github.com/tianocore/edk2.git
+[submodule "External/lvgl"]
+	path = External/lvgl
+	url = https://github.com/lvgl/lvgl.git

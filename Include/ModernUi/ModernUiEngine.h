@@ -208,6 +208,38 @@ ModernUiEngineDrawValue (
   );
 
 /**
+  Draw a small non-semantic control-type affordance inside a cue box.
+
+  This is the single shared affordance vocabulary used by both the App value
+  lane and the in-setup DisplayEngine row cue, so a checkbox, drop-down,
+  numeric, date/time, password, string, ordered-list, or action control reads
+  identically in both surfaces. The affordance is composed entirely from
+  renderer fill/stroke/triangle primitives and reflects only the control kind;
+  it never reads or mutates any stored value or HII state.
+
+  @param[in] Context    Initialized render context. Must not be NULL.
+  @param[in] CueRect     Square pixel box to draw the affordance in. Boxes
+                         smaller than 6x6 are ignored.
+  @param[in] Type        Control value type selecting the affordance shape.
+                         ModernUiValueNone / ModernUiValueText draw nothing.
+  @param[in] CueColor    High-contrast mark / stroke color.
+  @param[in] FillColor   Subtle inner fill color (checkbox interior).
+
+  @retval EFI_SUCCESS            Affordance was drawn (or nothing was needed).
+  @retval EFI_INVALID_PARAMETER  Context is NULL.
+  @retval others                 Status from the first failing renderer primitive.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiEngineDrawControlCue (
+  IN MODERN_UI_RENDER_CONTEXT       *Context,
+  IN MODERN_UI_RECT                 CueRect,
+  IN MODERN_UI_VALUE_TYPE           Type,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  CueColor,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  FillColor
+  );
+
+/**
   Draw a popup surface.
 
   @param[in] Context  Initialized render context. Must not be NULL.
