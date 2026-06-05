@@ -1,0 +1,30 @@
+## @file
+#  LvglSpikePkg -- experimental evaluation package for an LVGL rendering backend.
+#
+#  EXPERIMENTAL / SPIKE ONLY. Exists on experimental/lvgl-spike to answer one
+#  question: does LVGL's core + software renderer + upstream UEFI port build (and
+#  later render) under edk2 on a hard architecture (LoongArch64), not just X64.
+#  It points the LVGL integration at this repo's pinned External/lvgl submodule
+#  (LVGL v9.5.0) via a symlink (Library/LvglLib/lvgl). The Aptio-styled chrome
+#  from downstream LVGL-UEFI ports is intentionally NOT vendored.
+#
+#  Must never appear in a default ModernSetupPkg firmware overlay or ModernSetupApp.
+#
+#  Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  DEC_SPECIFICATION              = 0x00010005
+  PACKAGE_NAME                   = LvglSpikePkg
+  PACKAGE_GUID                   = 0E0B8F2A-4C1D-4E7A-9B3E-7D6A2F11AA01
+  PACKAGE_VERSION                = 0.01
+
+[Includes]
+  Include
+  Library/LvglLib
+  Library/LvglLib/lvgl
+
+[LibraryClasses]
+  ##  @libraryclass  Shared LVGL build (core + SW renderer + UEFI port).
+  LvglCoreLib|Include/Library/LvglCoreLib.h

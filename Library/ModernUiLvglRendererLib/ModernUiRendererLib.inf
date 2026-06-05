@@ -1,0 +1,57 @@
+## @file
+# LVGL-backed renderer library for ModernSetupPkg (experimental/lvgl-spike).
+#
+# Drop-in replacement for Library/ModernUiRendererLib: same ModernUiRendererLib
+# class and ModernUiRenderer.h API, but every primitive is composited by LVGL's
+# software draw pipeline (lv_draw_rect / lv_draw_label) into a shadow canvas and
+# BLT'd to GOP. CJK runs fall back to the firmware HII font, which LVGL's bundled
+# Latin fonts do not cover.
+#
+# experimental/lvgl-spike only; selected by MODERN_SETUP_DISPLAY_ENGINE=lvgl.
+# Never wired into a default firmware overlay.
+#
+# Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
+# Author: MarsDoge (Dongyan Qian)
+# Open source: https://github.com/MarsDoge/ModernSetupPkg
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = ModernUiLvglRendererLib
+  FILE_GUID                      = 7C1E2A94-3D6B-4F12-9A8E-5B0C7D11AE20
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 0.1
+  LIBRARY_CLASS                  = ModernUiRendererLib|UEFI_APPLICATION DXE_DRIVER
+
+[Sources]
+  ModernUiRendererLib.c
+  # The backend-agnostic renderer surface and glyph table live in the GOP
+  # renderer dir (single source of truth) and are compiled into both renderers.
+  ../ModernUiRendererLib/ModernUiRendererCommon.c
+  ../ModernUiRendererLib/ModernUiGlyphs.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  ModernSetupPkg/ModernSetupPkg.dec
+  LvglSpikePkg/LvglSpikePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  MemoryAllocationLib
+  PrintLib
+  UefiBootServicesTableLib
+  LvglCoreLib
+
+[Protocols]
+  gEfiGraphicsOutputProtocolGuid
+  gEfiHiiFontProtocolGuid
+
+[BuildOptions]
+  # ModernUiRendererLib.c includes <lvgl/lvgl.h>, which pulls lv_conf.h (in
+  # LvglSpikePkg/Library/LvglLib, on the package include path) via
+  # LV_CONF_INCLUDE_SIMPLE.
+  GCC:*_*_*_CC_FLAGS = -DLV_CONF_INCLUDE_SIMPLE

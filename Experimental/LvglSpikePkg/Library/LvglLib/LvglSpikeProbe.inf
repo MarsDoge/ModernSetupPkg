@@ -1,0 +1,58 @@
+## @file
+#  LvglSpikeProbe -- experimental standalone LVGL-on-GOP render probe.
+#
+#  Forces the shared LVGL build (LvglCoreLib) to compile/link and draws a demo
+#  UI straight to GOP (NOT via any DisplayEngine). experimental/lvgl-spike only;
+#  never ship, never default overlay.
+#
+#  Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION     = 0x00010005
+  BASE_NAME       = LvglSpikeProbe
+  FILE_GUID       = 7C2A9E14-3B6D-4F08-A1C2-9E5D0B71AA02
+  MODULE_TYPE     = UEFI_APPLICATION
+  VERSION_STRING  = 1.0
+  ENTRY_POINT     = LvglSpikeProbeMain
+
+[Sources]
+  LvglSpikeProbe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  LvglSpikePkg/LvglSpikePkg.dec
+
+[LibraryClasses]
+  UefiApplicationEntryPoint
+  UefiBootServicesTableLib
+  UefiLib
+  BaseLib
+  BaseMemoryLib
+  MemoryAllocationLib
+  DebugLib
+  PrintLib
+  TimerLib
+  LvglCoreLib
+
+[Protocols]
+  gEfiGraphicsOutputProtocolGuid
+  gEfiSimplePointerProtocolGuid
+  gEfiAbsolutePointerProtocolGuid
+  gEfiSimpleTextInputExProtocolGuid
+  gEfiSimpleTextInProtocolGuid
+  gEfiEdidActiveProtocolGuid
+  gEfiTimestampProtocolGuid
+  gEfiLoadedImageProtocolGuid
+  gEfiSimpleFileSystemProtocolGuid
+  gEfiDevicePathProtocolGuid
+
+[Guids]
+  gEfiFileInfoGuid
+
+[BuildOptions]
+  # LvglSpikeProbe.c includes <lvgl/lvgl.h>, which pulls lv_conf.h via
+  # LV_CONF_INCLUDE_SIMPLE (found in this module's own dir).
+  GCC:*_*_*_CC_FLAGS = -DLV_CONF_INCLUDE_SIMPLE
