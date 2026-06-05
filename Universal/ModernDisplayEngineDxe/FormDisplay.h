@@ -101,6 +101,34 @@ ModernDisplayDrawStatementRow (
   IN BOOLEAN  Selected
   );
 
+/**
+  Draw a per-opcode control affordance over an already-painted statement row.
+
+  Call this AFTER native FormBrowser has printed the row's prompt/value text and
+  highlight background, so the affordance is composited on top instead of being
+  overpainted. It paints only a small non-semantic cue glyph at the row's right
+  edge and never reads, writes, or owns any HII/FormBrowser value or semantics.
+
+  @param[in] FormData   DisplayEngine form that owns Statement. May be NULL.
+  @param[in] Statement  Statement to classify. May be NULL (then no cue).
+  @param[in] Column     Text-grid column where the row starts.
+  @param[in] Row        Text-grid row of the statement.
+  @param[in] Width      Text-grid column count of the row.
+  @param[in] Highlight  TRUE when the row currently has keyboard highlight.
+  @param[in] Selected   TRUE when the row is in edit/selection mode.
+**/
+VOID
+EFIAPI
+ModernDisplayDrawStatementRowCue (
+  IN FORM_DISPLAY_ENGINE_FORM       *FormData OPTIONAL,
+  IN FORM_DISPLAY_ENGINE_STATEMENT  *Statement OPTIONAL,
+  IN UINTN    Column,
+  IN UINTN    Row,
+  IN UINTN    Width,
+  IN BOOLEAN  Highlight,
+  IN BOOLEAN  Selected
+  );
+
 //
 // Screen definitions
 //

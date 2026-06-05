@@ -725,6 +725,7 @@ ModernUiEngineDrawValue (
   )
 {
   MODERN_UI_RECT  Rect;
+  UINTN           CueSide;
 
   if ((Context == NULL) || (Value == NULL) || (Theme == NULL)) {
     return EFI_INVALID_PARAMETER;
@@ -740,6 +741,25 @@ ModernUiEngineDrawValue (
     Rect.Width = MODERN_UI_ROW_VALUE_BOX_WIDTH;
   }
 
+  //
+  // Paint the shared per-type affordance just left of the value lane so a
+  // checkbox, drop-down, numeric, date/time, password, string, ordered-list,
+  // or action control reads the same here as in the in-setup DisplayEngine.
+  // Plain text values carry no affordance.
+  //
+  if ((Value->Type != ModernUiValueText) && (Rect.X > Value->Rect.X)) {
+    CueSide = MIN ((Rect.Height > 6) ? (Rect.Height - 6) : 0, 14);
+    if (CueSide >= 6) {
+      ModernUiEngineDrawControlCue (
+        Context,
+        (MODERN_UI_RECT){ Rect.X - CueSide - 8, Rect.Y + (Rect.Height - CueSide) / 2, CueSide, CueSide },
+        Value->Type,
+        Theme->AccentYellow,
+        ModernUiBlendColor (Theme->AccentOrange, Theme->BackgroundBlack, 70)
+        );
+    }
+  }
+
   if ((Value->Type == ModernUiValueOneOf) || (Value->Type == ModernUiValueText)) {
     return ModernUiDrawValueBox (Context, Rect, Value->Text, Value->Selected, Theme);
   }
@@ -753,6 +773,126 @@ ModernUiEngineDrawValue (
            Value->Selected ? Theme->Text : Theme->MutedText,
            ModernUiGetSelectableRowBackground (Value->Selected, FALSE, FALSE, FALSE, Theme)
            );
+}
+
+EFI_STATUS
+EFIAPI
+ModernUiEngineDrawControlCue (
+  IN MODERN_UI_RENDER_CONTEXT       *Context,
+  IN MODERN_UI_RECT                 CueRect,
+  IN MODERN_UI_VALUE_TYPE           Type,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  CueColor,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  FillColor
+  )
+{
+  UINTN       W;
+  UINTN       H;
+  UINTN       Index;
+  UINTN       DotSide;
+  EFI_STATUS  Status;
+
+  if (Context == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if ((CueRect.Width < 6) || (CueRect.Height < 6)) {
+    return EFI_SUCCESS;
+  }
+
+  W      = CueRect.Width;
+  H      = CueRect.Height;
+  Status = EFI_SUCCESS;
+
+  switch (Type) {
+    case ModernUiValueCheckbox:
+      //
+      // Toggle box: the stored on/off is still shown as value text; this only
+      // marks the row as a checkbox.
+      //
+      Status = ModernUiStrokeRect (Context, CueRect, CueColor);
+      if (!EFI_ERROR (Status)) {
+        Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ CueRect.X + 3, CueRect.Y + 3, W - 6, H - 6 }, FillColor);
+      }
+
+      break;
+
+    case ModernUiValueOneOf:
+      //
+      // Drop-down chevron.
+      //
+      Status = ModernUiFillTriangle (Context, CueRect, ModernUiTriDown, CueColor);
+      break;
+
+    case ModernUiValueOrderedList:
+      //
+      // Up / down reorder chevrons.
+      //
+      Status = ModernUiFillTriangle (Context, (MODERN_UI_RECT){ CueRect.X, CueRect.Y, W, H / 2 - 1 }, ModernUiTriUp, CueColor);
+      if (!EFI_ERROR (Status)) {
+        Status = ModernUiFillTriangle (Context, (MODERN_UI_RECT){ CueRect.X, CueRect.Y + H / 2 + 1, W, H / 2 - 1 }, ModernUiTriDown, CueColor);
+      }
+
+      break;
+
+    case ModernUiValueNumeric:
+      //
+      // Adjust indicator: a plus mark.
+      //
+      Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ CueRect.X + 2, CueRect.Y + H / 2 - 1, W - 4, 2 }, CueColor);
+      if (!EFI_ERROR (Status)) {
+        Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ CueRect.X + W / 2 - 1, CueRect.Y + 2, 2, H - 4 }, CueColor);
+      }
+
+      break;
+
+    case ModernUiValueDateTime:
+      //
+      // Two segment ticks (three-field value).
+      //
+      Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ CueRect.X + W / 3, CueRect.Y + 1, 2, H - 2 }, CueColor);
+      if (!EFI_ERROR (Status)) {
+        Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ CueRect.X + (W * 2) / 3, CueRect.Y + 1, 2, H - 2 }, CueColor);
+      }
+
+      break;
+
+    case ModernUiValuePassword:
+      //
+      // A short row of masked dots.
+      //
+      DotSide = MAX (2, W / 5);
+      for (Index = 0; Index < 3; Index++) {
+        Status = ModernUiFillRect (
+                   Context,
+                   (MODERN_UI_RECT){ CueRect.X + 2 + Index * (DotSide + 1), CueRect.Y + H / 2 - DotSide / 2, DotSide, DotSide },
+                   CueColor
+                   );
+        if (EFI_ERROR (Status)) {
+          break;
+        }
+      }
+
+      break;
+
+    case ModernUiValueString:
+      //
+      // Text caret.
+      //
+      Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ CueRect.X + W / 2, CueRect.Y + 1, 2, H - 2 }, CueColor);
+      break;
+
+    case ModernUiValueAction:
+      //
+      // Navigate / activate arrow.
+      //
+      Status = ModernUiFillTriangle (Context, CueRect, ModernUiTriRight, CueColor);
+      break;
+
+    default:
+      break;
+  }
+
+  return Status;
 }
 
 EFI_STATUS
