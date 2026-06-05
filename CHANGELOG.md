@@ -75,6 +75,22 @@ this file as both a release log and a lightweight development progress record.
   arch-gate change was contributed upstream and is now in the pinned baseline, so
   `External/lvgl` is consumed pristine (no local patch, no build-time patching).
   See `Experimental/LvglSpikePkg/README.md`.
+- ModernSetupApp header clock now updates live while the front page is idle. The
+  app loop arms a one-second periodic timer and waits on it alongside the
+  keyboard/pointer sources, repainting only the header clock text in place on
+  each tick (no full-frame redraw, so no flicker on the direct-to-GOP renderer).
+  Setting the date/time is unchanged — that still belongs to the native setup
+  forms reached via `SendForm()`; this only keeps the displayed clock from
+  freezing between keystrokes. The change is entirely app-local (no public API
+  or PCD changes). Verified by app X64 CLANGDWARF build and smoke.
+- Modern UI header chrome: the shared header band (used by both `ModernSetupApp`
+  and the modern DisplayEngine) now fades `HeaderPattern` down to the background
+  instead of the older hard top-half/bottom-half split, and the product name,
+  mode label, and clock are laid out by measured width (left-anchored,
+  centred, right-aligned) instead of fixed column offsets — keeping the header
+  seam-free and collision-free from the 1024x768 floor through 1280x800
+  captures. Verified by app X64 CLANGDWARF build, smoke, and a 1280x800 OVMF
+  X64 screendump.
 - Phase49 ModernSetupApp: the Boot page now ends with a native boot-tools entry
   row; pressing Enter on it opens the native Boot Manager / Boot Maintenance via
   `SendForm()` instead of launching a boot option, and the per-entry BootNext /
@@ -292,6 +308,26 @@ this file as both a release log and a lightweight development progress record.
 
 ### Changed
 
+- Modern UI engine: added a `ModernUiEngineDrawStatusPill` primitive (second entry
+  in the base shape vocabulary) and refactored the footer status badge onto it.
+  The badge is now sized to comfortably contain one text line (height = line + 6)
+  with the label vertically centred via the shared `ModernUiBoxTextY` helper,
+  fixing the cramped/clipped look of the old fixed 20px chip with text pinned at
+  +11. Verified clean in the app footer (status message centred and legible). The
+  in-setup DisplayEngine badge still shows a separate draw-order overdraw clipping
+  its top — that is tracked for the DisplayEngine row/badge integration step, not a
+  pill-geometry issue. App-local; no public API or PCD change. Verified by smoke,
+  OVMF X64 + app X64 CLANGDWARF builds.
+- Modern UI engine: began a base graphics-primitive vocabulary. Introduced named
+  metric tokens (`MODERN_UI_TEXT_LINE_HEIGHT`, `MODERN_UI_BOX_TEXT_INSET`) plus a
+  `ModernUiBoxTextY` vertical-centring helper, and extracted the per-row drawing
+  in `ModernUiEngineDrawRows` into a single `ModernUiEngineDrawStatementRow`
+  primitive that `ModernUiEngineDrawValue` shares. Behaviour-preserving (no pixel
+  change; verified by app X64 capture of the dashboard and Boot page), this
+  replaces scattered raw pixel offsets so row/box geometry is defined and polished
+  in one place. Groundwork for moving the DisplayEngine's menu rows off edk2's
+  text-grid column truncation onto graphical primitives. App-local; no public API
+  or PCD change. Verified by smoke + app X64 CLANGDWARF build.
 - ModernSetupApp Dashboard Quick Access polish: cards now carry a subtle raised
   depth (a faint inner top highlight plus a bottom shadow hairline), and the
   category headers are grid-aware -- a category that wraps across a grid row now
@@ -300,6 +336,16 @@ this file as both a release log and a lightweight development progress record.
 - ModernSetupApp default theme is now Graphite Gold (previously the
   system/orange default), so fresh installs open with the warmer graphite base
   and gold accent palette on first launch.
+- The in-setup DisplayEngine now defaults to Graphite Gold as well, closing the
+  theme seam where the Graphite Gold front page jumped to orange after
+  `SendForm()` entered a real setup form. `PcdModernSetupTheme` gains value
+  `2 = graphite/gold` and its default changes from `0x00` to `0x02`;
+  `ModernUiGetTheme()` maps the new value, and the `MODERN_SETUP_THEME` build
+  switch gains `graphite-gold`/`graphite` (now the default across the OVMF X64,
+  ArmVirt, LoongArchVirt, and RiscVVirt scripts). `orange`/`red` remain
+  selectable for integrators who want the older palette. **This is a public PCD
+  default + semantics change and requires `core-api` review before the batch PR
+  merges.** Verified by smoke (overlay dry run now asserts `|0x02`).
 - Modern UI chrome refresh: the header status band is now a flat shelf (a single
   faint top sheen plus a baseline hairline) instead of vertical "vent" bars and
   horizontal striations, and the top tabs mark the active tab with a bright

@@ -107,6 +107,62 @@ ModernSetupDrawHeader (
 }
 
 /**
+  Repaint only the header clock in place, without redrawing the rest of the frame.
+
+  The idle loop calls this once per timer tick so the clock's seconds field
+  stays live while no key is pressed. Only the timestamp text is repainted: it
+  sits on the solid HeaderPattern strip at the very top of the header, and the
+  renderer fills each glyph cell with the text background before blending, so
+  redrawing the fixed-width timestamp over itself fully erases the previous
+  value with no flicker and no screen clear. The 6/26 insets mirror
+  ModernUiEngineDrawPage()'s header layout so the refreshed clock lands on the
+  same pixels the full redraw uses; the app always renders wide enough that the
+  clock is right-aligned. The call is a no-op if either argument is NULL or the
+  real-time clock cannot be read.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+**/
+VOID
+ModernSetupRefreshHeaderClock (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme
+  )
+{
+  EFI_TIME  Time;
+  CHAR16    TimeText[40];
+  UINTN     TimeWidth;
+  UINTN     RightEdge;
+  UINTN     TimeStart;
+
+  if ((Ui == NULL) || (Theme == NULL)) {
+    return;
+  }
+
+  if (EFI_ERROR (gRT->GetTime (&Time, NULL))) {
+    return;
+  }
+
+  UnicodeSPrint (
+    TimeText,
+    sizeof (TimeText),
+    L"%02d/%02d/%04d  %02d:%02d:%02d",
+    Time.Month,
+    Time.Day,
+    Time.Year,
+    Time.Hour,
+    Time.Minute,
+    Time.Second
+    );
+
+  TimeWidth = ModernUiMeasureText (TimeText);
+  RightEdge = (Ui->Width > 52) ? (Ui->Width - 26) : Ui->Width;
+  TimeStart = (RightEdge > TimeWidth) ? (RightEdge - TimeWidth) : 0;
+
+  ModernUiDrawText (Ui, TimeStart, 6, TimeText, Theme->Text, Theme->HeaderPattern);
+}
+
+/**
   Draw the top page tab bar.
 
   @param[in] Ui     Initialized render context. Must not be NULL.
