@@ -150,6 +150,36 @@ ModernDisplayDrawTextCaret (
   IN UINTN  Row
   );
 
+/**
+  Overlay a one-of (choice) row's value lane with the backend's best drop-down.
+
+  This is the in-setup half of the one-of -> drop-down mapping. The native
+  FormBrowser prints the selected option as plain text in the value lane;
+  `DisplayOneMenu` calls this immediately afterwards (while the option string is
+  still in scope) to paint a real drop-down over that lane -- a true `lv_dropdown`
+  widget on the LVGL backend, a composed value box on GOP -- via the shared
+  ModernUiRenderOneOf renderer entry point. Display-only: edk2 still owns the
+  selection popup, ConfigAccess, and callbacks. The companion cue overlay skips
+  the one-of chevron for the same row, since the rendered control carries its own.
+
+  @param[in] Column     Text-grid column where the value (option) lane starts.
+  @param[in] Row        Text-grid row of the statement.
+  @param[in] Width      Text-grid column count of the value lane.
+  @param[in] ValueText  Selected option text. May be NULL (then no-op).
+  @param[in] Highlight  TRUE when the row currently has keyboard highlight.
+  @param[in] Selected   TRUE when the row is in edit/selection mode.
+**/
+VOID
+EFIAPI
+ModernDisplayDrawOneOfWidget (
+  IN UINTN          Column,
+  IN UINTN          Row,
+  IN UINTN          Width,
+  IN CONST CHAR16   *ValueText OPTIONAL,
+  IN BOOLEAN        Highlight,
+  IN BOOLEAN        Selected
+  );
+
 //
 // Screen definitions
 //

@@ -73,6 +73,7 @@
   lvgl/src/draw/lv_draw_triangle.c
   lvgl/src/draw/lv_draw_vector.c
   lvgl/src/draw/lv_image_decoder.c
+  lvgl/src/draw/snapshot/lv_snapshot.c
   lvgl/src/draw/nanovg/lv_draw_nanovg_3d.c
   lvgl/src/draw/nanovg/lv_draw_nanovg_arc.c
   lvgl/src/draw/nanovg/lv_draw_nanovg_border.c

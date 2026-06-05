@@ -2523,6 +2523,22 @@ DisplayOneMenu (
       }
     }
 
+    //
+    // One-of rows render as the backend's best drop-down over the value lane,
+    // using the option string FormBrowser just printed (still valid here, and
+    // Highlight not yet cleared). The cue overlay skips the chevron for one-of.
+    //
+    if (Statement->OpCode->OpCode == EFI_IFR_ONE_OF_OP) {
+      ModernDisplayDrawOneOfWidget (
+        MenuOption->OptCol,
+        MenuOption->Row,
+        gOptionBlockWidth,
+        OptionString,
+        Highlight,
+        (BOOLEAN)(gUserInput->SelectedStatement == Statement)
+        );
+    }
+
     Highlight = FALSE;
 
     FreePool (OptionString);

@@ -756,3 +756,130 @@ ModernUiDrawText (
 
   return ReturnStatus;
 }
+
+
+/**
+  LVGL one-of renderer: render a real `lv_dropdown` widget into the shadow canvas.
+
+  This is the first IFR-opcode->LVGL-widget mapping (one-of -> lv_dropdown). The
+  widget is display-only: a transient closed drop-down is created, labelled with
+  the selected option, themed, and rendered to an off-screen buffer via
+  `lv_snapshot_take`, then alpha-composited over the row background already in the
+  canvas (so the widget's rounded corners blend cleanly). edk2 FormBrowser still
+  owns the actual selection; we never route input into the widget. Falls back to
+  the composed value box when LVGL is not ready, the rect is off-screen, or
+  widget/snapshot allocation fails.
+
+  @param[in] Context   Initialized render context. Must not be NULL.
+  @param[in] Rect      Control rectangle (value lane).
+  @param[in] Value     Selected option text. Must not be NULL.
+  @param[in] Selected  TRUE when the owning row is selected.
+  @param[in] Theme     Theme token table. Must not be NULL.
+
+  @retval EFI_SUCCESS            Widget composited (or fell back successfully).
+  @retval EFI_INVALID_PARAMETER  Context, Value, or Theme is NULL, or Rect empty.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderOneOf (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  lv_obj_t                       *Dropdown;
+  lv_draw_buf_t                  *Snap;
+  CHAR8                          Label[128];
+  UINTN                          Index;
+  UINTN                          SnapW;
+  UINTN                          SnapH;
+  UINTN                          Stride;
+  UINTN                          RowIdx;
+  UINTN                          ColIdx;
+  UINT8                          *SrcRow;
+  UINT8                          *SrcPix;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL  *Dst;
+  UINT32                         Alpha;
+
+  if ((Context == NULL) || (Value == NULL) || (Theme == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (!mLvglReady || (mCanvas == NULL) || (Rect.X >= mCanvasW) || (Rect.Y >= mCanvasH)) {
+    return ModernUiDrawValueBox (Context, Rect, Value, Selected, Theme);
+  }
+
+  //
+  // UCS-2 -> ASCII for the LVGL (Latin) label; non-ASCII code points become '?'.
+  // CJK option text is a known prototype limitation of the widget path.
+  //
+  for (Index = 0; (Index < (sizeof (Label) - 1)) && (Value[Index] != CHAR_NULL); Index++) {
+    Label[Index] = ((Value[Index] >= 0x20) && (Value[Index] < 0x7F)) ? (CHAR8)Value[Index] : '?';
+  }
+
+  Label[Index] = '\0';
+
+  Dropdown = lv_dropdown_create (lv_display_get_screen_active (mDisplay));
+  if (Dropdown == NULL) {
+    return ModernUiDrawValueBox (Context, Rect, Value, Selected, Theme);
+  }
+
+  lv_dropdown_set_text (Dropdown, Label);
+  lv_obj_set_size (Dropdown, (int32_t)Rect.Width, (int32_t)Rect.Height);
+  lv_obj_set_pos (Dropdown, 0, 0);
+  lv_obj_set_style_bg_color (Dropdown, ToLvColor (Selected ? Theme->SelectedBand : Theme->Surface), 0);
+  lv_obj_set_style_bg_opa (Dropdown, LV_OPA_COVER, 0);
+  lv_obj_set_style_border_color (Dropdown, ToLvColor (Selected ? Theme->PopupBorder : Theme->Border), 0);
+  lv_obj_set_style_text_color (Dropdown, ToLvColor (Theme->Text), 0);
+  lv_obj_update_layout (Dropdown);
+
+  Snap = lv_snapshot_take (Dropdown, LV_COLOR_FORMAT_ARGB8888);
+  if (Snap == NULL) {
+    lv_obj_delete (Dropdown);
+    return ModernUiDrawValueBox (Context, Rect, Value, Selected, Theme);
+  }
+
+  SnapW  = Snap->header.w;
+  SnapH  = Snap->header.h;
+  Stride = Snap->header.stride;
+
+  //
+  // Alpha-composite ARGB8888 (B,G,R,A byte order, matching EFI BLT pixels) over
+  // the row background already present in the canvas.
+  //
+  for (RowIdx = 0; (RowIdx < SnapH) && ((Rect.Y + RowIdx) < mCanvasH); RowIdx++) {
+    Dst    = mCanvasBuf + (Rect.Y + RowIdx) * mCanvasW + Rect.X;
+    SrcRow = Snap->data + RowIdx * Stride;
+    for (ColIdx = 0; (ColIdx < SnapW) && ((Rect.X + ColIdx) < mCanvasW); ColIdx++, Dst++) {
+      SrcPix = SrcRow + ColIdx * 4;
+      Alpha  = SrcPix[3];
+      if (Alpha == 0) {
+        continue;
+      }
+
+      if (Alpha >= 255) {
+        Dst->Blue  = SrcPix[0];
+        Dst->Green = SrcPix[1];
+        Dst->Red   = SrcPix[2];
+      } else {
+        Dst->Blue  = (UINT8)((SrcPix[0] * Alpha + Dst->Blue  * (255 - Alpha)) / 255);
+        Dst->Green = (UINT8)((SrcPix[1] * Alpha + Dst->Green * (255 - Alpha)) / 255);
+        Dst->Red   = (UINT8)((SrcPix[2] * Alpha + Dst->Red   * (255 - Alpha)) / 255);
+      }
+    }
+  }
+
+  lv_draw_buf_destroy (Snap);
+  lv_obj_delete (Dropdown);
+
+  BltCanvasRegion (
+    Rect.X,
+    Rect.Y,
+    MIN (SnapW, mCanvasW - Rect.X),
+    MIN (SnapH, mCanvasH - Rect.Y)
+    );
+
+  return EFI_SUCCESS;
+}

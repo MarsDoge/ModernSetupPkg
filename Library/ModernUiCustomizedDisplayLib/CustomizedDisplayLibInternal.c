@@ -1108,6 +1108,14 @@ ModernDisplayDrawStatementRowCue (
     return;
   }
 
+  //
+  // One-of (choice) rows render as a real drop-down via ModernDisplayDrawOneOfWidget,
+  // which carries its own arrow, so skip the separate chevron cue for them.
+  //
+  if (FormRow.Kind == ModernDisplayFormRowChoice) {
+    return;
+  }
+
   Theme = ModernUiGetTheme ();
   ModernDisplayGetCellMetrics (&CellWidth, &CellHeight);
 
@@ -1182,6 +1190,72 @@ ModernDisplayDrawTextCaret (
     (MODERN_UI_RECT){ Column * CellWidth, Row * CellHeight + Inset, CaretWidth, CellHeight - (2 * Inset) },
     Theme->AccentYellow
     );
+}
+
+/**
+  Overlay a one-of row's value lane with the backend's best drop-down.
+
+  Converts the text-grid value lane to pixels using the same cell metrics as the
+  themed printer, then delegates to the shared ModernUiRenderOneOf, which renders
+  a real lv_dropdown on the LVGL backend and a composed value box on GOP. See the
+  contract on ModernDisplayDrawOneOfWidget in FormDisplay.h. No-op (no error) when
+  no renderer is available, the value text is NULL, or the lane is degenerate.
+
+  @param[in] Column     Text-grid column where the value lane starts.
+  @param[in] Row        Text-grid row of the statement.
+  @param[in] Width      Text-grid column count of the value lane.
+  @param[in] ValueText  Selected option text. May be NULL.
+  @param[in] Highlight  TRUE when the row currently has keyboard highlight.
+  @param[in] Selected   TRUE when the row is in edit/selection mode.
+**/
+VOID
+EFIAPI
+ModernDisplayDrawOneOfWidget (
+  IN UINTN         Column,
+  IN UINTN         Row,
+  IN UINTN         Width,
+  IN CONST CHAR16  *ValueText OPTIONAL,
+  IN BOOLEAN       Highlight,
+  IN BOOLEAN       Selected
+  )
+{
+  CONST MODERN_UI_THEME  *Theme;
+  UINTN                  CellWidth;
+  UINTN                  CellHeight;
+  MODERN_UI_RECT         Rect;
+  CHAR16                 Clean[128];
+  UINTN                  Src;
+  UINTN                  Dst;
+
+  if ((ValueText == NULL) || (Width == 0) || EFI_ERROR (ModernDisplayEnsureRenderer ())) {
+    return;
+  }
+
+  ModernDisplayGetCellMetrics (&CellWidth, &CellHeight);
+  if ((CellWidth == 0) || (CellHeight < 10)) {
+    return;
+  }
+
+  //
+  // FormBrowser embeds glyph-width markers (NARROW_CHAR/WIDE_CHAR, >= 0xFFF0) in
+  // option strings; they are layout hints, not printable text. Strip them so the
+  // drop-down shows clean option text on both backends.
+  //
+  for (Src = 0, Dst = 0; (ValueText[Src] != CHAR_NULL) && (Dst < (ARRAY_SIZE (Clean) - 1)); Src++) {
+    if (ValueText[Src] < 0xFFF0) {
+      Clean[Dst++] = ValueText[Src];
+    }
+  }
+
+  Clean[Dst] = CHAR_NULL;
+
+  Theme       = ModernUiGetTheme ();
+  Rect.X      = Column * CellWidth;
+  Rect.Y      = Row * CellHeight;
+  Rect.Width  = Width * CellWidth;
+  Rect.Height = CellHeight;
+
+  ModernUiRenderOneOf (&mModernRenderContext, Rect, Clean, (BOOLEAN)(Highlight || Selected), Theme);
 }
 
 /**

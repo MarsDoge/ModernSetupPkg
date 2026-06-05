@@ -14,6 +14,23 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- First IFR-opcode -> LVGL-widget mapping: one-of (choice) controls now render as
+  a real `lv_dropdown` widget on the LVGL backend, in both the front-page App and
+  real in-setup VFR forms. A new renderer entry point, `ModernUiRenderOneOf`,
+  abstracts the control: the LVGL backend builds a transient display-only
+  `lv_dropdown` (its own rounded box, border, and `LV_SYMBOL_DOWN` arrow),
+  renders it via `lv_snapshot_take` (newly enabled `LV_USE_SNAPSHOT`), and
+  alpha-composites the ARGB8888 result over the row background in the shadow
+  canvas; the GOP backend keeps composing the value box from primitives, so there
+  is no GOP regression. `ModernUiEngineDrawValue` routes one-of values to it (App
+  path) and the in-setup DisplayEngine overlays it on the value lane via the new
+  `ModernDisplayDrawOneOfWidget` (using the option string FormBrowser just
+  printed, with its NARROW_CHAR/WIDE_CHAR glyph markers stripped); the one-of
+  affordance cue is skipped for these rows since the control carries its own
+  arrow. Display-only: edk2 FormBrowser still owns the selection popup,
+  ConfigAccess, and callbacks. This is the reusable widget pipeline for further
+  opcode mappings. Verified by OVMF X64 lvgl + GOP screendumps of the DriverSample
+  form and the App preferences page, plus smoke.
 - DisplayEngine text-input edit caret is now drawn by the Modern renderer
   (`ModernDisplayDrawTextCaret`) instead of the native `EFI_SIMPLE_TEXT_OUTPUT`
   cursor. `ReadString` suppresses the native cursor (which draws straight to the

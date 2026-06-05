@@ -984,7 +984,7 @@ ModernUiEngineDrawValue (
   // or action control reads the same here as in the in-setup DisplayEngine.
   // Plain text values carry no affordance.
   //
-  if ((Value->Type != ModernUiValueText) && (Rect.X > Value->Rect.X)) {
+  if ((Value->Type != ModernUiValueText) && (Value->Type != ModernUiValueOneOf) && (Rect.X > Value->Rect.X)) {
     CueSide = MIN ((Rect.Height > 6) ? (Rect.Height - 6) : 0, 14);
     if (CueSide >= 6) {
       ModernUiEngineDrawControlCue (
@@ -997,7 +997,16 @@ ModernUiEngineDrawValue (
     }
   }
 
-  if ((Value->Type == ModernUiValueOneOf) || (Value->Type == ModernUiValueText)) {
+  //
+  // One-of renders as the backend's best-available drop-down: a real lv_dropdown
+  // widget on the LVGL backend, a composed value box on GOP. The control carries
+  // its own arrow, so the external one-of cue above is intentionally skipped.
+  //
+  if (Value->Type == ModernUiValueOneOf) {
+    return ModernUiRenderOneOf (Context, Rect, Value->Text, Value->Selected, Theme);
+  }
+
+  if (Value->Type == ModernUiValueText) {
     return ModernUiDrawValueBox (Context, Rect, Value->Text, Value->Selected, Theme);
   }
 

@@ -419,6 +419,44 @@ ModernUiDrawValueBox (
   );
 
 /**
+  Render a one-of (choice) control as the backend's best available drop-down.
+
+  Display-only: this paints the closed drop-down showing the currently selected
+  option text; it never opens a list or owns selection/input. edk2 FormBrowser
+  still owns the actual choice (its own selection popup, ConfigAccess, callbacks).
+  Backends diverge by capability:
+
+  - GOP backend composes the drop-down from primitives (value box + an in-box
+    chevron), matching the rest of the GOP chrome.
+  - LVGL backend renders a real `lv_dropdown` widget (its own box, border, and
+    `LV_SYMBOL_DOWN` arrow) snapshotted into the shadow canvas, so a one-of reads
+    as a genuine toolkit control rather than a hand-composed box.
+
+  The caller must not also draw the separate one-of affordance cue for this value;
+  the rendered control carries its own arrow.
+
+  @param[in] Context   Initialized render context. Must not be NULL.
+  @param[in] Rect      Control rectangle (the value lane).
+  @param[in] Value     Selected option text. Must not be NULL.
+  @param[in] Selected  TRUE when the owning row is selected/focused.
+  @param[in] Theme     Theme token table. Must not be NULL.
+
+  @retval EFI_SUCCESS            Control was drawn (or clipped outside view).
+  @retval EFI_INVALID_PARAMETER  Context, Value, or Theme is NULL, or Rect empty.
+  @retval EFI_OUT_OF_RESOURCES   Temporary widget/snapshot allocation failed.
+  @retval others                 Status returned by the underlying renderer.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderOneOf (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
   Draw a drop-down list frame.
 
   @param[in] Context  Initialized render context. Must not be NULL.

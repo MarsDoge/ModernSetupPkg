@@ -379,3 +379,32 @@ ModernUiDrawText (
 
   return ReturnStatus;
 }
+
+/**
+  GOP one-of renderer: compose the closed drop-down from primitives.
+
+  The GOP backend has no widget toolkit, so the best available drop-down is the
+  shared themed value box, which already paints a bordered field, the selected
+  option text, and a right-aligned chevron. Display-only; see the contract on
+  ModernUiRenderOneOf in ModernUiRenderer.h.
+
+  @param[in] Context   Initialized render context. Must not be NULL.
+  @param[in] Rect      Control rectangle.
+  @param[in] Value     Selected option text. Must not be NULL.
+  @param[in] Selected  TRUE when the owning row is selected.
+  @param[in] Theme     Theme token table. Must not be NULL.
+
+  @retval others  Status from ModernUiDrawValueBox.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderOneOf (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  return ModernUiDrawValueBox (Context, Rect, Value, Selected, Theme);
+}
