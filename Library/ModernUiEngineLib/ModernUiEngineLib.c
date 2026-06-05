@@ -984,15 +984,18 @@ ModernUiEngineDrawValue (
   // or action control reads the same here as in the in-setup DisplayEngine.
   // Plain text values carry no affordance.
   //
-  // Widget-mapped controls (one-of/checkbox/numeric/string/password) render as
-  // real backend widgets that carry their own affordance, so the external cue is
-  // drawn only for the remaining cued types (date/time, ordered-list, action).
+  // Widget-mapped controls render as real backend widgets that carry their own
+  // affordance, so the external cue is drawn only for the remaining cued type
+  // (action). One-of/checkbox/numeric/string/password/ordered-list/date-time all
+  // map to widgets on the app-facing draw path.
   if ((Value->Type != ModernUiValueText) &&
       (Value->Type != ModernUiValueOneOf) &&
       (Value->Type != ModernUiValueCheckbox) &&
       (Value->Type != ModernUiValueNumeric) &&
       (Value->Type != ModernUiValueString) &&
       (Value->Type != ModernUiValuePassword) &&
+      (Value->Type != ModernUiValueOrderedList) &&
+      (Value->Type != ModernUiValueDateTime) &&
       (Rect.X > Value->Rect.X))
   {
     CueSide = MIN ((Rect.Height > 6) ? (Rect.Height - 6) : 0, 14);
@@ -1023,6 +1026,10 @@ ModernUiEngineDrawValue (
       return ModernUiRenderString (Context, Rect, Value->Text, Value->Selected, Theme);
     case ModernUiValuePassword:
       return ModernUiRenderPassword (Context, Rect, Value->Text, Value->Selected, Theme);
+    case ModernUiValueOrderedList:
+      return ModernUiRenderOrderedList (Context, Rect, Value->Text, Value->Selected, Theme);
+    case ModernUiValueDateTime:
+      return ModernUiRenderDateTime (Context, Rect, Value->Text, Value->Selected, Theme);
     case ModernUiValueText:
       return ModernUiDrawValueBox (Context, Rect, Value->Text, Value->Selected, Theme);
     default:

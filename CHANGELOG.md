@@ -31,11 +31,22 @@ this file as both a release log and a lightweight development progress record.
   via `ModernDisplayDrawValueWidget` (opcode-dispatched, using the option string
   FormBrowser just printed with its NARROW_CHAR/WIDE_CHAR glyph markers stripped);
   the affordance cue is skipped for the mapped rows since each control carries its
-  own. Date/time and ordered-list keep the cue vocabulary (no clean single-widget
-  mapping yet); action/reference keep the `>` arrow. Display-only throughout: edk2
+  own. Action/reference keep the `>` arrow. Display-only throughout: edk2
   FormBrowser still owns selection/editing, ConfigAccess, and callbacks. Verified
   by OVMF X64 lvgl + GOP screendumps of the DriverSample form and the App
   preferences page, plus smoke.
+- Ordered-list and date/time opcodes complete the IFR-opcode -> LVGL-widget
+  mapping. Ordered-list renders as a real list-style field (`LV_SYMBOL_LIST`
+  prefix + the current option order) in both the App and in-setup DisplayEngine,
+  dropping its cue. Date/time renders as a segmented field (value laid out with
+  spaced `/ : -` delimiters so month/day/year or H:M:S read as discrete cells) on
+  the app-facing draw path; in the in-setup DisplayEngine date/time deliberately
+  keeps its native per-segment rendering and the type cue, because FormBrowser
+  highlights the active segment in place and a full-lane widget overlay would mask
+  that editing feedback. New renderer entry points `ModernUiRenderOrderedList` /
+  `ModernUiRenderDateTime` (GOP draws themed field boxes -- no regression). edk2
+  still owns the reorder popup and segment editing. Verified by OVMF X64 lvgl +
+  GOP builds and smoke.
 - DisplayEngine text-input edit caret is now drawn by the Modern renderer
   (`ModernDisplayDrawTextCaret`) instead of the native `EFI_SIMPLE_TEXT_OUTPUT`
   cursor. `ReadString` suppresses the native cursor (which draws straight to the

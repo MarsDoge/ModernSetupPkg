@@ -523,6 +523,46 @@ ModernUiRenderNumeric (
   );
 
 /**
+  Render an ordered-list control as the backend's best widget (display-only).
+
+  LVGL renders a real list-style field (an `LV_SYMBOL_LIST`-prefixed `lv_obj`
+  field) showing the current option order; GOP draws a bordered field. edk2 owns
+  the reorder popup. Same NULL/Rect contract as ModernUiRenderOneOf.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderOrderedList (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
+  Render a date/time control as the backend's best widget (display-only).
+
+  LVGL renders a segmented field (the value laid out with spaced `/ : -`
+  delimiters so the month/day/year or hour/minute/second segments read as
+  discrete cells); GOP draws a bordered field. edk2 owns segment editing.
+
+  Note: in the in-setup DisplayEngine, date/time keeps its native per-segment
+  rendering and the type cue, because FormBrowser highlights the active segment
+  in place and a full-lane widget overlay would mask that feedback. This entry
+  point completes the engine value vocabulary for the app-facing draw path.
+  Same NULL/Rect contract as ModernUiRenderOneOf.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderDateTime (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
   Draw a bordered value field (no drop-down arrow) with inset text.
 
   The arrow-less companion to ModernUiDrawValueBox, used by the GOP backend to

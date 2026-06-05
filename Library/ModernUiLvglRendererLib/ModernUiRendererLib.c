@@ -1164,3 +1164,139 @@ ModernUiRenderNumeric (
 {
   return LvglRenderTextField (Context, Rect, Value, Selected, Theme, FALSE);
 }
+
+/**
+  LVGL ordered-list renderer: a real list-style field showing the option order.
+
+  Builds a styled `lv_obj` field with an `LV_SYMBOL_LIST` glyph prefixing the
+  current option order, so an ordered list reads as a genuine list control rather
+  than a cue glyph over native text. edk2 FormBrowser still owns the reorder popup
+  and the actual ordering. Falls back to the field box when LVGL is unavailable.
+  See ModernUiRenderOrderedList in ModernUiRenderer.h.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderOrderedList (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  lv_obj_t  *Field;
+  lv_obj_t  *Label;
+  CHAR8     Text[128];
+  CHAR8     Decorated[160];
+
+  if ((Context == NULL) || (Value == NULL) || (Theme == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (!mLvglReady || (mCanvas == NULL) || (Rect.X >= mCanvasW) || (Rect.Y >= mCanvasH)) {
+    return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+  }
+
+  LvglAsciiLabel (Text, sizeof (Text), Value);
+  //
+  // LV_SYMBOL_LIST is a UTF-8 glyph from the bundled Montserrat symbol set; it is
+  // copied verbatim ahead of the ASCII order text to mark the field as a list.
+  //
+  AsciiSPrint (Decorated, sizeof (Decorated), "%a  %a", LV_SYMBOL_LIST, Text);
+
+  Field = lv_obj_create (lv_display_get_screen_active (mDisplay));
+  if (Field == NULL) {
+    return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+  }
+
+  LvglStyleControl (Field, Rect, Selected, Theme);
+  lv_obj_set_style_radius (Field, 4, 0);
+  lv_obj_set_style_pad_all (Field, 0, 0);
+  lv_obj_remove_flag (Field, LV_OBJ_FLAG_SCROLLABLE);
+
+  Label = lv_label_create (Field);
+  if (Label != NULL) {
+    lv_label_set_text (Label, Decorated);
+    lv_obj_set_style_text_color (Label, ToLvColor (Selected ? Theme->Text : Theme->MutedText), 0);
+    lv_obj_align (Label, LV_ALIGN_LEFT_MID, 8, 0);
+  }
+
+  return LvglComposeSnapshot (Context, Field, Rect, Value, Selected, Theme);
+}
+
+/**
+  LVGL date/time renderer: a segmented field showing month/day/year or H:M:S.
+
+  Spaces the value around its `/ : -` delimiters so the segments read as discrete
+  cells, then renders them centered in a styled `lv_obj` field. edk2 owns segment
+  editing. In the in-setup DisplayEngine date/time keeps native per-segment
+  rendering (see ModernUiRenderDateTime in ModernUiRenderer.h); this entry point
+  serves the app-facing draw path. Falls back to the field box when LVGL is
+  unavailable.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderDateTime (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  lv_obj_t  *Field;
+  lv_obj_t  *Label;
+  CHAR8     Raw[64];
+  CHAR8     Spaced[128];
+  UINTN     Src;
+  UINTN     Dst;
+  CHAR8     Ch;
+
+  if ((Context == NULL) || (Value == NULL) || (Theme == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (!mLvglReady || (mCanvas == NULL) || (Rect.X >= mCanvasW) || (Rect.Y >= mCanvasH)) {
+    return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+  }
+
+  LvglAsciiLabel (Raw, sizeof (Raw), Value);
+  //
+  // Pad each date/time delimiter with surrounding spaces so the segments read as
+  // discrete cells (e.g. "06 / 05 / 2026"), without parsing the field layout.
+  //
+  for (Src = 0, Dst = 0; (Raw[Src] != '\0') && (Dst < (sizeof (Spaced) - 4)); Src++) {
+    Ch = Raw[Src];
+    if ((Ch == '/') || (Ch == ':') || (Ch == '-')) {
+      if ((Dst > 0) && (Spaced[Dst - 1] != ' ')) {
+        Spaced[Dst++] = ' ';
+      }
+
+      Spaced[Dst++] = Ch;
+      Spaced[Dst++] = ' ';
+    } else {
+      Spaced[Dst++] = Ch;
+    }
+  }
+
+  Spaced[Dst] = '\0';
+
+  Field = lv_obj_create (lv_display_get_screen_active (mDisplay));
+  if (Field == NULL) {
+    return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+  }
+
+  LvglStyleControl (Field, Rect, Selected, Theme);
+  lv_obj_set_style_radius (Field, 4, 0);
+  lv_obj_set_style_pad_all (Field, 0, 0);
+  lv_obj_remove_flag (Field, LV_OBJ_FLAG_SCROLLABLE);
+
+  Label = lv_label_create (Field);
+  if (Label != NULL) {
+    lv_label_set_text (Label, Spaced);
+    lv_obj_set_style_text_color (Label, ToLvColor (Selected ? Theme->Text : Theme->MutedText), 0);
+    lv_obj_align (Label, LV_ALIGN_CENTER, 0, 0);
+  }
+
+  return LvglComposeSnapshot (Context, Field, Rect, Value, Selected, Theme);
+}

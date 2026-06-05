@@ -481,3 +481,39 @@ ModernUiRenderNumeric (
 {
   return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
 }
+
+/**
+  GOP ordered-list renderer: a bordered field with the current option order.
+
+  See ModernUiRenderOrderedList in ModernUiRenderer.h.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderOrderedList (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+}
+
+/**
+  GOP date/time renderer: a bordered field with the value text.
+
+  See ModernUiRenderDateTime in ModernUiRenderer.h.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderDateTime (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+}

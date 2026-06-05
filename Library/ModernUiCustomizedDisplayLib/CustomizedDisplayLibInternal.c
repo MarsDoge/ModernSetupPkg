@@ -1109,16 +1109,17 @@ ModernDisplayDrawStatementRowCue (
   }
 
   //
-  // Widget-mapped rows (one-of/checkbox/numeric/string/password) render as real
-  // controls via ModernDisplayDrawValueWidget, which carry their own affordance,
-  // so skip the separate cue for them. Date/time, ordered-list, and action keep
-  // the cue.
+  // Widget-mapped rows (one-of/checkbox/numeric/string/password/ordered-list)
+  // render as real controls via ModernDisplayDrawValueWidget, which carry their
+  // own affordance, so skip the separate cue for them. Date/time (native
+  // per-segment rendering) and action keep the cue.
   //
   if ((FormRow.Kind == ModernDisplayFormRowChoice) ||
       (FormRow.Kind == ModernDisplayFormRowCheckbox) ||
       (FormRow.Kind == ModernDisplayFormRowNumeric) ||
       (FormRow.Kind == ModernDisplayFormRowString) ||
-      (FormRow.Kind == ModernDisplayFormRowPassword))
+      (FormRow.Kind == ModernDisplayFormRowPassword) ||
+      (FormRow.Kind == ModernDisplayFormRowOrderedList))
   {
     return;
   }
@@ -1246,7 +1247,7 @@ ModernDisplayDrawValueWidget (
   //
   if ((OpCode != EFI_IFR_ONE_OF_OP) && (OpCode != EFI_IFR_CHECKBOX_OP) &&
       (OpCode != EFI_IFR_NUMERIC_OP) && (OpCode != EFI_IFR_STRING_OP) &&
-      (OpCode != EFI_IFR_PASSWORD_OP))
+      (OpCode != EFI_IFR_PASSWORD_OP) && (OpCode != EFI_IFR_ORDERED_LIST_OP))
   {
     return;
   }
@@ -1291,6 +1292,9 @@ ModernDisplayDrawValueWidget (
       break;
     case EFI_IFR_PASSWORD_OP:
       ModernUiRenderPassword (&mModernRenderContext, Rect, Clean, Sel, Theme);
+      break;
+    case EFI_IFR_ORDERED_LIST_OP:
+      ModernUiRenderOrderedList (&mModernRenderContext, Rect, Clean, Sel, Theme);
       break;
     default:
       break;
