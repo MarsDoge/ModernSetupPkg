@@ -759,40 +759,97 @@ ModernUiDrawText (
 
 
 /**
-  LVGL one-of renderer: render a real `lv_dropdown` widget into the shadow canvas.
+  Convert a UCS-2 run to an ASCII label for LVGL's Latin fonts.
 
-  This is the first IFR-opcode->LVGL-widget mapping (one-of -> lv_dropdown). The
-  widget is display-only: a transient closed drop-down is created, labelled with
-  the selected option, themed, and rendered to an off-screen buffer via
-  `lv_snapshot_take`, then alpha-composited over the row background already in the
-  canvas (so the widget's rounded corners blend cleanly). edk2 FormBrowser still
-  owns the actual selection; we never route input into the widget. Falls back to
-  the composed value box when LVGL is not ready, the rect is off-screen, or
-  widget/snapshot allocation fails.
+  Glyph-width markers and non-ASCII code points are dropped/replaced; CJK in a
+  widget label is a known limitation of the widget path (handled elsewhere for
+  primitive text).
+
+  @param[out] Out  Destination ASCII buffer.
+  @param[in]  Cap  Capacity of Out in bytes (>= 1).
+  @param[in]  Src  Null-terminated UCS-2 source. May be NULL (empty result).
+**/
+STATIC
+VOID
+LvglAsciiLabel (
+  OUT CHAR8         *Out,
+  IN  UINTN         Cap,
+  IN  CONST CHAR16  *Src
+  )
+{
+  UINTN  SrcIdx;
+  UINTN  DstIdx;
+
+  DstIdx = 0;
+  if (Src != NULL) {
+    for (SrcIdx = 0; (Src[SrcIdx] != CHAR_NULL) && (DstIdx < (Cap - 1)); SrcIdx++) {
+      if (Src[SrcIdx] >= 0xFFF0) {
+        continue;
+      }
+
+      Out[DstIdx++] = ((Src[SrcIdx] >= 0x20) && (Src[SrcIdx] < 0x7F)) ? (CHAR8)Src[SrcIdx] : '?';
+    }
+  }
+
+  Out[DstIdx] = '\0';
+}
+
+/**
+  Apply the shared display-only control styling to an LVGL widget.
+
+  Sizes the widget to the value lane and themes its surface/border to match the
+  surrounding chrome. Per-widget text/symbol colors are set by the caller.
+
+  @param[in] Obj       Widget object. Must not be NULL.
+  @param[in] Rect      Control rectangle.
+  @param[in] Selected  TRUE when the owning row is selected.
+  @param[in] Theme     Theme token table. Must not be NULL.
+**/
+STATIC
+VOID
+LvglStyleControl (
+  IN lv_obj_t               *Obj,
+  IN MODERN_UI_RECT         Rect,
+  IN BOOLEAN                Selected,
+  IN CONST MODERN_UI_THEME  *Theme
+  )
+{
+  lv_obj_set_size (Obj, (int32_t)Rect.Width, (int32_t)Rect.Height);
+  lv_obj_set_pos (Obj, 0, 0);
+  lv_obj_set_style_bg_color (Obj, ToLvColor (Selected ? Theme->SelectedBand : Theme->Surface), 0);
+  lv_obj_set_style_bg_opa (Obj, LV_OPA_COVER, 0);
+  lv_obj_set_style_border_color (Obj, ToLvColor (Selected ? Theme->PopupBorder : Theme->Border), 0);
+}
+
+/**
+  Snapshot a display-only widget and alpha-composite it into the shadow canvas.
+
+  Lays out Obj, renders it to an ARGB8888 draw buffer via lv_snapshot_take, and
+  alpha-blends the result over the row background already in the canvas (so the
+  widget's rounded corners blend cleanly), then BLTs the region and deletes Obj.
+  Falls back to the themed value box if layout/snapshot fails.
 
   @param[in] Context   Initialized render context. Must not be NULL.
-  @param[in] Rect      Control rectangle (value lane).
-  @param[in] Value     Selected option text. Must not be NULL.
+  @param[in] Obj       Widget object (deleted by this call). Must not be NULL.
+  @param[in] Rect      Control rectangle.
+  @param[in] Value     Original value text (for the fallback path).
   @param[in] Selected  TRUE when the owning row is selected.
   @param[in] Theme     Theme token table. Must not be NULL.
 
-  @retval EFI_SUCCESS            Widget composited (or fell back successfully).
-  @retval EFI_INVALID_PARAMETER  Context, Value, or Theme is NULL, or Rect empty.
+  @retval EFI_SUCCESS  Widget composited (or fell back successfully).
 **/
+STATIC
 EFI_STATUS
-EFIAPI
-ModernUiRenderOneOf (
-  IN MODERN_UI_RENDER_CONTEXT          *Context,
-  IN MODERN_UI_RECT                    Rect,
-  IN CONST CHAR16                      *Value,
-  IN BOOLEAN                           Selected,
-  IN CONST MODERN_UI_THEME             *Theme
+LvglComposeSnapshot (
+  IN MODERN_UI_RENDER_CONTEXT  *Context,
+  IN lv_obj_t                  *Obj,
+  IN MODERN_UI_RECT            Rect,
+  IN CONST CHAR16              *Value,
+  IN BOOLEAN                   Selected,
+  IN CONST MODERN_UI_THEME     *Theme
   )
 {
-  lv_obj_t                       *Dropdown;
   lv_draw_buf_t                  *Snap;
-  CHAR8                          Label[128];
-  UINTN                          Index;
   UINTN                          SnapW;
   UINTN                          SnapH;
   UINTN                          Stride;
@@ -803,41 +860,11 @@ ModernUiRenderOneOf (
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  *Dst;
   UINT32                         Alpha;
 
-  if ((Context == NULL) || (Value == NULL) || (Theme == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
-    return EFI_INVALID_PARAMETER;
-  }
+  lv_obj_update_layout (Obj);
 
-  if (!mLvglReady || (mCanvas == NULL) || (Rect.X >= mCanvasW) || (Rect.Y >= mCanvasH)) {
-    return ModernUiDrawValueBox (Context, Rect, Value, Selected, Theme);
-  }
-
-  //
-  // UCS-2 -> ASCII for the LVGL (Latin) label; non-ASCII code points become '?'.
-  // CJK option text is a known prototype limitation of the widget path.
-  //
-  for (Index = 0; (Index < (sizeof (Label) - 1)) && (Value[Index] != CHAR_NULL); Index++) {
-    Label[Index] = ((Value[Index] >= 0x20) && (Value[Index] < 0x7F)) ? (CHAR8)Value[Index] : '?';
-  }
-
-  Label[Index] = '\0';
-
-  Dropdown = lv_dropdown_create (lv_display_get_screen_active (mDisplay));
-  if (Dropdown == NULL) {
-    return ModernUiDrawValueBox (Context, Rect, Value, Selected, Theme);
-  }
-
-  lv_dropdown_set_text (Dropdown, Label);
-  lv_obj_set_size (Dropdown, (int32_t)Rect.Width, (int32_t)Rect.Height);
-  lv_obj_set_pos (Dropdown, 0, 0);
-  lv_obj_set_style_bg_color (Dropdown, ToLvColor (Selected ? Theme->SelectedBand : Theme->Surface), 0);
-  lv_obj_set_style_bg_opa (Dropdown, LV_OPA_COVER, 0);
-  lv_obj_set_style_border_color (Dropdown, ToLvColor (Selected ? Theme->PopupBorder : Theme->Border), 0);
-  lv_obj_set_style_text_color (Dropdown, ToLvColor (Theme->Text), 0);
-  lv_obj_update_layout (Dropdown);
-
-  Snap = lv_snapshot_take (Dropdown, LV_COLOR_FORMAT_ARGB8888);
+  Snap = lv_snapshot_take (Obj, LV_COLOR_FORMAT_ARGB8888);
   if (Snap == NULL) {
-    lv_obj_delete (Dropdown);
+    lv_obj_delete (Obj);
     return ModernUiDrawValueBox (Context, Rect, Value, Selected, Theme);
   }
 
@@ -872,7 +899,7 @@ ModernUiRenderOneOf (
   }
 
   lv_draw_buf_destroy (Snap);
-  lv_obj_delete (Dropdown);
+  lv_obj_delete (Obj);
 
   BltCanvasRegion (
     Rect.X,
@@ -882,4 +909,258 @@ ModernUiRenderOneOf (
     );
 
   return EFI_SUCCESS;
+}
+
+
+/**
+  LVGL one-of renderer: render a real `lv_dropdown` widget into the shadow canvas.
+
+  This is the first IFR-opcode->LVGL-widget mapping (one-of -> lv_dropdown). The
+  widget is display-only: a transient closed drop-down is created, labelled with
+  the selected option, themed, and rendered to an off-screen buffer via
+  `lv_snapshot_take`, then alpha-composited over the row background already in the
+  canvas (so the widget's rounded corners blend cleanly). edk2 FormBrowser still
+  owns the actual selection; we never route input into the widget. Falls back to
+  the composed value box when LVGL is not ready, the rect is off-screen, or
+  widget/snapshot allocation fails.
+
+  @param[in] Context   Initialized render context. Must not be NULL.
+  @param[in] Rect      Control rectangle (value lane).
+  @param[in] Value     Selected option text. Must not be NULL.
+  @param[in] Selected  TRUE when the owning row is selected.
+  @param[in] Theme     Theme token table. Must not be NULL.
+
+  @retval EFI_SUCCESS            Widget composited (or fell back successfully).
+  @retval EFI_INVALID_PARAMETER  Context, Value, or Theme is NULL, or Rect empty.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderOneOf (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  lv_obj_t  *Dropdown;
+  CHAR8     Label[128];
+
+  if ((Context == NULL) || (Value == NULL) || (Theme == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (!mLvglReady || (mCanvas == NULL) || (Rect.X >= mCanvasW) || (Rect.Y >= mCanvasH)) {
+    return ModernUiDrawValueBox (Context, Rect, Value, Selected, Theme);
+  }
+
+  LvglAsciiLabel (Label, sizeof (Label), Value);
+
+  Dropdown = lv_dropdown_create (lv_display_get_screen_active (mDisplay));
+  if (Dropdown == NULL) {
+    return ModernUiDrawValueBox (Context, Rect, Value, Selected, Theme);
+  }
+
+  lv_dropdown_set_text (Dropdown, Label);
+  LvglStyleControl (Dropdown, Rect, Selected, Theme);
+  lv_obj_set_style_text_color (Dropdown, ToLvColor (Theme->Text), 0);
+
+  return LvglComposeSnapshot (Context, Dropdown, Rect, Value, Selected, Theme);
+}
+
+/**
+  Render an LVGL checkbox (display-only) for a checkbox/boolean control.
+
+  The checkbox's checked state is inferred from an 'X'/'x' in the value text
+  (the FormBrowser "[X]"/"[ ]" convention); the value text becomes the label with
+  a leading "[.]" marker stripped. edk2 still owns the toggle. Falls back to the
+  value box when LVGL is unavailable.
+
+  @param[in] Context   Initialized render context. Must not be NULL.
+  @param[in] Rect      Control rectangle.
+  @param[in] Value     Value text (e.g. "[X] Enabled"). Must not be NULL.
+  @param[in] Selected  TRUE when the owning row is selected.
+  @param[in] Theme     Theme token table. Must not be NULL.
+
+  @retval others  Status from the snapshot composite or value-box fallback.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderCheckbox (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  lv_obj_t       *Checkbox;
+  CHAR8          Label[128];
+  BOOLEAN        Checked;
+  CONST CHAR16   *Text;
+
+  if ((Context == NULL) || (Value == NULL) || (Theme == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (!mLvglReady || (mCanvas == NULL) || (Rect.X >= mCanvasW) || (Rect.Y >= mCanvasH)) {
+    return ModernUiDrawValueBox (Context, Rect, Value, Selected, Theme);
+  }
+
+  //
+  // Infer checked state from the "[X]"/"[ ]" marker, then drop a leading
+  // "[.]" so the label is just the human-readable text.
+  //
+  Checked = (BOOLEAN)((StrStr (Value, L"X") != NULL) || (StrStr (Value, L"x") != NULL));
+  Text    = Value;
+  if ((Text[0] == L'[') && (Text[1] != CHAR_NULL) && (Text[2] == L']')) {
+    Text += 3;
+    while (*Text == L' ') {
+      Text++;
+    }
+  }
+
+  LvglAsciiLabel (Label, sizeof (Label), Text);
+
+  Checkbox = lv_checkbox_create (lv_display_get_screen_active (mDisplay));
+  if (Checkbox == NULL) {
+    return ModernUiDrawValueBox (Context, Rect, Value, Selected, Theme);
+  }
+
+  lv_checkbox_set_text (Checkbox, Label);
+  if (Checked) {
+    lv_obj_add_state (Checkbox, LV_STATE_CHECKED);
+  }
+
+  LvglStyleControl (Checkbox, Rect, Selected, Theme);
+  lv_obj_set_style_bg_opa (Checkbox, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width (Checkbox, 0, 0);
+  lv_obj_set_style_text_color (Checkbox, ToLvColor (Selected ? Theme->Text : Theme->MutedText), 0);
+
+  return LvglComposeSnapshot (Context, Checkbox, Rect, Value, Selected, Theme);
+}
+
+/**
+  Render an LVGL text field (display-only) for string/numeric/password controls.
+
+  Builds a one-line `lv_textarea` showing the current value (password mode masks
+  it). edk2 still owns editing. Shared by the string, numeric, and password
+  renderers. Falls back to the field box when LVGL is unavailable.
+
+  @param[in] Context     Initialized render context. Must not be NULL.
+  @param[in] Rect        Control rectangle.
+  @param[in] Value       Value text. Must not be NULL.
+  @param[in] Selected    TRUE when the owning row is selected.
+  @param[in] Theme       Theme token table. Must not be NULL.
+  @param[in] PasswordMode TRUE to mask the text as a password field.
+
+  @retval others  Status from the snapshot composite or field-box fallback.
+**/
+STATIC
+EFI_STATUS
+LvglRenderTextField (
+  IN MODERN_UI_RENDER_CONTEXT  *Context,
+  IN MODERN_UI_RECT            Rect,
+  IN CONST CHAR16              *Value,
+  IN BOOLEAN                   Selected,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN BOOLEAN                   PasswordMode
+  )
+{
+  lv_obj_t  *Field;
+  lv_obj_t  *Label;
+  CHAR8     Text[128];
+  UINTN     Index;
+
+  if ((Context == NULL) || (Value == NULL) || (Theme == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (!mLvglReady || (mCanvas == NULL) || (Rect.X >= mCanvasW) || (Rect.Y >= mCanvasH)) {
+    return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+  }
+
+  LvglAsciiLabel (Text, sizeof (Text), Value);
+  if (PasswordMode) {
+    for (Index = 0; Text[Index] != '\0'; Index++) {
+      if (Text[Index] != ' ') {
+        Text[Index] = '*';
+      }
+    }
+  }
+
+  //
+  // A styled lv_obj container plus an lv_label is the reliable display-only
+  // "field" rendering: a real LVGL widget surface, without lv_textarea's editing
+  // cursor/scroll behavior (which obscures short text at row height).
+  //
+  Field = lv_obj_create (lv_display_get_screen_active (mDisplay));
+  if (Field == NULL) {
+    return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+  }
+
+  LvglStyleControl (Field, Rect, Selected, Theme);
+  lv_obj_set_style_radius (Field, 4, 0);
+  lv_obj_set_style_pad_all (Field, 0, 0);
+  lv_obj_remove_flag (Field, LV_OBJ_FLAG_SCROLLABLE);
+
+  Label = lv_label_create (Field);
+  if (Label != NULL) {
+    lv_label_set_text (Label, Text);
+    lv_obj_set_style_text_color (Label, ToLvColor (Selected ? Theme->Text : Theme->MutedText), 0);
+    lv_obj_align (Label, LV_ALIGN_LEFT_MID, 8, 0);
+  }
+
+  return LvglComposeSnapshot (Context, Field, Rect, Value, Selected, Theme);
+}
+
+/**
+  LVGL string renderer: a real one-line lv_textarea. See ModernUiRenderString.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderString (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  return LvglRenderTextField (Context, Rect, Value, Selected, Theme, FALSE);
+}
+
+/**
+  LVGL password renderer: a masked lv_textarea. See ModernUiRenderPassword.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderPassword (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  return LvglRenderTextField (Context, Rect, Value, Selected, Theme, TRUE);
+}
+
+/**
+  LVGL numeric renderer: a real lv_textarea field showing the number.
+
+  See ModernUiRenderNumeric. A spinbox-style numeric widget is a future
+  refinement; the field already presents the value as a genuine LVGL control.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderNumeric (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  return LvglRenderTextField (Context, Rect, Value, Selected, Theme, FALSE);
 }

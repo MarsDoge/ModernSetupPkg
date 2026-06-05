@@ -408,3 +408,76 @@ ModernUiRenderOneOf (
 {
   return ModernUiDrawValueBox (Context, Rect, Value, Selected, Theme);
 }
+
+/**
+  GOP checkbox renderer: a bordered field with the value text.
+
+  See ModernUiRenderCheckbox in ModernUiRenderer.h. The GOP backend has no widget
+  toolkit, so the best available rendering is the arrow-less field box.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderCheckbox (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+}
+
+/**
+  GOP string renderer: a bordered field with the value text.
+
+  See ModernUiRenderString in ModernUiRenderer.h.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderString (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+}
+
+/**
+  GOP password renderer: a bordered field with the (already masked) value text.
+
+  See ModernUiRenderPassword in ModernUiRenderer.h.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderPassword (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+}
+
+/**
+  GOP numeric renderer: a bordered field with the value text.
+
+  See ModernUiRenderNumeric in ModernUiRenderer.h.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderNumeric (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+}

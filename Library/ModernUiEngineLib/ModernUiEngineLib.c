@@ -984,7 +984,17 @@ ModernUiEngineDrawValue (
   // or action control reads the same here as in the in-setup DisplayEngine.
   // Plain text values carry no affordance.
   //
-  if ((Value->Type != ModernUiValueText) && (Value->Type != ModernUiValueOneOf) && (Rect.X > Value->Rect.X)) {
+  // Widget-mapped controls (one-of/checkbox/numeric/string/password) render as
+  // real backend widgets that carry their own affordance, so the external cue is
+  // drawn only for the remaining cued types (date/time, ordered-list, action).
+  if ((Value->Type != ModernUiValueText) &&
+      (Value->Type != ModernUiValueOneOf) &&
+      (Value->Type != ModernUiValueCheckbox) &&
+      (Value->Type != ModernUiValueNumeric) &&
+      (Value->Type != ModernUiValueString) &&
+      (Value->Type != ModernUiValuePassword) &&
+      (Rect.X > Value->Rect.X))
+  {
     CueSide = MIN ((Rect.Height > 6) ? (Rect.Height - 6) : 0, 14);
     if (CueSide >= 6) {
       ModernUiEngineDrawControlCue (
@@ -998,16 +1008,25 @@ ModernUiEngineDrawValue (
   }
 
   //
-  // One-of renders as the backend's best-available drop-down: a real lv_dropdown
-  // widget on the LVGL backend, a composed value box on GOP. The control carries
-  // its own arrow, so the external one-of cue above is intentionally skipped.
+  // Route each widget-mapped control to the backend's best rendering: real LVGL
+  // widgets (lv_dropdown / lv_checkbox / lv_textarea) on the LVGL backend, themed
+  // value/field boxes on GOP.
   //
-  if (Value->Type == ModernUiValueOneOf) {
-    return ModernUiRenderOneOf (Context, Rect, Value->Text, Value->Selected, Theme);
-  }
-
-  if (Value->Type == ModernUiValueText) {
-    return ModernUiDrawValueBox (Context, Rect, Value->Text, Value->Selected, Theme);
+  switch (Value->Type) {
+    case ModernUiValueOneOf:
+      return ModernUiRenderOneOf (Context, Rect, Value->Text, Value->Selected, Theme);
+    case ModernUiValueCheckbox:
+      return ModernUiRenderCheckbox (Context, Rect, Value->Text, Value->Selected, Theme);
+    case ModernUiValueNumeric:
+      return ModernUiRenderNumeric (Context, Rect, Value->Text, Value->Selected, Theme);
+    case ModernUiValueString:
+      return ModernUiRenderString (Context, Rect, Value->Text, Value->Selected, Theme);
+    case ModernUiValuePassword:
+      return ModernUiRenderPassword (Context, Rect, Value->Text, Value->Selected, Theme);
+    case ModernUiValueText:
+      return ModernUiDrawValueBox (Context, Rect, Value->Text, Value->Selected, Theme);
+    default:
+      break;
   }
 
   return ModernUiDrawTextFit (

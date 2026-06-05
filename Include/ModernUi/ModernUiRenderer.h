@@ -457,6 +457,98 @@ ModernUiRenderOneOf (
   );
 
 /**
+  Render a checkbox/boolean control as the backend's best widget (display-only).
+
+  LVGL renders a real `lv_checkbox` (checked state inferred from the "[X]"/"[ ]"
+  value text); GOP draws a bordered field with the value text. edk2 owns the
+  toggle. Same NULL/Rect contract as ModernUiRenderOneOf.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderCheckbox (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
+  Render a string control as the backend's best widget (display-only).
+
+  LVGL renders a real one-line `lv_textarea` showing the current text; GOP draws
+  a bordered field. edk2 owns editing. Same NULL/Rect contract as
+  ModernUiRenderOneOf.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderString (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
+  Render a password control as the backend's best widget (display-only).
+
+  LVGL renders an `lv_textarea` in password mode (dots); GOP draws a bordered
+  field with the value text (already masked by FormBrowser). edk2 owns editing.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderPassword (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
+  Render a numeric control as the backend's best widget (display-only).
+
+  LVGL renders a real `lv_spinbox`-styled field showing the current number; GOP
+  draws a bordered field with the value text. edk2 owns the adjustment.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderNumeric (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
+  Draw a bordered value field (no drop-down arrow) with inset text.
+
+  The arrow-less companion to ModernUiDrawValueBox, used by the GOP backend to
+  present non-drop-down controls (checkbox/string/password/numeric) as boxed
+  fields consistent with the drop-down value box.
+
+  @param[in] Context   Initialized render context. Must not be NULL.
+  @param[in] Rect      Field rectangle.
+  @param[in] Value     Field text. Must not be NULL.
+  @param[in] Selected  TRUE when the owning row is selected.
+  @param[in] Theme     Theme token table. Must not be NULL.
+
+  @retval EFI_SUCCESS            Field was drawn.
+  @retval EFI_INVALID_PARAMETER  Context, Value, or Theme is NULL, or Rect empty.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiDrawFieldBox (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
   Draw a drop-down list frame.
 
   @param[in] Context  Initialized render context. Must not be NULL.

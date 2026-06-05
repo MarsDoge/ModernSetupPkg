@@ -151,27 +151,31 @@ ModernDisplayDrawTextCaret (
   );
 
 /**
-  Overlay a one-of (choice) row's value lane with the backend's best drop-down.
+  Overlay a control row's value lane with the backend's best widget.
 
-  This is the in-setup half of the one-of -> drop-down mapping. The native
-  FormBrowser prints the selected option as plain text in the value lane;
-  `DisplayOneMenu` calls this immediately afterwards (while the option string is
-  still in scope) to paint a real drop-down over that lane -- a true `lv_dropdown`
-  widget on the LVGL backend, a composed value box on GOP -- via the shared
-  ModernUiRenderOneOf renderer entry point. Display-only: edk2 still owns the
-  selection popup, ConfigAccess, and callbacks. The companion cue overlay skips
-  the one-of chevron for the same row, since the rendered control carries its own.
+  This is the in-setup half of the IFR-opcode -> LVGL-widget mapping. The native
+  FormBrowser prints the value as plain text in the value lane; `DisplayOneMenu`
+  calls this immediately afterwards (while the option string is still in scope) to
+  paint a real widget over that lane for the mapped opcodes -- one-of ->
+  `lv_dropdown`, checkbox -> `lv_checkbox`, string/password/numeric ->
+  `lv_textarea` on the LVGL backend, themed value/field boxes on GOP. Other
+  opcodes are a no-op (the cue overlay handles them). Display-only: edk2 still
+  owns selection/editing, ConfigAccess, and callbacks. The companion cue overlay
+  skips the affordance for the mapped opcodes, since the rendered control carries
+  its own.
 
-  @param[in] Column     Text-grid column where the value (option) lane starts.
+  @param[in] OpCode     IFR opcode of the statement (EFI_IFR_*_OP).
+  @param[in] Column     Text-grid column where the value lane starts.
   @param[in] Row        Text-grid row of the statement.
   @param[in] Width      Text-grid column count of the value lane.
-  @param[in] ValueText  Selected option text. May be NULL (then no-op).
+  @param[in] ValueText  Value text. May be NULL (then no-op).
   @param[in] Highlight  TRUE when the row currently has keyboard highlight.
   @param[in] Selected   TRUE when the row is in edit/selection mode.
 **/
 VOID
 EFIAPI
-ModernDisplayDrawOneOfWidget (
+ModernDisplayDrawValueWidget (
+  IN UINT8          OpCode,
   IN UINTN          Column,
   IN UINTN          Row,
   IN UINTN          Width,

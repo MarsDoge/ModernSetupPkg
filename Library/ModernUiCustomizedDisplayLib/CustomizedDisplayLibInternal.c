@@ -1109,10 +1109,17 @@ ModernDisplayDrawStatementRowCue (
   }
 
   //
-  // One-of (choice) rows render as a real drop-down via ModernDisplayDrawOneOfWidget,
-  // which carries its own arrow, so skip the separate chevron cue for them.
+  // Widget-mapped rows (one-of/checkbox/numeric/string/password) render as real
+  // controls via ModernDisplayDrawValueWidget, which carry their own affordance,
+  // so skip the separate cue for them. Date/time, ordered-list, and action keep
+  // the cue.
   //
-  if (FormRow.Kind == ModernDisplayFormRowChoice) {
+  if ((FormRow.Kind == ModernDisplayFormRowChoice) ||
+      (FormRow.Kind == ModernDisplayFormRowCheckbox) ||
+      (FormRow.Kind == ModernDisplayFormRowNumeric) ||
+      (FormRow.Kind == ModernDisplayFormRowString) ||
+      (FormRow.Kind == ModernDisplayFormRowPassword))
+  {
     return;
   }
 
@@ -1210,7 +1217,8 @@ ModernDisplayDrawTextCaret (
 **/
 VOID
 EFIAPI
-ModernDisplayDrawOneOfWidget (
+ModernDisplayDrawValueWidget (
+  IN UINT8         OpCode,
   IN UINTN         Column,
   IN UINTN         Row,
   IN UINTN         Width,
@@ -1226,8 +1234,20 @@ ModernDisplayDrawOneOfWidget (
   CHAR16                 Clean[128];
   UINTN                  Src;
   UINTN                  Dst;
+  BOOLEAN                Sel;
 
   if ((ValueText == NULL) || (Width == 0) || EFI_ERROR (ModernDisplayEnsureRenderer ())) {
+    return;
+  }
+
+  //
+  // Only the widget-mapped opcodes are overlaid; everything else keeps its
+  // native text plus the cue overlay.
+  //
+  if ((OpCode != EFI_IFR_ONE_OF_OP) && (OpCode != EFI_IFR_CHECKBOX_OP) &&
+      (OpCode != EFI_IFR_NUMERIC_OP) && (OpCode != EFI_IFR_STRING_OP) &&
+      (OpCode != EFI_IFR_PASSWORD_OP))
+  {
     return;
   }
 
@@ -1239,7 +1259,7 @@ ModernDisplayDrawOneOfWidget (
   //
   // FormBrowser embeds glyph-width markers (NARROW_CHAR/WIDE_CHAR, >= 0xFFF0) in
   // option strings; they are layout hints, not printable text. Strip them so the
-  // drop-down shows clean option text on both backends.
+  // widget shows clean text on both backends.
   //
   for (Src = 0, Dst = 0; (ValueText[Src] != CHAR_NULL) && (Dst < (ARRAY_SIZE (Clean) - 1)); Src++) {
     if (ValueText[Src] < 0xFFF0) {
@@ -1254,8 +1274,27 @@ ModernDisplayDrawOneOfWidget (
   Rect.Y      = Row * CellHeight;
   Rect.Width  = Width * CellWidth;
   Rect.Height = CellHeight;
+  Sel         = (BOOLEAN)(Highlight || Selected);
 
-  ModernUiRenderOneOf (&mModernRenderContext, Rect, Clean, (BOOLEAN)(Highlight || Selected), Theme);
+  switch (OpCode) {
+    case EFI_IFR_ONE_OF_OP:
+      ModernUiRenderOneOf (&mModernRenderContext, Rect, Clean, Sel, Theme);
+      break;
+    case EFI_IFR_CHECKBOX_OP:
+      ModernUiRenderCheckbox (&mModernRenderContext, Rect, Clean, Sel, Theme);
+      break;
+    case EFI_IFR_NUMERIC_OP:
+      ModernUiRenderNumeric (&mModernRenderContext, Rect, Clean, Sel, Theme);
+      break;
+    case EFI_IFR_STRING_OP:
+      ModernUiRenderString (&mModernRenderContext, Rect, Clean, Sel, Theme);
+      break;
+    case EFI_IFR_PASSWORD_OP:
+      ModernUiRenderPassword (&mModernRenderContext, Rect, Clean, Sel, Theme);
+      break;
+    default:
+      break;
+  }
 }
 
 /**

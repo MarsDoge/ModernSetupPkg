@@ -1046,6 +1046,58 @@ ModernUiDrawValueBox (
            );
 }
 
+/**
+  Draw a bordered value field (no drop-down arrow) with inset text.
+
+  See the contract on ModernUiDrawFieldBox in ModernUiRenderer.h.
+
+  @param[in] Context   Initialized render context. Must not be NULL.
+  @param[in] Rect      Field rectangle.
+  @param[in] Value     Field text. Must not be NULL.
+  @param[in] Selected  TRUE when the owning row is selected.
+  @param[in] Theme     Theme token table. Must not be NULL.
+
+  @retval EFI_SUCCESS            Field was drawn.
+  @retval EFI_INVALID_PARAMETER  Context, Value, or Theme is NULL, or Rect empty.
+  @retval others                 Status returned by text rendering.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiDrawFieldBox (
+  IN MODERN_UI_RENDER_CONTEXT  *Context,
+  IN MODERN_UI_RECT            Rect,
+  IN CONST CHAR16              *Value,
+  IN BOOLEAN                   Selected,
+  IN CONST MODERN_UI_THEME     *Theme
+  )
+{
+  EFI_STATUS  Status;
+
+  if ((Context == NULL) || (Value == NULL) || (Theme == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Status = ModernUiFillRect (Context, Rect, Selected ? Theme->SelectedBand : Theme->Surface);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  Status = ModernUiStrokeRect (Context, Rect, Selected ? Theme->PopupBorder : Theme->Border);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  return ModernUiDrawTextFit (
+           Context,
+           Rect.X + 16,
+           Rect.Y + ((Rect.Height > 18) ? ((Rect.Height - 18) / 2) : 0),
+           (Rect.Width > 24) ? (Rect.Width - 24) : Rect.Width,
+           Value,
+           Theme->Text,
+           Selected ? Theme->SelectedBand : Theme->Surface
+           );
+}
+
 
 /**
   Draw a drop-down list frame.

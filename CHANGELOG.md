@@ -14,23 +14,28 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
-- First IFR-opcode -> LVGL-widget mapping: one-of (choice) controls now render as
-  a real `lv_dropdown` widget on the LVGL backend, in both the front-page App and
-  real in-setup VFR forms. A new renderer entry point, `ModernUiRenderOneOf`,
-  abstracts the control: the LVGL backend builds a transient display-only
-  `lv_dropdown` (its own rounded box, border, and `LV_SYMBOL_DOWN` arrow),
-  renders it via `lv_snapshot_take` (newly enabled `LV_USE_SNAPSHOT`), and
-  alpha-composites the ARGB8888 result over the row background in the shadow
-  canvas; the GOP backend keeps composing the value box from primitives, so there
-  is no GOP regression. `ModernUiEngineDrawValue` routes one-of values to it (App
-  path) and the in-setup DisplayEngine overlays it on the value lane via the new
-  `ModernDisplayDrawOneOfWidget` (using the option string FormBrowser just
-  printed, with its NARROW_CHAR/WIDE_CHAR glyph markers stripped); the one-of
-  affordance cue is skipped for these rows since the control carries its own
-  arrow. Display-only: edk2 FormBrowser still owns the selection popup,
-  ConfigAccess, and callbacks. This is the reusable widget pipeline for further
-  opcode mappings. Verified by OVMF X64 lvgl + GOP screendumps of the DriverSample
-  form and the App preferences page, plus smoke.
+- IFR-opcode -> LVGL-widget mapping for the value-bearing controls: one-of,
+  checkbox, numeric, string, and password now render as real LVGL widgets on the
+  LVGL backend, in both the front-page App and real in-setup VFR forms -- one-of
+  as `lv_dropdown` (rounded box + `LV_SYMBOL_DOWN`), checkbox as a checked
+  `lv_checkbox`, and numeric/string/password as a styled `lv_obj` field with an
+  `lv_label` (password masked). Each is built as a transient display-only widget,
+  rendered via `lv_snapshot_take` (newly enabled `LV_USE_SNAPSHOT`), and
+  alpha-composited (ARGB8888) over the row background in the shadow canvas by a
+  shared `LvglComposeSnapshot` helper. Per-control renderer entry points
+  (`ModernUiRenderOneOf`/`Checkbox`/`Numeric`/`String`/`Password`, plus the
+  arrow-less `ModernUiDrawFieldBox`) keep the abstraction at the renderer layer:
+  the GOP backend composes themed value/field boxes from primitives instead, so
+  there is no GOP regression. `ModernUiEngineDrawValue` dispatches per value type
+  (App path) and the in-setup DisplayEngine overlays the widget on the value lane
+  via `ModernDisplayDrawValueWidget` (opcode-dispatched, using the option string
+  FormBrowser just printed with its NARROW_CHAR/WIDE_CHAR glyph markers stripped);
+  the affordance cue is skipped for the mapped rows since each control carries its
+  own. Date/time and ordered-list keep the cue vocabulary (no clean single-widget
+  mapping yet); action/reference keep the `>` arrow. Display-only throughout: edk2
+  FormBrowser still owns selection/editing, ConfigAccess, and callbacks. Verified
+  by OVMF X64 lvgl + GOP screendumps of the DriverSample form and the App
+  preferences page, plus smoke.
 - DisplayEngine text-input edit caret is now drawn by the Modern renderer
   (`ModernDisplayDrawTextCaret`) instead of the native `EFI_SIMPLE_TEXT_OUTPUT`
   cursor. `ReadString` suppresses the native cursor (which draws straight to the

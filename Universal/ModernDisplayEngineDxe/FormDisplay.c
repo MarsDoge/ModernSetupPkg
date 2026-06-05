@@ -2524,20 +2524,20 @@ DisplayOneMenu (
     }
 
     //
-    // One-of rows render as the backend's best drop-down over the value lane,
-    // using the option string FormBrowser just printed (still valid here, and
-    // Highlight not yet cleared). The cue overlay skips the chevron for one-of.
+    // Widget-mapped controls render as the backend's best widget over the value
+    // lane, using the option string FormBrowser just printed (still valid here,
+    // and Highlight not yet cleared). The function no-ops for unmapped opcodes;
+    // the cue overlay skips the affordance for the mapped ones.
     //
-    if (Statement->OpCode->OpCode == EFI_IFR_ONE_OF_OP) {
-      ModernDisplayDrawOneOfWidget (
-        MenuOption->OptCol,
-        MenuOption->Row,
-        gOptionBlockWidth,
-        OptionString,
-        Highlight,
-        (BOOLEAN)(gUserInput->SelectedStatement == Statement)
-        );
-    }
+    ModernDisplayDrawValueWidget (
+      Statement->OpCode->OpCode,
+      MenuOption->OptCol,
+      MenuOption->Row,
+      gOptionBlockWidth,
+      OptionString,
+      Highlight,
+      (BOOLEAN)(gUserInput->SelectedStatement == Statement)
+      );
 
     Highlight = FALSE;
 
