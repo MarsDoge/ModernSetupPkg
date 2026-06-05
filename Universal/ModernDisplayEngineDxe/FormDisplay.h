@@ -129,6 +129,27 @@ ModernDisplayDrawStatementRowCue (
   IN BOOLEAN  Selected
   );
 
+/**
+  Draw the text-input edit caret at a text-grid cell through the Modern renderer.
+
+  The native EFI_SIMPLE_TEXT_OUTPUT cursor draws straight to the GraphicsConsole
+  framebuffer and is invisible/misplaced when the Modern engine composites through
+  an off-screen canvas (e.g. the LVGL backend). `ReadString` suppresses that native
+  cursor and calls this instead, so the editing caret renders identically on every
+  backend. Paints a thin vertical bar at the cell; draws nothing (no error) when no
+  renderer is available. The caller redraws the field text each keystroke, which
+  erases the previous caret, so this only ever paints (never explicitly erases).
+
+  @param[in] Column  Text-grid column of the caret cell.
+  @param[in] Row     Text-grid row of the caret cell.
+**/
+VOID
+EFIAPI
+ModernDisplayDrawTextCaret (
+  IN UINTN  Column,
+  IN UINTN  Row
+  );
+
 //
 // Screen definitions
 //

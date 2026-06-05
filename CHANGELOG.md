@@ -14,6 +14,17 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- DisplayEngine text-input edit caret is now drawn by the Modern renderer
+  (`ModernDisplayDrawTextCaret`) instead of the native `EFI_SIMPLE_TEXT_OUTPUT`
+  cursor. `ReadString` suppresses the native cursor (which draws straight to the
+  GraphicsConsole framebuffer and is invisible/misplaced behind an off-screen
+  canvas) and paints a thin accent caret at the edit cell each keystroke, so the
+  string/password editor's cursor renders identically on the GOP and LVGL
+  backends. This closes the last interaction surface that bypassed the renderer:
+  the LVGL backend now composites the full FormBrowser interaction set
+  (rows, one-of/dialog popups, and input editing) end-to-end. App-local, no HII
+  or value semantics touched. Verified by an OVMF X64 lvgl-mode screendump of the
+  DriverSample string editor showing the caret, plus GOP/lvgl builds and smoke.
 - DisplayEngine per-opcode control affordances: each editable FormBrowser
   statement now shows a distinct, non-semantic cue glyph keyed on its control
   kind — checkbox box, numeric `+`, one-of/choice `▼`, ordered-list up/down,

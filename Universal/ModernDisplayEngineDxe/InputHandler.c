@@ -129,8 +129,14 @@ ReadString (
   CreateMultiStringPopUp (ScreenSize, 4, &NullCharacter, Prompt, Space, &NullCharacter);
   gST->ConOut->SetAttribute (gST->ConOut, EFI_TEXT_ATTR (EFI_BLACK, EFI_LIGHTGRAY));
 
+  //
+  // Suppress the native EFI_SIMPLE_TEXT_OUTPUT caret: it draws straight to the
+  // GraphicsConsole framebuffer and is invisible/misplaced behind an off-screen
+  // canvas (the LVGL backend). We render our own caret via ModernDisplayDrawTextCaret
+  // so the edit cursor looks identical on every backend.
+  //
   CursorVisible = gST->ConOut->Mode->CursorVisible;
-  gST->ConOut->EnableCursor (gST->ConOut, TRUE);
+  gST->ConOut->EnableCursor (gST->ConOut, FALSE);
 
   CurrentCursor = GetStringWidth (StringPtr) / 2 - 1;
   if (CurrentCursor != 0) {
@@ -165,6 +171,12 @@ ReadString (
     gST->ConOut->SetAttribute (gST->ConOut, EFI_TEXT_ATTR (EFI_LIGHTGRAY, EFI_BLACK));
     gST->ConOut->SetCursorPosition (gST->ConOut, Start + GetStringWidth (StringPtr) / 2, Top + 3);
   }
+
+  //
+  // Paint the initial caret before the first keystroke (the loop redraws it on
+  // each subsequent key). CurrentCursor was set from the saved string above.
+  //
+  ModernDisplayDrawTextCaret (Start + CurrentCursor + 1, Top + 3);
 
   do {
     Status = WaitForKeyStroke (&Key);
@@ -313,6 +325,7 @@ ReadString (
 
     gST->ConOut->SetAttribute (gST->ConOut, EFI_TEXT_ATTR (EFI_LIGHTGRAY, EFI_BLACK));
     gST->ConOut->SetCursorPosition (gST->ConOut, Start + CurrentCursor + 1, Top + 3);
+    ModernDisplayDrawTextCaret (Start + CurrentCursor + 1, Top + 3);
   } while (TRUE);
 }
 

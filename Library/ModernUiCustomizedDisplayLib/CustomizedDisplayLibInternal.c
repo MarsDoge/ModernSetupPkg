@@ -1137,6 +1137,54 @@ ModernDisplayDrawStatementRowCue (
 }
 
 /**
+  Draw the text-input edit caret at a text-grid cell through the Modern renderer.
+
+  Paints a thin vertical accent bar at the left edge of cell (Column, Row), using
+  the same cell metrics as the themed text printer so it lands exactly on the
+  character the caller is about to write. `ReadString` suppresses the native
+  EFI_SIMPLE_TEXT_OUTPUT cursor (which would draw straight to the GraphicsConsole
+  framebuffer and be invisible behind an off-screen canvas such as the LVGL
+  backend) and calls this each keystroke after redrawing the field, so the caret
+  renders identically on every backend. No-op (no error) when no renderer is
+  available or the cell geometry is degenerate.
+
+  @param[in] Column  Text-grid column of the caret cell.
+  @param[in] Row     Text-grid row of the caret cell.
+**/
+VOID
+EFIAPI
+ModernDisplayDrawTextCaret (
+  IN UINTN  Column,
+  IN UINTN  Row
+  )
+{
+  CONST MODERN_UI_THEME  *Theme;
+  UINTN                  CellWidth;
+  UINTN                  CellHeight;
+  UINTN                  CaretWidth;
+  UINTN                  Inset;
+
+  if (EFI_ERROR (ModernDisplayEnsureRenderer ())) {
+    return;
+  }
+
+  ModernDisplayGetCellMetrics (&CellWidth, &CellHeight);
+  if ((CellWidth == 0) || (CellHeight < 6)) {
+    return;
+  }
+
+  Theme      = ModernUiGetTheme ();
+  CaretWidth = MAX (2, CellWidth / 8);
+  Inset      = (CellHeight > 8) ? 2 : 1;
+
+  ModernUiFillRect (
+    &mModernRenderContext,
+    (MODERN_UI_RECT){ Column * CellWidth, Row * CellHeight + Inset, CaretWidth, CellHeight - (2 * Inset) },
+    Theme->AccentYellow
+    );
+}
+
+/**
   Draw the modern DisplayEngine shell behind the native FormBrowser content.
 
   This function does not parse HII or own any FormBrowser semantics. It only
