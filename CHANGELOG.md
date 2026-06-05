@@ -67,14 +67,22 @@ this file as both a release log and a lightweight development progress record.
   English values + all chrome) render end-to-end through LVGL.
 - Experimental LVGL rendering-backend spike (`experimental/lvgl-spike` branch only;
   `Experimental/LvglSpikePkg`, never in a default overlay or `ModernSetupApp`).
-  Pins `External/lvgl` at a tagged v9.5.0-derived baseline and validates that
-  LVGL core + software renderer + its upstream UEFI port build under edk2 GCC on
-  a hard architecture: `LvglSpikeProbe.efi` compiles for LoongArch64 and was run
-  on real LoongArch hardware, drawing an LVGL UI straight to GOP (standalone-app
-  path, not via any DisplayEngine). The ~3-site LoongArch64/RISC-V64 UEFI
-  arch-gate change was contributed upstream and is now in the pinned baseline, so
-  `External/lvgl` is consumed pristine (no local patch, no build-time patching).
-  See `Experimental/LvglSpikePkg/README.md`.
+  Pins `External/lvgl` at the upstream commit `0b1ea312d` (`v9.5.0-273`), which
+  is upstream lvgl/lvgl master carrying the merged LoongArch64/RISC-V64 UEFI
+  build support (PR #10221). Validates that LVGL core + software renderer + its
+  upstream UEFI port build under edk2 GCC on a hard architecture:
+  `LvglSpikeProbe.efi` compiles for LoongArch64 and was run on real LoongArch
+  hardware, drawing an LVGL UI straight to GOP (standalone-app path, not via any
+  DisplayEngine). The submodule is consumed pristine (no patch to `External/lvgl`
+  itself), with two edk2-side accommodations for unrelated upstream churn between
+  v9.5.0 and this commit: (1) a documented empty `efi.h` shim under
+  `Experimental/LvglSpikePkg/Library/LvglLib/` that satisfies an unconditional
+  `#include <efi.h>` introduced by the header reorg PR #10041 (the EDK2 framework
+  path is selected via `LV_USE_UEFI_INCLUDE`, so the shim pulls in no gnu-efi
+  types); and (2) our spike sources include the canonical `<lvgl/lvgl.h>` umbrella
+  instead of the now-deprecated `lvgl/src/drivers/uefi/*` public headers. Both are
+  removable once upstream gates the gnu-efi include behind the framework
+  selection. See `Experimental/LvglSpikePkg/README.md`.
 - ModernSetupApp header clock now updates live while the front page is idle. The
   app loop arms a one-second periodic timer and waits on it alongside the
   keyboard/pointer sources, repainting only the header clock text in place on

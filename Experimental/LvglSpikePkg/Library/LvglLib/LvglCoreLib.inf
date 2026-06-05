@@ -232,16 +232,6 @@
   lvgl/src/drivers/uefi/lv_uefi_indev_pointer.c
   lvgl/src/drivers/uefi/lv_uefi_indev_touch.c
   lvgl/src/drivers/uefi/lv_uefi_private.c
-  lvgl/src/drivers/wayland/lv_wayland.c
-  lvgl/src/drivers/wayland/lv_wl_egl_backend.c
-  lvgl/src/drivers/wayland/lv_wl_g2d_backend.c
-  lvgl/src/drivers/wayland/lv_wl_keyboard.c
-  lvgl/src/drivers/wayland/lv_wl_pointer.c
-  lvgl/src/drivers/wayland/lv_wl_seat.c
-  lvgl/src/drivers/wayland/lv_wl_shm_backend.c
-  lvgl/src/drivers/wayland/lv_wl_touch.c
-  lvgl/src/drivers/wayland/lv_wl_window.c
-  lvgl/src/drivers/wayland/lv_wl_xdg_shell.c
   lvgl/src/drivers/windows/lv_windows_context.c
   lvgl/src/drivers/windows/lv_windows_display.c
   lvgl/src/drivers/windows/lv_windows_input.c
