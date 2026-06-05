@@ -11,8 +11,5 @@
 #define LVGL_CORE_LIB_H_
 
 #include "lvgl/lvgl.h"
-#include "lvgl/src/drivers/uefi/lv_uefi.h"
-#include "lvgl/src/drivers/uefi/lv_uefi_context.h"
-#include "lvgl/src/drivers/uefi/lv_uefi_display.h"
 
 #endif // LVGL_CORE_LIB_H_

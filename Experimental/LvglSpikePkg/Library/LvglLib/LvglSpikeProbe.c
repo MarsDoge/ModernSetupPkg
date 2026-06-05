@@ -20,9 +20,6 @@
 #include <Library/UefiLib.h>
 
 #include "lvgl/lvgl.h"
-#include "lvgl/src/drivers/uefi/lv_uefi.h"
-#include "lvgl/src/drivers/uefi/lv_uefi_context.h"
-#include "lvgl/src/drivers/uefi/lv_uefi_display.h"
 
 /**
   Build the demo UI on the active screen: dark background, a large title, a
