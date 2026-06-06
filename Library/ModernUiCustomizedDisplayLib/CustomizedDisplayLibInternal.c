@@ -726,6 +726,16 @@ ModernDisplayCopyPrintable (
       continue;
     }
 
+    //
+    // Drop Unicode box-drawing glyphs (U+2500..U+257F). The native DisplayEngine
+    // frames popups and multi-string boxes with these characters; under the
+    // modern renderer the surrounding panel/surface already supplies the frame,
+    // so rendering the glyphs only adds a retro dashed-border seam on top.
+    //
+    if ((Input[Index] >= 0x2500) && (Input[Index] <= 0x257F)) {
+      continue;
+    }
+
     Output[OutIndex++] = Input[Index];
   }
 
@@ -2319,6 +2329,7 @@ PrintInternal (
   UINTN   TextY;
   UINTN   TextMaxWidth;
   UINTN   TextInset;
+  UINTN   MeasuredWidth;
   CHAR16  *Printable;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Foreground;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background;
@@ -2398,6 +2409,21 @@ PrintInternal (
       TextMaxWidth = (DrawWidth * CellWidth > (4 + TextInset)) ?
                      (DrawWidth * CellWidth - 4 - TextInset) :
                      DrawWidth * CellWidth;
+      //
+      // Width == 0 means the caller imposed no column constraint. The modern
+      // proportional font advances wider than a text-grid cell, so a budget
+      // derived from the character count would clip the caller's own string
+      // (popups size themselves exactly to the text and were truncated as
+      // "..."). Grow the budget to the measured text width so unconstrained
+      // prints render in full.
+      //
+      if (Width == 0) {
+        MeasuredWidth = ModernUiMeasureText (Printable);
+        if ((MeasuredWidth + 4) > TextMaxWidth) {
+          TextMaxWidth = MeasuredWidth + 4;
+        }
+      }
+
       ModernUiDrawTextFit (
         &mModernRenderContext,
         TextX,

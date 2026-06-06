@@ -520,6 +520,18 @@ this file as both a release log and a lightweight development progress record.
 
 ### Fixed
 
+- Modern popups/dialogs no longer truncate their text or show a retro dashed
+  border. (1) The native DisplayEngine sizes popups in character columns, but the
+  modern proportional font advances wider than a text-grid cell, so confirm/error
+  dialogs were clipped with "..." ("Load default configurat..."). `PrintInternal`
+  now grows the text budget to the measured proportional width when the caller
+  imposes no column constraint (`Width == 0`), so unconstrained prints render in
+  full. (2) `ModernDisplayCopyPrintable` drops the Unicode box-drawing block
+  (U+2500..U+257F): the native engine frames popups/multi-string boxes with those
+  glyphs, but the modern panel/surface already supplies the frame, so they only
+  added a dashed-border seam over it. Both fixes are renderer-layer only; edk2
+  still owns the dialog control flow, keys, and message strings. Verified by OVMF
+  X64 lvgl screendump of the F9 "Load defaults" confirm dialog, plus smoke.
 - Fixed in-setup widget vs native-editing conflicts. (1) The value-lane widget is
   now cleared to the field background (`Theme->Surface`) right before native
   FormBrowser editing starts (`ModernDisplayClearValueLane`, called from the edit
