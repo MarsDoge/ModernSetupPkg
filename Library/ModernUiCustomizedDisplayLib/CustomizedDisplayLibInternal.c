@@ -1441,6 +1441,60 @@ ModernDisplayDrawPageChrome (
   }
 }
 
+/**
+  Composite the OEM brand watermark into the content-area whitespace.
+
+  Unlike the chrome (which the native FormBrowser repaints over via the
+  statement rows and the empty-row clear loop), this overlay is meant to be
+  invoked *after* the form content has been painted, so the mark lands on top of
+  the freshly cleared whitespace rather than being wiped. It computes the same
+  content rectangle the chrome uses and forwards to the renderer's
+  ModernUiDrawOemWatermark, which no-ops on backends/regions that cannot host it.
+
+  Display-only; parses no HII and owns no FormBrowser state. Safe to call on
+  every form refresh.
+**/
+VOID
+ModernDisplayDrawOemWatermarkOverlay (
+  VOID
+  )
+{
+  CONST MODERN_UI_THEME  *Theme;
+  UINTN                  CellWidth;
+  UINTN                  CellHeight;
+  UINTN                  HelpStartColumn;
+  MODERN_DISPLAY_LAYOUT  Layout;
+  MODERN_UI_RECT         Content;
+
+  if (EFI_ERROR (ModernDisplayEnsureRenderer ())) {
+    return;
+  }
+
+  Theme = ModernUiGetTheme ();
+  ModernDisplayGetCellMetrics (&CellWidth, &CellHeight);
+  if (EFI_ERROR (ModernDisplayCalculateLayout (&Layout))) {
+    return;
+  }
+
+  //
+  // Confine the mark to the statement value area (left of the native help
+  // block). The help/right-rail columns are repainted by later control-flow
+  // states in the same form pass, which would clip any mark that strayed into
+  // them.
+  //
+  HelpStartColumn = ModernDisplayRightHelpStartColumn (&Layout);
+  if (HelpStartColumn <= Layout.ContentLeftColumn) {
+    return;
+  }
+
+  Content.X      = Layout.ContentLeftColumn * CellWidth;
+  Content.Y      = Layout.ContentTopRow * CellHeight;
+  Content.Width  = (HelpStartColumn - Layout.ContentLeftColumn) * CellWidth;
+  Content.Height = (Layout.ContentBottomRow - Layout.ContentTopRow) * CellHeight;
+
+  ModernUiDrawOemWatermark (&mModernRenderContext, Content, Theme);
+}
+
 //
 // Browser Global Strings
 //

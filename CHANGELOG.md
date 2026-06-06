@@ -14,6 +14,21 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- OEM branding watermark slot (display-only, original art). A new renderer entry
+  point `ModernUiDrawOemWatermark` composites an original, theme-tinted brand
+  mark into the in-setup content-area whitespace. The asset is 100% original
+  geometry + the project URL -- no IBV/commercial reuse: an SVG design source
+  (`Assets/Branding/oem-watermark.svg`) rasterized to an A8 coverage map
+  (`OemWatermarkData.c/.h`) by `Scripts/gen-oem-watermark.py`. The LVGL backend
+  alpha-blends the A8 map (tinted with the theme muted-text color, low opacity)
+  directly into the shadow canvas; the GOP backend is a no-op for now. Because
+  the native FormBrowser repaints the content area after the chrome, the
+  DisplayEngine draws the mark *after* the statement rows (new
+  `ModernDisplayDrawOemWatermarkOverlay`, invoked at the end of the `CfRepaint`
+  pass) and confines it to the statement column so the help/right-rail repaints
+  do not clip it. Display-only: parses no HII, owns no FormBrowser state. Verified
+  by OVMF X64 lvgl screendump of a DriverSample sub-form with content whitespace,
+  plus smoke.
 - IFR-opcode -> LVGL-widget mapping for the value-bearing controls: one-of,
   checkbox, numeric, string, and password now render as real LVGL widgets on the
   LVGL backend, in both the front-page App and real in-setup VFR forms -- one-of

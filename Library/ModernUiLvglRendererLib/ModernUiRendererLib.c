@@ -44,6 +44,7 @@
 #include <ModernUi/ModernUiRenderer.h>
 #include "../ModernUiRendererLib/ModernUiGlyphs.h"
 #include "../ModernUiRendererLib/ModernUiRendererInternal.h"
+#include "OemWatermarkData.h"
 
 #define MODERN_UI_TEXT_CELL_HEIGHT    MODERN_UI_BUILTIN_GLYPH_HEIGHT
 
@@ -1298,4 +1299,102 @@ ModernUiRenderDateTime (
   }
 
   return LvglComposeSnapshot (Context, Field, Rect, Value, Selected, Theme);
+}
+
+/**
+  LVGL OEM watermark: composite the A8 brand mark into a region's whitespace.
+
+  Renders a real `lv_image` from the generated A8 coverage map, tinted with the
+  theme's muted text color and drawn at low opacity, anchored bottom-right of
+  Region, then alpha-composited into the shadow canvas. Statement rows paint
+  opaquely afterwards, so the watermark only shows through the empty content area.
+  Display-only, no asset shipped beyond the original generated coverage map. See
+  ModernUiDrawOemWatermark in ModernUiRenderer.h.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiDrawOemWatermark (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Region,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  CONST EFI_GRAPHICS_OUTPUT_BLT_PIXEL  *Tint;
+  UINTN                                AnchorX;
+  UINTN                                AnchorY;
+  UINTN                                RowIdx;
+  UINTN                                ColIdx;
+  CONST UINT8                          *SrcRow;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL        *Dst;
+  UINT32                               Coverage;
+  UINT32                               Alpha;
+
+  //
+  // Global opacity applied on top of the A8 coverage map. Kept low so the mark
+  // is a subtle background brand, never competing with the setup text.
+  //
+  CONST UINT32  GlobalOpa = 100;
+
+  if ((Context == NULL) || (Theme == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (!mLvglReady || (mCanvas == NULL)) {
+    return EFI_SUCCESS;
+  }
+
+  //
+  // Need room for the mark plus a margin; otherwise skip (no-op).
+  //
+  if ((Region.Width < (OEM_WATERMARK_WIDTH + 32)) || (Region.Height < (OEM_WATERMARK_HEIGHT + 24))) {
+    return EFI_SUCCESS;
+  }
+
+  //
+  // Horizontally centered within the (statement-column) region, anchored toward
+  // the bottom of the whitespace so it sits below the form rows.
+  //
+  AnchorX = Region.X + (Region.Width - OEM_WATERMARK_WIDTH) / 2;
+  AnchorY = Region.Y + Region.Height - OEM_WATERMARK_HEIGHT - 16;
+  if ((AnchorX >= mCanvasW) || (AnchorY >= mCanvasH)) {
+    return EFI_SUCCESS;
+  }
+
+  //
+  // Composite the alpha-only coverage map straight into the shadow canvas: the
+  // tint supplies the (muted, theme) fill, the A8 byte supplies the per-pixel
+  // coverage, GlobalOpa keeps the whole mark faint. No LVGL image object or
+  // snapshot is needed for a static background brand mark, and a direct blend
+  // is deterministic across backends. Statement rows paint opaquely afterwards,
+  // so the mark only shows through the empty content area.
+  //
+  Tint = &Theme->MutedText;
+  for (RowIdx = 0; (RowIdx < OEM_WATERMARK_HEIGHT) && ((AnchorY + RowIdx) < mCanvasH); RowIdx++) {
+    Dst    = mCanvasBuf + (AnchorY + RowIdx) * mCanvasW + AnchorX;
+    SrcRow = gOemWatermarkAlpha + RowIdx * OEM_WATERMARK_WIDTH;
+    for (ColIdx = 0; (ColIdx < OEM_WATERMARK_WIDTH) && ((AnchorX + ColIdx) < mCanvasW); ColIdx++, Dst++) {
+      Coverage = SrcRow[ColIdx];
+      if (Coverage == 0) {
+        continue;
+      }
+
+      Alpha = (Coverage * GlobalOpa) / 255;
+      if (Alpha == 0) {
+        continue;
+      }
+
+      Dst->Blue  = (UINT8)((Tint->Blue  * Alpha + Dst->Blue  * (255 - Alpha)) / 255);
+      Dst->Green = (UINT8)((Tint->Green * Alpha + Dst->Green * (255 - Alpha)) / 255);
+      Dst->Red   = (UINT8)((Tint->Red   * Alpha + Dst->Red   * (255 - Alpha)) / 255);
+    }
+  }
+
+  BltCanvasRegion (
+    AnchorX,
+    AnchorY,
+    MIN ((UINTN)OEM_WATERMARK_WIDTH,  mCanvasW - AnchorX),
+    MIN ((UINTN)OEM_WATERMARK_HEIGHT, mCanvasH - AnchorY)
+    );
+
+  return EFI_SUCCESS;
 }

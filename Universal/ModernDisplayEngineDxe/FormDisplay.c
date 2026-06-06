@@ -2955,6 +2955,14 @@ UiDisplayMenu (
             gST->ConOut->SetAttribute (gST->ConOut, GetFieldTextColor ());
           }
 
+          //
+          // The content area (rows + empty-row clear above) has now been fully
+          // painted. Composite the OEM brand watermark on top of the cleared
+          // whitespace so it is not wiped by the repaint. Display-only no-op on
+          // backends that cannot host it.
+          //
+          ModernDisplayDrawOemWatermarkOverlay ();
+
           MenuOption = NULL;
         }
 

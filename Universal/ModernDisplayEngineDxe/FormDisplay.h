@@ -210,6 +210,21 @@ ModernDisplayClearValueLane (
   IN UINTN  Width
   );
 
+/**
+  Composite the OEM brand watermark into the content-area whitespace.
+
+  Called at the end of a full form repaint, after the statement rows and the
+  empty-row clear loop have painted the content area, so the (subtle, theme)
+  mark lands on top of the freshly cleared whitespace instead of being wiped by
+  it. Display-only; parses no HII and owns no FormBrowser state. No-op (no
+  error) on backends or regions that cannot host the mark.
+**/
+VOID
+EFIAPI
+ModernDisplayDrawOemWatermarkOverlay (
+  VOID
+  );
+
 //
 // Screen definitions
 //

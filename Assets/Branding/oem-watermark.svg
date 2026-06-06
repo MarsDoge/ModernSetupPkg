@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright (c) 2026, MarsDoge. All rights reserved.
+  Author: MarsDoge (Dongyan Qian)
+  Open source: https://github.com/MarsDoge/ModernSetupPkg
+  SPDX-License-Identifier: BSD-2-Clause-Patent
+
+  Original placeholder OEM watermark for the ModernSetupPkg "OEM branding slot"
+  (no IBV / commercial asset reuse -- 100% original geometry + text). This SVG is
+  the editable, scalable design source. Firmware consumes a rasterized A8 coverage
+  map generated from the same content by Scripts/gen-oem-watermark.py; this file is
+  what an OEM (or we) would rasterize with a proper SVG renderer for production.
+
+  The art is monochrome on transparent on purpose: the firmware tints it with the
+  active theme color and composites it at low opacity into the content-area
+  whitespace, so it never fights the setup text.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="620" height="92" viewBox="0 0 620 92" fill="none">
+  <!-- Original brand mark: a rounded panel with an inset corner-cut and a scan accent. -->
+  <g stroke="#FFFFFF" stroke-width="3" fill="none">
+    <rect x="8" y="16" width="60" height="60" rx="12"/>
+    <path d="M24 34 H44" stroke-width="3"/>
+    <path d="M24 46 H52" stroke-width="3"/>
+    <path d="M24 58 H47" stroke-width="3"/>
+    <path d="M52 16 L68 32" stroke-width="3"/>
+  </g>
+
+  <!-- Sub-label -->
+  <text x="88" y="33" font-family="DejaVu Sans, sans-serif" font-size="15"
+        letter-spacing="2" fill="#FFFFFF">MODERN UEFI SETUP &#183; OPEN SOURCE</text>
+
+  <!-- Open-source address -->
+  <text x="88" y="66" font-family="DejaVu Sans, sans-serif" font-size="24"
+        font-weight="bold" fill="#FFFFFF">github.com/MarsDoge/ModernSetupPkg</text>
+</svg>

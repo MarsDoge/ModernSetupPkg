@@ -630,4 +630,40 @@ ModernUiDrawProgress (
   IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL     Fill
   );
 
+/**
+  Composite the OEM branding watermark into a region's whitespace (display-only).
+
+  This is the renderer half of the OEM branding slot: an original, theme-tinted
+  watermark drawn low-opacity and centered toward the bottom of Region, so it
+  fills the empty content area without fighting the setup text. The asset ships
+  no IBV/commercial art -- it is an A8 coverage map generated from
+  Assets/Branding/oem-watermark.svg by Scripts/gen-oem-watermark.py.
+
+  - LVGL backend alpha-blends the A8 coverage map (tinted with the theme's muted
+    text color) directly into the shadow canvas and BLTs the affected region.
+  - GOP backend is currently a no-op (returns EFI_SUCCESS); a primitive composite
+    is a follow-up.
+
+  Because the native FormBrowser repaints the content area after the chrome, the
+  DisplayEngine caller invokes this *after* the content rows are painted and
+  confines Region to the statement column (the help/right-rail columns are
+  repainted by later form states and would clip the mark).
+
+  @param[in] Context  Initialized render context. Must not be NULL.
+  @param[in] Region   Pixel region to anchor the watermark within (e.g. the
+                      statement content panel). A region too small for the mark
+                      is skipped.
+  @param[in] Theme    Theme token table (supplies the tint). Must not be NULL.
+
+  @retval EFI_SUCCESS            Watermark composited, or skipped as a no-op.
+  @retval EFI_INVALID_PARAMETER  Context or Theme is NULL.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiDrawOemWatermark (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Region,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
 #endif

@@ -528,3 +528,25 @@ ModernUiRenderDateTime (
 {
   return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
 }
+
+/**
+  GOP OEM watermark: currently a no-op.
+
+  The watermark needs per-pixel alpha compositing, which the GOP backend does not
+  yet expose; a primitive-composite implementation is a follow-up. See
+  ModernUiDrawOemWatermark in ModernUiRenderer.h.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiDrawOemWatermark (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Region,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  if ((Context == NULL) || (Theme == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  return EFI_SUCCESS;
+}
