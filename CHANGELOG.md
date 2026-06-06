@@ -14,6 +14,18 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- The in-setup DisplayEngine chrome is now localized. The header product/mode
+  names and the tab-hint labels are resolved through `ModernUiStringLib`
+  (`ModernUiGetString`) instead of being pinned to English, so when the active
+  language is Simplified Chinese (the `PcdModernSetupDefaultLanguage` default)
+  the setup header reads "现代UEFI设置工具 / 高级模式" with tabs
+  "设置分类 / 设备 / 启动 / 安全 / 退出", matching the front-page app. The labels
+  are a visual hint only -- form navigation, HII GUID binding, callbacks, and
+  storage are unchanged; the CJK glyphs come from the existing embedded
+  Noto Sans CJK SC subset. `ModernUiStringLib` is now usable from `DXE_DRIVER`
+  modules and is wired into the modern/lvgl DisplayEngine overlay (all targets).
+  Verified by an OVMF X64 lvgl screendump of a DriverSample form with the chrome
+  in Chinese, plus the modern (GOP) build and smoke.
 - OEM branding watermark slot (display-only, original art). A new renderer entry
   point `ModernUiDrawOemWatermark` composites an original, theme-tinted brand
   mark into the in-setup content-area whitespace. The asset is 100% original

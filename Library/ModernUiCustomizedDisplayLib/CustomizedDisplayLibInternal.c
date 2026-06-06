@@ -1371,13 +1371,7 @@ ModernDisplayDrawPageChrome (
   MODERN_DISPLAY_LAYOUT  Layout;
   MODERN_UI_LAYOUT       EngineLayout;
   MODERN_UI_PAGE_MODEL   PageModel;
-  STATIC CONST MODERN_UI_TAB_MODEL  Tabs[] = {
-    { L"Main" },
-    { L"Devices" },
-    { L"Boot" },
-    { L"Security" },
-    { L"Save & Exit" }
-  };
+  MODERN_UI_TAB_MODEL    Tabs[5];
   UINTN                  HeaderHeight;
 
   ASSERT (FormData != NULL);
@@ -1428,13 +1422,25 @@ ModernDisplayDrawPageChrome (
     ZeroMem (&EngineLayout.RightRail, sizeof (EngineLayout.RightRail));
   }
 
+  //
+  // Localize the chrome through ModernUiStringLib so the in-setup header and
+  // tab hints follow the active language (matching the front-page app), instead
+  // of being pinned to English. The label set is a visual hint only; it does not
+  // alter form navigation, HII GUID binding, callbacks, or storage.
+  //
+  Tabs[0].Text = ModernUiGetString (ModernUiStringPageDashboard);
+  Tabs[1].Text = ModernUiGetString (ModernUiStringPageDevices);
+  Tabs[2].Text = ModernUiGetString (ModernUiStringPageBoot);
+  Tabs[3].Text = ModernUiGetString (ModernUiStringPageSecurity);
+  Tabs[4].Text = ModernUiGetString (ModernUiStringPageExit);
+
   CopyMem (&PageModel.Layout, &EngineLayout, sizeof (PageModel.Layout));
   PageModel.Rect          = EngineLayout.Header;
   PageModel.Tabs          = Tabs;
   PageModel.TabCount      = ARRAY_SIZE (Tabs);
   PageModel.SelectedTab   = ModernDisplaySelectChromeTab (PrintableTitle);
-  PageModel.ProductName   = L"MODERN SETUP";
-  PageModel.ModeName      = L"ADVANCED MODE";
+  PageModel.ProductName   = ModernUiGetString (ModernUiStringHeaderTitle);
+  PageModel.ModeName      = ModernUiGetString (ModernUiStringHeaderMode);
   PageModel.StatusText    = ModernDisplayPageStatusText (FormData);
   PageModel.DrawRightRail = TRUE;
   ModernUiEngineDrawPage (&mModernRenderContext, &PageModel, Theme);

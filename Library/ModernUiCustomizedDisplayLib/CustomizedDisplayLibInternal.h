@@ -48,6 +48,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #include <ModernUi/ModernUiEngine.h>
 #include <ModernUi/ModernUiRenderer.h>
 #include <ModernUi/ModernUiTheme.h>
+#include <ModernUi/ModernUiString.h>
 
 #include "Colors.h"
 

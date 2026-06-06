@@ -79,7 +79,7 @@ This is the north-star look (mature graphics library). Critical path is ordered.
 | [ ] | **Backend graduation decision** — promote `ModernUiLvglRendererLib` out of `experimental/lvgl-spike` so it can enter a default overlay | S (decision) | **Gates everything below.** |
 | [ ] | Selectable-option popup + password + multi-string help verified/cleaned | S–M | Same machinery as the confirm dialog; verify each. |
 | [ ] | Dialog visual elevation (accent title, Y/N affordances) — optional | S–M | Gilding; current dialogs already clean. |
-| [ ] | **CJK / multilingual font** — LVGL bundled fonts are Latin-only; CJK falls back to HII font | M–L | Must clear for an XArch + Chinese-string product. |
+| [~] | **CJK / multilingual font** — demand-driven Noto Sans CJK SC subset (182 glyphs, 18px A8) + HII fallback; app fully renders zh-Hans. Chrome localized 2026-06-06. Remaining: arbitrary-platform coverage strategy + single-size. | M–L | Foundation strong; gate is arbitrary HII coverage. |
 | [ ] | **Memory / perf budget** — DXEFV near-full with DEBUG; per-refresh snapshot allocations | M | Measure, then trim. |
 | [ ] | Aesthetic polish pass | M | Shared with Track A. |
 | [ ] | **Hardware + multi-resolution validation** | L | Currently 0 hardware coverage. |
