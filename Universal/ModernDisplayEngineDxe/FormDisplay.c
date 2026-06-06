@@ -2921,6 +2921,13 @@ UiDisplayMenu (
           //
           // 3. Menus in this form may not cover all form, clean the remain field.
           //
+          // Reset to the normal field background first: the last drawn option may have
+          // left the highlight attribute set (when the highlighted statement is the last
+          // visible row, e.g. Reset on the front page), and the modern renderer paints the
+          // cleared empty rows with the current background. Without this reset that empty
+          // area below the menu is filled with the highlight band color.
+          //
+          gST->ConOut->SetAttribute (gST->ConOut, GetFieldTextColor ());
           while (Row <= BottomRow) {
             if ((FormData->Attribute & HII_DISPLAY_MODAL) != 0) {
               PrintStringAtWithWidth (gStatementDimensions.LeftColumn + gModalSkipColumn, Row++, L"", gStatementDimensions.RightColumn - gStatementDimensions.LeftColumn - 2 * gModalSkipColumn);

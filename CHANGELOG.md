@@ -497,6 +497,15 @@ this file as both a release log and a lightweight development progress record.
 
 ### Fixed
 
+- Fixed a spurious highlight-colored block filling the empty area below a menu
+  when the highlighted statement is the last visible row (e.g. `Reset` on the
+  front page). The DisplayEngine "clean the remain field" loop cleared the rows
+  below the menu with whatever display attribute the last-drawn option left set;
+  when that option was the highlighted one, the modern renderer painted those
+  empty rows with the highlight band (`SelectedBand`). The loop now resets to the
+  normal field background (`GetFieldTextColor`, → `Theme->Surface`) first, mirroring
+  the reset already done before the scroll down-arrow. Backend-agnostic (GOP and
+  LVGL); verified by an OVMF X64 front-page screendump with `Reset` highlighted.
 - ModernSetupApp Dashboard no longer echoes the generic platform name as the
   form factor: when SMBIOS Type 3 is unavailable the platform provider now
   reports an empty form factor and the app surfaces its localized Unknown/N/A
