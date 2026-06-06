@@ -3488,6 +3488,12 @@ UiDisplayMenu (
             // Editable Questions: oneof, ordered list, checkbox, numeric, string, password
             //
             RefreshKeyHelp (gFormData, Statement, TRUE);
+            //
+            // Clear the composited value-lane widget before native editing so the
+            // in-place/popup editor starts on a clean field lane (the native
+            // initial draw is narrower than the widget and leaves remnants).
+            //
+            ModernDisplayClearValueLane (MenuOption->OptCol, MenuOption->Row, gOptionBlockWidth);
             Status = ProcessOptions (MenuOption, TRUE, &OptionString, TRUE);
 
             if (OptionString != NULL) {

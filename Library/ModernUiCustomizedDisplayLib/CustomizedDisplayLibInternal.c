@@ -1302,6 +1302,44 @@ ModernDisplayDrawValueWidget (
 }
 
 /**
+  Clear a statement's value lane to the field background before native editing.
+
+  See the contract on ModernDisplayClearValueLane in FormDisplay.h.
+
+  @param[in] Column  Text-grid column where the value lane starts.
+  @param[in] Row     Text-grid row of the statement.
+  @param[in] Width   Text-grid column count of the value lane.
+**/
+VOID
+EFIAPI
+ModernDisplayClearValueLane (
+  IN UINTN  Column,
+  IN UINTN  Row,
+  IN UINTN  Width
+  )
+{
+  CONST MODERN_UI_THEME  *Theme;
+  UINTN                  CellWidth;
+  UINTN                  CellHeight;
+
+  if ((Width == 0) || EFI_ERROR (ModernDisplayEnsureRenderer ())) {
+    return;
+  }
+
+  ModernDisplayGetCellMetrics (&CellWidth, &CellHeight);
+  if ((CellWidth == 0) || (CellHeight == 0)) {
+    return;
+  }
+
+  Theme = ModernUiGetTheme ();
+  ModernUiFillRect (
+    &mModernRenderContext,
+    (MODERN_UI_RECT){ Column * CellWidth, Row * CellHeight, Width * CellWidth, CellHeight },
+    Theme->Surface
+    );
+}
+
+/**
   Draw the modern DisplayEngine shell behind the native FormBrowser content.
 
   This function does not parse HII or own any FormBrowser semantics. It only

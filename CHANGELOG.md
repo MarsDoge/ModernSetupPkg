@@ -497,6 +497,16 @@ this file as both a release log and a lightweight development progress record.
 
 ### Fixed
 
+- Fixed in-setup widget vs native-editing conflicts. (1) The value-lane widget is
+  now cleared to the field background (`Theme->Surface`) right before native
+  FormBrowser editing starts (`ModernDisplayClearValueLane`, called from the edit
+  entry in `DisplayOneMenu`'s key handler), so the in-place numeric editor and the
+  string/password input popup start on a clean lane instead of colliding with the
+  composited widget (which left it half-covered / the old value peeking out beside
+  the popup). The full form repaint after editing restores the widget with the new
+  value. (2) The `lv_checkbox` widget now renders the box indicator with an empty
+  label, so it no longer leaks a stray `]` from the raw `[X]` value text (the row's
+  left prompt already names the control).
 - Ordered-list widgets now show their option order joined by a ` / ` separator
   (`<A> / <B> / <C>`) instead of the raw `?` glyphs. FormBrowser joins ordered-list
   options with `CHAR_CARRIAGE_RETURN`, which passed the `>= 0xFFF0` marker filter but

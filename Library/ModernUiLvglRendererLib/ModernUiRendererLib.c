@@ -995,9 +995,7 @@ ModernUiRenderCheckbox (
   )
 {
   lv_obj_t       *Checkbox;
-  CHAR8          Label[128];
   BOOLEAN        Checked;
-  CONST CHAR16   *Text;
 
   if ((Context == NULL) || (Value == NULL) || (Theme == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
     return EFI_INVALID_PARAMETER;
@@ -1008,26 +1006,19 @@ ModernUiRenderCheckbox (
   }
 
   //
-  // Infer checked state from the "[X]"/"[ ]" marker, then drop a leading
-  // "[.]" so the label is just the human-readable text.
+  // Infer checked state from the "[X]"/"[ ]" marker. The box indicator alone
+  // conveys the state (the prompt is already in the row's left label), so the
+  // widget carries no text -- an empty label avoids leaking the raw "[X]"
+  // bracket characters next to the box.
   //
   Checked = (BOOLEAN)((StrStr (Value, L"X") != NULL) || (StrStr (Value, L"x") != NULL));
-  Text    = Value;
-  if ((Text[0] == L'[') && (Text[1] != CHAR_NULL) && (Text[2] == L']')) {
-    Text += 3;
-    while (*Text == L' ') {
-      Text++;
-    }
-  }
-
-  LvglAsciiLabel (Label, sizeof (Label), Text);
 
   Checkbox = lv_checkbox_create (lv_display_get_screen_active (mDisplay));
   if (Checkbox == NULL) {
     return ModernUiDrawValueBox (Context, Rect, Value, Selected, Theme);
   }
 
-  lv_checkbox_set_text (Checkbox, Label);
+  lv_checkbox_set_text (Checkbox, "");
   if (Checked) {
     lv_obj_add_state (Checkbox, LV_STATE_CHECKED);
   }

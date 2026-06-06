@@ -184,6 +184,32 @@ ModernDisplayDrawValueWidget (
   IN BOOLEAN        Selected
   );
 
+/**
+  Clear a statement's value lane to the field background before native editing.
+
+  `DisplayOneMenu` composites a display-only widget over the value lane. When the
+  user activates the statement to edit it, native FormBrowser draws its editor
+  (in-place `[value]` for numeric/date/time, or a popup for string/password) over
+  that lane -- but the native initial draw is narrower than, and differently
+  colored from, the composited widget, leaving widget remnants beside/under the
+  editor. The form loop calls this just before entering the editor to repaint the
+  value lane to the plain field background (`Theme->Surface`, matching the color
+  native editing erases to), so the editor starts on a clean lane. The full form
+  repaint after editing restores the widget with the new value. No-op (no error)
+  when no renderer is available or the lane geometry is degenerate.
+
+  @param[in] Column  Text-grid column where the value lane starts.
+  @param[in] Row     Text-grid row of the statement.
+  @param[in] Width   Text-grid column count of the value lane.
+**/
+VOID
+EFIAPI
+ModernDisplayClearValueLane (
+  IN UINTN  Column,
+  IN UINTN  Row,
+  IN UINTN  Width
+  );
+
 //
 // Screen definitions
 //
