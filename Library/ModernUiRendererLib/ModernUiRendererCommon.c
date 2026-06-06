@@ -1098,6 +1098,71 @@ ModernUiDrawFieldBox (
            );
 }
 
+/**
+  Normalize an ordered-list value string into a single-line, separator-joined form.
+
+  See the contract on ModernUiNormalizeOrderedListText in ModernUiRendererInternal.h.
+**/
+VOID
+ModernUiNormalizeOrderedListText (
+  OUT CHAR16        *Dst,
+  IN  UINTN         Cap,
+  IN  CONST CHAR16  *Src
+  )
+{
+  UINTN    SrcIdx;
+  UINTN    DstIdx;
+  BOOLEAN  PendingSep;
+  CHAR16   Ch;
+
+  if ((Dst == NULL) || (Cap == 0)) {
+    return;
+  }
+
+  DstIdx     = 0;
+  PendingSep = FALSE;
+  if (Src != NULL) {
+    for (SrcIdx = 0; (Src[SrcIdx] != CHAR_NULL) && (DstIdx < (Cap - 1)); SrcIdx++) {
+      Ch = Src[SrcIdx];
+
+      //
+      // Drop NARROW_CHAR/WIDE_CHAR glyph-width markers (layout hints, not text).
+      //
+      if (Ch >= 0xFFF0) {
+        continue;
+      }
+
+      //
+      // Collapse each run of CR/LF separators into one " / "; defer emitting it so a
+      // leading run (DstIdx == 0) and the trailing run (no further printable text) are
+      // dropped rather than shown as stray separators.
+      //
+      if ((Ch == CHAR_CARRIAGE_RETURN) || (Ch == CHAR_LINEFEED)) {
+        if (DstIdx > 0) {
+          PendingSep = TRUE;
+        }
+
+        continue;
+      }
+
+      if (PendingSep) {
+        PendingSep = FALSE;
+        if (DstIdx < (Cap - 4)) {
+          Dst[DstIdx++] = L' ';
+          Dst[DstIdx++] = L'/';
+          Dst[DstIdx++] = L' ';
+        } else {
+          break;
+        }
+      }
+
+      Dst[DstIdx++] = Ch;
+    }
+  }
+
+  Dst[DstIdx] = CHAR_NULL;
+}
+
 
 /**
   Draw a drop-down list frame.

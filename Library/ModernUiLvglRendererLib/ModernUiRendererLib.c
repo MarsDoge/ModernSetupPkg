@@ -1186,6 +1186,7 @@ ModernUiRenderOrderedList (
 {
   lv_obj_t  *Field;
   lv_obj_t  *Label;
+  CHAR16    Norm[160];
   CHAR8     Text[128];
   CHAR8     Decorated[160];
 
@@ -1193,11 +1194,17 @@ ModernUiRenderOrderedList (
     return EFI_INVALID_PARAMETER;
   }
 
+  //
+  // Join the CR-separated option order onto one line so it reads as a sequence
+  // instead of showing the raw separators (see ModernUiNormalizeOrderedListText).
+  //
+  ModernUiNormalizeOrderedListText (Norm, ARRAY_SIZE (Norm), Value);
+
   if (!mLvglReady || (mCanvas == NULL) || (Rect.X >= mCanvasW) || (Rect.Y >= mCanvasH)) {
-    return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+    return ModernUiDrawFieldBox (Context, Rect, Norm, Selected, Theme);
   }
 
-  LvglAsciiLabel (Text, sizeof (Text), Value);
+  LvglAsciiLabel (Text, sizeof (Text), Norm);
   //
   // LV_SYMBOL_LIST is a UTF-8 glyph from the bundled Montserrat symbol set; it is
   // copied verbatim ahead of the ASCII order text to mark the field as a list.
@@ -1206,7 +1213,7 @@ ModernUiRenderOrderedList (
 
   Field = lv_obj_create (lv_display_get_screen_active (mDisplay));
   if (Field == NULL) {
-    return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+    return ModernUiDrawFieldBox (Context, Rect, Norm, Selected, Theme);
   }
 
   LvglStyleControl (Field, Rect, Selected, Theme);
@@ -1221,7 +1228,7 @@ ModernUiRenderOrderedList (
     lv_obj_align (Label, LV_ALIGN_LEFT_MID, 8, 0);
   }
 
-  return LvglComposeSnapshot (Context, Field, Rect, Value, Selected, Theme);
+  return LvglComposeSnapshot (Context, Field, Rect, Norm, Selected, Theme);
 }
 
 /**

@@ -497,7 +497,18 @@ ModernUiRenderOrderedList (
   IN CONST MODERN_UI_THEME             *Theme
   )
 {
-  return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+  CHAR16  Norm[160];
+
+  if (Value == NULL) {
+    return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+  }
+
+  //
+  // Join the CR-separated option order onto one line so it reads as a sequence
+  // instead of showing the raw separators (see ModernUiNormalizeOrderedListText).
+  //
+  ModernUiNormalizeOrderedListText (Norm, ARRAY_SIZE (Norm), Value);
+  return ModernUiDrawFieldBox (Context, Rect, Norm, Selected, Theme);
 }
 
 /**

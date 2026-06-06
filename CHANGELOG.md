@@ -497,6 +497,13 @@ this file as both a release log and a lightweight development progress record.
 
 ### Fixed
 
+- Ordered-list widgets now show their option order joined by a ` / ` separator
+  (`<A> / <B> / <C>`) instead of the raw `?` glyphs. FormBrowser joins ordered-list
+  options with `CHAR_CARRIAGE_RETURN`, which passed the `>= 0xFFF0` marker filter but
+  was rendered as `?` by the ASCII label path. A shared
+  `ModernUiNormalizeOrderedListText` helper (strip markers, collapse CR/LF runs to a
+  single ` / `, trim) now feeds both backends' ordered-list renderer. Display-only;
+  no change to the multi-row native fallback.
 - Fixed a spurious highlight-colored block filling the empty area below a menu
   when the highlighted statement is the last visible row (e.g. `Reset` on the
   front page). The DisplayEngine "clean the remain field" loop cleared the rows
