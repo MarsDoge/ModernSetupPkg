@@ -1457,22 +1457,27 @@ ModernDisplayDrawPageChrome (
   Unlike the chrome (which the native FormBrowser repaints over via the
   statement rows and the empty-row clear loop), this overlay is meant to be
   invoked *after* the form content has been painted, so the mark lands on top of
-  the freshly cleared whitespace rather than being wiped. It computes the same
-  content rectangle the chrome uses and forwards to the renderer's
-  ModernUiDrawOemWatermark, which no-ops on backends/regions that cannot host it.
+  the freshly cleared whitespace rather than being wiped. The region handed to
+  the renderer is the empty band from FirstEmptyRow down to the content bottom,
+  so on a form whose rows fill the content area the band is too short and the
+  renderer no-ops -- the mark never tints over a statement row.
 
   Display-only; parses no HII and owns no FormBrowser state. Safe to call on
   every form refresh.
+
+  @param[in] FirstEmptyRow  Text-grid row where the empty area below the menu
+                            begins.
 **/
 VOID
 ModernDisplayDrawOemWatermarkOverlay (
-  VOID
+  IN UINTN  FirstEmptyRow
   )
 {
   CONST MODERN_UI_THEME  *Theme;
   UINTN                  CellWidth;
   UINTN                  CellHeight;
   UINTN                  HelpStartColumn;
+  UINTN                  WhitespaceTopRow;
   MODERN_DISPLAY_LAYOUT  Layout;
   MODERN_UI_RECT         Content;
 
@@ -1497,10 +1502,25 @@ ModernDisplayDrawOemWatermarkOverlay (
     return;
   }
 
+  //
+  // Vertically confine the mark to the empty band below the last menu row.
+  // Clamp FirstEmptyRow into the content area; if the rows reach (or pass) the
+  // content bottom there is no whitespace and the band height collapses, so the
+  // renderer's minimum-size guard skips the mark instead of tinting a row.
+  //
+  WhitespaceTopRow = FirstEmptyRow;
+  if (WhitespaceTopRow < Layout.ContentTopRow) {
+    WhitespaceTopRow = Layout.ContentTopRow;
+  }
+
+  if (WhitespaceTopRow >= Layout.ContentBottomRow) {
+    return;
+  }
+
   Content.X      = Layout.ContentLeftColumn * CellWidth;
-  Content.Y      = Layout.ContentTopRow * CellHeight;
+  Content.Y      = WhitespaceTopRow * CellHeight;
   Content.Width  = (HelpStartColumn - Layout.ContentLeftColumn) * CellWidth;
-  Content.Height = (Layout.ContentBottomRow - Layout.ContentTopRow) * CellHeight;
+  Content.Height = (Layout.ContentBottomRow - WhitespaceTopRow) * CellHeight;
 
   ModernUiDrawOemWatermark (&mModernRenderContext, Content, Theme);
 }

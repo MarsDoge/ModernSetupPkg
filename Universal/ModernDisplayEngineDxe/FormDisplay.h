@@ -216,13 +216,18 @@ ModernDisplayClearValueLane (
   Called at the end of a full form repaint, after the statement rows and the
   empty-row clear loop have painted the content area, so the (subtle, theme)
   mark lands on top of the freshly cleared whitespace instead of being wiped by
-  it. Display-only; parses no HII and owns no FormBrowser state. No-op (no
-  error) on backends or regions that cannot host the mark.
+  it. The mark is confined to the empty band starting at FirstEmptyRow, so on a
+  form whose rows fill the content area it is suppressed (no tinting over a
+  statement row). Display-only; parses no HII and owns no FormBrowser state.
+  No-op (no error) on backends, or when the whitespace is too short for the mark.
+
+  @param[in] FirstEmptyRow  Text-grid row where the empty area below the menu
+                            begins (the first row the clear loop blanks).
 **/
 VOID
 EFIAPI
 ModernDisplayDrawOemWatermarkOverlay (
-  VOID
+  IN UINTN  FirstEmptyRow
   );
 
 //

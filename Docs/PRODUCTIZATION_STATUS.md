@@ -83,7 +83,7 @@ This is the north-star look (mature graphics library). Critical path is ordered.
 | [ ] | **Memory / perf budget** — DXEFV near-full with DEBUG; per-refresh snapshot allocations | M | Measure, then trim. |
 | [ ] | Aesthetic polish pass | M | Shared with Track A. |
 | [ ] | **Hardware + multi-resolution validation** | L | Currently 0 hardware coverage. |
-| [ ] | Fix watermark-on-dense-form regression (see Known issues) | S | |
+| [x] | Watermark confined to genuine whitespace (suppressed on dense forms) | — | 2026-06-06. |
 
 ## Track C — Front-page app, ModernSetupApp (~57%)
 
@@ -110,10 +110,9 @@ Architecturally complete and boundary-guarded; the gap is "filling in", not desi
 
 ## Known issues / regressions
 
-- **Watermark on dense forms** — the OEM watermark is anchored in the content
-  region's bottom whitespace, but on a form whose rows fill the content area it
-  tints faintly over the last rows. Fix: only composite when the anchor band is
-  genuinely empty (suppress when statement rows reach it). Effort: **S**.
+- ~~**Watermark on dense forms**~~ — fixed 2026-06-06: the overlay now receives
+  the first empty row and confines the mark to the whitespace band below the last
+  menu row, so it is suppressed when the rows fill the content area.
 - See `Docs/ISSUE_BACKLOG.md` for the broader list.
 
 ## Cleanup backlog (no rush)

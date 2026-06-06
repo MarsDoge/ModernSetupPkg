@@ -26,9 +26,12 @@ this file as both a release log and a lightweight development progress record.
   DisplayEngine draws the mark *after* the statement rows (new
   `ModernDisplayDrawOemWatermarkOverlay`, invoked at the end of the `CfRepaint`
   pass) and confines it to the statement column so the help/right-rail repaints
-  do not clip it. Display-only: parses no HII, owns no FormBrowser state. Verified
-  by OVMF X64 lvgl screendump of a DriverSample sub-form with content whitespace,
-  plus smoke.
+  do not clip it. It is also confined vertically to the empty band below the last
+  menu row (`FirstEmptyRow`), so on a form whose rows fill the content area the
+  band is too short and the mark is suppressed -- it never tints over a statement
+  row. Display-only: parses no HII, owns no FormBrowser state. Verified by OVMF
+  X64 lvgl screendumps of a short sub-form (mark shown in whitespace) and a dense
+  form (mark suppressed), plus smoke.
 - IFR-opcode -> LVGL-widget mapping for the value-bearing controls: one-of,
   checkbox, numeric, string, and password now render as real LVGL widgets on the
   LVGL backend, in both the front-page App and real in-setup VFR forms -- one-of

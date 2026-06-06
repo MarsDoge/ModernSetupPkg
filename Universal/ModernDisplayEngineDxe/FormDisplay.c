@@ -2696,6 +2696,7 @@ UiDisplayMenu (
   UINTN                          Temp2;
   UINTN                          TopRow;
   UINTN                          BottomRow;
+  UINTN                          FirstEmptyRow;
   UINTN                          Index;
   CHAR16                         *StringPtr;
   CHAR16                         *StringRightPtr;
@@ -2927,6 +2928,12 @@ UiDisplayMenu (
           // cleared empty rows with the current background. Without this reset that empty
           // area below the menu is filled with the highlight band color.
           //
+          //
+          // Remember where the empty area below the menu begins, so the OEM
+          // watermark overlay can be confined to genuine whitespace (and
+          // suppressed when the rows fill the content area).
+          //
+          FirstEmptyRow = Row;
           gST->ConOut->SetAttribute (gST->ConOut, GetFieldTextColor ());
           while (Row <= BottomRow) {
             if ((FormData->Attribute & HII_DISPLAY_MODAL) != 0) {
@@ -2958,10 +2965,11 @@ UiDisplayMenu (
           //
           // The content area (rows + empty-row clear above) has now been fully
           // painted. Composite the OEM brand watermark on top of the cleared
-          // whitespace so it is not wiped by the repaint. Display-only no-op on
-          // backends that cannot host it.
+          // whitespace (from FirstEmptyRow down) so it is not wiped by the
+          // repaint and never lands on a statement row. Display-only no-op on
+          // backends that cannot host it or when the whitespace is too short.
           //
-          ModernDisplayDrawOemWatermarkOverlay ();
+          ModernDisplayDrawOemWatermarkOverlay (FirstEmptyRow);
 
           MenuOption = NULL;
         }
