@@ -1059,9 +1059,7 @@ LvglRenderTextField (
   )
 {
   lv_obj_t  *Field;
-  lv_obj_t  *Label;
   CHAR8     Text[128];
-  UINTN     Index;
 
   if ((Context == NULL) || (Value == NULL) || (Theme == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
     return EFI_INVALID_PARAMETER;
@@ -1072,35 +1070,38 @@ LvglRenderTextField (
   }
 
   LvglAsciiLabel (Text, sizeof (Text), Value);
-  if (PasswordMode) {
-    for (Index = 0; Text[Index] != '\0'; Index++) {
-      if (Text[Index] != ' ') {
-        Text[Index] = '*';
-      }
-    }
-  }
 
   //
-  // A styled lv_obj container plus an lv_label is the reliable display-only
-  // "field" rendering: a real LVGL widget surface, without lv_textarea's editing
-  // cursor/scroll behavior (which obscures short text at row height).
+  // Display-only single-line lv_textarea: a real LVGL input control. one-line
+  // mode plus an off scrollbar and a hidden caret keep short text legible at row
+  // height; password mode masks the text natively. edk2 owns actual editing.
   //
-  Field = lv_obj_create (lv_display_get_screen_active (mDisplay));
+  Field = lv_textarea_create (lv_display_get_screen_active (mDisplay));
   if (Field == NULL) {
     return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
   }
 
+  lv_textarea_set_one_line (Field, true);
+  if (PasswordMode) {
+    lv_textarea_set_password_mode (Field, true);
+    lv_textarea_set_password_show_time (Field, 0);
+  }
+
+  lv_textarea_set_text (Field, Text);
+  lv_textarea_set_cursor_pos (Field, 0);
+  lv_obj_set_scrollbar_mode (Field, LV_SCROLLBAR_MODE_OFF);
+
   LvglStyleControl (Field, Rect, Selected, Theme);
   lv_obj_set_style_radius (Field, 4, 0);
-  lv_obj_set_style_pad_all (Field, 0, 0);
-  lv_obj_remove_flag (Field, LV_OBJ_FLAG_SCROLLABLE);
-
-  Label = lv_label_create (Field);
-  if (Label != NULL) {
-    lv_label_set_text (Label, Text);
-    lv_obj_set_style_text_color (Label, ToLvColor (Selected ? Theme->Text : Theme->MutedText), 0);
-    lv_obj_align (Label, LV_ALIGN_LEFT_MID, 8, 0);
-  }
+  lv_obj_set_style_pad_top (Field, 0, 0);
+  lv_obj_set_style_pad_bottom (Field, 0, 0);
+  lv_obj_set_style_pad_left (Field, 8, 0);
+  lv_obj_set_style_pad_right (Field, 4, 0);
+  lv_obj_set_style_text_color (Field, ToLvColor (Selected ? Theme->Text : Theme->MutedText), 0);
+  //
+  // Hide the textarea caret -- this is a display-only snapshot, not an editor.
+  //
+  lv_obj_set_style_opa (Field, LV_OPA_TRANSP, LV_PART_CURSOR);
 
   return LvglComposeSnapshot (Context, Field, Rect, Value, Selected, Theme);
 }

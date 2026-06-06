@@ -360,6 +360,14 @@ this file as both a release log and a lightweight development progress record.
 
 ### Changed
 
+- String/numeric/password value widgets now render as a real single-line
+  `lv_textarea` (LVGL built-in control) instead of a hand-composed
+  `lv_obj`+`lv_label`. The earlier row-height legibility concern (textarea caret /
+  scrolling obscuring short text) is handled by configuration: one-line mode, the
+  scrollbar off, the caret hidden (display-only snapshot), and native password
+  masking. Keeps the "prefer LVGL built-in widgets" direction alongside the
+  existing `lv_dropdown` (one-of) and `lv_checkbox` (checkbox). Display-only; edk2
+  still owns editing. Verified by an OVMF X64 lvgl DriverSample screendump.
 - Modern UI engine: added a `ModernUiEngineDrawStatusPill` primitive (second entry
   in the base shape vocabulary) and refactored the footer status badge onto it.
   The badge is now sized to comfortably contain one text line (height = line + 6)
