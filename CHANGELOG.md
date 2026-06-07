@@ -390,6 +390,15 @@ this file as both a release log and a lightweight development progress record.
 
 ### Changed
 
+- Refined the selected-row look into a clean, single-intent treatment: a subtle
+  warm-tinted fill (`Surface` blended ~30% toward `AccentYellow`) plus one solid
+  6px left accent stripe, replacing the older muddy `SelectedBand` band drawn
+  with an inset blend, two sheens, a framed border, and an inner highlight line.
+  The selection color is sourced once in `ModernUiGetSelectableRowBackground`, so
+  the row fill and the per-cell text anti-alias background stay matched (no glyph
+  halos). Applies to both backends and to selectable rows in the app and the
+  in-setup browser. Verified by OVMF X64 lvgl screendumps, the modern build, and
+  smoke.
 - The highlighted in-setup statement row now shows the modern row-level selection
   styling (inset bar, top/bottom sheen, left accent, framed border) instead of a
   flat muddy highlight band. `ModernDisplayDrawStatementRow` already painted that

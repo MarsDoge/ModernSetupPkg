@@ -824,7 +824,13 @@ ModernUiGetSelectableRowBackground (
   }
 
   if (Selected) {
-    RowColor = ModernUiBlendColor (Theme->BackgroundBlack, Theme->SelectedBand, 74);
+    //
+    // A clean, subtle warm-tinted selection fill over the normal surface --
+    // distinct enough to read as selected, but far less muddy than the older
+    // heavy SelectedBand band. This is the single source for both the row fill
+    // and the per-cell text anti-alias background, so they stay matched.
+    //
+    RowColor = ModernUiBlendColor (Theme->Surface, Theme->AccentYellow, 30);
   } else if (Action || Subtitle) {
     RowColor = Theme->SurfaceRaised;
   } else {
@@ -883,58 +889,17 @@ ModernUiDrawSelectableRow (
   }
 
   if (Selected && (Rect.Width > 6) && (Rect.Height > 4)) {
-    if ((Rect.Width > 10) && (Rect.Height > 8)) {
-      Status = ModernUiFillRect (
-                 Context,
-                 (MODERN_UI_RECT){ Rect.X + 6, Rect.Y + 3, Rect.Width - 6, Rect.Height - 6 },
-                 ModernUiBlendColor (RowColor, Theme->AccentOrange, 18)
-                 );
-      if (EFI_ERROR (Status)) {
-        return Status;
-      }
-    }
-
-    Status = ModernUiFillRect (
-               Context,
-               (MODERN_UI_RECT){ Rect.X, Rect.Y, Rect.Width, 2 },
-               ModernUiBlendColor (Theme->AccentYellow, Theme->AccentOrange, 45)
-               );
-    if (EFI_ERROR (Status)) {
-      return Status;
-    }
-
-    Status = ModernUiFillRect (
-               Context,
-               (MODERN_UI_RECT){ Rect.X, Rect.Y + Rect.Height - 3, Rect.Width, 2 },
-               ModernUiBlendColor (Theme->AccentOrange, Theme->SelectedBand, 35)
-               );
-    if (EFI_ERROR (Status)) {
-      return Status;
-    }
-
-    Status = ModernUiFillRect (
-               Context,
-               (MODERN_UI_RECT){ Rect.X, Rect.Y + 2, 7, Rect.Height - 4 },
-               Theme->AccentYellow
-               );
-    if (EFI_ERROR (Status)) {
-      return Status;
-    }
-
-    if (Rect.Width > 20) {
-      Status = ModernUiStrokeRect (Context, Rect, Theme->PopupBorder);
-      if (EFI_ERROR (Status)) {
-        return Status;
-      }
-
-      return ModernUiFillRect (
-               Context,
-               (MODERN_UI_RECT){ Rect.X + 8, Rect.Y + 2, Rect.Width - 8, 1 },
-               ModernUiBlendColor (Theme->AccentYellow, Theme->AccentOrange, 45)
-               );
-    }
-
-    return EFI_SUCCESS;
+    //
+    // The row is already filled with the subtle warm-tinted selection color.
+    // Add a single solid left accent stripe as the "selected" marker. This
+    // replaces an older multi-layer treatment (inset blend + top/bottom sheens +
+    // framed border + inner highlight line) that read busy and muddy.
+    //
+    return ModernUiFillRect (
+             Context,
+             (MODERN_UI_RECT){ Rect.X, Rect.Y + 1, 6, (Rect.Height > 2) ? (Rect.Height - 2) : Rect.Height },
+             Theme->AccentYellow
+             );
   }
 
   if (Subtitle && (Rect.Width > 6)) {
