@@ -23,6 +23,14 @@ STATIC MODERN_UI_RENDER_CONTEXT  mModernRenderContext;
 STATIC BOOLEAN                   mModernRenderReady;
 STATIC UINTN                     mModernCursorColumn;
 STATIC UINTN                     mModernCursorRow;
+//
+// Text-grid row that most recently received row-level selection styling from
+// ModernDisplayDrawStatementRow. The per-cell print path suppresses its flat
+// highlight fill only on this row, so the styled selection bar shows through
+// without affecting other EFI_RED-background text (e.g. highlighted popup
+// options, which have no row-level styling underneath). (UINTN)-1 means none.
+//
+STATIC UINTN                     mModernStyledHighlightRow = (UINTN)-1;
 
 #define MODERN_DISPLAY_HELP_LEFT_SKIPPED_COLUMNS  3
 
@@ -1057,6 +1065,17 @@ ModernDisplayDrawStatementRow (
 
   ModernUiEngineDrawRows (&mModernRenderContext, &RowModel, 1, Theme);
   ModernDisplayDrawStatementRowAccents (&RowRect, &FormRow, Theme);
+
+  //
+  // Record the row that just received selected styling so the per-cell print
+  // path knows to let it show through (and clear the record when this row is no
+  // longer the selected one).
+  //
+  if (RowModel.Role == ModernUiRowSelected) {
+    mModernStyledHighlightRow = Row;
+  } else if (mModernStyledHighlightRow == Row) {
+    mModernStyledHighlightRow = (UINTN)-1;
+  }
 }
 
 /**
@@ -2420,11 +2439,22 @@ PrintInternal (
     Foreground = ModernDisplayForeground (Attribute);
     Background = ModernDisplayBackground (Attribute);
 
-    ModernUiFillRect (
-      &mModernRenderContext,
-      (MODERN_UI_RECT){ DrawColumn * CellWidth, DrawRow * CellHeight, DrawWidth * CellWidth, CellHeight },
-      Background
-      );
+    //
+    // For the highlighted statement row (EFI_RED background nibble on the row
+    // that ModernDisplayDrawStatementRow just styled) skip the flat per-cell
+    // fill: the row-level selection styling (inset bar, top/bottom sheen, left
+    // accent) is already painted underneath, and a flat fill would bury it under
+    // a solid band. The guard is scoped to that exact row so other EFI_RED text
+    // (e.g. a highlighted popup option, which has no row styling) still fills
+    // normally. The text below keeps Background for anti-alias blending.
+    //
+    if ((((Attribute >> 4) & 0x07) != EFI_RED) || (DrawRow != mModernStyledHighlightRow)) {
+      ModernUiFillRect (
+        &mModernRenderContext,
+        (MODERN_UI_RECT){ DrawColumn * CellWidth, DrawRow * CellHeight, DrawWidth * CellWidth, CellHeight },
+        Background
+        );
+    }
 
     Printable = AllocateZeroPool ((StrLen (Buffer) + 1) * sizeof (CHAR16));
     if (Printable != NULL) {

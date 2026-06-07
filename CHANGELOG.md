@@ -390,6 +390,19 @@ this file as both a release log and a lightweight development progress record.
 
 ### Changed
 
+- The highlighted in-setup statement row now shows the modern row-level selection
+  styling (inset bar, top/bottom sheen, left accent, framed border) instead of a
+  flat muddy highlight band. `ModernDisplayDrawStatementRow` already painted that
+  styling underneath, but the native per-cell text print then buried it under a
+  solid `SelectedBand` fill. The per-cell print path now suppresses that flat
+  fill on the one row that just received selection styling (tracked by
+  `mModernStyledHighlightRow`), so the styling shows through. The guard is scoped
+  to that exact row, so other `EFI_RED`-background text -- notably a highlighted
+  popup option, which has no row-level styling -- still fills normally. Applies
+  to both the GOP "modern" and LVGL backends. Verified by OVMF X64 lvgl
+  screendumps of the selection at rest, after a highlight move (no stale band),
+  and an open one-of popup (highlighted option unchanged), plus smoke.
+
 - String/numeric/password value widgets now render as a real single-line
   `lv_textarea` (LVGL built-in control) instead of a hand-composed
   `lv_obj`+`lv_label`. The earlier row-height legibility concern (textarea caret /
