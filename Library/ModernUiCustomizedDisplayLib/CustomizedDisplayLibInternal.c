@@ -1085,6 +1085,26 @@ ModernDisplayDrawStatementRow (
 }
 
 /**
+  Forget any tracked selection-styled row.
+
+  The per-cell print path suppresses the highlight fill on the row recorded by
+  ModernDisplayDrawStatementRow. That record is only valid while a form's
+  statement rows are being drawn; a popup drawn on top prints its own
+  EFI_RED-background text (e.g. a highlighted selectable option) without going
+  through ModernDisplayDrawStatementRow, and could share that grid row. Callers
+  invoke this at popup entry so a popup line is never mistaken for the styled
+  statement row and left without its background fill.
+**/
+VOID
+EFIAPI
+ModernDisplayResetHighlightRowTracking (
+  VOID
+  )
+{
+  mModernStyledHighlightRow = (UINTN)-1;
+}
+
+/**
   Draw a per-opcode control affordance over an already-painted statement row.
 
   This runs AFTER native FormBrowser has printed the row's prompt/value text
@@ -1500,6 +1520,7 @@ ModernDisplayDrawPageChrome (
                             begins.
 **/
 VOID
+EFIAPI
 ModernDisplayDrawOemWatermarkOverlay (
   IN UINTN  FirstEmptyRow
   )

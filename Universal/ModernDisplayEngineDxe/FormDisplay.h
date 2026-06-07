@@ -230,6 +230,21 @@ ModernDisplayDrawOemWatermarkOverlay (
   IN UINTN  FirstEmptyRow
   );
 
+/**
+  Forget any tracked selection-styled statement row.
+
+  Call at popup entry: a popup prints its own EFI_RED-background text (e.g. a
+  highlighted selectable option) without re-running the statement-row draw, and
+  could share the grid row recorded for the form's selection styling. Resetting
+  here keeps the per-cell print path from suppressing that popup line's
+  background fill. Display-only; no FormBrowser state.
+**/
+VOID
+EFIAPI
+ModernDisplayResetHighlightRowTracking (
+  VOID
+  );
+
 //
 // Screen definitions
 //

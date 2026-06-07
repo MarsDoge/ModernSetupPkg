@@ -723,6 +723,14 @@ CreatePopup (
   ConOut->EnableCursor (ConOut, FALSE);
   ConOut->SetAttribute (ConOut, GetPopupColor ());
 
+  //
+  // This popup draws over the form. Its highlighted selectable option prints
+  // with an EFI_RED background and could share the grid row recorded for the
+  // form's selection styling; forget that record so the option's background
+  // fill is not suppressed (which would leave it without a highlight).
+  //
+  ModernDisplayResetHighlightRowTracking ();
+
   CalculatePopupPosition (PopupType, &gPopupDimensions);
 
   Status = DrawMessageBox (PopupStyle);
