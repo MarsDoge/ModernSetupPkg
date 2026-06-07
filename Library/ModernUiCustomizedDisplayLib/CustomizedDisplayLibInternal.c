@@ -479,13 +479,19 @@ ModernDisplayDrawRightHelpRailContext (
   LabelY     = (Layout->ContentTopRow * CellHeight) + MIN (6, MAX (2, CellHeight / 5));
   LabelWidth = (Layout->Statement.RightColumn - HelpLeftColumn) * CellWidth;
 
+  //
+  // Give the "CONTEXT HELP" label a soft accent (a muted gold, between the plain
+  // muted body text and the full accent used by the primary CPU/Memory/Voltage
+  // rail headers), so it reads as a styled section header while staying below the
+  // telemetry rail in the visual hierarchy.
+  //
   ModernUiDrawTextFit (
     &mModernRenderContext,
     LabelX,
     LabelY,
     LabelWidth,
     L"CONTEXT HELP",
-    Theme->MutedText,
+    ModernUiBlendColor (Theme->AccentYellow, Theme->MutedText, 50),
     Theme->BackgroundBlack
     );
 

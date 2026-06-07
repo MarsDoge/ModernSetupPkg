@@ -390,6 +390,11 @@ this file as both a release log and a lightweight development progress record.
 
 ### Changed
 
+- The in-setup "CONTEXT HELP" rail label now uses a soft muted-gold accent
+  (`AccentYellow` blended 50% toward `MutedText`) instead of plain muted body
+  text, so it reads as a styled section header -- consistent with, but
+  deliberately subdued below, the primary CPU/Memory/Voltage telemetry rail
+  headers. Verified by an OVMF X64 lvgl screendump and smoke.
 - Refined the selected-row look into a clean, single-intent treatment: a subtle
   warm-tinted fill (`Surface` blended ~30% toward `AccentYellow`) plus one solid
   6px left accent stripe, replacing the older muddy `SelectedBand` band drawn
