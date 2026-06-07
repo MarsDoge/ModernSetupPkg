@@ -77,6 +77,14 @@ identically in each:
 Do not add a second copy of these shapes in either consumer — extend the shared
 vocabulary and add the value-type mapping instead.
 
+The text-input **edit caret** is likewise renderer-drawn: `ReadString` suppresses
+the native `EFI_SIMPLE_TEXT_OUTPUT` cursor and calls `ModernDisplayDrawTextCaret`,
+so no backend paints a cursor straight to the framebuffer. This keeps the full
+FormBrowser interaction set (rows, popups, input editing) on the renderer, which
+is what lets the off-screen LVGL backend composite it end-to-end. Any new
+interactive surface must route its cursor/caret through the renderer the same
+way rather than calling `gST->ConOut->EnableCursor`.
+
 ## What not to do
 
 - App code must not parse IFR or write HII varstores. Real setup pages should enter native FormBrowser with `EFI_FORM_BROWSER2_PROTOCOL.SendForm()`.

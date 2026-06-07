@@ -92,4 +92,26 @@ ModernUiDrawTextModeGraphicGlyph (
   IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background
   );
 
+/**
+  Normalize an ordered-list value string into a single-line, separator-joined form.
+
+  FormBrowser builds an ordered-list value as a sequence of options each followed by a
+  CHAR_CARRIAGE_RETURN (and may embed NARROW_CHAR/WIDE_CHAR glyph-width markers). A
+  carriage return is below 0x20, so it would render as '?' through the ASCII label path,
+  and the markers are layout hints, not text. This copies Src to Dst while stripping
+  glyph-width markers (>= 0xFFF0), collapsing each run of CR/LF into a single " / "
+  separator, and dropping any leading/trailing separator, so the value reads as
+  "<A> / <B> / <C>" on one line. Shared by both renderer backends' ordered-list path.
+
+  @param[out] Dst  Destination buffer. Must not be NULL. Always NUL-terminated.
+  @param[in]  Cap  Number of CHAR16 entries in Dst. Must be at least 1.
+  @param[in]  Src  Source value string. NULL yields an empty result.
+**/
+VOID
+ModernUiNormalizeOrderedListText (
+  OUT CHAR16        *Dst,
+  IN  UINTN         Cap,
+  IN  CONST CHAR16  *Src
+  );
+
 #endif // MODERN_UI_RENDERER_INTERNAL_H_

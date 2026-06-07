@@ -419,6 +419,176 @@ ModernUiDrawValueBox (
   );
 
 /**
+  Render a one-of (choice) control as the backend's best available drop-down.
+
+  Display-only: this paints the closed drop-down showing the currently selected
+  option text; it never opens a list or owns selection/input. edk2 FormBrowser
+  still owns the actual choice (its own selection popup, ConfigAccess, callbacks).
+  Backends diverge by capability:
+
+  - GOP backend composes the drop-down from primitives (value box + an in-box
+    chevron), matching the rest of the GOP chrome.
+  - LVGL backend renders a real `lv_dropdown` widget (its own box, border, and
+    `LV_SYMBOL_DOWN` arrow) snapshotted into the shadow canvas, so a one-of reads
+    as a genuine toolkit control rather than a hand-composed box.
+
+  The caller must not also draw the separate one-of affordance cue for this value;
+  the rendered control carries its own arrow.
+
+  @param[in] Context   Initialized render context. Must not be NULL.
+  @param[in] Rect      Control rectangle (the value lane).
+  @param[in] Value     Selected option text. Must not be NULL.
+  @param[in] Selected  TRUE when the owning row is selected/focused.
+  @param[in] Theme     Theme token table. Must not be NULL.
+
+  @retval EFI_SUCCESS            Control was drawn (or clipped outside view).
+  @retval EFI_INVALID_PARAMETER  Context, Value, or Theme is NULL, or Rect empty.
+  @retval EFI_OUT_OF_RESOURCES   Temporary widget/snapshot allocation failed.
+  @retval others                 Status returned by the underlying renderer.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderOneOf (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
+  Render a checkbox/boolean control as the backend's best widget (display-only).
+
+  LVGL renders a real `lv_checkbox` (checked state inferred from the "[X]"/"[ ]"
+  value text); GOP draws a bordered field with the value text. edk2 owns the
+  toggle. Same NULL/Rect contract as ModernUiRenderOneOf.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderCheckbox (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
+  Render a string control as the backend's best widget (display-only).
+
+  LVGL renders a real one-line `lv_textarea` showing the current text; GOP draws
+  a bordered field. edk2 owns editing. Same NULL/Rect contract as
+  ModernUiRenderOneOf.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderString (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
+  Render a password control as the backend's best widget (display-only).
+
+  LVGL renders an `lv_textarea` in password mode (dots); GOP draws a bordered
+  field with the value text (already masked by FormBrowser). edk2 owns editing.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderPassword (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
+  Render a numeric control as the backend's best widget (display-only).
+
+  LVGL renders a real `lv_spinbox`-styled field showing the current number; GOP
+  draws a bordered field with the value text. edk2 owns the adjustment.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderNumeric (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
+  Render an ordered-list control as the backend's best widget (display-only).
+
+  LVGL renders a real list-style field (an `LV_SYMBOL_LIST`-prefixed `lv_obj`
+  field) showing the current option order; GOP draws a bordered field. edk2 owns
+  the reorder popup. Same NULL/Rect contract as ModernUiRenderOneOf.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderOrderedList (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
+  Render a date/time control as the backend's best widget (display-only).
+
+  LVGL renders a segmented field (the value laid out with spaced `/ : -`
+  delimiters so the month/day/year or hour/minute/second segments read as
+  discrete cells); GOP draws a bordered field. edk2 owns segment editing.
+
+  Note: in the in-setup DisplayEngine, date/time keeps its native per-segment
+  rendering and the type cue, because FormBrowser highlights the active segment
+  in place and a full-lane widget overlay would mask that feedback. This entry
+  point completes the engine value vocabulary for the app-facing draw path.
+  Same NULL/Rect contract as ModernUiRenderOneOf.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderDateTime (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
+  Draw a bordered value field (no drop-down arrow) with inset text.
+
+  The arrow-less companion to ModernUiDrawValueBox, used by the GOP backend to
+  present non-drop-down controls (checkbox/string/password/numeric) as boxed
+  fields consistent with the drop-down value box.
+
+  @param[in] Context   Initialized render context. Must not be NULL.
+  @param[in] Rect      Field rectangle.
+  @param[in] Value     Field text. Must not be NULL.
+  @param[in] Selected  TRUE when the owning row is selected.
+  @param[in] Theme     Theme token table. Must not be NULL.
+
+  @retval EFI_SUCCESS            Field was drawn.
+  @retval EFI_INVALID_PARAMETER  Context, Value, or Theme is NULL, or Rect empty.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiDrawFieldBox (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  );
+
+/**
   Draw a drop-down list frame.
 
   @param[in] Context  Initialized render context. Must not be NULL.
@@ -458,6 +628,42 @@ ModernUiDrawProgress (
   IN UINTN                             Percent,
   IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL     Track,
   IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL     Fill
+  );
+
+/**
+  Composite the OEM branding watermark into a region's whitespace (display-only).
+
+  This is the renderer half of the OEM branding slot: an original, theme-tinted
+  watermark drawn low-opacity and centered toward the bottom of Region, so it
+  fills the empty content area without fighting the setup text. The asset ships
+  no IBV/commercial art -- it is an A8 coverage map generated from
+  Assets/Branding/oem-watermark.svg by Scripts/gen-oem-watermark.py.
+
+  - LVGL backend alpha-blends the A8 coverage map (tinted with the theme's muted
+    text color) directly into the shadow canvas and BLTs the affected region.
+  - GOP backend is currently a no-op (returns EFI_SUCCESS); a primitive composite
+    is a follow-up.
+
+  Because the native FormBrowser repaints the content area after the chrome, the
+  DisplayEngine caller invokes this *after* the content rows are painted and
+  confines Region to the statement column (the help/right-rail columns are
+  repainted by later form states and would clip the mark).
+
+  @param[in] Context  Initialized render context. Must not be NULL.
+  @param[in] Region   Pixel region to anchor the watermark within (e.g. the
+                      statement content panel). A region too small for the mark
+                      is skipped.
+  @param[in] Theme    Theme token table (supplies the tint). Must not be NULL.
+
+  @retval EFI_SUCCESS            Watermark composited, or skipped as a no-op.
+  @retval EFI_INVALID_PARAMETER  Context or Theme is NULL.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiDrawOemWatermark (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Region,
+  IN CONST MODERN_UI_THEME             *Theme
   );
 
 #endif

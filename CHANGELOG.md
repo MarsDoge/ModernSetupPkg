@@ -14,6 +14,80 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- The in-setup DisplayEngine chrome is now localized. The header product/mode
+  names and the tab-hint labels are resolved through `ModernUiStringLib`
+  (`ModernUiGetString`) instead of being pinned to English, so when the active
+  language is Simplified Chinese (the `PcdModernSetupDefaultLanguage` default)
+  the setup header reads "现代UEFI设置工具 / 高级模式" with tabs
+  "设置分类 / 设备 / 启动 / 安全 / 退出", matching the front-page app. The labels
+  are a visual hint only -- form navigation, HII GUID binding, callbacks, and
+  storage are unchanged; the CJK glyphs come from the existing embedded
+  Noto Sans CJK SC subset. `ModernUiStringLib` is now usable from `DXE_DRIVER`
+  modules and is wired into the modern/lvgl DisplayEngine overlay (all targets).
+  Verified by an OVMF X64 lvgl screendump of a DriverSample form with the chrome
+  in Chinese, plus the modern (GOP) build and smoke.
+- OEM branding watermark slot (display-only, original art). A new renderer entry
+  point `ModernUiDrawOemWatermark` composites an original, theme-tinted brand
+  mark into the in-setup content-area whitespace. The asset is 100% original
+  geometry + the project URL -- no IBV/commercial reuse: an SVG design source
+  (`Assets/Branding/oem-watermark.svg`) rasterized to an A8 coverage map
+  (`OemWatermarkData.c/.h`) by `Scripts/gen-oem-watermark.py`. The LVGL backend
+  alpha-blends the A8 map (tinted with the theme muted-text color, low opacity)
+  directly into the shadow canvas; the GOP backend is a no-op for now. Because
+  the native FormBrowser repaints the content area after the chrome, the
+  DisplayEngine draws the mark *after* the statement rows (new
+  `ModernDisplayDrawOemWatermarkOverlay`, invoked at the end of the `CfRepaint`
+  pass) and confines it to the statement column so the help/right-rail repaints
+  do not clip it. It is also confined vertically to the empty band below the last
+  menu row (`FirstEmptyRow`), so on a form whose rows fill the content area the
+  band is too short and the mark is suppressed -- it never tints over a statement
+  row. Display-only: parses no HII, owns no FormBrowser state. Verified by OVMF
+  X64 lvgl screendumps of a short sub-form (mark shown in whitespace) and a dense
+  form (mark suppressed), plus smoke.
+- IFR-opcode -> LVGL-widget mapping for the value-bearing controls: one-of,
+  checkbox, numeric, string, and password now render as real LVGL widgets on the
+  LVGL backend, in both the front-page App and real in-setup VFR forms -- one-of
+  as `lv_dropdown` (rounded box + `LV_SYMBOL_DOWN`), checkbox as a checked
+  `lv_checkbox`, and numeric/string/password as a styled `lv_obj` field with an
+  `lv_label` (password masked). Each is built as a transient display-only widget,
+  rendered via `lv_snapshot_take` (newly enabled `LV_USE_SNAPSHOT`), and
+  alpha-composited (ARGB8888) over the row background in the shadow canvas by a
+  shared `LvglComposeSnapshot` helper. Per-control renderer entry points
+  (`ModernUiRenderOneOf`/`Checkbox`/`Numeric`/`String`/`Password`, plus the
+  arrow-less `ModernUiDrawFieldBox`) keep the abstraction at the renderer layer:
+  the GOP backend composes themed value/field boxes from primitives instead, so
+  there is no GOP regression. `ModernUiEngineDrawValue` dispatches per value type
+  (App path) and the in-setup DisplayEngine overlays the widget on the value lane
+  via `ModernDisplayDrawValueWidget` (opcode-dispatched, using the option string
+  FormBrowser just printed with its NARROW_CHAR/WIDE_CHAR glyph markers stripped);
+  the affordance cue is skipped for the mapped rows since each control carries its
+  own. Action/reference keep the `>` arrow. Display-only throughout: edk2
+  FormBrowser still owns selection/editing, ConfigAccess, and callbacks. Verified
+  by OVMF X64 lvgl + GOP screendumps of the DriverSample form and the App
+  preferences page, plus smoke.
+- Ordered-list and date/time opcodes complete the IFR-opcode -> LVGL-widget
+  mapping. Ordered-list renders as a real list-style field (`LV_SYMBOL_LIST`
+  prefix + the current option order) in both the App and in-setup DisplayEngine,
+  dropping its cue. Date/time renders as a segmented field (value laid out with
+  spaced `/ : -` delimiters so month/day/year or H:M:S read as discrete cells) on
+  the app-facing draw path; in the in-setup DisplayEngine date/time deliberately
+  keeps its native per-segment rendering and the type cue, because FormBrowser
+  highlights the active segment in place and a full-lane widget overlay would mask
+  that editing feedback. New renderer entry points `ModernUiRenderOrderedList` /
+  `ModernUiRenderDateTime` (GOP draws themed field boxes -- no regression). edk2
+  still owns the reorder popup and segment editing. Verified by OVMF X64 lvgl +
+  GOP builds and smoke.
+- DisplayEngine text-input edit caret is now drawn by the Modern renderer
+  (`ModernDisplayDrawTextCaret`) instead of the native `EFI_SIMPLE_TEXT_OUTPUT`
+  cursor. `ReadString` suppresses the native cursor (which draws straight to the
+  GraphicsConsole framebuffer and is invisible/misplaced behind an off-screen
+  canvas) and paints a thin accent caret at the edit cell each keystroke, so the
+  string/password editor's cursor renders identically on the GOP and LVGL
+  backends. This closes the last interaction surface that bypassed the renderer:
+  the LVGL backend now composites the full FormBrowser interaction set
+  (rows, one-of/dialog popups, and input editing) end-to-end. App-local, no HII
+  or value semantics touched. Verified by an OVMF X64 lvgl-mode screendump of the
+  DriverSample string editor showing the caret, plus GOP/lvgl builds and smoke.
 - DisplayEngine per-opcode control affordances: each editable FormBrowser
   statement now shows a distinct, non-semantic cue glyph keyed on its control
   kind — checkbox box, numeric `+`, one-of/choice `▼`, ordered-list up/down,
@@ -316,6 +390,41 @@ this file as both a release log and a lightweight development progress record.
 
 ### Changed
 
+- The in-setup "CONTEXT HELP" rail label now uses a soft muted-gold accent
+  (`AccentYellow` blended 50% toward `MutedText`) instead of plain muted body
+  text, so it reads as a styled section header -- consistent with, but
+  deliberately subdued below, the primary CPU/Memory/Voltage telemetry rail
+  headers. Verified by an OVMF X64 lvgl screendump and smoke.
+- Refined the selected-row look into a clean, single-intent treatment: a subtle
+  warm-tinted fill (`Surface` blended ~30% toward `AccentYellow`) plus one solid
+  6px left accent stripe, replacing the older muddy `SelectedBand` band drawn
+  with an inset blend, two sheens, a framed border, and an inner highlight line.
+  The selection color is sourced once in `ModernUiGetSelectableRowBackground`, so
+  the row fill and the per-cell text anti-alias background stay matched (no glyph
+  halos). Applies to both backends and to selectable rows in the app and the
+  in-setup browser. Verified by OVMF X64 lvgl screendumps, the modern build, and
+  smoke.
+- The highlighted in-setup statement row now shows the modern row-level selection
+  styling (inset bar, top/bottom sheen, left accent, framed border) instead of a
+  flat muddy highlight band. `ModernDisplayDrawStatementRow` already painted that
+  styling underneath, but the native per-cell text print then buried it under a
+  solid `SelectedBand` fill. The per-cell print path now suppresses that flat
+  fill on the one row that just received selection styling (tracked by
+  `mModernStyledHighlightRow`), so the styling shows through. The guard is scoped
+  to that exact row, so other `EFI_RED`-background text -- notably a highlighted
+  popup option, which has no row-level styling -- still fills normally. Applies
+  to both the GOP "modern" and LVGL backends. Verified by OVMF X64 lvgl
+  screendumps of the selection at rest, after a highlight move (no stale band),
+  and an open one-of popup (highlighted option unchanged), plus smoke.
+
+- String/numeric/password value widgets now render as a real single-line
+  `lv_textarea` (LVGL built-in control) instead of a hand-composed
+  `lv_obj`+`lv_label`. The earlier row-height legibility concern (textarea caret /
+  scrolling obscuring short text) is handled by configuration: one-line mode, the
+  scrollbar off, the caret hidden (display-only snapshot), and native password
+  masking. Keeps the "prefer LVGL built-in widgets" direction alongside the
+  existing `lv_dropdown` (one-of) and `lv_checkbox` (checkbox). Display-only; edk2
+  still owns editing. Verified by an OVMF X64 lvgl DriverSample screendump.
 - Modern UI engine: added a `ModernUiEngineDrawStatusPill` primitive (second entry
   in the base shape vocabulary) and refactored the footer status badge onto it.
   The badge is now sized to comfortably contain one text line (height = line + 6)
@@ -453,6 +562,44 @@ this file as both a release log and a lightweight development progress record.
 
 ### Fixed
 
+- Modern popups/dialogs no longer truncate their text or show a retro dashed
+  border. (1) The native DisplayEngine sizes popups in character columns, but the
+  modern proportional font advances wider than a text-grid cell, so confirm/error
+  dialogs were clipped with "..." ("Load default configurat..."). `PrintInternal`
+  now grows the text budget to the measured proportional width when the caller
+  imposes no column constraint (`Width == 0`), so unconstrained prints render in
+  full. (2) `ModernDisplayCopyPrintable` drops the Unicode box-drawing block
+  (U+2500..U+257F): the native engine frames popups/multi-string boxes with those
+  glyphs, but the modern panel/surface already supplies the frame, so they only
+  added a dashed-border seam over it. Both fixes are renderer-layer only; edk2
+  still owns the dialog control flow, keys, and message strings. Verified by OVMF
+  X64 lvgl screendump of the F9 "Load defaults" confirm dialog, plus smoke.
+- Fixed in-setup widget vs native-editing conflicts. (1) The value-lane widget is
+  now cleared to the field background (`Theme->Surface`) right before native
+  FormBrowser editing starts (`ModernDisplayClearValueLane`, called from the edit
+  entry in `DisplayOneMenu`'s key handler), so the in-place numeric editor and the
+  string/password input popup start on a clean lane instead of colliding with the
+  composited widget (which left it half-covered / the old value peeking out beside
+  the popup). The full form repaint after editing restores the widget with the new
+  value. (2) The `lv_checkbox` widget now renders the box indicator with an empty
+  label, so it no longer leaks a stray `]` from the raw `[X]` value text (the row's
+  left prompt already names the control).
+- Ordered-list widgets now show their option order joined by a ` / ` separator
+  (`<A> / <B> / <C>`) instead of the raw `?` glyphs. FormBrowser joins ordered-list
+  options with `CHAR_CARRIAGE_RETURN`, which passed the `>= 0xFFF0` marker filter but
+  was rendered as `?` by the ASCII label path. A shared
+  `ModernUiNormalizeOrderedListText` helper (strip markers, collapse CR/LF runs to a
+  single ` / `, trim) now feeds both backends' ordered-list renderer. Display-only;
+  no change to the multi-row native fallback.
+- Fixed a spurious highlight-colored block filling the empty area below a menu
+  when the highlighted statement is the last visible row (e.g. `Reset` on the
+  front page). The DisplayEngine "clean the remain field" loop cleared the rows
+  below the menu with whatever display attribute the last-drawn option left set;
+  when that option was the highlighted one, the modern renderer painted those
+  empty rows with the highlight band (`SelectedBand`). The loop now resets to the
+  normal field background (`GetFieldTextColor`, → `Theme->Surface`) first, mirroring
+  the reset already done before the scroll down-arrow. Backend-agnostic (GOP and
+  LVGL); verified by an OVMF X64 front-page screendump with `Reset` highlighted.
 - ModernSetupApp Dashboard no longer echoes the generic platform name as the
   form factor: when SMBIOS Type 3 is unavailable the platform provider now
   reports an empty form factor and the app surfaces its localized Unknown/N/A

@@ -824,7 +824,13 @@ ModernUiGetSelectableRowBackground (
   }
 
   if (Selected) {
-    RowColor = ModernUiBlendColor (Theme->BackgroundBlack, Theme->SelectedBand, 74);
+    //
+    // A clean, subtle warm-tinted selection fill over the normal surface --
+    // distinct enough to read as selected, but far less muddy than the older
+    // heavy SelectedBand band. This is the single source for both the row fill
+    // and the per-cell text anti-alias background, so they stay matched.
+    //
+    RowColor = ModernUiBlendColor (Theme->Surface, Theme->AccentYellow, 30);
   } else if (Action || Subtitle) {
     RowColor = Theme->SurfaceRaised;
   } else {
@@ -883,58 +889,17 @@ ModernUiDrawSelectableRow (
   }
 
   if (Selected && (Rect.Width > 6) && (Rect.Height > 4)) {
-    if ((Rect.Width > 10) && (Rect.Height > 8)) {
-      Status = ModernUiFillRect (
-                 Context,
-                 (MODERN_UI_RECT){ Rect.X + 6, Rect.Y + 3, Rect.Width - 6, Rect.Height - 6 },
-                 ModernUiBlendColor (RowColor, Theme->AccentOrange, 18)
-                 );
-      if (EFI_ERROR (Status)) {
-        return Status;
-      }
-    }
-
-    Status = ModernUiFillRect (
-               Context,
-               (MODERN_UI_RECT){ Rect.X, Rect.Y, Rect.Width, 2 },
-               ModernUiBlendColor (Theme->AccentYellow, Theme->AccentOrange, 45)
-               );
-    if (EFI_ERROR (Status)) {
-      return Status;
-    }
-
-    Status = ModernUiFillRect (
-               Context,
-               (MODERN_UI_RECT){ Rect.X, Rect.Y + Rect.Height - 3, Rect.Width, 2 },
-               ModernUiBlendColor (Theme->AccentOrange, Theme->SelectedBand, 35)
-               );
-    if (EFI_ERROR (Status)) {
-      return Status;
-    }
-
-    Status = ModernUiFillRect (
-               Context,
-               (MODERN_UI_RECT){ Rect.X, Rect.Y + 2, 7, Rect.Height - 4 },
-               Theme->AccentYellow
-               );
-    if (EFI_ERROR (Status)) {
-      return Status;
-    }
-
-    if (Rect.Width > 20) {
-      Status = ModernUiStrokeRect (Context, Rect, Theme->PopupBorder);
-      if (EFI_ERROR (Status)) {
-        return Status;
-      }
-
-      return ModernUiFillRect (
-               Context,
-               (MODERN_UI_RECT){ Rect.X + 8, Rect.Y + 2, Rect.Width - 8, 1 },
-               ModernUiBlendColor (Theme->AccentYellow, Theme->AccentOrange, 45)
-               );
-    }
-
-    return EFI_SUCCESS;
+    //
+    // The row is already filled with the subtle warm-tinted selection color.
+    // Add a single solid left accent stripe as the "selected" marker. This
+    // replaces an older multi-layer treatment (inset blend + top/bottom sheens +
+    // framed border + inner highlight line) that read busy and muddy.
+    //
+    return ModernUiFillRect (
+             Context,
+             (MODERN_UI_RECT){ Rect.X, Rect.Y + 1, 6, (Rect.Height > 2) ? (Rect.Height - 2) : Rect.Height },
+             Theme->AccentYellow
+             );
   }
 
   if (Subtitle && (Rect.Width > 6)) {
@@ -1044,6 +1009,123 @@ ModernUiDrawValueBox (
            Theme->AccentYellow,
            Selected ? Theme->SelectedBand : Theme->Surface
            );
+}
+
+/**
+  Draw a bordered value field (no drop-down arrow) with inset text.
+
+  See the contract on ModernUiDrawFieldBox in ModernUiRenderer.h.
+
+  @param[in] Context   Initialized render context. Must not be NULL.
+  @param[in] Rect      Field rectangle.
+  @param[in] Value     Field text. Must not be NULL.
+  @param[in] Selected  TRUE when the owning row is selected.
+  @param[in] Theme     Theme token table. Must not be NULL.
+
+  @retval EFI_SUCCESS            Field was drawn.
+  @retval EFI_INVALID_PARAMETER  Context, Value, or Theme is NULL, or Rect empty.
+  @retval others                 Status returned by text rendering.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiDrawFieldBox (
+  IN MODERN_UI_RENDER_CONTEXT  *Context,
+  IN MODERN_UI_RECT            Rect,
+  IN CONST CHAR16              *Value,
+  IN BOOLEAN                   Selected,
+  IN CONST MODERN_UI_THEME     *Theme
+  )
+{
+  EFI_STATUS  Status;
+
+  if ((Context == NULL) || (Value == NULL) || (Theme == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Status = ModernUiFillRect (Context, Rect, Selected ? Theme->SelectedBand : Theme->Surface);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  Status = ModernUiStrokeRect (Context, Rect, Selected ? Theme->PopupBorder : Theme->Border);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  return ModernUiDrawTextFit (
+           Context,
+           Rect.X + 16,
+           Rect.Y + ((Rect.Height > 18) ? ((Rect.Height - 18) / 2) : 0),
+           (Rect.Width > 24) ? (Rect.Width - 24) : Rect.Width,
+           Value,
+           Theme->Text,
+           Selected ? Theme->SelectedBand : Theme->Surface
+           );
+}
+
+/**
+  Normalize an ordered-list value string into a single-line, separator-joined form.
+
+  See the contract on ModernUiNormalizeOrderedListText in ModernUiRendererInternal.h.
+**/
+VOID
+ModernUiNormalizeOrderedListText (
+  OUT CHAR16        *Dst,
+  IN  UINTN         Cap,
+  IN  CONST CHAR16  *Src
+  )
+{
+  UINTN    SrcIdx;
+  UINTN    DstIdx;
+  BOOLEAN  PendingSep;
+  CHAR16   Ch;
+
+  if ((Dst == NULL) || (Cap == 0)) {
+    return;
+  }
+
+  DstIdx     = 0;
+  PendingSep = FALSE;
+  if (Src != NULL) {
+    for (SrcIdx = 0; (Src[SrcIdx] != CHAR_NULL) && (DstIdx < (Cap - 1)); SrcIdx++) {
+      Ch = Src[SrcIdx];
+
+      //
+      // Drop NARROW_CHAR/WIDE_CHAR glyph-width markers (layout hints, not text).
+      //
+      if (Ch >= 0xFFF0) {
+        continue;
+      }
+
+      //
+      // Collapse each run of CR/LF separators into one " / "; defer emitting it so a
+      // leading run (DstIdx == 0) and the trailing run (no further printable text) are
+      // dropped rather than shown as stray separators.
+      //
+      if ((Ch == CHAR_CARRIAGE_RETURN) || (Ch == CHAR_LINEFEED)) {
+        if (DstIdx > 0) {
+          PendingSep = TRUE;
+        }
+
+        continue;
+      }
+
+      if (PendingSep) {
+        PendingSep = FALSE;
+        if (DstIdx < (Cap - 4)) {
+          Dst[DstIdx++] = L' ';
+          Dst[DstIdx++] = L'/';
+          Dst[DstIdx++] = L' ';
+        } else {
+          break;
+        }
+      }
+
+      Dst[DstIdx++] = Ch;
+    }
+  }
+
+  Dst[DstIdx] = CHAR_NULL;
 }
 
 

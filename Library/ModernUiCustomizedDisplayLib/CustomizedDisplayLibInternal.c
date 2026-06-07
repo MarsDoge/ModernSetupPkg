@@ -23,6 +23,14 @@ STATIC MODERN_UI_RENDER_CONTEXT  mModernRenderContext;
 STATIC BOOLEAN                   mModernRenderReady;
 STATIC UINTN                     mModernCursorColumn;
 STATIC UINTN                     mModernCursorRow;
+//
+// Text-grid row that most recently received row-level selection styling from
+// ModernDisplayDrawStatementRow. The per-cell print path suppresses its flat
+// highlight fill only on this row, so the styled selection bar shows through
+// without affecting other EFI_RED-background text (e.g. highlighted popup
+// options, which have no row-level styling underneath). (UINTN)-1 means none.
+//
+STATIC UINTN                     mModernStyledHighlightRow = (UINTN)-1;
 
 #define MODERN_DISPLAY_HELP_LEFT_SKIPPED_COLUMNS  3
 
@@ -471,13 +479,19 @@ ModernDisplayDrawRightHelpRailContext (
   LabelY     = (Layout->ContentTopRow * CellHeight) + MIN (6, MAX (2, CellHeight / 5));
   LabelWidth = (Layout->Statement.RightColumn - HelpLeftColumn) * CellWidth;
 
+  //
+  // Give the "CONTEXT HELP" label a soft accent (a muted gold, between the plain
+  // muted body text and the full accent used by the primary CPU/Memory/Voltage
+  // rail headers), so it reads as a styled section header while staying below the
+  // telemetry rail in the visual hierarchy.
+  //
   ModernUiDrawTextFit (
     &mModernRenderContext,
     LabelX,
     LabelY,
     LabelWidth,
     L"CONTEXT HELP",
-    Theme->MutedText,
+    ModernUiBlendColor (Theme->AccentYellow, Theme->MutedText, 50),
     Theme->BackgroundBlack
     );
 
@@ -723,6 +737,16 @@ ModernDisplayCopyPrintable (
   OutIndex = 0;
   for (Index = 0; (Input[Index] != CHAR_NULL) && ((OutIndex + 1) < OutputLen); Index++) {
     if ((Input[Index] == NARROW_CHAR) || (Input[Index] == WIDE_CHAR)) {
+      continue;
+    }
+
+    //
+    // Drop Unicode box-drawing glyphs (U+2500..U+257F). The native DisplayEngine
+    // frames popups and multi-string boxes with these characters; under the
+    // modern renderer the surrounding panel/surface already supplies the frame,
+    // so rendering the glyphs only adds a retro dashed-border seam on top.
+    //
+    if ((Input[Index] >= 0x2500) && (Input[Index] <= 0x257F)) {
       continue;
     }
 
@@ -1047,6 +1071,37 @@ ModernDisplayDrawStatementRow (
 
   ModernUiEngineDrawRows (&mModernRenderContext, &RowModel, 1, Theme);
   ModernDisplayDrawStatementRowAccents (&RowRect, &FormRow, Theme);
+
+  //
+  // Record the row that just received selected styling so the per-cell print
+  // path knows to let it show through (and clear the record when this row is no
+  // longer the selected one).
+  //
+  if (RowModel.Role == ModernUiRowSelected) {
+    mModernStyledHighlightRow = Row;
+  } else if (mModernStyledHighlightRow == Row) {
+    mModernStyledHighlightRow = (UINTN)-1;
+  }
+}
+
+/**
+  Forget any tracked selection-styled row.
+
+  The per-cell print path suppresses the highlight fill on the row recorded by
+  ModernDisplayDrawStatementRow. That record is only valid while a form's
+  statement rows are being drawn; a popup drawn on top prints its own
+  EFI_RED-background text (e.g. a highlighted selectable option) without going
+  through ModernDisplayDrawStatementRow, and could share that grid row. Callers
+  invoke this at popup entry so a popup line is never mistaken for the styled
+  statement row and left without its background fill.
+**/
+VOID
+EFIAPI
+ModernDisplayResetHighlightRowTracking (
+  VOID
+  )
+{
+  mModernStyledHighlightRow = (UINTN)-1;
 }
 
 /**
@@ -1108,6 +1163,22 @@ ModernDisplayDrawStatementRowCue (
     return;
   }
 
+  //
+  // Widget-mapped rows (one-of/checkbox/numeric/string/password/ordered-list)
+  // render as real controls via ModernDisplayDrawValueWidget, which carry their
+  // own affordance, so skip the separate cue for them. Date/time (native
+  // per-segment rendering) and action keep the cue.
+  //
+  if ((FormRow.Kind == ModernDisplayFormRowChoice) ||
+      (FormRow.Kind == ModernDisplayFormRowCheckbox) ||
+      (FormRow.Kind == ModernDisplayFormRowNumeric) ||
+      (FormRow.Kind == ModernDisplayFormRowString) ||
+      (FormRow.Kind == ModernDisplayFormRowPassword) ||
+      (FormRow.Kind == ModernDisplayFormRowOrderedList))
+  {
+    return;
+  }
+
   Theme = ModernUiGetTheme ();
   ModernDisplayGetCellMetrics (&CellWidth, &CellHeight);
 
@@ -1137,6 +1208,193 @@ ModernDisplayDrawStatementRowCue (
 }
 
 /**
+  Draw the text-input edit caret at a text-grid cell through the Modern renderer.
+
+  Paints a thin vertical accent bar at the left edge of cell (Column, Row), using
+  the same cell metrics as the themed text printer so it lands exactly on the
+  character the caller is about to write. `ReadString` suppresses the native
+  EFI_SIMPLE_TEXT_OUTPUT cursor (which would draw straight to the GraphicsConsole
+  framebuffer and be invisible behind an off-screen canvas such as the LVGL
+  backend) and calls this each keystroke after redrawing the field, so the caret
+  renders identically on every backend. No-op (no error) when no renderer is
+  available or the cell geometry is degenerate.
+
+  @param[in] Column  Text-grid column of the caret cell.
+  @param[in] Row     Text-grid row of the caret cell.
+**/
+VOID
+EFIAPI
+ModernDisplayDrawTextCaret (
+  IN UINTN  Column,
+  IN UINTN  Row
+  )
+{
+  CONST MODERN_UI_THEME  *Theme;
+  UINTN                  CellWidth;
+  UINTN                  CellHeight;
+  UINTN                  CaretWidth;
+  UINTN                  Inset;
+
+  if (EFI_ERROR (ModernDisplayEnsureRenderer ())) {
+    return;
+  }
+
+  ModernDisplayGetCellMetrics (&CellWidth, &CellHeight);
+  if ((CellWidth == 0) || (CellHeight < 6)) {
+    return;
+  }
+
+  Theme      = ModernUiGetTheme ();
+  CaretWidth = MAX (2, CellWidth / 8);
+  Inset      = (CellHeight > 8) ? 2 : 1;
+
+  ModernUiFillRect (
+    &mModernRenderContext,
+    (MODERN_UI_RECT){ Column * CellWidth, Row * CellHeight + Inset, CaretWidth, CellHeight - (2 * Inset) },
+    Theme->AccentYellow
+    );
+}
+
+/**
+  Overlay a one-of row's value lane with the backend's best drop-down.
+
+  Converts the text-grid value lane to pixels using the same cell metrics as the
+  themed printer, then delegates to the shared ModernUiRenderOneOf, which renders
+  a real lv_dropdown on the LVGL backend and a composed value box on GOP. See the
+  contract on ModernDisplayDrawOneOfWidget in FormDisplay.h. No-op (no error) when
+  no renderer is available, the value text is NULL, or the lane is degenerate.
+
+  @param[in] Column     Text-grid column where the value lane starts.
+  @param[in] Row        Text-grid row of the statement.
+  @param[in] Width      Text-grid column count of the value lane.
+  @param[in] ValueText  Selected option text. May be NULL.
+  @param[in] Highlight  TRUE when the row currently has keyboard highlight.
+  @param[in] Selected   TRUE when the row is in edit/selection mode.
+**/
+VOID
+EFIAPI
+ModernDisplayDrawValueWidget (
+  IN UINT8         OpCode,
+  IN UINTN         Column,
+  IN UINTN         Row,
+  IN UINTN         Width,
+  IN CONST CHAR16  *ValueText OPTIONAL,
+  IN BOOLEAN       Highlight,
+  IN BOOLEAN       Selected
+  )
+{
+  CONST MODERN_UI_THEME  *Theme;
+  UINTN                  CellWidth;
+  UINTN                  CellHeight;
+  MODERN_UI_RECT         Rect;
+  CHAR16                 Clean[128];
+  UINTN                  Src;
+  UINTN                  Dst;
+  BOOLEAN                Sel;
+
+  if ((ValueText == NULL) || (Width == 0) || EFI_ERROR (ModernDisplayEnsureRenderer ())) {
+    return;
+  }
+
+  //
+  // Only the widget-mapped opcodes are overlaid; everything else keeps its
+  // native text plus the cue overlay.
+  //
+  if ((OpCode != EFI_IFR_ONE_OF_OP) && (OpCode != EFI_IFR_CHECKBOX_OP) &&
+      (OpCode != EFI_IFR_NUMERIC_OP) && (OpCode != EFI_IFR_STRING_OP) &&
+      (OpCode != EFI_IFR_PASSWORD_OP) && (OpCode != EFI_IFR_ORDERED_LIST_OP))
+  {
+    return;
+  }
+
+  ModernDisplayGetCellMetrics (&CellWidth, &CellHeight);
+  if ((CellWidth == 0) || (CellHeight < 10)) {
+    return;
+  }
+
+  //
+  // FormBrowser embeds glyph-width markers (NARROW_CHAR/WIDE_CHAR, >= 0xFFF0) in
+  // option strings; they are layout hints, not printable text. Strip them so the
+  // widget shows clean text on both backends.
+  //
+  for (Src = 0, Dst = 0; (ValueText[Src] != CHAR_NULL) && (Dst < (ARRAY_SIZE (Clean) - 1)); Src++) {
+    if (ValueText[Src] < 0xFFF0) {
+      Clean[Dst++] = ValueText[Src];
+    }
+  }
+
+  Clean[Dst] = CHAR_NULL;
+
+  Theme       = ModernUiGetTheme ();
+  Rect.X      = Column * CellWidth;
+  Rect.Y      = Row * CellHeight;
+  Rect.Width  = Width * CellWidth;
+  Rect.Height = CellHeight;
+  Sel         = (BOOLEAN)(Highlight || Selected);
+
+  switch (OpCode) {
+    case EFI_IFR_ONE_OF_OP:
+      ModernUiRenderOneOf (&mModernRenderContext, Rect, Clean, Sel, Theme);
+      break;
+    case EFI_IFR_CHECKBOX_OP:
+      ModernUiRenderCheckbox (&mModernRenderContext, Rect, Clean, Sel, Theme);
+      break;
+    case EFI_IFR_NUMERIC_OP:
+      ModernUiRenderNumeric (&mModernRenderContext, Rect, Clean, Sel, Theme);
+      break;
+    case EFI_IFR_STRING_OP:
+      ModernUiRenderString (&mModernRenderContext, Rect, Clean, Sel, Theme);
+      break;
+    case EFI_IFR_PASSWORD_OP:
+      ModernUiRenderPassword (&mModernRenderContext, Rect, Clean, Sel, Theme);
+      break;
+    case EFI_IFR_ORDERED_LIST_OP:
+      ModernUiRenderOrderedList (&mModernRenderContext, Rect, Clean, Sel, Theme);
+      break;
+    default:
+      break;
+  }
+}
+
+/**
+  Clear a statement's value lane to the field background before native editing.
+
+  See the contract on ModernDisplayClearValueLane in FormDisplay.h.
+
+  @param[in] Column  Text-grid column where the value lane starts.
+  @param[in] Row     Text-grid row of the statement.
+  @param[in] Width   Text-grid column count of the value lane.
+**/
+VOID
+EFIAPI
+ModernDisplayClearValueLane (
+  IN UINTN  Column,
+  IN UINTN  Row,
+  IN UINTN  Width
+  )
+{
+  CONST MODERN_UI_THEME  *Theme;
+  UINTN                  CellWidth;
+  UINTN                  CellHeight;
+
+  if ((Width == 0) || EFI_ERROR (ModernDisplayEnsureRenderer ())) {
+    return;
+  }
+
+  ModernDisplayGetCellMetrics (&CellWidth, &CellHeight);
+  if ((CellWidth == 0) || (CellHeight == 0)) {
+    return;
+  }
+
+  Theme = ModernUiGetTheme ();
+  ModernUiFillRect (
+    &mModernRenderContext,
+    (MODERN_UI_RECT){ Column * CellWidth, Row * CellHeight, Width * CellWidth, CellHeight },
+    Theme->Surface
+    );
+}
+
+/**
   Draw the modern DisplayEngine shell behind the native FormBrowser content.
 
   This function does not parse HII or own any FormBrowser semantics. It only
@@ -1158,13 +1416,7 @@ ModernDisplayDrawPageChrome (
   MODERN_DISPLAY_LAYOUT  Layout;
   MODERN_UI_LAYOUT       EngineLayout;
   MODERN_UI_PAGE_MODEL   PageModel;
-  STATIC CONST MODERN_UI_TAB_MODEL  Tabs[] = {
-    { L"Main" },
-    { L"Devices" },
-    { L"Boot" },
-    { L"Security" },
-    { L"Save & Exit" }
-  };
+  MODERN_UI_TAB_MODEL    Tabs[5];
   UINTN                  HeaderHeight;
 
   ASSERT (FormData != NULL);
@@ -1215,13 +1467,25 @@ ModernDisplayDrawPageChrome (
     ZeroMem (&EngineLayout.RightRail, sizeof (EngineLayout.RightRail));
   }
 
+  //
+  // Localize the chrome through ModernUiStringLib so the in-setup header and
+  // tab hints follow the active language (matching the front-page app), instead
+  // of being pinned to English. The label set is a visual hint only; it does not
+  // alter form navigation, HII GUID binding, callbacks, or storage.
+  //
+  Tabs[0].Text = ModernUiGetString (ModernUiStringPageDashboard);
+  Tabs[1].Text = ModernUiGetString (ModernUiStringPageDevices);
+  Tabs[2].Text = ModernUiGetString (ModernUiStringPageBoot);
+  Tabs[3].Text = ModernUiGetString (ModernUiStringPageSecurity);
+  Tabs[4].Text = ModernUiGetString (ModernUiStringPageExit);
+
   CopyMem (&PageModel.Layout, &EngineLayout, sizeof (PageModel.Layout));
   PageModel.Rect          = EngineLayout.Header;
   PageModel.Tabs          = Tabs;
   PageModel.TabCount      = ARRAY_SIZE (Tabs);
   PageModel.SelectedTab   = ModernDisplaySelectChromeTab (PrintableTitle);
-  PageModel.ProductName   = L"MODERN SETUP";
-  PageModel.ModeName      = L"ADVANCED MODE";
+  PageModel.ProductName   = ModernUiGetString (ModernUiStringHeaderTitle);
+  PageModel.ModeName      = ModernUiGetString (ModernUiStringHeaderMode);
   PageModel.StatusText    = ModernDisplayPageStatusText (FormData);
   PageModel.DrawRightRail = TRUE;
   ModernUiEngineDrawPage (&mModernRenderContext, &PageModel, Theme);
@@ -1236,6 +1500,81 @@ ModernDisplayDrawPageChrome (
   if (Title != NULL) {
     FreePool (Title);
   }
+}
+
+/**
+  Composite the OEM brand watermark into the content-area whitespace.
+
+  Unlike the chrome (which the native FormBrowser repaints over via the
+  statement rows and the empty-row clear loop), this overlay is meant to be
+  invoked *after* the form content has been painted, so the mark lands on top of
+  the freshly cleared whitespace rather than being wiped. The region handed to
+  the renderer is the empty band from FirstEmptyRow down to the content bottom,
+  so on a form whose rows fill the content area the band is too short and the
+  renderer no-ops -- the mark never tints over a statement row.
+
+  Display-only; parses no HII and owns no FormBrowser state. Safe to call on
+  every form refresh.
+
+  @param[in] FirstEmptyRow  Text-grid row where the empty area below the menu
+                            begins.
+**/
+VOID
+EFIAPI
+ModernDisplayDrawOemWatermarkOverlay (
+  IN UINTN  FirstEmptyRow
+  )
+{
+  CONST MODERN_UI_THEME  *Theme;
+  UINTN                  CellWidth;
+  UINTN                  CellHeight;
+  UINTN                  HelpStartColumn;
+  UINTN                  WhitespaceTopRow;
+  MODERN_DISPLAY_LAYOUT  Layout;
+  MODERN_UI_RECT         Content;
+
+  if (EFI_ERROR (ModernDisplayEnsureRenderer ())) {
+    return;
+  }
+
+  Theme = ModernUiGetTheme ();
+  ModernDisplayGetCellMetrics (&CellWidth, &CellHeight);
+  if (EFI_ERROR (ModernDisplayCalculateLayout (&Layout))) {
+    return;
+  }
+
+  //
+  // Confine the mark to the statement value area (left of the native help
+  // block). The help/right-rail columns are repainted by later control-flow
+  // states in the same form pass, which would clip any mark that strayed into
+  // them.
+  //
+  HelpStartColumn = ModernDisplayRightHelpStartColumn (&Layout);
+  if (HelpStartColumn <= Layout.ContentLeftColumn) {
+    return;
+  }
+
+  //
+  // Vertically confine the mark to the empty band below the last menu row.
+  // Clamp FirstEmptyRow into the content area; if the rows reach (or pass) the
+  // content bottom there is no whitespace and the band height collapses, so the
+  // renderer's minimum-size guard skips the mark instead of tinting a row.
+  //
+  WhitespaceTopRow = FirstEmptyRow;
+  if (WhitespaceTopRow < Layout.ContentTopRow) {
+    WhitespaceTopRow = Layout.ContentTopRow;
+  }
+
+  if (WhitespaceTopRow >= Layout.ContentBottomRow) {
+    return;
+  }
+
+  Content.X      = Layout.ContentLeftColumn * CellWidth;
+  Content.Y      = WhitespaceTopRow * CellHeight;
+  Content.Width  = (HelpStartColumn - Layout.ContentLeftColumn) * CellWidth;
+  Content.Height = (Layout.ContentBottomRow - WhitespaceTopRow) * CellHeight;
+
+  ModernUiDrawOemWatermark (&mModernRenderContext, Content, Theme);
 }
 
 //
@@ -2062,6 +2401,7 @@ PrintInternal (
   UINTN   TextY;
   UINTN   TextMaxWidth;
   UINTN   TextInset;
+  UINTN   MeasuredWidth;
   CHAR16  *Printable;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Foreground;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background;
@@ -2126,11 +2466,22 @@ PrintInternal (
     Foreground = ModernDisplayForeground (Attribute);
     Background = ModernDisplayBackground (Attribute);
 
-    ModernUiFillRect (
-      &mModernRenderContext,
-      (MODERN_UI_RECT){ DrawColumn * CellWidth, DrawRow * CellHeight, DrawWidth * CellWidth, CellHeight },
-      Background
-      );
+    //
+    // For the highlighted statement row (EFI_RED background nibble on the row
+    // that ModernDisplayDrawStatementRow just styled) skip the flat per-cell
+    // fill: the row-level selection styling (inset bar, top/bottom sheen, left
+    // accent) is already painted underneath, and a flat fill would bury it under
+    // a solid band. The guard is scoped to that exact row so other EFI_RED text
+    // (e.g. a highlighted popup option, which has no row styling) still fills
+    // normally. The text below keeps Background for anti-alias blending.
+    //
+    if ((((Attribute >> 4) & 0x07) != EFI_RED) || (DrawRow != mModernStyledHighlightRow)) {
+      ModernUiFillRect (
+        &mModernRenderContext,
+        (MODERN_UI_RECT){ DrawColumn * CellWidth, DrawRow * CellHeight, DrawWidth * CellWidth, CellHeight },
+        Background
+        );
+    }
 
     Printable = AllocateZeroPool ((StrLen (Buffer) + 1) * sizeof (CHAR16));
     if (Printable != NULL) {
@@ -2141,6 +2492,21 @@ PrintInternal (
       TextMaxWidth = (DrawWidth * CellWidth > (4 + TextInset)) ?
                      (DrawWidth * CellWidth - 4 - TextInset) :
                      DrawWidth * CellWidth;
+      //
+      // Width == 0 means the caller imposed no column constraint. The modern
+      // proportional font advances wider than a text-grid cell, so a budget
+      // derived from the character count would clip the caller's own string
+      // (popups size themselves exactly to the text and were truncated as
+      // "..."). Grow the budget to the measured text width so unconstrained
+      // prints render in full.
+      //
+      if (Width == 0) {
+        MeasuredWidth = ModernUiMeasureText (Printable);
+        if ((MeasuredWidth + 4) > TextMaxWidth) {
+          TextMaxWidth = MeasuredWidth + 4;
+        }
+      }
+
       ModernUiDrawTextFit (
         &mModernRenderContext,
         TextX,

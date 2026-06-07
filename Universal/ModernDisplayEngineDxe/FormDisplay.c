@@ -2523,6 +2523,22 @@ DisplayOneMenu (
       }
     }
 
+    //
+    // Widget-mapped controls render as the backend's best widget over the value
+    // lane, using the option string FormBrowser just printed (still valid here,
+    // and Highlight not yet cleared). The function no-ops for unmapped opcodes;
+    // the cue overlay skips the affordance for the mapped ones.
+    //
+    ModernDisplayDrawValueWidget (
+      Statement->OpCode->OpCode,
+      MenuOption->OptCol,
+      MenuOption->Row,
+      gOptionBlockWidth,
+      OptionString,
+      Highlight,
+      (BOOLEAN)(gUserInput->SelectedStatement == Statement)
+      );
+
     Highlight = FALSE;
 
     FreePool (OptionString);
@@ -2680,6 +2696,7 @@ UiDisplayMenu (
   UINTN                          Temp2;
   UINTN                          TopRow;
   UINTN                          BottomRow;
+  UINTN                          FirstEmptyRow;
   UINTN                          Index;
   CHAR16                         *StringPtr;
   CHAR16                         *StringRightPtr;
@@ -2905,6 +2922,19 @@ UiDisplayMenu (
           //
           // 3. Menus in this form may not cover all form, clean the remain field.
           //
+          // Reset to the normal field background first: the last drawn option may have
+          // left the highlight attribute set (when the highlighted statement is the last
+          // visible row, e.g. Reset on the front page), and the modern renderer paints the
+          // cleared empty rows with the current background. Without this reset that empty
+          // area below the menu is filled with the highlight band color.
+          //
+          //
+          // Remember where the empty area below the menu begins, so the OEM
+          // watermark overlay can be confined to genuine whitespace (and
+          // suppressed when the rows fill the content area).
+          //
+          FirstEmptyRow = Row;
+          gST->ConOut->SetAttribute (gST->ConOut, GetFieldTextColor ());
           while (Row <= BottomRow) {
             if ((FormData->Attribute & HII_DISPLAY_MODAL) != 0) {
               PrintStringAtWithWidth (gStatementDimensions.LeftColumn + gModalSkipColumn, Row++, L"", gStatementDimensions.RightColumn - gStatementDimensions.LeftColumn - 2 * gModalSkipColumn);
@@ -2931,6 +2961,15 @@ UiDisplayMenu (
               );
             gST->ConOut->SetAttribute (gST->ConOut, GetFieldTextColor ());
           }
+
+          //
+          // The content area (rows + empty-row clear above) has now been fully
+          // painted. Composite the OEM brand watermark on top of the cleared
+          // whitespace (from FirstEmptyRow down) so it is not wiped by the
+          // repaint and never lands on a statement row. Display-only no-op on
+          // backends that cannot host it or when the whitespace is too short.
+          //
+          ModernDisplayDrawOemWatermarkOverlay (FirstEmptyRow);
 
           MenuOption = NULL;
         }
@@ -3465,6 +3504,12 @@ UiDisplayMenu (
             // Editable Questions: oneof, ordered list, checkbox, numeric, string, password
             //
             RefreshKeyHelp (gFormData, Statement, TRUE);
+            //
+            // Clear the composited value-lane widget before native editing so the
+            // in-place/popup editor starts on a clean field lane (the native
+            // initial draw is narrower than the widget and leaves remnants).
+            //
+            ModernDisplayClearValueLane (MenuOption->OptCol, MenuOption->Row, gOptionBlockWidth);
             Status = ProcessOptions (MenuOption, TRUE, &OptionString, TRUE);
 
             if (OptionString != NULL) {

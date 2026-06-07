@@ -48,6 +48,7 @@
   ModernUiEngineLib
   ModernUiRendererLib
   ModernUiThemeLib
+  ModernUiStringLib
 
 [Guids]
   gEfiIfrTianoGuid  ## SOMETIMES_CONSUMES   ## UNDEFINED

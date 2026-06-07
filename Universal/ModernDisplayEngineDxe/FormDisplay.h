@@ -129,6 +129,122 @@ ModernDisplayDrawStatementRowCue (
   IN BOOLEAN  Selected
   );
 
+/**
+  Draw the text-input edit caret at a text-grid cell through the Modern renderer.
+
+  The native EFI_SIMPLE_TEXT_OUTPUT cursor draws straight to the GraphicsConsole
+  framebuffer and is invisible/misplaced when the Modern engine composites through
+  an off-screen canvas (e.g. the LVGL backend). `ReadString` suppresses that native
+  cursor and calls this instead, so the editing caret renders identically on every
+  backend. Paints a thin vertical bar at the cell; draws nothing (no error) when no
+  renderer is available. The caller redraws the field text each keystroke, which
+  erases the previous caret, so this only ever paints (never explicitly erases).
+
+  @param[in] Column  Text-grid column of the caret cell.
+  @param[in] Row     Text-grid row of the caret cell.
+**/
+VOID
+EFIAPI
+ModernDisplayDrawTextCaret (
+  IN UINTN  Column,
+  IN UINTN  Row
+  );
+
+/**
+  Overlay a control row's value lane with the backend's best widget.
+
+  This is the in-setup half of the IFR-opcode -> LVGL-widget mapping. The native
+  FormBrowser prints the value as plain text in the value lane; `DisplayOneMenu`
+  calls this immediately afterwards (while the option string is still in scope) to
+  paint a real widget over that lane for the mapped opcodes -- one-of ->
+  `lv_dropdown`, checkbox -> `lv_checkbox`, string/password/numeric ->
+  `lv_textarea` on the LVGL backend, themed value/field boxes on GOP. Other
+  opcodes are a no-op (the cue overlay handles them). Display-only: edk2 still
+  owns selection/editing, ConfigAccess, and callbacks. The companion cue overlay
+  skips the affordance for the mapped opcodes, since the rendered control carries
+  its own.
+
+  @param[in] OpCode     IFR opcode of the statement (EFI_IFR_*_OP).
+  @param[in] Column     Text-grid column where the value lane starts.
+  @param[in] Row        Text-grid row of the statement.
+  @param[in] Width      Text-grid column count of the value lane.
+  @param[in] ValueText  Value text. May be NULL (then no-op).
+  @param[in] Highlight  TRUE when the row currently has keyboard highlight.
+  @param[in] Selected   TRUE when the row is in edit/selection mode.
+**/
+VOID
+EFIAPI
+ModernDisplayDrawValueWidget (
+  IN UINT8          OpCode,
+  IN UINTN          Column,
+  IN UINTN          Row,
+  IN UINTN          Width,
+  IN CONST CHAR16   *ValueText OPTIONAL,
+  IN BOOLEAN        Highlight,
+  IN BOOLEAN        Selected
+  );
+
+/**
+  Clear a statement's value lane to the field background before native editing.
+
+  `DisplayOneMenu` composites a display-only widget over the value lane. When the
+  user activates the statement to edit it, native FormBrowser draws its editor
+  (in-place `[value]` for numeric/date/time, or a popup for string/password) over
+  that lane -- but the native initial draw is narrower than, and differently
+  colored from, the composited widget, leaving widget remnants beside/under the
+  editor. The form loop calls this just before entering the editor to repaint the
+  value lane to the plain field background (`Theme->Surface`, matching the color
+  native editing erases to), so the editor starts on a clean lane. The full form
+  repaint after editing restores the widget with the new value. No-op (no error)
+  when no renderer is available or the lane geometry is degenerate.
+
+  @param[in] Column  Text-grid column where the value lane starts.
+  @param[in] Row     Text-grid row of the statement.
+  @param[in] Width   Text-grid column count of the value lane.
+**/
+VOID
+EFIAPI
+ModernDisplayClearValueLane (
+  IN UINTN  Column,
+  IN UINTN  Row,
+  IN UINTN  Width
+  );
+
+/**
+  Composite the OEM brand watermark into the content-area whitespace.
+
+  Called at the end of a full form repaint, after the statement rows and the
+  empty-row clear loop have painted the content area, so the (subtle, theme)
+  mark lands on top of the freshly cleared whitespace instead of being wiped by
+  it. The mark is confined to the empty band starting at FirstEmptyRow, so on a
+  form whose rows fill the content area it is suppressed (no tinting over a
+  statement row). Display-only; parses no HII and owns no FormBrowser state.
+  No-op (no error) on backends, or when the whitespace is too short for the mark.
+
+  @param[in] FirstEmptyRow  Text-grid row where the empty area below the menu
+                            begins (the first row the clear loop blanks).
+**/
+VOID
+EFIAPI
+ModernDisplayDrawOemWatermarkOverlay (
+  IN UINTN  FirstEmptyRow
+  );
+
+/**
+  Forget any tracked selection-styled statement row.
+
+  Call at popup entry: a popup prints its own EFI_RED-background text (e.g. a
+  highlighted selectable option) without re-running the statement-row draw, and
+  could share the grid row recorded for the form's selection styling. Resetting
+  here keeps the per-cell print path from suppressing that popup line's
+  background fill. Display-only; no FormBrowser state.
+**/
+VOID
+EFIAPI
+ModernDisplayResetHighlightRowTracking (
+  VOID
+  );
+
 //
 // Screen definitions
 //

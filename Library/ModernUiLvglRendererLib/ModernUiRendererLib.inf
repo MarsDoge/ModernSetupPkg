@@ -27,6 +27,8 @@
 
 [Sources]
   ModernUiRendererLib.c
+  # Generated original OEM-watermark coverage map (Scripts/gen-oem-watermark.py).
+  OemWatermarkData.c
   # The backend-agnostic renderer surface and glyph table live in the GOP
   # renderer dir (single source of truth) and are compiled into both renderers.
   ../ModernUiRendererLib/ModernUiRendererCommon.c

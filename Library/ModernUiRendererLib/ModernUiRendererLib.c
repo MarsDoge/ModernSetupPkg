@@ -379,3 +379,174 @@ ModernUiDrawText (
 
   return ReturnStatus;
 }
+
+/**
+  GOP one-of renderer: compose the closed drop-down from primitives.
+
+  The GOP backend has no widget toolkit, so the best available drop-down is the
+  shared themed value box, which already paints a bordered field, the selected
+  option text, and a right-aligned chevron. Display-only; see the contract on
+  ModernUiRenderOneOf in ModernUiRenderer.h.
+
+  @param[in] Context   Initialized render context. Must not be NULL.
+  @param[in] Rect      Control rectangle.
+  @param[in] Value     Selected option text. Must not be NULL.
+  @param[in] Selected  TRUE when the owning row is selected.
+  @param[in] Theme     Theme token table. Must not be NULL.
+
+  @retval others  Status from ModernUiDrawValueBox.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderOneOf (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  return ModernUiDrawValueBox (Context, Rect, Value, Selected, Theme);
+}
+
+/**
+  GOP checkbox renderer: a bordered field with the value text.
+
+  See ModernUiRenderCheckbox in ModernUiRenderer.h. The GOP backend has no widget
+  toolkit, so the best available rendering is the arrow-less field box.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderCheckbox (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+}
+
+/**
+  GOP string renderer: a bordered field with the value text.
+
+  See ModernUiRenderString in ModernUiRenderer.h.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderString (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+}
+
+/**
+  GOP password renderer: a bordered field with the (already masked) value text.
+
+  See ModernUiRenderPassword in ModernUiRenderer.h.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderPassword (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+}
+
+/**
+  GOP numeric renderer: a bordered field with the value text.
+
+  See ModernUiRenderNumeric in ModernUiRenderer.h.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderNumeric (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+}
+
+/**
+  GOP ordered-list renderer: a bordered field with the current option order.
+
+  See ModernUiRenderOrderedList in ModernUiRenderer.h.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderOrderedList (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  CHAR16  Norm[160];
+
+  if (Value == NULL) {
+    return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+  }
+
+  //
+  // Join the CR-separated option order onto one line so it reads as a sequence
+  // instead of showing the raw separators (see ModernUiNormalizeOrderedListText).
+  //
+  ModernUiNormalizeOrderedListText (Norm, ARRAY_SIZE (Norm), Value);
+  return ModernUiDrawFieldBox (Context, Rect, Norm, Selected, Theme);
+}
+
+/**
+  GOP date/time renderer: a bordered field with the value text.
+
+  See ModernUiRenderDateTime in ModernUiRenderer.h.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRenderDateTime (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Rect,
+  IN CONST CHAR16                      *Value,
+  IN BOOLEAN                           Selected,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
+}
+
+/**
+  GOP OEM watermark: currently a no-op.
+
+  The watermark needs per-pixel alpha compositing, which the GOP backend does not
+  yet expose; a primitive-composite implementation is a follow-up. See
+  ModernUiDrawOemWatermark in ModernUiRenderer.h.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiDrawOemWatermark (
+  IN MODERN_UI_RENDER_CONTEXT          *Context,
+  IN MODERN_UI_RECT                    Region,
+  IN CONST MODERN_UI_THEME             *Theme
+  )
+{
+  if ((Context == NULL) || (Theme == NULL)) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  return EFI_SUCCESS;
+}
