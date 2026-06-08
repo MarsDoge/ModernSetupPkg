@@ -157,7 +157,14 @@ GOP or an unusably small mode.
 
 ## Progress log
 
-- 2026-06-08: Gate 1 started — smoke now CI-gates the lvgl overlay on ovmf-x64 +
-  loongarch (the targets that accept `lvgl` today). Remaining Gate 1: add lvgl
-  support to armvirt + riscvvirt, de-spike framing, then flip the default with
-  the bootstrap submodule init.
+- 2026-06-08: Gate 1 started — smoke CI-gates the lvgl overlay on ovmf-x64 +
+  loongarch.
+- 2026-06-08: Gate 1 — armvirt + riscvvirt build scripts gained lvgl mode; smoke
+  now exercises lvgl overlay generation on all four targets.
+- 2026-06-08: Gate 1 — de-spiked the LVGL renderer INF framing; `bootstrap-edk2.sh`
+  now initializes `External/lvgl`; the default `MODERN_SETUP_DISPLAY_ENGINE` is
+  now `lvgl` on the build-verified targets (ovmf-x64, loongarch), with
+  armvirt/riscvvirt left on `modern` until their lvgl cross-compile is verified.
+  Bare `Scripts/build-ovmf-x64.sh` builds lvgl by default (DXEFV ~43%). Gate 1
+  effectively complete except the armvirt/riscv default flip (gated on
+  cross-compile) and any package rename out of "spike".

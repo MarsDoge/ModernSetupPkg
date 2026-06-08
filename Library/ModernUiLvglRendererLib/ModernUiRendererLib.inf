@@ -1,14 +1,16 @@
 ## @file
-# LVGL-backed renderer library for ModernSetupPkg (experimental/lvgl-spike).
+# LVGL-backed renderer library for ModernSetupPkg.
 #
 # Drop-in replacement for Library/ModernUiRendererLib: same ModernUiRendererLib
 # class and ModernUiRenderer.h API, but every primitive is composited by LVGL's
 # software draw pipeline (lv_draw_rect / lv_draw_label) into a shadow canvas and
-# BLT'd to GOP. CJK runs fall back to the firmware HII font, which LVGL's bundled
-# Latin fonts do not cover.
+# BLT'd to GOP. CJK runs use the embedded Noto Sans CJK SC subset and fall back
+# to the firmware HII font, which LVGL's bundled Latin fonts do not cover.
 #
-# experimental/lvgl-spike only; selected by MODERN_SETUP_DISPLAY_ENGINE=lvgl.
-# Never wired into a default firmware overlay.
+# Selected by MODERN_SETUP_DISPLAY_ENGINE=lvgl. Supported and CI-gated (smoke
+# exercises the lvgl overlay on all four XArch targets); it is the same
+# ModernDisplayEngineDxe interaction backend as the GOP renderer, with this
+# library swapped in. See Docs/LvglProductizationPlan.md for the path to default.
 #
 # Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
 # Author: MarsDoge (Dongyan Qian)
