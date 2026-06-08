@@ -2551,15 +2551,23 @@ def check_overlay_generation(root: Path) -> list[str]:
         ovmf_x64_fixture(workspace)
         riscvvirt_fixture(workspace)
 
+        # supports_lvgl marks the targets whose build script accepts
+        # MODERN_SETUP_DISPLAY_ENGINE=lvgl today (ovmf-x64 + loongarch). The LVGL
+        # backend is the SAME ModernDisplayEngineDxe with the LVGL renderer
+        # library swapped in, so it is CI-gated as a supported overlay here while
+        # native/modern overlays still must never pull it in.
         cases = (
-            ("armvirt", "build-armvirt.sh", "ArmVirtQemuModernSetup.dsc"),
-            ("loongarch", "build-loongarchvirt.sh", "LoongArchVirtQemuModernSetup.dsc"),
-            ("ovmf-x64", "build-ovmf-x64.sh", "OvmfX64ModernSetup.dsc"),
-            ("riscvvirt", "build-riscvvirt.sh", "RiscVVirtQemuModernSetup.dsc"),
+            ("armvirt", "build-armvirt.sh", "ArmVirtQemuModernSetup.dsc", False),
+            ("loongarch", "build-loongarchvirt.sh", "LoongArchVirtQemuModernSetup.dsc", True),
+            ("ovmf-x64", "build-ovmf-x64.sh", "OvmfX64ModernSetup.dsc", True),
+            ("riscvvirt", "build-riscvvirt.sh", "RiscVVirtQemuModernSetup.dsc", False),
         )
-        for platform, script_name, dsc_name in cases:
+        for platform, script_name, dsc_name, supports_lvgl in cases:
             script = workspace / "ModernSetupPkg" / "Scripts" / script_name
-            for engine in ("native", "modern"):
+            engines = ["native", "modern"]
+            if supports_lvgl:
+                engines.append("lvgl")
+            for engine in engines:
                 overlay_dir = workspace / "Build" / "ModernSetupPkgOverlay"
                 if overlay_dir.exists():
                     shutil.rmtree(overlay_dir)
@@ -2580,9 +2588,10 @@ def check_overlay_generation(root: Path) -> list[str]:
                     if not generated_path.exists():
                         raise SmokeFailure(f"missing generated overlay file: {generated_path}")
                     assert_not_contains_any(generated_path, PROHIBITED_DEFAULT_OVERLAY_TOKENS)
-                    # The LVGL backend is experimental and lvgl-mode only; it must
-                    # never leak into a default native/modern overlay.
-                    assert_not_contains_any(generated_path, PROHIBITED_DEFAULT_OVERLAY_LVGL_TOKENS)
+                    # The LVGL renderer is allowed only in the lvgl overlay; it
+                    # must never leak into a native/modern (GOP) overlay.
+                    if engine != "lvgl":
+                        assert_not_contains_any(generated_path, PROHIBITED_DEFAULT_OVERLAY_LVGL_TOKENS)
 
                 dsc = workspace / "Build" / "ModernSetupPkgOverlay" / dsc_name
                 if engine == "modern":
@@ -2590,6 +2599,13 @@ def check_overlay_generation(root: Path) -> list[str]:
                     assert_contains(dsc, "gModernSetupPkgTokenSpaceGuid.PcdModernSetupTheme|0x02")
                     if not any("ModernDisplayEngineDxe" in path.read_text(encoding="utf-8") for path in generated):
                         raise SmokeFailure(f"{platform} modern overlay did not reference ModernDisplayEngineDxe")
+                elif engine == "lvgl":
+                    # Same interaction backend as modern, with the LVGL renderer
+                    # library and LVGL core resolved.
+                    assert_contains(dsc, "ModernUiRendererLib|ModernSetupPkg/Library/ModernUiLvglRendererLib/ModernUiRendererLib.inf")
+                    assert_contains(dsc, "LvglCoreLib|LvglSpikePkg/Library/LvglLib/LvglCoreLib.inf")
+                    if not any("ModernDisplayEngineDxe" in path.read_text(encoding="utf-8") for path in generated):
+                        raise SmokeFailure(f"{platform} lvgl overlay did not reference ModernDisplayEngineDxe")
                 else:
                     for generated_path in generated:
                         assert_not_contains_any(
