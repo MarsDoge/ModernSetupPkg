@@ -34,6 +34,85 @@ STATIC CONST MODERN_SETUP_DASHBOARD_ROUTE  mDashboardCategoryRoutes[DASHBOARD_QU
   { PageServerInventory, SetupFocusNav     }
 };
 
+/**
+  Decide whether a standardized dashboard quick-card is applicable on the
+  current platform. See the contract in ModernSetupAppInternal.h.
+
+  @param[in] CardIndex  Catalog card index in [0, DASHBOARD_QUICK_CARD_COUNT).
+
+  @retval TRUE   The card should be shown on this platform.
+  @retval FALSE  The card is hidden (or CardIndex is out of range).
+**/
+BOOLEAN
+ModernSetupDashboardQuickCardApplicable (
+  IN UINTN  CardIndex
+  )
+{
+  MODERN_SETUP_PROVIDER_SNAPSHOT  Providers;
+
+  if (CardIndex >= DASHBOARD_QUICK_CARD_COUNT) {
+    return FALSE;
+  }
+
+  //
+  // Every catalog card is universally applicable except the trailing
+  // server-inventory card, which is server-class content.
+  //
+  if (CardIndex != MODERN_SETUP_DASHBOARD_SERVER_CARD) {
+    return TRUE;
+  }
+
+  ModernSetupGetCachedProviderSnapshot (&Providers);
+
+  //
+  // Show the server-inventory card when the chassis reports a server form
+  // factor, or when a management provider (IPMI / Redfish / SMBIOS management
+  // interface) is live -- so a managed workstation still surfaces it while a
+  // plain client desktop or VM does not.
+  //
+  if (StrCmp (Providers.Platform.FormFactor, L"Server") == 0) {
+    return TRUE;
+  }
+
+  if (!EFI_ERROR (Providers.ManagementStatus) &&
+      (Providers.Management.IpmiProtocolPresent ||
+       Providers.Management.RedfishDiscoverPresent ||
+       Providers.Management.SmbiosManagementInterfacePresent))
+  {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+/**
+  Return the number of dashboard quick-cards visible on the current platform.
+  See the contract in ModernSetupAppInternal.h.
+
+  @return Visible quick-card count in [1, DASHBOARD_QUICK_CARD_COUNT].
+**/
+UINTN
+ModernSetupDashboardVisibleQuickCardCount (
+  VOID
+  )
+{
+  UINTN  Index;
+  UINTN  Count;
+
+  Count = 0;
+  for (Index = 0; Index < DASHBOARD_QUICK_CARD_COUNT; Index++) {
+    if (ModernSetupDashboardQuickCardApplicable (Index)) {
+      Count++;
+    }
+  }
+
+  //
+  // The Continue/Boot/Devices core cards are always applicable, so the count is
+  // never zero; defend against a future predicate change regardless.
+  //
+  return MAX (Count, (UINTN)1);
+}
+
 BOOLEAN         mModernSetupLanguageDropdownOpen;
 UINTN           mModernSetupLanguageDropdownSelection;
 BOOLEAN         mModernSetupPreferencePopupOpen;
@@ -88,11 +167,19 @@ ModernSetupGetDashboardQuickGrid (
   UINTN           CardAreaWidth;
   UINTN           MaxRows;
   UINTN           ValueMinHeight;
+  UINTN           CardCount;
   BOOLEAN         Compact;
 
   if ((Ui == NULL) || (Grid == NULL)) {
     return FALSE;
   }
+
+  //
+  // Lay the grid out for the cards actually visible on this platform (the
+  // server-inventory card may be hidden), so the columns/rows reflow instead of
+  // leaving a gap. See Docs/AppFeatureStandard.md.
+  //
+  CardCount = ModernSetupDashboardVisibleQuickCardCount ();
 
   ZeroMem (Grid, sizeof (*Grid));
   Compact     = (BOOLEAN)(DashboardDensity == ModernUiDashboardDensityCompact);
@@ -115,16 +202,16 @@ ModernSetupGetDashboardQuickGrid (
   MaxRows          = (Grid->Panel.Height > (Grid->CardTop + ValueMinHeight + DASHBOARD_QUICK_CARD_BOTTOM)) ?
                      ((Grid->Panel.Height - Grid->CardTop - DASHBOARD_QUICK_CARD_BOTTOM + Grid->CardGap) / (ValueMinHeight + Grid->CardGap)) :
                      1;
-  MaxRows          = MAX (1, MIN (DASHBOARD_QUICK_CARD_COUNT, MaxRows));
-  Grid->CardsPerRow = (DASHBOARD_QUICK_CARD_COUNT + MaxRows - 1) / MaxRows;
+  MaxRows          = MAX (1, MIN (CardCount, MaxRows));
+  Grid->CardsPerRow = (CardCount + MaxRows - 1) / MaxRows;
   if ((Grid->Panel.Width >= 760) && (Grid->CardsPerRow < 3)) {
     Grid->CardsPerRow = 3;
   } else if ((Grid->Panel.Width >= 500) && (Grid->CardsPerRow < 2)) {
     Grid->CardsPerRow = 2;
   }
 
-  Grid->CardsPerRow = MIN (DASHBOARD_QUICK_CARD_COUNT, Grid->CardsPerRow);
-  Grid->Rows        = (DASHBOARD_QUICK_CARD_COUNT + Grid->CardsPerRow - 1) / Grid->CardsPerRow;
+  Grid->CardsPerRow = MIN (CardCount, Grid->CardsPerRow);
+  Grid->Rows        = (CardCount + Grid->CardsPerRow - 1) / Grid->CardsPerRow;
   Grid->CardWidth   = (CardAreaWidth > (Grid->CardGap * (Grid->CardsPerRow - 1))) ?
                       ((CardAreaWidth - (Grid->CardGap * (Grid->CardsPerRow - 1))) / Grid->CardsPerRow) :
                       MAX (1, CardAreaWidth / Grid->CardsPerRow);
@@ -247,6 +334,14 @@ ModernSetupGetDashboardCategoryRoute (
   )
 {
   if ((Route == NULL) || (Selection >= ARRAY_SIZE (mDashboardCategoryRoutes))) {
+    return FALSE;
+  }
+
+  //
+  // A card hidden on this platform (e.g. server-inventory on a client) MUST NOT
+  // be Enter-activatable even if a stale selection index points at it.
+  //
+  if (!ModernSetupDashboardQuickCardApplicable (Selection)) {
     return FALSE;
   }
 
@@ -604,7 +699,7 @@ ModernSetupGetPageSelectableCount (
         MODERN_SETUP_DASHBOARD_QUICK_GRID  Grid;
 
         return ModernSetupGetDashboardQuickGrid (Ui, mModernSetupPreferences.DashboardDensity, &Grid) ?
-               DASHBOARD_QUICK_CARD_COUNT : 0;
+               ModernSetupDashboardVisibleQuickCardCount () : 0;
       }
     case PageBoot:
       {

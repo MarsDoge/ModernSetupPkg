@@ -543,7 +543,7 @@ ModernSetupDrawDashboard (
   if (Grid.Visible) {
     DrawDashboardSection (Ui, Theme, QuickPanel, ModernUiGetString (ModernUiStringSetupCategories), FALSE);
 
-    for (CardIndex = 0; CardIndex < DASHBOARD_QUICK_CARD_COUNT; CardIndex++) {
+    for (CardIndex = 0; CardIndex < ModernSetupDashboardVisibleQuickCardCount (); CardIndex++) {
       CardX     = QuickPanel.X + 20 + ((CardIndex % Grid.CardsPerRow) * (Grid.CardWidth + Grid.CardGap));
       CardY     = QuickPanel.Y + Grid.CardTop + ((CardIndex / Grid.CardsPerRow) * (Grid.CardHeight + Grid.CardGap));
       QuickCard = (MODERN_UI_RECT){ CardX, CardY, Grid.CardWidth, Grid.CardHeight };

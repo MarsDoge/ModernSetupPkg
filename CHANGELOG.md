@@ -14,6 +14,22 @@ this file as both a release log and a lightweight development progress record.
 
 ### Changed
 
+- The front-page dashboard quick-category cards are now **platform-class
+  adaptive** per the new normative App feature standard
+  (`Docs/AppFeatureStandard.md`). The quick-card *catalog* is unchanged (8
+  entries: Continue, Boot, Devices, Provider status, Firmware, Power,
+  Performance, Server inventory), but the trailing **Server inventory** card is
+  now hidden on client/unknown platforms unless the chassis reports a server
+  form factor or a management provider (IPMI / Redfish / SMBIOS management
+  interface) is live. On a client desktop or a VM the grid reflows to seven
+  cards; on a managed/server platform all eight show. Card hiding is driven by a
+  single applicability predicate (`ModernSetupDashboardQuickCardApplicable`); the
+  grid layout, keyboard navigation, and route resolution all bound on the
+  resulting visible count, and a hidden card is neither focusable nor
+  Enter-activatable. Smoke now asserts the catalog stays fixed while requiring
+  the data-driven visible-count helpers, instead of pinning a fixed visible
+  count.
+
 - The firmware revision shown on the front-page dashboard System Information card
   and the Firmware/Platform provider summaries is now humanized. `gST->FirmwareRevision`
   (conventionally `(major << 16) | minor`) renders as `<major>.<minor> (0x........)`

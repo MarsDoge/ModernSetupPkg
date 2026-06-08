@@ -1276,6 +1276,26 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
         raise SmokeFailure("Dashboard quick-card expansion must expose native Continue plus setup category cards")
     if "DASHBOARD_QUICK_CARD_COUNT" not in dashboard_body:
         raise SmokeFailure("ModernSetupAppDashboard.c must layout cards from DASHBOARD_QUICK_CARD_COUNT")
+    #
+    # Per Docs/AppFeatureStandard.md the quick-card *catalog* is fixed (asserted
+    # above) but the *visible* count is platform-class variable, gated by a
+    # single data-driven applicability predicate. Lock that in: the predicate and
+    # the visible-count helper must exist, and the drawing + navigation paths must
+    # bound on the visible count rather than on the fixed catalog constant.
+    #
+    for helper in ("ModernSetupDashboardQuickCardApplicable", "ModernSetupDashboardVisibleQuickCardCount"):
+        if helper not in actions_body:
+            raise SmokeFailure(f"ModernSetupAppActions.c must define the platform-class card helper: {helper}")
+    if "ModernSetupDashboardVisibleQuickCardCount" not in dashboard_body:
+        raise SmokeFailure(
+            "ModernSetupAppDashboard.c must draw quick cards from the platform-visible count "
+            "(ModernSetupDashboardVisibleQuickCardCount), not a fixed catalog count"
+        )
+    if "ModernSetupDashboardVisibleQuickCardCount" not in app_body:
+        raise SmokeFailure(
+            "ModernSetupApp.c dashboard navigation must bound on the platform-visible card count "
+            "(ModernSetupDashboardVisibleQuickCardCount)"
+        )
     if "DASHBOARD_QUICK_VALUE_MIN_HEIGHT" not in dashboard_body:
         raise SmokeFailure("ModernSetupAppDashboard.c must keep Dashboard card values visible in compact layouts")
     layout_defines = {

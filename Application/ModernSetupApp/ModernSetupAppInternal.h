@@ -51,6 +51,16 @@
 #define MAX_DEVICE_ROWS    9
 #define DASHBOARD_QUICK_CARD_COUNT  8
 #define MODERN_SETUP_DASHBOARD_CONTINUE_CARD  0
+//
+// The server-inventory card is the last entry in the standardized quick-card
+// catalog (see Docs/AppFeatureStandard.md). It is the only class-scoped card:
+// it is hidden on client/unknown platforms unless a management provider reports
+// live data. Because it is the trailing entry, the visible card count simply
+// shrinks from the tail and the visible index still equals the catalog index --
+// no mid-array remapping is needed. Any future class-scoped card MUST also be
+// kept at the tail to preserve that invariant.
+//
+#define MODERN_SETUP_DASHBOARD_SERVER_CARD    (DASHBOARD_QUICK_CARD_COUNT - 1)
 #define DASHBOARD_SECTION_TITLE_TOP 12
 #define DASHBOARD_QUICK_CARD_TOP    64
 #define DASHBOARD_QUICK_CARD_GAP    40
@@ -351,6 +361,45 @@ ModernSetupGetDashboardCategoryRoute (
 BOOLEAN
 ModernSetupDashboardSelectionRequestsContinue (
   IN UINTN  Selection
+  );
+
+/**
+  Decide whether a standardized dashboard quick-card is applicable on the
+  current platform.
+
+  This is the single, data-driven applicability predicate required by
+  Docs/AppFeatureStandard.md. All catalog cards are applicable except the
+  trailing server-inventory card (MODERN_SETUP_DASHBOARD_SERVER_CARD), which is
+  applicable only when the platform is server-class or a management provider
+  (IPMI / Redfish / SMBIOS management interface) reports live data. The cached
+  provider snapshot is consulted; no providers are re-probed here.
+
+  @param[in] CardIndex  Catalog card index in [0, DASHBOARD_QUICK_CARD_COUNT).
+
+  @retval TRUE   The card should be shown, navigable, and route-activatable.
+  @retval FALSE  The card is hidden on this platform (CardIndex out of range
+                 also returns FALSE).
+**/
+BOOLEAN
+ModernSetupDashboardQuickCardApplicable (
+  IN UINTN  CardIndex
+  );
+
+/**
+  Return the number of dashboard quick-cards visible on the current platform.
+
+  Counts the applicable catalog cards (see
+  ModernSetupDashboardQuickCardApplicable). Because the only class-scoped card
+  is the trailing entry, the result is a contiguous prefix length in
+  [1, DASHBOARD_QUICK_CARD_COUNT]: the visible card index equals the catalog
+  index, so grid layout, keyboard navigation, and route resolution can all use
+  this count directly without remapping.
+
+  @return Visible quick-card count for the current platform snapshot.
+**/
+UINTN
+ModernSetupDashboardVisibleQuickCardCount (
+  VOID
   );
 
 EFI_STATUS
