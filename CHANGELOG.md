@@ -12,6 +12,20 @@ this file as both a release log and a lightweight development progress record.
 
 ## Unreleased
 
+### Changed
+
+- The firmware revision shown on the front-page dashboard System Information card
+  and the Firmware/Platform provider summaries is now humanized. `gST->FirmwareRevision`
+  (conventionally `(major << 16) | minor`) renders as `<major>.<minor> (0x........)`
+  -- e.g. `1.00 (0x00010000)` -- instead of a bare `0x00010000`, so the value is
+  readable at a glance while the exact encoded hex is still available. Applies to
+  both `ModernUiPlatformDataLib` and `ModernUiFirmwareDataLib`.
+- Front-page dashboard provider-health text no longer mixes languages in the
+  Simplified Chinese UI. The "Degraded" state now reads `退化` (was the English
+  "Degraded" leaking into the otherwise-Chinese `就绪 / 未就绪` set), and the
+  all-providers-ready hint reads `已就绪` (was a terse `OK`). Both use glyphs
+  already present in the embedded Noto Sans CJK SC subset (no font change).
+
 ### Added
 
 - The in-setup DisplayEngine chrome is now localized. The header product/mode

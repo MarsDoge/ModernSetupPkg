@@ -95,7 +95,19 @@ ModernUiFirmwareDataGetSummary (
     L"%s",
     (gST->FirmwareVendor == NULL) ? L"Unknown" : gST->FirmwareVendor
     );
-  UnicodeSPrint (Summary->Revision, sizeof (Summary->Revision), L"0x%08x", gST->FirmwareRevision);
+  //
+  // gST->FirmwareRevision is conventionally encoded as (major << 16) | minor.
+  // Surface the human-readable major.minor form while keeping the raw hex so a
+  // firmware engineer can still read the exact encoded value.
+  //
+  UnicodeSPrint (
+    Summary->Revision,
+    sizeof (Summary->Revision),
+    L"%u.%02u (0x%08x)",
+    (UINT32)(gST->FirmwareRevision >> 16),
+    (UINT32)(gST->FirmwareRevision & 0xFFFF),
+    gST->FirmwareRevision
+    );
 
   Summary->CapsuleRuntimeServices = (BOOLEAN)((gRT->UpdateCapsule != NULL) && (gRT->QueryCapsuleCapabilities != NULL));
   Summary->CapsuleArchProtocol    = IsProtocolPresent (&gEfiCapsuleArchProtocolGuid);

@@ -288,7 +288,7 @@ DashboardProviderHealthText (
       case ModernSetupProviderHealthReady:
         return L"就绪";
       case ModernSetupProviderHealthDegraded:
-        return L"Degraded";
+        return L"退化";
       case ModernSetupProviderHealthNotReady:
       default:
         return L"未就绪";
@@ -404,7 +404,7 @@ ModernSetupDrawDashboard (
     );
   UnicodeSPrint (ProviderCountText, sizeof (ProviderCountText), Zh ? L"%u/%u 就绪" : L"%u/%u ready", ProviderHealth.ReadyProviders, ProviderHealth.TotalProviders);
   if (ProviderHealth.State == ModernSetupProviderHealthReady) {
-    UnicodeSPrint (ProviderIssueText, sizeof (ProviderIssueText), Zh ? L"OK" : L"All providers ready");
+    UnicodeSPrint (ProviderIssueText, sizeof (ProviderIssueText), Zh ? L"已就绪" : L"All providers ready");
   } else {
     UnicodeSPrint (ProviderIssueText, sizeof (ProviderIssueText), Zh ? L"%s 不可用" : L"%s unavailable", ProviderHealth.FirstIssueName);
   }

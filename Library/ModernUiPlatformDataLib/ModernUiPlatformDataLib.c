@@ -252,7 +252,19 @@ ModernUiPlatformDataGetSummary (
     L"%s",
     (gST->FirmwareVendor == NULL) ? L"Unknown" : gST->FirmwareVendor
     );
-  UnicodeSPrint (Summary->FirmwareRevision, sizeof (Summary->FirmwareRevision), L"0x%08x", gST->FirmwareRevision);
+  //
+  // gST->FirmwareRevision is conventionally encoded as (major << 16) | minor.
+  // Surface the human-readable major.minor form while keeping the raw hex so a
+  // firmware engineer can still read the exact encoded value.
+  //
+  UnicodeSPrint (
+    Summary->FirmwareRevision,
+    sizeof (Summary->FirmwareRevision),
+    L"%u.%02u (0x%08x)",
+    (UINT32)(gST->FirmwareRevision >> 16),
+    (UINT32)(gST->FirmwareRevision & 0xFFFF),
+    gST->FirmwareRevision
+    );
   UnicodeSPrint (Summary->Architecture, sizeof (Summary->Architecture), L"%s", GetArchitectureName ());
   UnicodeSPrint (Summary->Platform, sizeof (Summary->Platform), L"UEFI platform");
   GetSmbiosFormFactor (Summary->FormFactor, ARRAY_SIZE (Summary->FormFactor));
