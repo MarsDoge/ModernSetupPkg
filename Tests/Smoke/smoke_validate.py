@@ -2557,10 +2557,10 @@ def check_overlay_generation(root: Path) -> list[str]:
         # library swapped in, so it is CI-gated as a supported overlay here while
         # native/modern overlays still must never pull it in.
         cases = (
-            ("armvirt", "build-armvirt.sh", "ArmVirtQemuModernSetup.dsc", False),
+            ("armvirt", "build-armvirt.sh", "ArmVirtQemuModernSetup.dsc", True),
             ("loongarch", "build-loongarchvirt.sh", "LoongArchVirtQemuModernSetup.dsc", True),
             ("ovmf-x64", "build-ovmf-x64.sh", "OvmfX64ModernSetup.dsc", True),
-            ("riscvvirt", "build-riscvvirt.sh", "RiscVVirtQemuModernSetup.dsc", False),
+            ("riscvvirt", "build-riscvvirt.sh", "RiscVVirtQemuModernSetup.dsc", True),
         )
         for platform, script_name, dsc_name, supports_lvgl in cases:
             script = workspace / "ModernSetupPkg" / "Scripts" / script_name
