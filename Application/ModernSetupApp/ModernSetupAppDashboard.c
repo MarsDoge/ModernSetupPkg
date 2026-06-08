@@ -56,8 +56,10 @@ STATIC CONST MODERN_UI_STRING_ID  mDashboardCardGroupLabel[DASHBOARD_QUICK_CARD_
   @param[in] Label  Label text. Must not be NULL.
   @param[in] Value  Value text. Must not be NULL.
 **/
+#define DASHBOARD_INFO_ROW_STEP  32
+
 STATIC
-VOID
+UINTN
 DrawDashboardInfoRow (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
@@ -73,7 +75,18 @@ DrawDashboardInfoRow (
   UINTN  ValueX;
 
   if (Width < 32) {
-    return;
+    return Y;
+  }
+
+  //
+  // Skip placeholder/empty values so a flowed card does not show "N/A" clutter
+  // or leave a gap. The caller passes the returned Y as the next row position,
+  // so skipped rows collapse. Callers that keep fixed Y can ignore the result.
+  //
+  if ((Value == NULL) || (Value[0] == CHAR_NULL) ||
+      (StrCmp (Value, L"N/A") == 0) || (StrCmp (Value, L"Limited data") == 0))
+  {
+    return Y;
   }
 
   Background = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
@@ -81,6 +94,7 @@ DrawDashboardInfoRow (
   ValueX     = X + LabelWidth;
   ModernUiDrawTextFit (Ui, X, Y, LabelWidth - 8, Label, Theme->MutedText, Background);
   ModernUiDrawTextFit (Ui, ValueX, Y, (Width > LabelWidth) ? (Width - LabelWidth) : Width, Value, Theme->Text, Background);
+  return Y + DASHBOARD_INFO_ROW_STEP;
 }
 
 /**
@@ -490,14 +504,24 @@ ModernSetupDrawDashboard (
   }
   DrawDashboardSection (Ui, Theme, SystemPanel, Zh ? L"系统状态" : L"System Information", TRUE);
   ModernUiDrawFocusFrame (Ui, SystemPanel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
-  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 58, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringFirmwareVendor), Providers.Platform.FirmwareVendor);
-  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 90, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringFirmwareRevision), Providers.Platform.FirmwareRevision);
-  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 122, SystemPanel.Width - 44, Zh ? L"平台" : L"Platform", Providers.Platform.Platform);
-  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 154, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringFormFactor), Providers.Platform.FormFactor);
-  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 186, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringBootMode), Providers.Platform.BootMode);
-  DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 218, SystemPanel.Width - 44, Zh ? L"内存" : L"Memory", MemoryText);
-  if (TopHeight >= 260) {
-    DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, SystemPanel.Y + 250, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringDisplay), Resolution);
+  {
+    //
+    // Flow the system-status rows: each row advances the running Y, and rows
+    // whose provider value is a placeholder ("N/A") collapse instead of leaving
+    // a labelled blank, so the card reads clean.
+    //
+    UINTN  RowY;
+
+    RowY = SystemPanel.Y + 58;
+    RowY = DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, RowY, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringFirmwareVendor), Providers.Platform.FirmwareVendor);
+    RowY = DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, RowY, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringFirmwareRevision), Providers.Platform.FirmwareRevision);
+    RowY = DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, RowY, SystemPanel.Width - 44, Zh ? L"平台" : L"Platform", Providers.Platform.Platform);
+    RowY = DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, RowY, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringFormFactor), Providers.Platform.FormFactor);
+    RowY = DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, RowY, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringBootMode), Providers.Platform.BootMode);
+    RowY = DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, RowY, SystemPanel.Width - 44, Zh ? L"内存" : L"Memory", MemoryText);
+    if (TopHeight >= 260) {
+      RowY = DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, RowY, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringDisplay), Resolution);
+    }
   }
 
   if (MonitorPanel.Width > 0) {
