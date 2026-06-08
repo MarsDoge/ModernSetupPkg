@@ -559,13 +559,21 @@ ModernDisplayDrawFormTitleContext (
   TitleY     = (Layout->ContentTopRow * CellHeight) + MIN (6, MAX (2, CellHeight / 5));
   TitleWidth = (TitleRightColumn - TitleLeftColumn) * CellWidth;
 
+  //
+  // Render the form title as a prominent section header: brighter than plain
+  // muted body text (kept as a blend toward MutedText so it still reads as a
+  // heading, not a value), so each form is clearly anchored by its title.
+  // Presentation only. (An accent underline below the title is intentionally
+  // not drawn here: it sits in the content band the native FormBrowser repaints
+  // after the chrome, which would wipe it.)
+  //
   ModernUiDrawTextFit (
     &mModernRenderContext,
     TitleX,
     TitleY,
     TitleWidth,
     PrintableTitle,
-    Theme->MutedText,
+    ModernUiBlendColor (Theme->Text, Theme->MutedText, 22),
     Theme->BackgroundBlack
     );
 }
