@@ -24,6 +24,9 @@ OVERLAY_DIR="${WORKSPACE}/Build/ModernSetupPkgOverlay"
 export WORKSPACE
 export GCC_RISCV64_PREFIX
 ConfigureModernSetupPackagePath
+# Experimental/ hosts LvglSpikePkg, consumed only by MODERN_SETUP_DISPLAY_ENGINE=lvgl.
+AppendPackagePath "${PKG_DIR}/Experimental"
+export PACKAGES_PATH
 
 if [[ ! -d "${WORKSPACE}/MdePkg" || ! -d "${WORKSPACE}/OvmfPkg/RiscVVirt" ]]; then
   echo "WORKSPACE does not look like an edk2 checkout with MdePkg and OvmfPkg/RiscVVirt: ${WORKSPACE}" >&2
@@ -63,9 +66,9 @@ if theme_pcd is None:
         f"Unsupported MODERN_SETUP_THEME={theme_name!r}; "
         "use orange, amber, dark-orange, red, accent-red, dark-red, graphite, or graphite-gold"
     )
-if display_engine not in {"modern", "native"}:
+if display_engine not in {"modern", "native", "lvgl"}:
     raise SystemExit(
-        f"Unsupported MODERN_SETUP_DISPLAY_ENGINE={display_engine!r}; use modern or native"
+        f"Unsupported MODERN_SETUP_DISPLAY_ENGINE={display_engine!r}; use modern, native, or lvgl"
     )
 if replace_uiapp_flag not in {"0", "1", "false", "true", "no", "yes"}:
     raise SystemExit(
@@ -79,14 +82,33 @@ modern_setup_app_component_boot_manager_fallback = """  ModernSetupPkg/Applicati
   }"""
 modern_setup_app_uiapp_fdf_inf = "INF  RuleOverride = MODERN_SETUP_UIAPP ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf"
 modern_display_component = "  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
+# In lvgl mode the ModernDisplayEngine force-links compiler intrinsics
+# (memcpy/memset) pulled by the LVGL software draw pipeline.
+modern_display_component_lvgl = (
+    "  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf {\n"
+    "    <LibraryClasses>\n"
+    "      NULL|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf\n"
+    "  }"
+)
 modern_display_fdf_inf = "INF  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
 boot_manager_menu_component = "  MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf"
 boot_manager_menu_fdf_inf = "INF  MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf"
-library_block = """  ModernUiEngineLib|ModernSetupPkg/Library/ModernUiEngineLib/ModernUiEngineLib.inf
-  ModernUiRendererLib|ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
-  ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
-  ModernUiStringLib|ModernSetupPkg/Library/ModernUiStringLib/ModernUiStringLib.inf
-"""
+# LVGL core (upstream lvgl sources as a BASE library); resolved only in lvgl mode
+# and consumed transitively through the LVGL renderer library.
+lvgl_library_block = "  LvglCoreLib|LvglSpikePkg/Library/LvglLib/LvglCoreLib.inf\n"
+# The renderer library class resolves to the LVGL-backed implementation in lvgl
+# mode and to the hand-rolled GOP rasterizer otherwise (identical API).
+renderer_inf = (
+    "ModernSetupPkg/Library/ModernUiLvglRendererLib/ModernUiRendererLib.inf"
+    if display_engine == "lvgl"
+    else "ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf"
+)
+library_block = (
+    "  ModernUiEngineLib|ModernSetupPkg/Library/ModernUiEngineLib/ModernUiEngineLib.inf\n"
+    f"  ModernUiRendererLib|{renderer_inf}\n"
+    "  ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf\n"
+    "  ModernUiStringLib|ModernSetupPkg/Library/ModernUiStringLib/ModernUiStringLib.inf\n"
+)
 app_library_block = """  ModernUiPlatformDataLib|ModernSetupPkg/Library/ModernUiPlatformDataLib/ModernUiPlatformDataLib.inf
   ModernUiBootDataLib|ModernSetupPkg/Library/ModernUiBootDataLib/ModernUiBootDataLib.inf
   ModernUiDeviceDataLib|ModernSetupPkg/Library/ModernUiDeviceDataLib/ModernUiDeviceDataLib.inf
@@ -129,7 +151,7 @@ dsc = replace_regex_once(
     r"\1Build/ModernSetupPkgOverlay/RiscVVirtQemuModernSetup.fdf",
     "FLASH_DEFINITION",
 )
-if display_engine == "modern" or replace_uiapp:
+if (display_engine == "modern" or display_engine == "lvgl") or replace_uiapp:
     if "ModernUiEngineLib|ModernSetupPkg" not in dsc:
         if "[LibraryClasses.common]\n" in dsc:
             dsc = replace_once(dsc, "[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + library_block, "LibraryClasses.common")
@@ -137,6 +159,11 @@ if display_engine == "modern" or replace_uiapp:
             dsc = replace_once(dsc, "[LibraryClasses]\n", "[LibraryClasses]\n" + library_block, "LibraryClasses")
         else:
             raise SystemExit("Expected LibraryClasses anchor: [LibraryClasses.common] or [LibraryClasses]")
+if display_engine == "lvgl" and "LvglCoreLib|LvglSpikePkg" not in dsc:
+    if "[LibraryClasses.common]\n" in dsc:
+        dsc = replace_once(dsc, "[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + lvgl_library_block, "LibraryClasses.common for lvgl")
+    elif "[LibraryClasses]\n" in dsc:
+        dsc = replace_once(dsc, "[LibraryClasses]\n", "[LibraryClasses]\n" + lvgl_library_block, "LibraryClasses for lvgl")
 if replace_uiapp and "ModernUiPlatformDataLib|ModernSetupPkg" not in dsc:
     if "[LibraryClasses.common]\n" in dsc:
         dsc = replace_once(dsc, "[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + app_library_block, "LibraryClasses.common for app")
@@ -158,7 +185,7 @@ if replace_uiapp:
             boot_manager_menu_component + r"\n\1",
             "QemuKernelLoaderFsDxe component",
         )
-if display_engine == "modern":
+if (display_engine == "modern" or display_engine == "lvgl"):
     dsc = replace_regex_once(
         dsc,
         r"^\s*CustomizedDisplayLib\s*\|\s*MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib\.inf\s*$",
@@ -168,7 +195,7 @@ if display_engine == "modern":
     dsc = replace_regex_once(
         dsc,
         r"^\s*MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe\.inf\s*$",
-        modern_display_component,
+        modern_display_component_lvgl if display_engine == "lvgl" else modern_display_component,
         "DisplayEngineDxe component",
     )
     dsc += (
@@ -180,7 +207,7 @@ if display_engine == "modern":
 fdf = (workspace / "OvmfPkg/RiscVVirt/RiscVVirtQemu.fdf").read_text()
 fdf = replace_once(fdf, "!include RiscVVirt.fdf.inc", "!include OvmfPkg/RiscVVirt/RiscVVirt.fdf.inc", "RiscVVirt.fdf.inc include")
 fdf = replace_once(fdf, "!include VarStore.fdf.inc", "!include OvmfPkg/RiscVVirt/VarStore.fdf.inc", "VarStore.fdf.inc include")
-if display_engine == "modern":
+if (display_engine == "modern" or display_engine == "lvgl"):
     fdf = replace_regex_once(
         fdf,
         r"^\s*INF\s+MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe\.inf\s*$",

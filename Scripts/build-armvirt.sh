@@ -24,6 +24,9 @@ export PATH="/opt/homebrew/bin:/opt/homebrew/opt/llvm/bin:/opt/homebrew/opt/lld/
 export CLANGDWARF_BIN="${CLANGDWARF_BIN:-/opt/homebrew/opt/llvm/bin/}"
 export WORKSPACE
 ConfigureModernSetupPackagePath
+# Experimental/ hosts LvglSpikePkg, consumed only by MODERN_SETUP_DISPLAY_ENGINE=lvgl.
+AppendPackagePath "${PKG_DIR}/Experimental"
+export PACKAGES_PATH
 
 if [[ ! -d "${WORKSPACE}/MdePkg" || ! -d "${WORKSPACE}/ArmVirtPkg" ]]; then
   echo "WORKSPACE does not look like an edk2 checkout: ${WORKSPACE}" >&2
@@ -58,9 +61,9 @@ if theme_pcd is None:
         f"Unsupported MODERN_SETUP_THEME={theme_name!r}; "
         "use orange, amber, dark-orange, red, accent-red, dark-red, graphite, or graphite-gold"
     )
-if display_engine not in {"modern", "native"}:
+if display_engine not in {"modern", "native", "lvgl"}:
     raise SystemExit(
-        f"Unsupported MODERN_SETUP_DISPLAY_ENGINE={display_engine!r}; use modern or native"
+        f"Unsupported MODERN_SETUP_DISPLAY_ENGINE={display_engine!r}; use modern, native, or lvgl"
     )
 if replace_uiapp_flag not in {"0", "1", "false", "true", "no", "yes"}:
     raise SystemExit(
@@ -74,14 +77,33 @@ modern_setup_app_component_boot_manager_fallback = """  ModernSetupPkg/Applicati
   }"""
 modern_setup_app_uiapp_fdf_inf = "  INF RuleOverride = MODERN_SETUP_UIAPP ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf"
 modern_display_component = "  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
+# In lvgl mode the ModernDisplayEngine force-links compiler intrinsics
+# (memcpy/memset) pulled by the LVGL software draw pipeline.
+modern_display_component_lvgl = (
+    "  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf {\n"
+    "    <LibraryClasses>\n"
+    "      NULL|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf\n"
+    "  }"
+)
 modern_display_fdf_inf = "  INF ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
 driver_sample_component = "  MdeModulePkg/Universal/DriverSampleDxe/DriverSampleDxe.inf"
 driver_sample_fdf_inf = "  INF MdeModulePkg/Universal/DriverSampleDxe/DriverSampleDxe.inf"
-library_block = """  ModernUiEngineLib|ModernSetupPkg/Library/ModernUiEngineLib/ModernUiEngineLib.inf
-  ModernUiRendererLib|ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf
-  ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf
-  ModernUiStringLib|ModernSetupPkg/Library/ModernUiStringLib/ModernUiStringLib.inf
-"""
+# LVGL core (upstream lvgl sources as a BASE library); resolved only in lvgl mode
+# and consumed transitively through the LVGL renderer library.
+lvgl_library_block = "  LvglCoreLib|LvglSpikePkg/Library/LvglLib/LvglCoreLib.inf\n"
+# The renderer library class resolves to the LVGL-backed implementation in lvgl
+# mode and to the hand-rolled GOP rasterizer otherwise (identical API).
+renderer_inf = (
+    "ModernSetupPkg/Library/ModernUiLvglRendererLib/ModernUiRendererLib.inf"
+    if display_engine == "lvgl"
+    else "ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf"
+)
+library_block = (
+    "  ModernUiEngineLib|ModernSetupPkg/Library/ModernUiEngineLib/ModernUiEngineLib.inf\n"
+    f"  ModernUiRendererLib|{renderer_inf}\n"
+    "  ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf\n"
+    "  ModernUiStringLib|ModernSetupPkg/Library/ModernUiStringLib/ModernUiStringLib.inf\n"
+)
 app_library_block = """  ModernUiPlatformDataLib|ModernSetupPkg/Library/ModernUiPlatformDataLib/ModernUiPlatformDataLib.inf
   ModernUiBootDataLib|ModernSetupPkg/Library/ModernUiBootDataLib/ModernUiBootDataLib.inf
   ModernUiDeviceDataLib|ModernSetupPkg/Library/ModernUiDeviceDataLib/ModernUiDeviceDataLib.inf
@@ -118,8 +140,10 @@ dsc = dsc.replace(
     "  FLASH_DEFINITION               = Build/ModernSetupPkgOverlay/ArmVirtQemuModernSetup.fdf",
 )
 if "ModernUiEngineLib|ModernSetupPkg" not in dsc:
-    if display_engine == "modern" or replace_uiapp:
+    if (display_engine == "modern" or display_engine == "lvgl") or replace_uiapp:
         dsc = dsc.replace("[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + library_block, 1)
+if display_engine == "lvgl" and "LvglCoreLib|LvglSpikePkg" not in dsc:
+    dsc = dsc.replace("[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + lvgl_library_block, 1)
 if replace_uiapp and "ModernUiPlatformDataLib|ModernSetupPkg" not in dsc:
     dsc = dsc.replace("[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + app_library_block, 1)
 if replace_uiapp:
@@ -129,7 +153,7 @@ if replace_uiapp:
         modern_setup_app_component_boot_manager_fallback + "\n",
         "UiApp DSC component",
     )
-if display_engine == "modern":
+if (display_engine == "modern" or display_engine == "lvgl"):
     dsc = dsc.replace(
         "  CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf",
         "  CustomizedDisplayLib|ModernSetupPkg/Library/ModernUiCustomizedDisplayLib/ModernUiCustomizedDisplayLib.inf",
@@ -137,7 +161,7 @@ if display_engine == "modern":
     )
     dsc = dsc.replace(
         "  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf",
-        modern_display_component,
+        modern_display_component_lvgl if display_engine == "lvgl" else modern_display_component,
         1,
     )
 if enable_driver_sample and driver_sample_component not in dsc:
@@ -153,7 +177,7 @@ if enable_driver_sample and driver_sample_component not in dsc:
             driver_sample_component + "\n  MdeModulePkg/Application/UiApp/UiApp.inf {",
             1,
         )
-if display_engine == "modern":
+if (display_engine == "modern" or display_engine == "lvgl"):
     dsc += (
         "\n[PcdsFixedAtBuild]\n"
         f"  gModernSetupPkgTokenSpaceGuid.PcdModernSetupTheme|{theme_pcd}\n"
@@ -171,7 +195,7 @@ fdf = fdf.replace(
 
 fv = (workspace / "ArmVirtPkg/ArmVirtQemuFvMain.fdf.inc").read_text()
 fv = fv.replace("!include ArmVirtRules.fdf.inc", "!include ArmVirtPkg/ArmVirtRules.fdf.inc")
-if display_engine == "modern":
+if (display_engine == "modern" or display_engine == "lvgl"):
     fv = fv.replace(
         "  INF MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf",
         modern_display_fdf_inf,
