@@ -12,7 +12,31 @@ this file as both a release log and a lightweight development progress record.
 
 ## Unreleased
 
+### Fixed
+
+- The modern in-setup display engine no longer blanks the screen when the
+  graphics renderer is unavailable. Previously, when GOP was absent the
+  text-print path (`PrintInternal`) emitted neither GOP graphics nor console
+  text, so a form rendered as a blank screen (the modern engine had replaced the
+  native text DisplayEngine). It now falls back to plain text-console output
+  (`OutputString`, padded to the field width) so the form stays readable. This is
+  the graceful-degradation path required for GOP-absent and degenerate-mode
+  robustness (LVGL productization Gate 4).
+
 ### Changed
+
+- The modern renderer now refuses GOP modes below a usable minimum
+  (`MODERN_UI_MIN_RENDER_WIDTH` x `MODERN_UI_MIN_RENDER_HEIGHT` = 640x480) in both
+  the GOP and LVGL `ModernUiRendererInit`. Below that, init returns
+  `EFI_NOT_FOUND` so the in-setup display engine degrades to text rendering and
+  the front-page app exits to the native shell, instead of painting broken
+  chrome. Normal targets (>= 800x600) are unaffected.
+- The LVGL renderer's GOP mode-change re-init path is corrected: the LVGL display
+  resolution is now updated (`lv_display_set_resolution`) to match the
+  reallocated canvas, and the canvas object is created once and rebound rather
+  than re-created each time (which orphaned the previous canvas and its freed
+  buffer). Fixes the first post-mode-change frame and a per-mode-change object
+  leak.
 
 - The front-page dashboard quick-category cards are now **platform-class
   adaptive** per the new normative App feature standard

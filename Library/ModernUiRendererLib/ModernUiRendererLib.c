@@ -73,6 +73,23 @@ ModernUiRendererInit (
   Context->Width  = Context->Gop->Mode->Info->HorizontalResolution;
   Context->Height = Context->Gop->Mode->Info->VerticalResolution;
 
+  //
+  // Refuse a mode too small for the modern chrome so callers fall back to plain
+  // text rendering instead of painting broken layout. See MODERN_UI_MIN_RENDER_*.
+  //
+  if ((Context->Width < MODERN_UI_MIN_RENDER_WIDTH) || (Context->Height < MODERN_UI_MIN_RENDER_HEIGHT)) {
+    DEBUG ((
+      DEBUG_WARN,
+      "%a: GOP mode %ux%u below modern minimum %ux%u; falling back\n",
+      __func__,
+      Context->Width,
+      Context->Height,
+      MODERN_UI_MIN_RENDER_WIDTH,
+      MODERN_UI_MIN_RENDER_HEIGHT
+      ));
+    return EFI_NOT_FOUND;
+  }
+
   Status = gBS->LocateProtocol (
                   &gEfiHiiFontProtocolGuid,
                   NULL,

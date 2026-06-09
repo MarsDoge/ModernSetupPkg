@@ -2410,6 +2410,7 @@ PrintInternal (
   UINTN   TextMaxWidth;
   UINTN   TextInset;
   UINTN   MeasuredWidth;
+  UINTN   Emitted;
   CHAR16  *Printable;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Foreground;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background;
@@ -2529,6 +2530,21 @@ PrintInternal (
 
     mModernCursorColumn = DrawColumn + TotalCount;
     mModernCursorRow    = DrawRow;
+  } else {
+    //
+    // Renderer unavailable (GOP absent, or a mode below the usable minimum):
+    // fall back to plain text-console output so the form stays readable instead
+    // of blanking. SetCursorPosition/SetAttribute above already positioned and
+    // themed the cell; pad to the caller's field width so a previously longer
+    // string at this position is overwritten, matching the native text grid.
+    //
+    Out->OutputString (Out, Buffer);
+    for (Emitted = TotalCount; Emitted < Width; Emitted++) {
+      Out->OutputString (Out, L" ");
+    }
+
+    mModernCursorColumn = ((Column == (UINTN)-1) ? mModernCursorColumn : Column) + MAX (TotalCount, Width);
+    mModernCursorRow    = (Row == (UINTN)-1) ? mModernCursorRow : Row;
   }
 
   FreePool (Buffer);
