@@ -14,6 +14,15 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- New **System Information** page (`PageSystemInfo`), a dedicated read-only detail
+  view reachable as the second navigation tab (after the dashboard). It shows the
+  real platform identity (SMBIOS Type 1), CPU (Type 4), memory type/speed
+  (Type 17), architecture, form factor, boot mode, and firmware vendor/revision in
+  grouped rows -- a deeper companion to the dashboard System Information panel. The
+  page parses no IFR and writes nothing; all values come from the cached provider
+  snapshot. Adds the `ModernUiStringPageSystemInfo`/`...Hint` strings (EN + zh:
+  "系统规格") and a `SETUP_PAGE` entry; the nav rail, tab labels, and the normative
+  page set in `Docs/AppFeatureStandard.md` are updated together.
 - The dashboard Memory row now appends real module detail read from SMBIOS
   Type 17 (Memory Device): "<total> MB (<type>-<speed>, <N> DIMMs)" -- e.g.
   "8192 MB (DDR4-3200, 2 DIMMs)". The type prefix (DDR3/DDR4/DDR5/LPDDR4/... via a

@@ -12,6 +12,7 @@
 
 STATIC CONST PAGE_DESCRIPTOR  mPages[] = {
   { PageDashboard, ModernUiStringPageDashboard, ModernUiStringPageDashboardHint },
+  { PageSystemInfo, ModernUiStringPageSystemInfo, ModernUiStringPageSystemInfoHint },
   { PageBoot,      ModernUiStringPageBoot,      ModernUiStringPageBootHint      },
   { PageDevices,   ModernUiStringPageDevices,   ModernUiStringPageDevicesHint   },
   { PageSecurity,  ModernUiStringPageSecurity,  ModernUiStringPageSecurityHint  },
@@ -27,6 +28,7 @@ STATIC CONST PAGE_DESCRIPTOR  mPages[] = {
 
 STATIC CONST CHAR16  *mEnglishCompactTabLabels[] = {
   L"Main",
+  L"System",
   L"Boot",
   L"Devices",
   L"Security",
@@ -42,6 +44,7 @@ STATIC CONST CHAR16  *mEnglishCompactTabLabels[] = {
 
 STATIC CONST CHAR16  *mChineseCompactTabLabels[] = {
   L"主页",
+  L"系统",
   L"启动",
   L"设备",
   L"安全",

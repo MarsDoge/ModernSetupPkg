@@ -60,6 +60,7 @@ API 变更（追加在 `PageMax` 之前）。
 | 页面 | 用途 | App 显示 | 原生所有者 |
 | --- | --- | --- | --- |
 | `PageDashboard` | 一眼概览平台状态。 | 系统信息 + 平台健康面板、快捷分类网格。 | — |
+| `PageSystemInfo` | 只读系统规格详情。 | 真实平台身份(SMBIOS Type 1)、CPU(Type 4)、内存类型/速度(Type 17)、架构、外形、启动模式、固件厂商/版本。是仪表盘系统信息面板的深入伴随页。 | —(SMBIOS/UEFI 只读)。 |
 | `PageBoot` | 启动清单 + 启动。 | `Boot####` 激活/隐藏/类别/路径；回车启动所选项。 | Boot Maintenance HII。 |
 | `PageDevices` | 设备/HII 入口清单。 | HII formset、设备路径行、Driver Health。 | 各驱动 formset。 |
 | `PageSecurity` | 安全态势。 | Secure Boot、Setup Mode、PK/KEK/db/dbx、TPM/TCG/TCM 存在性。 | SecurityPkg/平台 HII。 |

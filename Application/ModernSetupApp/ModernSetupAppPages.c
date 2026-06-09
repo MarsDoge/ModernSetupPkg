@@ -1043,6 +1043,84 @@ DrawFirmware (
 }
 
 /**
+  Draw the System Information page: a read-only detail view of the real platform,
+  processor, memory, and firmware identity collected by the platform provider.
+
+  All values come from the cached provider snapshot (no re-probe). The page parses
+  no IFR and writes nothing; it is a deeper read-only companion to the dashboard
+  System Information panel.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] Focus  Current focus area.
+**/
+STATIC
+VOID
+MODERN_SETUP_NOINLINE
+DrawSystemInfo (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus
+  )
+{
+  MODERN_SETUP_PROVIDER_SNAPSHOT  Providers;
+  MODERN_UI_PLATFORM_SUMMARY      *Summary;
+  CONST CHAR8                     *Language;
+  BOOLEAN                         Zh;
+  CHAR16                          MemoryText[96];
+  CONST CHAR16                    *Labels[8];
+  CONST CHAR16                    *Values[8];
+  CONST CHAR16                    *Groups[8];
+
+  ModernSetupGetCachedProviderSnapshot (&Providers);
+  Summary  = &Providers.Platform;
+  Language = ModernUiGetLanguage ();
+  Zh       = (BOOLEAN)((Language[0] == 'z') && (Language[1] == 'h'));
+
+  if (Summary->MemoryDetail[0] != L'\0') {
+    UnicodeSPrint (MemoryText, sizeof (MemoryText), L"%lu MB (%s)", Summary->MemorySizeMb, Summary->MemoryDetail);
+  } else {
+    UnicodeSPrint (MemoryText, sizeof (MemoryText), L"%lu MB", Summary->MemorySizeMb);
+  }
+
+  Groups[0] = Zh ? L"系统" : L"System";
+  Labels[0] = Zh ? L"平台" : L"Platform";
+  Values[0] = Summary->Platform;
+  Groups[1] = NULL;
+  Labels[1] = L"CPU";
+  Values[1] = Summary->Processor;
+  Groups[2] = NULL;
+  Labels[2] = Zh ? L"内存" : L"Memory";
+  Values[2] = MemoryText;
+  Groups[3] = NULL;
+  Labels[3] = Zh ? L"Arch" : L"Architecture";
+  Values[3] = Summary->Architecture;
+  Groups[4] = NULL;
+  Labels[4] = ModernUiGetString (ModernUiStringFormFactor);
+  Values[4] = Summary->FormFactor;
+  Groups[5] = NULL;
+  Labels[5] = ModernUiGetString (ModernUiStringBootMode);
+  Values[5] = Summary->BootMode;
+  Groups[6] = ModernUiGetString (ModernUiStringGroupFirmware);
+  Labels[6] = ModernUiGetString (ModernUiStringFirmwareVendor);
+  Values[6] = Summary->FirmwareVendor;
+  Groups[7] = NULL;
+  Labels[7] = ModernUiGetString (ModernUiStringFirmwareRevision);
+  Values[7] = Summary->FirmwareRevision;
+
+  DrawProviderSummaryPage (
+    Ui,
+    Theme,
+    Focus,
+    ModernUiGetString (ModernUiStringPageSystemInfo),
+    Labels,
+    Values,
+    Groups,
+    ARRAY_SIZE (Labels)
+    );
+}
+
+/**
   Draw the Diagnostics page with read-only bring-up and table state.
 
   @param[in] Ui     Initialized render context. Must not be NULL.
@@ -1941,6 +2019,9 @@ ModernSetupDrawCurrentPage (
   switch (Page) {
     case PageDashboard:
       ModernSetupDrawDashboard (Ui, Theme, Focus, DashboardSelection);
+      break;
+    case PageSystemInfo:
+      DrawSystemInfo (Ui, Theme, Focus);
       break;
     case PageBoot:
       DrawBoot (Ui, Theme, Focus, BootSelection);

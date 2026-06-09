@@ -70,6 +70,7 @@ this order. Adding a page is an additive API change (append before `PageMax`).
 | Page | Purpose | App shows | Native owner |
 | --- | --- | --- | --- |
 | `PageDashboard` | First-glance platform state. | System Information + Platform Health panels, quick-category grid. | — |
+| `PageSystemInfo` | Read-only system specification detail. | Real platform identity (SMBIOS Type 1), CPU (Type 4), memory type/speed (Type 17), architecture, form factor, boot mode, firmware vendor/revision. A deeper companion to the dashboard System Information panel. | — (SMBIOS/UEFI read-only). |
 | `PageBoot` | Boot inventory + launch. | `Boot####` active/hidden/category/path; Enter launches the selected entry. | Boot Maintenance HII. |
 | `PageDevices` | Device / HII entry inventory. | HII formsets, device-path rows, Driver Health. | Each driver formset. |
 | `PageSecurity` | Security posture. | Secure Boot, Setup Mode, PK/KEK/db/dbx, TPM/TCG/TCM presence. | SecurityPkg / platform HII. |

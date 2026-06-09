@@ -70,6 +70,7 @@
 
 typedef enum {
   PageDashboard = 0,
+  PageSystemInfo,
   PageBoot,
   PageDevices,
   PageSecurity,

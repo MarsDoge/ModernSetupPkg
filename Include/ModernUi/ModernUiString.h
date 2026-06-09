@@ -143,6 +143,8 @@ typedef enum {
   ModernUiStringPreferenceDefaults,
   ModernUiStringPreferenceSavedFormat,
   ModernUiStringPreferenceDefaultsLoaded,
+  ModernUiStringPageSystemInfo,
+  ModernUiStringPageSystemInfoHint,
   ModernUiStringMax
 } MODERN_UI_STRING_ID;
 

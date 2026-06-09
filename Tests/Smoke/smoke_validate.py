@@ -90,6 +90,7 @@ MODERN_SETUP_APP_DIR = Path("Application") / "ModernSetupApp"
 MODERN_SETUP_APP_INF = MODERN_SETUP_APP_DIR / "ModernSetupApp.inf"
 APP_NOINLINE_DRAW_HELPERS = (
     "DrawProviderSummaryPage",
+    "DrawSystemInfo",
     "DrawBoot",
     "DrawHiiReadOnlyPreview",
     "DrawDevices",
