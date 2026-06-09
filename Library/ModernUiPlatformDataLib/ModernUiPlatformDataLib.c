@@ -405,6 +405,126 @@ GetSmbiosProcessor (
 }
 
 /**
+  Map an SMBIOS Type 17 MemoryType enumeration to a short display string.
+
+  @param[in] MemoryType  SMBIOS MEMORY_DEVICE_TYPE value.
+
+  @retval NULL    The type is unknown/unmapped (caller omits the type prefix).
+  @retval others  Static short label, e.g. L"DDR4".
+**/
+STATIC
+CONST CHAR16 *
+MemoryTypeToString (
+  IN UINT8  MemoryType
+  )
+{
+  switch (MemoryType) {
+    case MemoryTypeSdram:
+      return L"SDRAM";
+    case MemoryTypeDdr:
+      return L"DDR";
+    case MemoryTypeDdr2:
+    case MemoryTypeDdr2FbDimm:
+      return L"DDR2";
+    case MemoryTypeDdr3:
+      return L"DDR3";
+    case MemoryTypeDdr4:
+      return L"DDR4";
+    case MemoryTypeDdr5:
+      return L"DDR5";
+    case MemoryTypeLpddr:
+      return L"LPDDR";
+    case MemoryTypeLpddr2:
+      return L"LPDDR2";
+    case MemoryTypeLpddr3:
+      return L"LPDDR3";
+    case MemoryTypeLpddr4:
+      return L"LPDDR4";
+    case MemoryTypeLpddr5:
+      return L"LPDDR5";
+    default:
+      return NULL;
+  }
+}
+
+/**
+  Read the memory type/speed/DIMM-count detail from SMBIOS Type 17 when available.
+
+  Walks every Type 17 (Memory Device) record, counts the populated modules, and
+  takes the type and speed from the first populated module to compose a detail
+  string such as "DDR4-3200, 2 DIMMs". The configured clock speed is preferred
+  over the rated speed; the type prefix and speed are each omitted when not
+  reported. Leaves the buffer empty when SMBIOS Type 17 is absent or no module is
+  populated, so the caller can show the bare total size.
+
+  @param[out] Buffer  Destination buffer. Must not be NULL.
+  @param[in]  Count   Number of CHAR16 entries in Buffer.
+**/
+STATIC
+VOID
+GetSmbiosMemoryDetail (
+  OUT CHAR16  *Buffer,
+  IN  UINTN   Count
+  )
+{
+  EFI_STATUS               Status;
+  EFI_SMBIOS_PROTOCOL      *Smbios;
+  EFI_SMBIOS_HANDLE        Handle;
+  EFI_SMBIOS_TABLE_HEADER  *Record;
+  EFI_SMBIOS_TYPE          Type;
+  SMBIOS_TABLE_TYPE17      *Type17;
+  CONST CHAR16             *TypeString;
+  UINTN                    DimmCount;
+  UINT16                   Speed;
+  CONST CHAR16             *Unit;
+
+  if ((Buffer == NULL) || (Count == 0)) {
+    return;
+  }
+
+  Buffer[0] = L'\0';
+  Smbios    = NULL;
+  Status    = gBS->LocateProtocol (&gEfiSmbiosProtocolGuid, NULL, (VOID **)&Smbios);
+  if (EFI_ERROR (Status) || (Smbios == NULL)) {
+    return;
+  }
+
+  TypeString = NULL;
+  DimmCount  = 0;
+  Speed      = 0;
+  Handle     = SMBIOS_HANDLE_PI_RESERVED;
+  Type       = SMBIOS_TYPE_MEMORY_DEVICE;
+  while (!EFI_ERROR (Smbios->GetNext (Smbios, &Handle, &Type, &Record, NULL)) && (Record != NULL)) {
+    Type17 = (SMBIOS_TABLE_TYPE17 *)Record;
+    //
+    // Size 0 = slot empty; 0xFFFF = unknown. Count only populated modules.
+    //
+    if ((Type17->Size == 0) || (Type17->Size == 0xFFFF)) {
+      continue;
+    }
+
+    DimmCount++;
+    if (TypeString == NULL) {
+      TypeString = MemoryTypeToString (Type17->MemoryType);
+      Speed      = (Type17->ConfiguredMemoryClockSpeed != 0) ? Type17->ConfiguredMemoryClockSpeed : Type17->Speed;
+    }
+  }
+
+  if (DimmCount == 0) {
+    return;
+  }
+
+  Unit = (DimmCount == 1) ? L"DIMM" : L"DIMMs";
+  if ((TypeString != NULL) && (Speed > 0)) {
+    UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"%s-%u, %u %s", TypeString, Speed, DimmCount, Unit);
+  } else if (TypeString != NULL) {
+    UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"%s, %u %s", TypeString, DimmCount, Unit);
+  } else {
+    UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"%u %s", DimmCount, Unit);
+  }
+}
+
+/**
   Read the platform form factor from SMBIOS Type 3 when available.
 
   @param[out] Buffer  Destination buffer. Must not be NULL.
@@ -516,6 +636,7 @@ ModernUiPlatformDataGetSummary (
   }
 
   GetSmbiosProcessor (Summary->Processor, ARRAY_SIZE (Summary->Processor));
+  GetSmbiosMemoryDetail (Summary->MemoryDetail, ARRAY_SIZE (Summary->MemoryDetail));
   GetSmbiosFormFactor (Summary->FormFactor, ARRAY_SIZE (Summary->FormFactor));
   GetBootModeName (Summary->BootMode, ARRAY_SIZE (Summary->BootMode));
 

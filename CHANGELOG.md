@@ -14,6 +14,13 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- The dashboard Memory row now appends real module detail read from SMBIOS
+  Type 17 (Memory Device): "<total> MB (<type>-<speed>, <N> DIMMs)" -- e.g.
+  "8192 MB (DDR4-3200, 2 DIMMs)". The type prefix (DDR3/DDR4/DDR5/LPDDR4/... via a
+  MemoryType map) and speed (configured clock preferred over rated) are each
+  omitted when not reported, and the row falls back to the bare total size when
+  Type 17 is absent. `MODERN_UI_PLATFORM_SUMMARY` gains an appended (additive)
+  `MemoryDetail` field; the total size still comes from the UEFI memory map.
 - The dashboard System Information panel now shows a real **CPU** row read from
   SMBIOS Type 4 (Processor Information): "<Processor Version> (<cores>C/<threads>T)"
   -- e.g. "QEMU Virtual CPU version 2.5+ (4C/8T)" -- honoring the SMBIOS 0xFF

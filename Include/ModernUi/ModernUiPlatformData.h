@@ -28,6 +28,12 @@ typedef struct {
   // "QEMU Virtual CPU version 2.5+ (4C/8T)". Empty/Unknown when Type 4 is absent.
   //
   CHAR16    Processor[MODERN_UI_PLATFORM_TEXT_MAX];
+  //
+  // Appended (additive): memory type/speed/DIMM-count detail from SMBIOS Type 17,
+  // e.g. "DDR4-3200, 2 DIMMs". Empty when Type 17 is absent; the total size is in
+  // MemorySizeMb above.
+  //
+  CHAR16    MemoryDetail[MODERN_UI_PLATFORM_TEXT_MAX];
 } MODERN_UI_PLATFORM_SUMMARY;
 
 /**

@@ -351,7 +351,7 @@ ModernSetupDrawDashboard (
   CHAR16  Resolution[48];
   CHAR16  BootCount[48];
   CHAR16  DeviceCount[48];
-  CHAR16  MemoryText[48];
+  CHAR16  MemoryText[96];
   CHAR16  SecurityText[48];
   CHAR16  ArchitectureText[96];
   CHAR16  ProviderCountText[48];
@@ -393,7 +393,11 @@ ModernSetupDrawDashboard (
   ModernSetupGetCachedProviderSnapshot (&Providers);
   ModernSetupGetProviderHealthSummary (&Providers, &ProviderHealth);
 
-  UnicodeSPrint (MemoryText, sizeof (MemoryText), L"%lu MB", Providers.Platform.MemorySizeMb);
+  if (Providers.Platform.MemoryDetail[0] != L'\0') {
+    UnicodeSPrint (MemoryText, sizeof (MemoryText), L"%lu MB (%s)", Providers.Platform.MemorySizeMb, Providers.Platform.MemoryDetail);
+  } else {
+    UnicodeSPrint (MemoryText, sizeof (MemoryText), L"%lu MB", Providers.Platform.MemorySizeMb);
+  }
   UnicodeSPrint (ArchitectureText, sizeof (ArchitectureText), L"%s", Providers.Platform.Architecture);
   UnicodeSPrint (
     SecurityText,
