@@ -14,6 +14,13 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- The dashboard System Information panel now shows a real **CPU** row read from
+  SMBIOS Type 4 (Processor Information): "<Processor Version> (<cores>C/<threads>T)"
+  -- e.g. "QEMU Virtual CPU version 2.5+ (4C/8T)" -- honoring the SMBIOS 0xFF
+  CoreCount2/ThreadCount2 escape for high core counts and filtering placeholder
+  version strings. `MODERN_UI_PLATFORM_SUMMARY` gains an appended (additive,
+  end-of-struct) `Processor` field per `Docs/API_COMPATIBILITY.md`; it degrades to
+  the localized Unknown text when SMBIOS Type 4 is absent.
 - The dashboard "Platform" value now shows the real system identity read from
   SMBIOS Type 1 (System Information) -- "<Manufacturer> <Product Name>", e.g.
   "QEMU Standard PC (Q35 + ICH9, 2009)" -- instead of the hardcoded generic

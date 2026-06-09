@@ -516,6 +516,7 @@ ModernSetupDrawDashboard (
     RowY = DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, RowY, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringFirmwareVendor), Providers.Platform.FirmwareVendor);
     RowY = DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, RowY, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringFirmwareRevision), Providers.Platform.FirmwareRevision);
     RowY = DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, RowY, SystemPanel.Width - 44, Zh ? L"平台" : L"Platform", Providers.Platform.Platform);
+    RowY = DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, RowY, SystemPanel.Width - 44, L"CPU", Providers.Platform.Processor);
     RowY = DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, RowY, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringFormFactor), Providers.Platform.FormFactor);
     RowY = DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, RowY, SystemPanel.Width - 44, ModernUiGetString (ModernUiStringBootMode), Providers.Platform.BootMode);
     RowY = DrawDashboardInfoRow (Ui, Theme, SystemPanel.X + 22, RowY, SystemPanel.Width - 44, Zh ? L"内存" : L"Memory", MemoryText);

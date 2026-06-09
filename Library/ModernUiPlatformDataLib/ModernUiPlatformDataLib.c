@@ -328,6 +328,83 @@ GetSmbiosSystemName (
 }
 
 /**
+  Read the processor identity from SMBIOS Type 4 when available.
+
+  Composes "<Processor Version> (<cores>C/<threads>T)" -- e.g.
+  "Intel(R) Xeon(R) ... (8C/16T)" -- so the dashboard shows a real CPU instead of
+  a placeholder. Honors the SMBIOS 0xFF "see CoreCount2/ThreadCount2" escape for
+  high core counts. Leaves the buffer empty when Type 4 is absent or reports
+  neither a usable version string nor a core count, so the caller can fall back.
+
+  @param[out] Buffer  Destination buffer. Must not be NULL.
+  @param[in]  Count   Number of CHAR16 entries in Buffer.
+**/
+STATIC
+VOID
+GetSmbiosProcessor (
+  OUT CHAR16  *Buffer,
+  IN  UINTN   Count
+  )
+{
+  EFI_STATUS               Status;
+  EFI_SMBIOS_PROTOCOL      *Smbios;
+  EFI_SMBIOS_HANDLE        Handle;
+  EFI_SMBIOS_TABLE_HEADER  *Record;
+  EFI_SMBIOS_TYPE          Type;
+  SMBIOS_TABLE_TYPE4       *Type4;
+  CHAR8                    *Version;
+  UINT32                   Cores;
+  UINT32                   Threads;
+
+  if ((Buffer == NULL) || (Count == 0)) {
+    return;
+  }
+
+  Buffer[0] = L'\0';
+  Smbios    = NULL;
+  Status    = gBS->LocateProtocol (&gEfiSmbiosProtocolGuid, NULL, (VOID **)&Smbios);
+  if (EFI_ERROR (Status) || (Smbios == NULL)) {
+    return;
+  }
+
+  Handle = SMBIOS_HANDLE_PI_RESERVED;
+  Type   = SMBIOS_TYPE_PROCESSOR_INFORMATION;
+  Record = NULL;
+  Status = Smbios->GetNext (Smbios, &Handle, &Type, &Record, NULL);
+  if (EFI_ERROR (Status) || (Record == NULL)) {
+    return;
+  }
+
+  Type4   = (SMBIOS_TABLE_TYPE4 *)Record;
+  Version = GetSmbiosString (Record, Type4->ProcessorVersion);
+  if (IsSmbiosPlaceholder (Version)) {
+    Version = NULL;
+  }
+
+  //
+  // CoreCount/ThreadCount are UINT8; 0xFF means the real value is in the UINT16
+  // CoreCount2/ThreadCount2 fields (present when the record is long enough).
+  //
+  Cores   = Type4->CoreCount;
+  Threads = Type4->ThreadCount;
+  if ((Cores == 0xFF) && (Record->Length >= OFFSET_OF (SMBIOS_TABLE_TYPE4, CoreCount2) + sizeof (Type4->CoreCount2))) {
+    Cores = Type4->CoreCount2;
+  }
+
+  if ((Threads == 0xFF) && (Record->Length >= OFFSET_OF (SMBIOS_TABLE_TYPE4, ThreadCount2) + sizeof (Type4->ThreadCount2))) {
+    Threads = Type4->ThreadCount2;
+  }
+
+  if ((Version != NULL) && (Cores > 0)) {
+    UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"%a (%uC/%uT)", Version, Cores, Threads);
+  } else if (Version != NULL) {
+    UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"%a", Version);
+  } else if (Cores > 0) {
+    UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"%u cores / %u threads", Cores, Threads);
+  }
+}
+
+/**
   Read the platform form factor from SMBIOS Type 3 when available.
 
   @param[out] Buffer  Destination buffer. Must not be NULL.
@@ -438,6 +515,7 @@ ModernUiPlatformDataGetSummary (
     UnicodeSPrint (Summary->Platform, sizeof (Summary->Platform), L"UEFI platform");
   }
 
+  GetSmbiosProcessor (Summary->Processor, ARRAY_SIZE (Summary->Processor));
   GetSmbiosFormFactor (Summary->FormFactor, ARRAY_SIZE (Summary->FormFactor));
   GetBootModeName (Summary->BootMode, ARRAY_SIZE (Summary->BootMode));
 

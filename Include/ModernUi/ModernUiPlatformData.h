@@ -23,6 +23,11 @@ typedef struct {
   CHAR16    FormFactor[MODERN_UI_PLATFORM_TEXT_MAX];
   CHAR16    BootMode[MODERN_UI_PLATFORM_TEXT_MAX];
   UINT64    MemorySizeMb;
+  //
+  // Appended (additive): processor identity from SMBIOS Type 4, e.g.
+  // "QEMU Virtual CPU version 2.5+ (4C/8T)". Empty/Unknown when Type 4 is absent.
+  //
+  CHAR16    Processor[MODERN_UI_PLATFORM_TEXT_MAX];
 } MODERN_UI_PLATFORM_SUMMARY;
 
 /**
