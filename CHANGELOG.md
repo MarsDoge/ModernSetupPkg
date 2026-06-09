@@ -12,6 +12,17 @@ this file as both a release log and a lightweight development progress record.
 
 ## Unreleased
 
+### Added
+
+- The dashboard "Platform" value now shows the real system identity read from
+  SMBIOS Type 1 (System Information) -- "<Manufacturer> <Product Name>", e.g.
+  "QEMU Standard PC (Q35 + ICH9, 2009)" -- instead of the hardcoded generic
+  "UEFI platform" string. Well-known meaningless OEM placeholder strings
+  ("To Be Filled By O.E.M.", "Not Specified", "System Product Name", etc.) are
+  filtered out, and the generic label remains as the fallback when SMBIOS Type 1
+  is absent or reports no usable identity. `ModernUiPlatformDataLib` gains a small
+  SMBIOS string-set reader for this; it stays read-only and cross-architecture.
+
 ### Fixed
 
 - The modern in-setup display engine no longer blanks the screen when the

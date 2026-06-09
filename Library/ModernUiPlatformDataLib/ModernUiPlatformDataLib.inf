@@ -24,6 +24,7 @@
   ModernSetupPkg/ModernSetupPkg.dec
 
 [LibraryClasses]
+  BaseLib
   BaseMemoryLib
   MemoryAllocationLib
   PrintLib
