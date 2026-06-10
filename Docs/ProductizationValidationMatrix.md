@@ -49,6 +49,25 @@ The validation terms below describe current evidence only:
 
 Current Phase35 status in this matrix is `Script`/`Manual` foundation only. Static smoke can check that the helper and manual workflow exist; `--mode generate-only` can check overlay snapshots; `--mode build` can check firmware FD snapshots; only `--mode capture` with successful QEMU `screendump` output creates visual screenshot evidence, and the helper does not inspect pixels or mark visual equivalence as verified.
 
+## VFR Write-Chain Interaction Evidence (2026-06-10)
+
+End-to-end interaction validation on OVMF X64 (lvgl backend, app front page,
+`MODERN_SETUP_SECURE_BOOT=1` + `MODERN_SETUP_DEMO_DRIVER_SAMPLE=1` +
+`MODERN_SETUP_REPLACE_UIAPP=1`), driven by QEMU `sendkey` with screendump
+evidence at each step:
+
+| Step | Surface | Evidence | Result |
+| --- | --- | --- | --- |
+| One-of popup open/select/commit | `SecureBootConfigDxe` "Secure Boot Mode" | `Captured` | Popup renders as a modern panel; selecting Custom updates the value lane to `<Custom Mode>` and the form **live-reevaluates IFR conditionals** — the suppressed "Custom Secure Boot Options" row appears. |
+| F10 save dialog + Y confirm | Same form | `Captured` | "Save configuration changes?" dialog renders and Y dismisses it with the changed value retained in-browser. |
+| Driver-owned no-persist semantics | Same form, exit + re-enter | `Captured` | Mode reverts to `<Standard Mode>` after re-entry — **identical under the native DisplayEngine** (A/B re-run with `MODERN_SETUP_DISPLAY_ENGINE=native`). Driver source confirms `SecureBootRouteConfig` persists only `AttemptSecureBoot`; the `CustomMode` variable is written exclusively by the key-enrollment flows. Not an engine defect. |
+| Grayed-out control fidelity | "Attempt Secure Boot" checkbox | `Captured` | Renders grayed and non-editable (no PK enrolled, `SetupMode != USER_MODE`), matching native semantics. |
+| **NV persistence across cold reboot** | `DriverSampleDxe` "My one-of prompt #1" | `Captured` | Change option (popup) -> F10 -> Y -> cold reboot (`RESET_VARS=0`) -> re-enter form: the changed value (`<GrayOut the Checkbox>`) persists, the dependent checkbox renders **grayed** (grayoutif on the new value) and the suppressed "Pick 1" ordered list appears (suppressif released). Full chain: modern engine input -> FormBrowser -> ConfigRouting -> driver `RouteConfig` -> `SetVariable` (NV) -> reboot -> `ExtractConfig` -> re-render. |
+
+Boundary note: all semantics above are owned by native FormBrowser/ConfigAccess;
+the modern engine contributes display and input only, and the A/B row shows it
+reproduces native behavior including driver-owned non-persistence.
+
 ## Phase32 Responsive Page Layout Matrix
 
 Phase32 (`ModernSetupGetPageListLayout`, `Application/ModernSetupApp/ModernSetupAppActions.c`, landed in `038a156`) drives Boot/Devices/provider-summary list rows, padding, the visible row cap, and the Devices preview split from the app-owned `DashboardDensity` preference and the active content rect; drawing and keyboard row counts share the helper, and smoke fixes its compact/comfortable branches.

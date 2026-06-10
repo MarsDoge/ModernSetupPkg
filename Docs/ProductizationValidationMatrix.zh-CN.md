@@ -49,6 +49,23 @@ XArch 是 ModernSetupPkg 的跨架构验证/产品化术语。XArch 不会替代
 
 本矩阵中的 Phase35 当前状态仅为 `Script`/`Manual` foundation。Static smoke 可检查 helper 和手动工作流存在；`--mode generate-only` 可检查 overlay snapshot；`--mode build` 可检查 firmware FD snapshot；只有 `--mode capture` 成功产出 QEMU `screendump` 后才形成视觉截图证据，并且该 helper 不检查像素，也不会将视觉等价标记为 verified。
 
+## VFR 写链交互证据（2026-06-10）
+
+OVMF X64 端到端交互验证（lvgl 后端、App 首页、`MODERN_SETUP_SECURE_BOOT=1` +
+`MODERN_SETUP_DEMO_DRIVER_SAMPLE=1` + `MODERN_SETUP_REPLACE_UIAPP=1`），由 QEMU
+`sendkey` 驱动并逐步截图取证：
+
+| 步骤 | 验证面 | 证据 | 结果 |
+| --- | --- | --- | --- |
+| oneof 弹窗打开/选择/提交 | `SecureBootConfigDxe`「Secure Boot Mode」 | `Captured` | 弹窗以现代面板渲染；选 Custom 后值栏变为 `<Custom Mode>`，且表单**实时重评估 IFR 条件**——被 suppress 的「Custom Secure Boot Options」行出现。 |
+| F10 保存对话框 + Y 确认 | 同一表单 | `Captured` | 「Save configuration changes?」对话框渲染正常，Y 关闭后浏览器内保留改值。 |
+| 驱动自有的不持久化语义 | 同一表单，退出后重进 | `Captured` | 重进后 Mode 回退 `<Standard Mode>`——**原生 DisplayEngine 下行为完全一致**（`MODERN_SETUP_DISPLAY_ENGINE=native` A/B 复跑）。驱动源码证实 `SecureBootRouteConfig` 只持久化 `AttemptSecureBoot`；`CustomMode` 变量仅由密钥注册流程写入。非引擎缺陷。 |
+| 灰禁控件保真 | 「Attempt Secure Boot」复选框 | `Captured` | 渲染为灰禁不可编辑（未注册 PK，`SetupMode != USER_MODE`），与原生语义一致。 |
+| **跨冷重启 NV 持久化** | `DriverSampleDxe`「My one-of prompt #1」 | `Captured` | 弹窗改值 -> F10 -> Y -> 冷重启（`RESET_VARS=0`）-> 重进表单：改值（`<GrayOut the Checkbox>`）保持，依赖的复选框按新值**变灰**（grayoutif），被 suppress 的「Pick 1」有序列表出现（suppressif 释放）。完整链路：现代引擎输入 -> FormBrowser -> ConfigRouting -> 驱动 `RouteConfig` -> `SetVariable`（NV）-> 重启 -> `ExtractConfig` -> 重新渲染。 |
+
+边界说明：上述全部语义归原生 FormBrowser/ConfigAccess 所有；现代引擎只贡献显示与
+输入，A/B 行证明它如实复现原生行为（包括驱动自有的不持久化）。
+
 ## Phase32 响应式页面布局矩阵
 
 Phase32（`ModernSetupGetPageListLayout`，`Application/ModernSetupApp/ModernSetupAppActions.c`，已在 `038a156` 落地）让 Boot/Devices/provider 摘要页的列表行高、padding、可见行上限以及 Devices 预览分栏跟随 app 自有的 `DashboardDensity` 偏好和当前内容矩形；绘制与键盘行数共用同一 helper，smoke 固化其 compact/comfortable 分支。
