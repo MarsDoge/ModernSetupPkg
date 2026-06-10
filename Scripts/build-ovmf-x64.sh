@@ -27,6 +27,16 @@ MODERN_SETUP_DEMO_DRIVER_SAMPLE="${MODERN_SETUP_DEMO_DRIVER_SAMPLE:-0}"
 # App Devices page and the modern DisplayEngine against a production VFR surface
 # instead of only DriverSampleDxe. Display-only validation aid; off by default.
 MODERN_SETUP_SECURE_BOOT="${MODERN_SETUP_SECURE_BOOT:-0}"
+# Opt-in firmware video resolution override (e.g. MODERN_SETUP_VIDEO_RES=1920x1080)
+# for the Gate 4 / Phase32 resolution-matrix validation. Rewrites the overlay
+# DSC's display-PCD include with inline values; empty keeps the upstream default
+# (1280x800). Only the generated overlay is written; upstream files are not edited.
+# NOTE: when QEMU presents an EDID (modern QEMU std VGA default), OVMF's
+# QemuVideoDxe overwrites these PCDs at runtime from the EDID preferred mode
+# (PcdVideoResolutionSource==0 path). To drive the matrix from QEMU instead, use
+# `-vga none -device VGA,edid=on,xres=<W>,yres=<H>`; this PCD override only
+# decides the resolution when no EDID hint is present (e.g. `edid=off`).
+MODERN_SETUP_VIDEO_RES="${MODERN_SETUP_VIDEO_RES:-}"
 GENERATE_ONLY="${GENERATE_ONLY:-0}"
 OVERLAY_DIR="${WORKSPACE}/Build/ModernSetupPkgOverlay"
 
@@ -53,7 +63,7 @@ fi
 
 mkdir -p "${OVERLAY_DIR}"
 
-python3 - <<'PY' "${WORKSPACE}" "${OVERLAY_DIR}" "${MODERN_SETUP_THEME}" "${MODERN_SETUP_DISPLAY_ENGINE}" "${MODERN_SETUP_REPLACE_UIAPP}" "${MODERN_SETUP_DEMO_DRIVER_SAMPLE}"
+python3 - <<'PY' "${WORKSPACE}" "${OVERLAY_DIR}" "${MODERN_SETUP_THEME}" "${MODERN_SETUP_DISPLAY_ENGINE}" "${MODERN_SETUP_REPLACE_UIAPP}" "${MODERN_SETUP_DEMO_DRIVER_SAMPLE}" "${MODERN_SETUP_VIDEO_RES}"
 from pathlib import Path
 import re
 import sys
@@ -64,6 +74,15 @@ theme_name = sys.argv[3].strip().lower()
 display_engine = sys.argv[4].strip().lower()
 replace_uiapp_flag = sys.argv[5].strip().lower()
 enable_driver_sample = sys.argv[6].strip().lower() in {"1", "true", "yes"}
+video_res = sys.argv[7].strip().lower()
+video_width = video_height = None
+if video_res:
+    match = re.fullmatch(r"(\d{3,4})x(\d{3,4})", video_res)
+    if match is None:
+        raise SystemExit(
+            f"Unsupported MODERN_SETUP_VIDEO_RES={video_res!r}; use <width>x<height>, e.g. 1920x1080"
+        )
+    video_width, video_height = match.group(1), match.group(2)
 theme_pcd = {
     "orange": "0x00",
     "amber": "0x00",
@@ -241,6 +260,28 @@ if enable_driver_sample and driver_sample_component not in dsc:
         driver_sample_component + r"\n\1",
         "QemuKernelLoaderFsDxe DSC component anchor for DriverSample",
     )
+if video_width is not None:
+    # Replace the upstream display-PCD include with its expanded content carrying
+    # the requested resolution; this avoids duplicate PCD assignments and leaves
+    # the upstream .inc untouched (resolution-matrix validation builds).
+    video_pcd_block = (
+        f"  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoHorizontalResolution|{video_width}\n"
+        f"  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoVerticalResolution|{video_height}\n"
+        f"  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupVideoHorizontalResolution|{video_width}\n"
+        f"  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupVideoVerticalResolution|{video_height}\n"
+        "  gEfiMdeModulePkgTokenSpaceGuid.PcdConOutRow|0\n"
+        "  gEfiMdeModulePkgTokenSpaceGuid.PcdConOutColumn|0\n"
+        "  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupConOutRow|0\n"
+        "  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupConOutColumn|0\n"
+        "  gUefiOvmfPkgTokenSpaceGuid.PcdVideoResolutionSource|0"
+    )
+    dsc = replace_regex_once(
+        dsc,
+        r"^!include OvmfPkg/Include/Dsc/OvmfDisplayPcds\.dsc\.inc\s*$",
+        video_pcd_block,
+        "OvmfDisplayPcds include",
+    )
+
 (overlay / "OvmfX64ModernSetup.dsc").write_text(dsc)
 
 fdf_path = workspace / "OvmfPkg/OvmfPkgX64.fdf"
@@ -290,6 +331,7 @@ echo "Generated: ${OVERLAY_DIR}/OvmfX64ModernSetup.fdf"
 echo "DisplayEngine: ${MODERN_SETUP_DISPLAY_ENGINE}"
 echo "Replace UiApp with ModernSetupApp: ${MODERN_SETUP_REPLACE_UIAPP}"
 echo "Secure Boot HII (SecureBootConfigDxe): ${MODERN_SETUP_SECURE_BOOT}"
+echo "Video resolution override: ${MODERN_SETUP_VIDEO_RES:-(upstream default)}"
 
 if [[ "${GENERATE_ONLY}" == "1" ]]; then
   exit 0

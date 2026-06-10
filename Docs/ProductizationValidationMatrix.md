@@ -61,6 +61,21 @@ Resolution floor (applies to every row below): `SelectPreferredGopMode` (`Librar
 | Devices | Density rows plus the `>=720`-width native-setup preview split | 1280x800 | `Captured` | Left list and preview pane both render; no missing-glyph squares or value-lane overlap. |
 | Firmware (provider summary) | Density rows for the read-only provider summary | 1280x800 | `Captured` | Localized zh labels and `N/A`/read-only states render cleanly. |
 
+### Resolution matrix (Gate 4 closure, 2026-06-10)
+
+Dashboard captured per active GOP mode, driven from the QEMU side
+(`-vga none -device VGA,edid=on,xres=<W>,yres=<H>`). Finding: OVMF's
+`QemuVideoDxe` adopts the EDID preferred mode and overwrites the display PCDs at
+runtime when `PcdVideoResolutionSource==0`, so the DSC PCD default is **not**
+the effective lever under modern QEMU; `Scripts/build-ovmf-x64.sh` documents
+this and its `MODERN_SETUP_VIDEO_RES` override applies only with `edid=off`.
+
+| Requested (EDID) | Active mode rendered | Evidence | Result |
+| --- | --- | --- | --- |
+| 1920x1080 | 1920x1080 (kept; above floor) | `Captured` | Full 13-tab nav row (no scroll chevron), 3-column quick cards with detail lines, dashboard `Display` row reads `1920 x 1080`; no clipping/overlap. |
+| 1024x768 | 1024x768 (kept; equals floor) | `Captured` | Tab row scrolls with `>` chevron, quick cards reflow to a compact layout (detail lines dropped by the height guard), long values truncate with ellipsis; no overlap. |
+| 800x600 | 1024x768 (auto-promoted) | `Captured` | `SelectPreferredGopMode` promotes the sub-floor EDID mode to the smallest qualifying mode; the render is identical to the native 1024x768 case and the `Display` row reads `1024 x 768`. |
+
 Captured via `Scripts/capture-ovmf-x64.sh` (`BOOT_APP=1` plus a tab `SENDKEY_SEQUENCE`) after rebuilding the App ESP at the current `main` HEAD; inspected as modern-App-only artifacts, which is **not** a native-vs-modern maintainer `Visual reviewed` sign-off. Captures default to `${TMPDIR:-/tmp}/modernsetup-qemu` and are not committed as assets.
 
 ## Product Class Validation Matrix

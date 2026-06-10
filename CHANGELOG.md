@@ -14,6 +14,17 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- Resolution-matrix validation (LVGL productization Gate 4 closure): the OVMF X64
+  app front page is visually verified at 1920x1080 (kept; full 13-tab nav,
+  3-column cards), 1024x768 (kept; tab scroll chevron, compact cards, ellipsis
+  truncation), and 800x600 (auto-promoted to 1024x768 by
+  `SelectPreferredGopMode`). Evidence recorded in
+  `Docs/ProductizationValidationMatrix.md` (+ zh mirror); Gate 4 is now closed in
+  `Docs/LvglProductizationPlan.md`. A new optional `MODERN_SETUP_VIDEO_RES=<W>x<H>`
+  switch on `Scripts/build-ovmf-x64.sh` rewrites the overlay's display-PCD
+  defaults for the `edid=off` case; under modern QEMU the effective lever is the
+  QEMU EDID (`-vga none -device VGA,edid=on,xres=,yres=`) because OVMF's
+  `QemuVideoDxe` adopts the EDID preferred mode over the DSC PCDs at runtime.
 - New `MODERN_SETUP_SECURE_BOOT=1` switch on `Scripts/build-ovmf-x64.sh`: passes
   `-D SECURE_BOOT_ENABLE=TRUE` through to the upstream OVMF DSC/FDF `!if` blocks
   so SecurityPkg's real **Secure Boot Configuration** formset

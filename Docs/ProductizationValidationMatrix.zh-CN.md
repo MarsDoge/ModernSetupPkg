@@ -61,6 +61,21 @@ Phase32（`ModernSetupGetPageListLayout`，`Application/ModernSetupApp/ModernSet
 | Devices | 密度行加 `>=720` 宽度的 native-setup 预览分栏 | 1280x800 | `Captured` | 左列表与预览栏均渲染；无缺字方块、无值列重叠。 |
 | Firmware（provider 摘要） | 只读 provider 摘要的密度行 | 1280x800 | `Captured` | 本地化 zh 标签与 `N/A`/只读状态渲染干净。 |
 
+### 分辨率矩阵（Gate 4 收尾，2026-06-10）
+
+按活动 GOP 模式逐档捕获仪表盘，从 QEMU 侧驱动
+（`-vga none -device VGA,edid=on,xres=<W>,yres=<H>`）。发现：当
+`PcdVideoResolutionSource==0` 时 OVMF 的 `QemuVideoDxe` 会采纳 EDID 首选模式并
+在运行时覆写显示 PCD，因此在现代 QEMU 下 DSC 的 PCD 默认值**不是**有效杠杆；
+`Scripts/build-ovmf-x64.sh` 已记录此事，其 `MODERN_SETUP_VIDEO_RES` 覆盖仅在
+`edid=off` 时生效。
+
+| 请求（EDID） | 实际渲染模式 | 证据 | 结果 |
+| --- | --- | --- | --- |
+| 1920x1080 | 1920x1080（保持；高于下限） | `Captured` | 13 个导航标签全展开（无滚动符），快捷卡三列含详情行，仪表盘「显示」行读数 `1920 x 1080`；无截断/重叠。 |
+| 1024x768 | 1024x768（保持；等于下限） | `Captured` | 标签行带 `>` 滚动符，快捷卡回流为紧凑布局（高度守卫剪掉详情行），长值省略号截断；无重叠。 |
+| 800x600 | 1024x768（自动升档） | `Captured` | `SelectPreferredGopMode` 把低于下限的 EDID 模式升到最小合格模式；渲染与原生 1024x768 一致，「显示」行读数 `1024 x 768`。 |
+
 经 `Scripts/capture-ovmf-x64.sh`（`BOOT_APP=1` 加 tab `SENDKEY_SEQUENCE`）在重建当前 `main` HEAD 的 App ESP 后捕获；作为「仅 modern App」产物审阅，**不是** native-vs-modern 的 maintainer `Visual reviewed` 签署。截图默认输出到 `${TMPDIR:-/tmp}/modernsetup-qemu`，不作为资产提交。
 
 ## 产品类别验证矩阵
