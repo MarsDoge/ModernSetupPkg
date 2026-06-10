@@ -14,6 +14,15 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- The System Information page now shows the deeper SMBIOS identity that does not
+  fit the dashboard: **Baseboard** ("<Manufacturer> <Product>", Type 2),
+  **Serial number** and **UUID** (Type 1, with the all-zero/all-FF "not
+  present/not settable" UUID sentinels suppressed), and the BIOS-vendor-owned
+  **BIOS version / BIOS date** strings (Type 0) alongside the numeric firmware
+  revision. Each row is appended only when SMBIOS actually reports a usable value
+  (placeholder strings filtered), so the page collapses cleanly on thin-SMBIOS
+  platforms. `MODERN_UI_PLATFORM_SUMMARY` gains appended (additive) `Serial`,
+  `Uuid`, `Baseboard`, `BiosVersion`, and `BiosDate` fields.
 - New **System Information** page (`PageSystemInfo`), a dedicated read-only detail
   view reachable as the second navigation tab (after the dashboard). It shows the
   real platform identity (SMBIOS Type 1), CPU (Type 4), memory type/speed

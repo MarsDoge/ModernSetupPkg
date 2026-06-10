@@ -34,6 +34,20 @@ typedef struct {
   // MemorySizeMb above.
   //
   CHAR16    MemoryDetail[MODERN_UI_PLATFORM_TEXT_MAX];
+  //
+  // Appended (additive): deeper system-detail identity for the System
+  // Information page. Each is empty when its SMBIOS source is absent.
+  //   Serial       - system serial number (SMBIOS Type 1).
+  //   Uuid         - system UUID, canonical string form (SMBIOS Type 1).
+  //   Baseboard    - "<Manufacturer> <Product>" (SMBIOS Type 2).
+  //   BiosVersion  - firmware version string (SMBIOS Type 0).
+  //   BiosDate     - firmware release date (SMBIOS Type 0).
+  //
+  CHAR16    Serial[MODERN_UI_PLATFORM_TEXT_MAX];
+  CHAR16    Uuid[MODERN_UI_PLATFORM_TEXT_MAX];
+  CHAR16    Baseboard[MODERN_UI_PLATFORM_TEXT_MAX];
+  CHAR16    BiosVersion[MODERN_UI_PLATFORM_TEXT_MAX];
+  CHAR16    BiosDate[MODERN_UI_PLATFORM_TEXT_MAX];
 } MODERN_UI_PLATFORM_SUMMARY;
 
 /**

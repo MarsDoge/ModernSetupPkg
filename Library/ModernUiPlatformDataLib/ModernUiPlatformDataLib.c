@@ -405,6 +405,218 @@ GetSmbiosProcessor (
 }
 
 /**
+  Read the system serial number and UUID from SMBIOS Type 1 when available.
+
+  The serial is filtered through the placeholder list; the UUID is rendered in
+  canonical GUID text form and suppressed when SMBIOS reports the all-zero
+  ("not present") or all-FF ("not settable") sentinel values. Either buffer is
+  left empty when its field is absent, so the caller can hide the row.
+
+  @param[out] Serial       Destination for the serial number. Must not be NULL.
+  @param[in]  SerialCount  Number of CHAR16 entries in Serial.
+  @param[out] Uuid         Destination for the UUID text. Must not be NULL.
+  @param[in]  UuidCount    Number of CHAR16 entries in Uuid.
+**/
+STATIC
+VOID
+GetSmbiosSystemDetail (
+  OUT CHAR16  *Serial,
+  IN  UINTN   SerialCount,
+  OUT CHAR16  *Uuid,
+  IN  UINTN   UuidCount
+  )
+{
+  EFI_STATUS               Status;
+  EFI_SMBIOS_PROTOCOL      *Smbios;
+  EFI_SMBIOS_HANDLE        Handle;
+  EFI_SMBIOS_TABLE_HEADER  *Record;
+  EFI_SMBIOS_TYPE          Type;
+  SMBIOS_TABLE_TYPE1       *Type1;
+  CHAR8                    *SerialString;
+  CONST UINT8              *UuidBytes;
+  BOOLEAN                  AllZero;
+  BOOLEAN                  AllOnes;
+  UINTN                    Index;
+
+  if ((Serial == NULL) || (SerialCount == 0) || (Uuid == NULL) || (UuidCount == 0)) {
+    return;
+  }
+
+  Serial[0] = L'\0';
+  Uuid[0]   = L'\0';
+  Smbios    = NULL;
+  Status    = gBS->LocateProtocol (&gEfiSmbiosProtocolGuid, NULL, (VOID **)&Smbios);
+  if (EFI_ERROR (Status) || (Smbios == NULL)) {
+    return;
+  }
+
+  Handle = SMBIOS_HANDLE_PI_RESERVED;
+  Type   = SMBIOS_TYPE_SYSTEM_INFORMATION;
+  Record = NULL;
+  Status = Smbios->GetNext (Smbios, &Handle, &Type, &Record, NULL);
+  if (EFI_ERROR (Status) || (Record == NULL)) {
+    return;
+  }
+
+  Type1        = (SMBIOS_TABLE_TYPE1 *)Record;
+  SerialString = GetSmbiosString (Record, Type1->SerialNumber);
+  if (!IsSmbiosPlaceholder (SerialString)) {
+    UnicodeSPrint (Serial, SerialCount * sizeof (CHAR16), L"%a", SerialString);
+  }
+
+  //
+  // SMBIOS defines all-zero as "UUID not present" and all-FF as "present but
+  // not settable"; neither is a usable identity. The EFI_GUID field layout
+  // already matches the SMBIOS 2.6+ byte order, so %g prints canonically.
+  //
+  UuidBytes = (CONST UINT8 *)&Type1->Uuid;
+  AllZero   = TRUE;
+  AllOnes   = TRUE;
+  for (Index = 0; Index < sizeof (Type1->Uuid); Index++) {
+    if (UuidBytes[Index] != 0x00) {
+      AllZero = FALSE;
+    }
+
+    if (UuidBytes[Index] != 0xFF) {
+      AllOnes = FALSE;
+    }
+  }
+
+  if (!AllZero && !AllOnes) {
+    UnicodeSPrint (Uuid, UuidCount * sizeof (CHAR16), L"%g", &Type1->Uuid);
+  }
+}
+
+/**
+  Read the baseboard identity from SMBIOS Type 2 when available.
+
+  Composes "<Manufacturer> <Product>" with placeholder filtering, mirroring the
+  Type 1 system-name composition. Leaves the buffer empty when Type 2 is absent
+  or reports no usable strings.
+
+  @param[out] Buffer  Destination buffer. Must not be NULL.
+  @param[in]  Count   Number of CHAR16 entries in Buffer.
+**/
+STATIC
+VOID
+GetSmbiosBaseboard (
+  OUT CHAR16  *Buffer,
+  IN  UINTN   Count
+  )
+{
+  EFI_STATUS               Status;
+  EFI_SMBIOS_PROTOCOL      *Smbios;
+  EFI_SMBIOS_HANDLE        Handle;
+  EFI_SMBIOS_TABLE_HEADER  *Record;
+  EFI_SMBIOS_TYPE          Type;
+  SMBIOS_TABLE_TYPE2       *Type2;
+  CHAR8                    *Manufacturer;
+  CHAR8                    *Product;
+
+  if ((Buffer == NULL) || (Count == 0)) {
+    return;
+  }
+
+  Buffer[0] = L'\0';
+  Smbios    = NULL;
+  Status    = gBS->LocateProtocol (&gEfiSmbiosProtocolGuid, NULL, (VOID **)&Smbios);
+  if (EFI_ERROR (Status) || (Smbios == NULL)) {
+    return;
+  }
+
+  Handle = SMBIOS_HANDLE_PI_RESERVED;
+  Type   = SMBIOS_TYPE_BASEBOARD_INFORMATION;
+  Record = NULL;
+  Status = Smbios->GetNext (Smbios, &Handle, &Type, &Record, NULL);
+  if (EFI_ERROR (Status) || (Record == NULL)) {
+    return;
+  }
+
+  Type2        = (SMBIOS_TABLE_TYPE2 *)Record;
+  Manufacturer = GetSmbiosString (Record, Type2->Manufacturer);
+  Product      = GetSmbiosString (Record, Type2->ProductName);
+  if (IsSmbiosPlaceholder (Manufacturer)) {
+    Manufacturer = NULL;
+  }
+
+  if (IsSmbiosPlaceholder (Product)) {
+    Product = NULL;
+  }
+
+  if ((Manufacturer != NULL) && (Product != NULL)) {
+    UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"%a %a", Manufacturer, Product);
+  } else if (Product != NULL) {
+    UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"%a", Product);
+  } else if (Manufacturer != NULL) {
+    UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"%a", Manufacturer);
+  }
+}
+
+/**
+  Read the firmware version string and release date from SMBIOS Type 0 when
+  available.
+
+  These are the BIOS-vendor-owned strings (e.g. "edk2-stable202505" and
+  "05/30/2025") and complement the numeric gST->FirmwareRevision. Each buffer is
+  left empty when its field is absent or a placeholder, so the caller can hide
+  the row.
+
+  @param[out] Version       Destination for the version string. Must not be NULL.
+  @param[in]  VersionCount  Number of CHAR16 entries in Version.
+  @param[out] Date          Destination for the release date. Must not be NULL.
+  @param[in]  DateCount     Number of CHAR16 entries in Date.
+**/
+STATIC
+VOID
+GetSmbiosBiosInfo (
+  OUT CHAR16  *Version,
+  IN  UINTN   VersionCount,
+  OUT CHAR16  *Date,
+  IN  UINTN   DateCount
+  )
+{
+  EFI_STATUS               Status;
+  EFI_SMBIOS_PROTOCOL      *Smbios;
+  EFI_SMBIOS_HANDLE        Handle;
+  EFI_SMBIOS_TABLE_HEADER  *Record;
+  EFI_SMBIOS_TYPE          Type;
+  SMBIOS_TABLE_TYPE0       *Type0;
+  CHAR8                    *VersionString;
+  CHAR8                    *DateString;
+
+  if ((Version == NULL) || (VersionCount == 0) || (Date == NULL) || (DateCount == 0)) {
+    return;
+  }
+
+  Version[0] = L'\0';
+  Date[0]    = L'\0';
+  Smbios     = NULL;
+  Status     = gBS->LocateProtocol (&gEfiSmbiosProtocolGuid, NULL, (VOID **)&Smbios);
+  if (EFI_ERROR (Status) || (Smbios == NULL)) {
+    return;
+  }
+
+  Handle = SMBIOS_HANDLE_PI_RESERVED;
+  Type   = SMBIOS_TYPE_BIOS_INFORMATION;
+  Record = NULL;
+  Status = Smbios->GetNext (Smbios, &Handle, &Type, &Record, NULL);
+  if (EFI_ERROR (Status) || (Record == NULL)) {
+    return;
+  }
+
+  Type0         = (SMBIOS_TABLE_TYPE0 *)Record;
+  VersionString = GetSmbiosString (Record, Type0->BiosVersion);
+  DateString    = GetSmbiosString (Record, Type0->BiosReleaseDate);
+  if (!IsSmbiosPlaceholder (VersionString)) {
+    UnicodeSPrint (Version, VersionCount * sizeof (CHAR16), L"%a", VersionString);
+  }
+
+  if (!IsSmbiosPlaceholder (DateString)) {
+    UnicodeSPrint (Date, DateCount * sizeof (CHAR16), L"%a", DateString);
+  }
+}
+
+/**
   Map an SMBIOS Type 17 MemoryType enumeration to a short display string.
 
   @param[in] MemoryType  SMBIOS MEMORY_DEVICE_TYPE value.
@@ -637,6 +849,19 @@ ModernUiPlatformDataGetSummary (
 
   GetSmbiosProcessor (Summary->Processor, ARRAY_SIZE (Summary->Processor));
   GetSmbiosMemoryDetail (Summary->MemoryDetail, ARRAY_SIZE (Summary->MemoryDetail));
+  GetSmbiosSystemDetail (
+    Summary->Serial,
+    ARRAY_SIZE (Summary->Serial),
+    Summary->Uuid,
+    ARRAY_SIZE (Summary->Uuid)
+    );
+  GetSmbiosBaseboard (Summary->Baseboard, ARRAY_SIZE (Summary->Baseboard));
+  GetSmbiosBiosInfo (
+    Summary->BiosVersion,
+    ARRAY_SIZE (Summary->BiosVersion),
+    Summary->BiosDate,
+    ARRAY_SIZE (Summary->BiosDate)
+    );
   GetSmbiosFormFactor (Summary->FormFactor, ARRAY_SIZE (Summary->FormFactor));
   GetBootModeName (Summary->BootMode, ARRAY_SIZE (Summary->BootMode));
 

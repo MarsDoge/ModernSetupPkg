@@ -1068,9 +1068,10 @@ DrawSystemInfo (
   CONST CHAR8                     *Language;
   BOOLEAN                         Zh;
   CHAR16                          MemoryText[96];
-  CONST CHAR16                    *Labels[8];
-  CONST CHAR16                    *Values[8];
-  CONST CHAR16                    *Groups[8];
+  CONST CHAR16                    *Labels[13];
+  CONST CHAR16                    *Values[13];
+  CONST CHAR16                    *Groups[13];
+  UINTN                           Count;
 
   ModernSetupGetCachedProviderSnapshot (&Providers);
   Summary  = &Providers.Platform;
@@ -1083,30 +1084,90 @@ DrawSystemInfo (
     UnicodeSPrint (MemoryText, sizeof (MemoryText), L"%lu MB", Summary->MemorySizeMb);
   }
 
-  Groups[0] = Zh ? L"系统" : L"System";
-  Labels[0] = Zh ? L"平台" : L"Platform";
-  Values[0] = Summary->Platform;
-  Groups[1] = NULL;
-  Labels[1] = L"CPU";
-  Values[1] = Summary->Processor;
-  Groups[2] = NULL;
-  Labels[2] = Zh ? L"内存" : L"Memory";
-  Values[2] = MemoryText;
-  Groups[3] = NULL;
-  Labels[3] = Zh ? L"Arch" : L"Architecture";
-  Values[3] = Summary->Architecture;
-  Groups[4] = NULL;
-  Labels[4] = ModernUiGetString (ModernUiStringFormFactor);
-  Values[4] = Summary->FormFactor;
-  Groups[5] = NULL;
-  Labels[5] = ModernUiGetString (ModernUiStringBootMode);
-  Values[5] = Summary->BootMode;
-  Groups[6] = ModernUiGetString (ModernUiStringGroupFirmware);
-  Labels[6] = ModernUiGetString (ModernUiStringFirmwareVendor);
-  Values[6] = Summary->FirmwareVendor;
-  Groups[7] = NULL;
-  Labels[7] = ModernUiGetString (ModernUiStringFirmwareRevision);
-  Values[7] = Summary->FirmwareRevision;
+  Count = 0;
+
+  Groups[Count] = Zh ? L"系统" : L"System";
+  Labels[Count] = Zh ? L"平台" : L"Platform";
+  Values[Count] = Summary->Platform;
+  Count++;
+  if (Summary->Baseboard[0] != L'\0') {
+    //
+    // "Baseboard" stays English in the zh UI: the zh glyphs are outside the
+    // embedded subset (graceful-fallback policy).
+    //
+    Groups[Count] = NULL;
+    Labels[Count] = L"Baseboard";
+    Values[Count] = Summary->Baseboard;
+    Count++;
+  }
+
+  Groups[Count] = NULL;
+  Labels[Count] = L"CPU";
+  Values[Count] = Summary->Processor;
+  Count++;
+  Groups[Count] = NULL;
+  Labels[Count] = Zh ? L"内存" : L"Memory";
+  Values[Count] = MemoryText;
+  Count++;
+  Groups[Count] = NULL;
+  Labels[Count] = Zh ? L"Arch" : L"Architecture";
+  Values[Count] = Summary->Architecture;
+  Count++;
+  Groups[Count] = NULL;
+  Labels[Count] = ModernUiGetString (ModernUiStringFormFactor);
+  Values[Count] = Summary->FormFactor;
+  Count++;
+  Groups[Count] = NULL;
+  Labels[Count] = ModernUiGetString (ModernUiStringBootMode);
+  Values[Count] = Summary->BootMode;
+  Count++;
+
+  //
+  // Identity rows are appended only when SMBIOS actually reports them, so the
+  // page collapses cleanly on platforms with thin SMBIOS instead of stacking
+  // empty rows (same philosophy as the dashboard N/A reflow).
+  //
+  if (Summary->Serial[0] != L'\0') {
+    //
+    // "Serial number" stays English in the zh UI (glyphs outside the subset).
+    //
+    Groups[Count] = NULL;
+    Labels[Count] = L"Serial number";
+    Values[Count] = Summary->Serial;
+    Count++;
+  }
+
+  if (Summary->Uuid[0] != L'\0') {
+    Groups[Count] = NULL;
+    Labels[Count] = L"UUID";
+    Values[Count] = Summary->Uuid;
+    Count++;
+  }
+
+  Groups[Count] = ModernUiGetString (ModernUiStringGroupFirmware);
+  Labels[Count] = ModernUiGetString (ModernUiStringFirmwareVendor);
+  Values[Count] = Summary->FirmwareVendor;
+  Count++;
+  Groups[Count] = NULL;
+  Labels[Count] = ModernUiGetString (ModernUiStringFirmwareRevision);
+  Values[Count] = Summary->FirmwareRevision;
+  Count++;
+  if (Summary->BiosVersion[0] != L'\0') {
+    Groups[Count] = NULL;
+    Labels[Count] = Zh ? L"BIOS 版本" : L"BIOS version";
+    Values[Count] = Summary->BiosVersion;
+    Count++;
+  }
+
+  if (Summary->BiosDate[0] != L'\0') {
+    //
+    // "BIOS date" stays English in the zh UI (日/期 outside the subset).
+    //
+    Groups[Count] = NULL;
+    Labels[Count] = L"BIOS date";
+    Values[Count] = Summary->BiosDate;
+    Count++;
+  }
 
   DrawProviderSummaryPage (
     Ui,
@@ -1116,7 +1177,7 @@ DrawSystemInfo (
     Labels,
     Values,
     Groups,
-    ARRAY_SIZE (Labels)
+    Count
     );
 }
 
