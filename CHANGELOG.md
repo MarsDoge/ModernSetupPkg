@@ -12,6 +12,16 @@ this file as both a release log and a lightweight development progress record.
 
 ## Unreleased
 
+### Changed
+
+- Refreshed the GitHub showcase screenshots (`Assets/Screenshots/`) to the current
+  app: the OVMF X64 dashboard hero and the LoongArch dashboard are re-captured
+  (now showing the System tab, real SMBIOS platform/CPU/memory data, and the
+  platform-adaptive quick cards), and new captures are added for the OVMF X64
+  System Information page (`modern-ovmf-x64-systeminfo.png`) and the ArmVirt
+  AArch64 dashboard (`modern-aarch64-dashboard.png`). README gallery updated to
+  match. RISC-V capture is pending (its edk2 DEBUG firmware asserts before GOP).
+
 ### Added
 
 - The System Information page now shows the deeper SMBIOS identity that does not
