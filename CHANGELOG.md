@@ -12,6 +12,27 @@ this file as both a release log and a lightweight development progress record.
 
 ## Unreleased
 
+### Added
+
+- New `MODERN_SETUP_SECURE_BOOT=1` switch on `Scripts/build-ovmf-x64.sh`: passes
+  `-D SECURE_BOOT_ENABLE=TRUE` through to the upstream OVMF DSC/FDF `!if` blocks
+  so SecurityPkg's real **Secure Boot Configuration** formset
+  (`SecureBootConfigDxe`) is included -- a production VFR surface for validating
+  the App Devices page and the modern DisplayEngine beyond `DriverSampleDxe`.
+  Display-only validation aid; off by default; no upstream file is edited.
+  Verified end-to-end under QEMU: the Devices page lists the real formsets
+  (Secure Boot, RAM Disk, OVMF Platform Configuration, Driver Health, File
+  Explorer) and the Secure Boot form renders through native FormBrowser with the
+  LVGL backend (checkbox, mode dropdown, goto, context help).
+
+### Fixed
+
+- `MODERN_SETUP_DEMO_DRIVER_SAMPLE=1` can now be combined with
+  `MODERN_SETUP_REPLACE_UIAPP=1` on OVMF X64: the DriverSample DSC/FDF insertion
+  is re-anchored on `QemuKernelLoaderFsDxe` (stable) instead of the UiApp
+  component, which `MODERN_SETUP_REPLACE_UIAPP` may already have replaced. The
+  smoke OVMF fixture gains the same anchor.
+
 ### Changed
 
 - Refreshed the GitHub showcase screenshots (`Assets/Screenshots/`) to the current

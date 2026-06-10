@@ -21,6 +21,12 @@ MODERN_SETUP_REPLACE_UIAPP="${MODERN_SETUP_REPLACE_UIAPP:-0}"
 # password/ordered-list), reachable via Device Manager. Used to exercise the
 # DisplayEngine control affordances; off by default.
 MODERN_SETUP_DEMO_DRIVER_SAMPLE="${MODERN_SETUP_DEMO_DRIVER_SAMPLE:-0}"
+# Opt-in real-platform HII validation: passes -D SECURE_BOOT_ENABLE=TRUE through
+# to the upstream OVMF DSC/FDF !if blocks so SecurityPkg's SecureBootConfigDxe
+# (the real Secure Boot configuration formset) is included. This exercises the
+# App Devices page and the modern DisplayEngine against a production VFR surface
+# instead of only DriverSampleDxe. Display-only validation aid; off by default.
+MODERN_SETUP_SECURE_BOOT="${MODERN_SETUP_SECURE_BOOT:-0}"
 GENERATE_ONLY="${GENERATE_ONLY:-0}"
 OVERLAY_DIR="${WORKSPACE}/Build/ModernSetupPkgOverlay"
 
@@ -226,11 +232,14 @@ if (display_engine == "modern" or display_engine == "lvgl"):
         f"  gModernSetupPkgTokenSpaceGuid.PcdModernSetupTheme|{theme_pcd}\n"
     )
 if enable_driver_sample and driver_sample_component not in dsc:
+    # Anchor on QemuKernelLoaderFsDxe (also used for BootManagerMenuApp): it is
+    # stable whether or not MODERN_SETUP_REPLACE_UIAPP has already replaced the
+    # UiApp component above.
     dsc = replace_regex_once(
         dsc,
-        r"^(  MdeModulePkg/Application/UiApp/UiApp\.inf)",
+        r"^(\s*OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe\.inf \{)",
         driver_sample_component + r"\n\1",
-        "UiApp DSC component anchor for DriverSample",
+        "QemuKernelLoaderFsDxe DSC component anchor for DriverSample",
     )
 (overlay / "OvmfX64ModernSetup.dsc").write_text(dsc)
 
@@ -266,11 +275,12 @@ if replace_uiapp:
             "  }\n"
         )
 if enable_driver_sample and driver_sample_fdf_inf not in fdf:
+    # Same stable anchor as the DSC side (UiApp may already be replaced).
     fdf = replace_regex_once(
         fdf,
-        r"^(\s*INF\s+MdeModulePkg/Application/UiApp/UiApp\.inf\s*)$",
+        r"^(\s*INF\s+OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe\.inf\s*)$",
         driver_sample_fdf_inf + r"\n\1",
-        "UiApp FDF INF anchor for DriverSample",
+        "QemuKernelLoaderFsDxe FDF INF anchor for DriverSample",
     )
 (overlay / "OvmfX64ModernSetup.fdf").write_text(fdf)
 PY
@@ -279,6 +289,7 @@ echo "Generated: ${OVERLAY_DIR}/OvmfX64ModernSetup.dsc"
 echo "Generated: ${OVERLAY_DIR}/OvmfX64ModernSetup.fdf"
 echo "DisplayEngine: ${MODERN_SETUP_DISPLAY_ENGINE}"
 echo "Replace UiApp with ModernSetupApp: ${MODERN_SETUP_REPLACE_UIAPP}"
+echo "Secure Boot HII (SecureBootConfigDxe): ${MODERN_SETUP_SECURE_BOOT}"
 
 if [[ "${GENERATE_ONLY}" == "1" ]]; then
   exit 0
@@ -295,12 +306,20 @@ set +u
 source edksetup.sh
 set -u
 
+# Extra -D defines flow into the upstream !if blocks preserved by the overlay
+# DSC/FDF; no upstream file is edited.
+EXTRA_BUILD_DEFINES=()
+if [[ "${MODERN_SETUP_SECURE_BOOT}" =~ ^(1|true|yes)$ ]]; then
+  EXTRA_BUILD_DEFINES+=( -D SECURE_BOOT_ENABLE=TRUE )
+fi
+
 build \
   -a X64 \
   -t "${TOOL_CHAIN_TAG}" \
   -p Build/ModernSetupPkgOverlay/OvmfX64ModernSetup.dsc \
   -b "${TARGET}" \
-  -n "${JOBS}"
+  -n "${JOBS}" \
+  ${EXTRA_BUILD_DEFINES[@]+"${EXTRA_BUILD_DEFINES[@]}"}
 
 echo "Built: ${WORKSPACE}/Build/OvmfX64/${TARGET}_${TOOL_CHAIN_TAG}/FV/OVMF_CODE.fd"
 echo "Vars:  ${WORKSPACE}/Build/OvmfX64/${TARGET}_${TOOL_CHAIN_TAG}/FV/OVMF_VARS.fd"

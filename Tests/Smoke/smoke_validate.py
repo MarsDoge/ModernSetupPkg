@@ -644,12 +644,15 @@ def ovmf_x64_fixture(workspace: Path) -> None:
   MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
   MdeModulePkg/Application/UiApp/UiApp.inf {
   }
+  OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.inf {
+  }
 """,
     )
     write(
         workspace / "OvmfPkg" / "OvmfPkgX64.fdf",
         """INF  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
 INF  MdeModulePkg/Application/UiApp/UiApp.inf
+INF  OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.inf
 """,
     )
 
