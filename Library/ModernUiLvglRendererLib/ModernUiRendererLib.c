@@ -213,6 +213,23 @@ ModernUiRendererInit (
   Context->Width  = Context->Gop->Mode->Info->HorizontalResolution;
   Context->Height = Context->Gop->Mode->Info->VerticalResolution;
 
+  //
+  // Refuse a mode too small for the modern chrome so callers fall back to plain
+  // text rendering instead of painting broken layout. See MODERN_UI_MIN_RENDER_*.
+  //
+  if ((Context->Width < MODERN_UI_MIN_RENDER_WIDTH) || (Context->Height < MODERN_UI_MIN_RENDER_HEIGHT)) {
+    DEBUG ((
+      DEBUG_WARN,
+      "%a: GOP mode %ux%u below modern minimum %ux%u; falling back\n",
+      __func__,
+      Context->Width,
+      Context->Height,
+      MODERN_UI_MIN_RENDER_WIDTH,
+      MODERN_UI_MIN_RENDER_HEIGHT
+      ));
+    return EFI_NOT_FOUND;
+  }
+
   Status = gBS->LocateProtocol (
                   &gEfiHiiFontProtocolGuid,
                   NULL,
@@ -275,6 +292,13 @@ ModernUiRendererInit (
       }
 
       lv_display_set_flush_cb (mDisplay, LvglBridgeFlush);
+    } else {
+      //
+      // Mode change: keep the LVGL display resolution in sync with the newly
+      // sized canvas so the screen object and flush geometry match the active
+      // GOP mode on the first post-change frame.
+      //
+      lv_display_set_resolution (mDisplay, (int32_t)Context->Width, (int32_t)Context->Height);
     }
 
     lv_display_set_buffers (
@@ -285,13 +309,20 @@ ModernUiRendererInit (
       LV_DISPLAY_RENDER_MODE_PARTIAL
       );
 
-    mCanvas = lv_canvas_create (lv_display_get_screen_active (mDisplay));
+    //
+    // Create the canvas object once and rebind its buffer on every (re)build.
+    // Re-creating it each time would orphan the previous canvas (and leave it
+    // pointing at the buffer just freed above) on a mode change.
+    //
     if (mCanvas == NULL) {
-      FreePool (mCanvasBuf);
-      FreePool (mDispBuf);
-      mCanvasBuf = NULL;
-      mDispBuf   = NULL;
-      return EFI_OUT_OF_RESOURCES;
+      mCanvas = lv_canvas_create (lv_display_get_screen_active (mDisplay));
+      if (mCanvas == NULL) {
+        FreePool (mCanvasBuf);
+        FreePool (mDispBuf);
+        mCanvasBuf = NULL;
+        mDispBuf   = NULL;
+        return EFI_OUT_OF_RESOURCES;
+      }
     }
 
     lv_canvas_set_buffer (

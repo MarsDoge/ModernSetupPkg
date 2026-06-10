@@ -17,6 +17,17 @@
 
 #include <ModernUi/ModernUiTheme.h>
 
+//
+// Minimum GOP mode the modern renderer treats as usable. The modern chrome
+// (header, tab rail, right help rail, popups) cannot lay out below roughly VGA;
+// when the active mode is smaller (or GOP is absent), ModernUiRendererInit
+// fails so callers degrade gracefully -- the in-setup display engine falls back
+// to plain text-console output and the front-page app exits to the native shell
+// -- instead of painting broken or blank chrome.
+//
+#define MODERN_UI_MIN_RENDER_WIDTH   640
+#define MODERN_UI_MIN_RENDER_HEIGHT  480
+
 typedef struct {
   UINTN    X;
   UINTN    Y;

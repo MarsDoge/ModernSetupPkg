@@ -307,7 +307,7 @@ UefiMain (
           }
         } else if (Page == PageDashboard) {
           if (ModernSetupGetDashboardQuickGrid (&Ui, mModernSetupPreferences.DashboardDensity, &DashboardGrid) &&
-              ((DashboardSelection + DashboardGrid.CardsPerRow) < DASHBOARD_QUICK_CARD_COUNT))
+              ((DashboardSelection + DashboardGrid.CardsPerRow) < ModernSetupDashboardVisibleQuickCardCount ()))
           {
             DashboardSelection += DashboardGrid.CardsPerRow;
           }
@@ -339,7 +339,7 @@ UefiMain (
           {
             DashboardSelection--;
           } else if (!DashboardGrid.Visible) {
-            DashboardSelection = (DashboardSelection == 0) ? (DASHBOARD_QUICK_CARD_COUNT - 1) : (DashboardSelection - 1);
+            DashboardSelection = (DashboardSelection == 0) ? (ModernSetupDashboardVisibleQuickCardCount () - 1) : (DashboardSelection - 1);
           }
         } else if (Focus == SetupFocusNav) {
           Page = (Page == 0) ? (PageMax - 1) : (Page - 1);
@@ -359,11 +359,11 @@ UefiMain (
           ModernSetupCancelPreferencePopup ();
         } else if (Page == PageDashboard) {
           if (ModernSetupGetDashboardQuickGrid (&Ui, mModernSetupPreferences.DashboardDensity, &DashboardGrid)) {
-            if ((((DashboardSelection % DashboardGrid.CardsPerRow) + 1) < DashboardGrid.CardsPerRow) && ((DashboardSelection + 1) < DASHBOARD_QUICK_CARD_COUNT)) {
+            if ((((DashboardSelection % DashboardGrid.CardsPerRow) + 1) < DashboardGrid.CardsPerRow) && ((DashboardSelection + 1) < ModernSetupDashboardVisibleQuickCardCount ())) {
               DashboardSelection++;
             }
           } else {
-            DashboardSelection = (DashboardSelection + 1) % DASHBOARD_QUICK_CARD_COUNT;
+            DashboardSelection = (DashboardSelection + 1) % ModernSetupDashboardVisibleQuickCardCount ();
           }
           StatusMessage[0] = L'\0';
         } else {

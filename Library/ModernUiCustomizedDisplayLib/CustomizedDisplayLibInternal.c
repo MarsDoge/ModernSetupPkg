@@ -559,13 +559,21 @@ ModernDisplayDrawFormTitleContext (
   TitleY     = (Layout->ContentTopRow * CellHeight) + MIN (6, MAX (2, CellHeight / 5));
   TitleWidth = (TitleRightColumn - TitleLeftColumn) * CellWidth;
 
+  //
+  // Render the form title as a prominent section header: brighter than plain
+  // muted body text (kept as a blend toward MutedText so it still reads as a
+  // heading, not a value), so each form is clearly anchored by its title.
+  // Presentation only. (An accent underline below the title is intentionally
+  // not drawn here: it sits in the content band the native FormBrowser repaints
+  // after the chrome, which would wipe it.)
+  //
   ModernUiDrawTextFit (
     &mModernRenderContext,
     TitleX,
     TitleY,
     TitleWidth,
     PrintableTitle,
-    Theme->MutedText,
+    ModernUiBlendColor (Theme->Text, Theme->MutedText, 22),
     Theme->BackgroundBlack
     );
 }
@@ -2402,6 +2410,7 @@ PrintInternal (
   UINTN   TextMaxWidth;
   UINTN   TextInset;
   UINTN   MeasuredWidth;
+  UINTN   Emitted;
   CHAR16  *Printable;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Foreground;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background;
@@ -2521,6 +2530,21 @@ PrintInternal (
 
     mModernCursorColumn = DrawColumn + TotalCount;
     mModernCursorRow    = DrawRow;
+  } else {
+    //
+    // Renderer unavailable (GOP absent, or a mode below the usable minimum):
+    // fall back to plain text-console output so the form stays readable instead
+    // of blanking. SetCursorPosition/SetAttribute above already positioned and
+    // themed the cell; pad to the caller's field width so a previously longer
+    // string at this position is overwritten, matching the native text grid.
+    //
+    Out->OutputString (Out, Buffer);
+    for (Emitted = TotalCount; Emitted < Width; Emitted++) {
+      Out->OutputString (Out, L" ");
+    }
+
+    mModernCursorColumn = ((Column == (UINTN)-1) ? mModernCursorColumn : Column) + MAX (TotalCount, Width);
+    mModernCursorRow    = (Row == (UINTN)-1) ? mModernCursorRow : Row;
   }
 
   FreePool (Buffer);

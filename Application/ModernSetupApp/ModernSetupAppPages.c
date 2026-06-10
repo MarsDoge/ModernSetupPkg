@@ -1043,6 +1043,145 @@ DrawFirmware (
 }
 
 /**
+  Draw the System Information page: a read-only detail view of the real platform,
+  processor, memory, and firmware identity collected by the platform provider.
+
+  All values come from the cached provider snapshot (no re-probe). The page parses
+  no IFR and writes nothing; it is a deeper read-only companion to the dashboard
+  System Information panel.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] Focus  Current focus area.
+**/
+STATIC
+VOID
+MODERN_SETUP_NOINLINE
+DrawSystemInfo (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus
+  )
+{
+  MODERN_SETUP_PROVIDER_SNAPSHOT  Providers;
+  MODERN_UI_PLATFORM_SUMMARY      *Summary;
+  CONST CHAR8                     *Language;
+  BOOLEAN                         Zh;
+  CHAR16                          MemoryText[96];
+  CONST CHAR16                    *Labels[13];
+  CONST CHAR16                    *Values[13];
+  CONST CHAR16                    *Groups[13];
+  UINTN                           Count;
+
+  ModernSetupGetCachedProviderSnapshot (&Providers);
+  Summary  = &Providers.Platform;
+  Language = ModernUiGetLanguage ();
+  Zh       = (BOOLEAN)((Language[0] == 'z') && (Language[1] == 'h'));
+
+  if (Summary->MemoryDetail[0] != L'\0') {
+    UnicodeSPrint (MemoryText, sizeof (MemoryText), L"%lu MB (%s)", Summary->MemorySizeMb, Summary->MemoryDetail);
+  } else {
+    UnicodeSPrint (MemoryText, sizeof (MemoryText), L"%lu MB", Summary->MemorySizeMb);
+  }
+
+  Count = 0;
+
+  Groups[Count] = Zh ? L"系统" : L"System";
+  Labels[Count] = Zh ? L"平台" : L"Platform";
+  Values[Count] = Summary->Platform;
+  Count++;
+  if (Summary->Baseboard[0] != L'\0') {
+    //
+    // "Baseboard" stays English in the zh UI: the zh glyphs are outside the
+    // embedded subset (graceful-fallback policy).
+    //
+    Groups[Count] = NULL;
+    Labels[Count] = L"Baseboard";
+    Values[Count] = Summary->Baseboard;
+    Count++;
+  }
+
+  Groups[Count] = NULL;
+  Labels[Count] = L"CPU";
+  Values[Count] = Summary->Processor;
+  Count++;
+  Groups[Count] = NULL;
+  Labels[Count] = Zh ? L"内存" : L"Memory";
+  Values[Count] = MemoryText;
+  Count++;
+  Groups[Count] = NULL;
+  Labels[Count] = Zh ? L"Arch" : L"Architecture";
+  Values[Count] = Summary->Architecture;
+  Count++;
+  Groups[Count] = NULL;
+  Labels[Count] = ModernUiGetString (ModernUiStringFormFactor);
+  Values[Count] = Summary->FormFactor;
+  Count++;
+  Groups[Count] = NULL;
+  Labels[Count] = ModernUiGetString (ModernUiStringBootMode);
+  Values[Count] = Summary->BootMode;
+  Count++;
+
+  //
+  // Identity rows are appended only when SMBIOS actually reports them, so the
+  // page collapses cleanly on platforms with thin SMBIOS instead of stacking
+  // empty rows (same philosophy as the dashboard N/A reflow).
+  //
+  if (Summary->Serial[0] != L'\0') {
+    //
+    // "Serial number" stays English in the zh UI (glyphs outside the subset).
+    //
+    Groups[Count] = NULL;
+    Labels[Count] = L"Serial number";
+    Values[Count] = Summary->Serial;
+    Count++;
+  }
+
+  if (Summary->Uuid[0] != L'\0') {
+    Groups[Count] = NULL;
+    Labels[Count] = L"UUID";
+    Values[Count] = Summary->Uuid;
+    Count++;
+  }
+
+  Groups[Count] = ModernUiGetString (ModernUiStringGroupFirmware);
+  Labels[Count] = ModernUiGetString (ModernUiStringFirmwareVendor);
+  Values[Count] = Summary->FirmwareVendor;
+  Count++;
+  Groups[Count] = NULL;
+  Labels[Count] = ModernUiGetString (ModernUiStringFirmwareRevision);
+  Values[Count] = Summary->FirmwareRevision;
+  Count++;
+  if (Summary->BiosVersion[0] != L'\0') {
+    Groups[Count] = NULL;
+    Labels[Count] = Zh ? L"BIOS 版本" : L"BIOS version";
+    Values[Count] = Summary->BiosVersion;
+    Count++;
+  }
+
+  if (Summary->BiosDate[0] != L'\0') {
+    //
+    // "BIOS date" stays English in the zh UI (日/期 outside the subset).
+    //
+    Groups[Count] = NULL;
+    Labels[Count] = L"BIOS date";
+    Values[Count] = Summary->BiosDate;
+    Count++;
+  }
+
+  DrawProviderSummaryPage (
+    Ui,
+    Theme,
+    Focus,
+    ModernUiGetString (ModernUiStringPageSystemInfo),
+    Labels,
+    Values,
+    Groups,
+    Count
+    );
+}
+
+/**
   Draw the Diagnostics page with read-only bring-up and table state.
 
   @param[in] Ui     Initialized render context. Must not be NULL.
@@ -1941,6 +2080,9 @@ ModernSetupDrawCurrentPage (
   switch (Page) {
     case PageDashboard:
       ModernSetupDrawDashboard (Ui, Theme, Focus, DashboardSelection);
+      break;
+    case PageSystemInfo:
+      DrawSystemInfo (Ui, Theme, Focus);
       break;
     case PageBoot:
       DrawBoot (Ui, Theme, Focus, BootSelection);

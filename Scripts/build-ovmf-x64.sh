@@ -15,7 +15,7 @@ TARGET="${TARGET:-DEBUG}"
 TOOL_CHAIN_TAG="${TOOL_CHAIN_TAG:-GCC}"
 JOBS="${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
 MODERN_SETUP_THEME="${MODERN_SETUP_THEME:-graphite-gold}"
-MODERN_SETUP_DISPLAY_ENGINE="${MODERN_SETUP_DISPLAY_ENGINE:-modern}"
+MODERN_SETUP_DISPLAY_ENGINE="${MODERN_SETUP_DISPLAY_ENGINE:-lvgl}"
 MODERN_SETUP_REPLACE_UIAPP="${MODERN_SETUP_REPLACE_UIAPP:-0}"
 # Opt-in control-rich VFR test driver (checkbox/numeric/date/time/string/
 # password/ordered-list), reachable via Device Manager. Used to exercise the

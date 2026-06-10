@@ -65,6 +65,7 @@ InitializeProviderSnapshotDefaults (
   SetUnknownText (Snapshot->Platform.FirmwareRevision, ARRAY_SIZE (Snapshot->Platform.FirmwareRevision));
   SetUnknownText (Snapshot->Platform.Architecture, ARRAY_SIZE (Snapshot->Platform.Architecture));
   SetUnknownText (Snapshot->Platform.Platform, ARRAY_SIZE (Snapshot->Platform.Platform));
+  SetUnknownText (Snapshot->Platform.Processor, ARRAY_SIZE (Snapshot->Platform.Processor));
   SetUnknownText (Snapshot->Platform.FormFactor, ARRAY_SIZE (Snapshot->Platform.FormFactor));
   SetUnknownText (Snapshot->Platform.BootMode, ARRAY_SIZE (Snapshot->Platform.BootMode));
   SetUnknownText (Snapshot->Firmware.Vendor, ARRAY_SIZE (Snapshot->Firmware.Vendor));

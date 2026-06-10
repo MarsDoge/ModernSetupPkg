@@ -12,6 +12,113 @@ this file as both a release log and a lightweight development progress record.
 
 ## Unreleased
 
+### Changed
+
+- Refreshed the GitHub showcase screenshots (`Assets/Screenshots/`) to the current
+  app: the OVMF X64 dashboard hero and the LoongArch dashboard are re-captured
+  (now showing the System tab, real SMBIOS platform/CPU/memory data, and the
+  platform-adaptive quick cards), and new captures are added for the OVMF X64
+  System Information page (`modern-ovmf-x64-systeminfo.png`) and the ArmVirt
+  AArch64 dashboard (`modern-aarch64-dashboard.png`). README gallery updated to
+  match. RISC-V capture is pending (its edk2 DEBUG firmware asserts before GOP).
+
+### Added
+
+- The System Information page now shows the deeper SMBIOS identity that does not
+  fit the dashboard: **Baseboard** ("<Manufacturer> <Product>", Type 2),
+  **Serial number** and **UUID** (Type 1, with the all-zero/all-FF "not
+  present/not settable" UUID sentinels suppressed), and the BIOS-vendor-owned
+  **BIOS version / BIOS date** strings (Type 0) alongside the numeric firmware
+  revision. Each row is appended only when SMBIOS actually reports a usable value
+  (placeholder strings filtered), so the page collapses cleanly on thin-SMBIOS
+  platforms. `MODERN_UI_PLATFORM_SUMMARY` gains appended (additive) `Serial`,
+  `Uuid`, `Baseboard`, `BiosVersion`, and `BiosDate` fields.
+- New **System Information** page (`PageSystemInfo`), a dedicated read-only detail
+  view reachable as the second navigation tab (after the dashboard). It shows the
+  real platform identity (SMBIOS Type 1), CPU (Type 4), memory type/speed
+  (Type 17), architecture, form factor, boot mode, and firmware vendor/revision in
+  grouped rows -- a deeper companion to the dashboard System Information panel. The
+  page parses no IFR and writes nothing; all values come from the cached provider
+  snapshot. Adds the `ModernUiStringPageSystemInfo`/`...Hint` strings (EN + zh:
+  "系统规格") and a `SETUP_PAGE` entry; the nav rail, tab labels, and the normative
+  page set in `Docs/AppFeatureStandard.md` are updated together.
+- The dashboard Memory row now appends real module detail read from SMBIOS
+  Type 17 (Memory Device): "<total> MB (<type>-<speed>, <N> DIMMs)" -- e.g.
+  "8192 MB (DDR4-3200, 2 DIMMs)". The type prefix (DDR3/DDR4/DDR5/LPDDR4/... via a
+  MemoryType map) and speed (configured clock preferred over rated) are each
+  omitted when not reported, and the row falls back to the bare total size when
+  Type 17 is absent. `MODERN_UI_PLATFORM_SUMMARY` gains an appended (additive)
+  `MemoryDetail` field; the total size still comes from the UEFI memory map.
+- The dashboard System Information panel now shows a real **CPU** row read from
+  SMBIOS Type 4 (Processor Information): "<Processor Version> (<cores>C/<threads>T)"
+  -- e.g. "QEMU Virtual CPU version 2.5+ (4C/8T)" -- honoring the SMBIOS 0xFF
+  CoreCount2/ThreadCount2 escape for high core counts and filtering placeholder
+  version strings. `MODERN_UI_PLATFORM_SUMMARY` gains an appended (additive,
+  end-of-struct) `Processor` field per `Docs/API_COMPATIBILITY.md`; it degrades to
+  the localized Unknown text when SMBIOS Type 4 is absent.
+- The dashboard "Platform" value now shows the real system identity read from
+  SMBIOS Type 1 (System Information) -- "<Manufacturer> <Product Name>", e.g.
+  "QEMU Standard PC (Q35 + ICH9, 2009)" -- instead of the hardcoded generic
+  "UEFI platform" string. Well-known meaningless OEM placeholder strings
+  ("To Be Filled By O.E.M.", "Not Specified", "System Product Name", etc.) are
+  filtered out, and the generic label remains as the fallback when SMBIOS Type 1
+  is absent or reports no usable identity. `ModernUiPlatformDataLib` gains a small
+  SMBIOS string-set reader for this; it stays read-only and cross-architecture.
+
+### Fixed
+
+- The modern in-setup display engine no longer blanks the screen when the
+  graphics renderer is unavailable. Previously, when GOP was absent the
+  text-print path (`PrintInternal`) emitted neither GOP graphics nor console
+  text, so a form rendered as a blank screen (the modern engine had replaced the
+  native text DisplayEngine). It now falls back to plain text-console output
+  (`OutputString`, padded to the field width) so the form stays readable. This is
+  the graceful-degradation path required for GOP-absent and degenerate-mode
+  robustness (LVGL productization Gate 4).
+
+### Changed
+
+- The modern renderer now refuses GOP modes below a usable minimum
+  (`MODERN_UI_MIN_RENDER_WIDTH` x `MODERN_UI_MIN_RENDER_HEIGHT` = 640x480) in both
+  the GOP and LVGL `ModernUiRendererInit`. Below that, init returns
+  `EFI_NOT_FOUND` so the in-setup display engine degrades to text rendering and
+  the front-page app exits to the native shell, instead of painting broken
+  chrome. Normal targets (>= 800x600) are unaffected.
+- The LVGL renderer's GOP mode-change re-init path is corrected: the LVGL display
+  resolution is now updated (`lv_display_set_resolution`) to match the
+  reallocated canvas, and the canvas object is created once and rebound rather
+  than re-created each time (which orphaned the previous canvas and its freed
+  buffer). Fixes the first post-mode-change frame and a per-mode-change object
+  leak.
+
+- The front-page dashboard quick-category cards are now **platform-class
+  adaptive** per the new normative App feature standard
+  (`Docs/AppFeatureStandard.md`). The quick-card *catalog* is unchanged (8
+  entries: Continue, Boot, Devices, Provider status, Firmware, Power,
+  Performance, Server inventory), but the trailing **Server inventory** card is
+  now hidden on client/unknown platforms unless the chassis reports a server
+  form factor or a management provider (IPMI / Redfish / SMBIOS management
+  interface) is live. On a client desktop or a VM the grid reflows to seven
+  cards; on a managed/server platform all eight show. Card hiding is driven by a
+  single applicability predicate (`ModernSetupDashboardQuickCardApplicable`); the
+  grid layout, keyboard navigation, and route resolution all bound on the
+  resulting visible count, and a hidden card is neither focusable nor
+  Enter-activatable. Smoke now asserts the catalog stays fixed while requiring
+  the data-driven visible-count helpers, instead of pinning a fixed visible
+  count.
+
+- The firmware revision shown on the front-page dashboard System Information card
+  and the Firmware/Platform provider summaries is now humanized. `gST->FirmwareRevision`
+  (conventionally `(major << 16) | minor`) renders as `<major>.<minor> (0x........)`
+  -- e.g. `1.00 (0x00010000)` -- instead of a bare `0x00010000`, so the value is
+  readable at a glance while the exact encoded hex is still available. Applies to
+  both `ModernUiPlatformDataLib` and `ModernUiFirmwareDataLib`.
+- Front-page dashboard provider-health text no longer mixes languages in the
+  Simplified Chinese UI. The "Degraded" state now reads `退化` (was the English
+  "Degraded" leaking into the otherwise-Chinese `就绪 / 未就绪` set), and the
+  all-providers-ready hint reads `已就绪` (was a terse `OK`). Both use glyphs
+  already present in the embedded Noto Sans CJK SC subset (no font change).
+
 ### Added
 
 - The in-setup DisplayEngine chrome is now localized. The header product/mode

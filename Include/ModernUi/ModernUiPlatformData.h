@@ -23,6 +23,31 @@ typedef struct {
   CHAR16    FormFactor[MODERN_UI_PLATFORM_TEXT_MAX];
   CHAR16    BootMode[MODERN_UI_PLATFORM_TEXT_MAX];
   UINT64    MemorySizeMb;
+  //
+  // Appended (additive): processor identity from SMBIOS Type 4, e.g.
+  // "QEMU Virtual CPU version 2.5+ (4C/8T)". Empty/Unknown when Type 4 is absent.
+  //
+  CHAR16    Processor[MODERN_UI_PLATFORM_TEXT_MAX];
+  //
+  // Appended (additive): memory type/speed/DIMM-count detail from SMBIOS Type 17,
+  // e.g. "DDR4-3200, 2 DIMMs". Empty when Type 17 is absent; the total size is in
+  // MemorySizeMb above.
+  //
+  CHAR16    MemoryDetail[MODERN_UI_PLATFORM_TEXT_MAX];
+  //
+  // Appended (additive): deeper system-detail identity for the System
+  // Information page. Each is empty when its SMBIOS source is absent.
+  //   Serial       - system serial number (SMBIOS Type 1).
+  //   Uuid         - system UUID, canonical string form (SMBIOS Type 1).
+  //   Baseboard    - "<Manufacturer> <Product>" (SMBIOS Type 2).
+  //   BiosVersion  - firmware version string (SMBIOS Type 0).
+  //   BiosDate     - firmware release date (SMBIOS Type 0).
+  //
+  CHAR16    Serial[MODERN_UI_PLATFORM_TEXT_MAX];
+  CHAR16    Uuid[MODERN_UI_PLATFORM_TEXT_MAX];
+  CHAR16    Baseboard[MODERN_UI_PLATFORM_TEXT_MAX];
+  CHAR16    BiosVersion[MODERN_UI_PLATFORM_TEXT_MAX];
+  CHAR16    BiosDate[MODERN_UI_PLATFORM_TEXT_MAX];
 } MODERN_UI_PLATFORM_SUMMARY;
 
 /**

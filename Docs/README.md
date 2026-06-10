@@ -17,6 +17,7 @@ Simplified Chinese counterparts for the core project docs.
 | Topic | English | 简体中文 |
 | --- | --- | --- |
 | XArch architecture model | [XArch.md](XArch.md) | [XArch.zh-CN.md](XArch.zh-CN.md) |
+| App feature standard (normative) | [AppFeatureStandard.md](AppFeatureStandard.md) | [AppFeatureStandard.zh-CN.md](AppFeatureStandard.zh-CN.md) |
 | Productization feature matrix | [ProductizationFeatureMatrix.md](ProductizationFeatureMatrix.md) | [ProductizationFeatureMatrix.zh-CN.md](ProductizationFeatureMatrix.zh-CN.md) |
 | Productization validation matrix | [ProductizationValidationMatrix.md](ProductizationValidationMatrix.md) | [ProductizationValidationMatrix.zh-CN.md](ProductizationValidationMatrix.zh-CN.md) |
 | Module boundaries | [MODULE_BOUNDARIES.md](MODULE_BOUNDARIES.md) | [MODULE_BOUNDARIES.zh-CN.md](MODULE_BOUNDARIES.zh-CN.md) |

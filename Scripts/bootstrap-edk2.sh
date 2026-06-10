@@ -24,6 +24,15 @@ fi
 echo "Updating edk2 submodule: External/edk2"
 git submodule update --init -- External/edk2
 
+# External/lvgl is the upstream LVGL submodule consumed by the LVGL display
+# engine (the default backend on the targets that build it, e.g. ovmf-x64 and
+# loongarch). Initialize it when the .gitmodules entry is present so a default
+# MODERN_SETUP_DISPLAY_ENGINE=lvgl build works from a fresh checkout.
+if git config -f .gitmodules --get submodule.External/lvgl.url >/dev/null 2>&1; then
+  echo "Updating LVGL submodule: External/lvgl"
+  git submodule update --init -- External/lvgl
+fi
+
 # Initialize edk2 first-level dependencies only.  A full recursive update pulls
 # optional nested OpenSSL test submodules, which are not required for the
 # ModernSetupPkg BaseTools/app/OVMF baseline and can make validation slow,

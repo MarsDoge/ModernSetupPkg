@@ -576,9 +576,11 @@ Screenshots for GitHub presentation belong under `Assets/Screenshots/`. Keep
 captures focused on ModernSetup itself, not vendor firmware screens or copied
 assets.
 
-Current OVMF X64 capture:
+Current OVMF X64 captures:
 
 ![ModernSetup OVMF X64 dashboard](Assets/Screenshots/modern-ovmf-x64-dashboard-graphite-gold.png)
+
+![ModernSetup OVMF X64 System Information page](Assets/Screenshots/modern-ovmf-x64-systeminfo.png)
 
 Current LoongArch captures:
 
@@ -586,11 +588,9 @@ Current LoongArch captures:
 
 ![ModernDisplayEngine LoongArch device page](Assets/Screenshots/modern-loongarch-displayengine-device.png)
 
-Current ArmVirt `ModernSetupApp` captures:
+Current ArmVirt AArch64 `ModernSetupApp` captures:
 
-![ModernSetupApp v0.4 dashboard](Assets/Screenshots/setup-v0.4-dashboard.png)
-
-![ModernSetupApp dashboard](Assets/Screenshots/modern-app-dashboard.png)
+![ModernSetup ArmVirt AArch64 dashboard](Assets/Screenshots/modern-aarch64-dashboard.png)
 
 ![ModernSetupApp English exit page](Assets/Screenshots/modern-app-en-exit.png)
 
