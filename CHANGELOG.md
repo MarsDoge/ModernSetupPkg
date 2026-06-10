@@ -12,6 +12,19 @@ this file as both a release log and a lightweight development progress record.
 
 ## Unreleased
 
+### Fixed
+
+- LVGL widget text no longer renders CJK as `?`. The LVGL backend's widget paths
+  (one-of dropdown value, checkbox label, numeric/string field, ordered list)
+  previously ASCII-folded all non-ASCII to `'?'` ("中文" showed as "??", e.g. the
+  front-page Exit language dropdown when the app renders through the LVGL
+  backend, as in `MODERN_SETUP_REPLACE_UIAPP=1` lvgl firmware). The backend now
+  registers a custom `lv_font_t` backed by the embedded Noto Sans CJK SC A8
+  subset (the same bitmaps the primitive text path composites) with the stock
+  Latin font as fallback, and converts widget labels to UTF-8. Subset CJK renders
+  natively in widgets; out-of-subset code points still degrade to `'?'` (never an
+  LVGL placeholder/tofu box), per the graceful-fallback policy.
+
 ### Added
 
 - Resolution-matrix validation (LVGL productization Gate 4 closure): the OVMF X64
