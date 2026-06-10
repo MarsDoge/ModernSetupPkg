@@ -433,6 +433,7 @@ GetSmbiosSystemDetail (
   EFI_SMBIOS_TYPE          Type;
   SMBIOS_TABLE_TYPE1       *Type1;
   CHAR8                    *SerialString;
+  GUID                     UuidValue;
   CONST UINT8              *UuidBytes;
   BOOLEAN                  AllZero;
   BOOLEAN                  AllOnes;
@@ -465,14 +466,18 @@ GetSmbiosSystemDetail (
   }
 
   //
+  // SMBIOS records are byte-packed, so Type1->Uuid can be unaligned. Copy it to
+  // an aligned local before any structured (%g) access -- a multi-byte read of
+  // the unaligned GUID faults on strict-alignment targets (e.g. AArch64).
   // SMBIOS defines all-zero as "UUID not present" and all-FF as "present but
   // not settable"; neither is a usable identity. The EFI_GUID field layout
   // already matches the SMBIOS 2.6+ byte order, so %g prints canonically.
   //
-  UuidBytes = (CONST UINT8 *)&Type1->Uuid;
+  CopyMem (&UuidValue, &Type1->Uuid, sizeof (UuidValue));
+  UuidBytes = (CONST UINT8 *)&UuidValue;
   AllZero   = TRUE;
   AllOnes   = TRUE;
-  for (Index = 0; Index < sizeof (Type1->Uuid); Index++) {
+  for (Index = 0; Index < sizeof (UuidValue); Index++) {
     if (UuidBytes[Index] != 0x00) {
       AllZero = FALSE;
     }
@@ -483,7 +488,7 @@ GetSmbiosSystemDetail (
   }
 
   if (!AllZero && !AllOnes) {
-    UnicodeSPrint (Uuid, UuidCount * sizeof (CHAR16), L"%g", &Type1->Uuid);
+    UnicodeSPrint (Uuid, UuidCount * sizeof (CHAR16), L"%g", &UuidValue);
   }
 }
 
