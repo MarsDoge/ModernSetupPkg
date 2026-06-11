@@ -92,6 +92,15 @@ UefiMain (
   EFI_EVENT                 KeyEvent;
   UINTN                     WaitCount;
   UINTN                     WaitIndex;
+  UINTN                     PointerX;
+  UINTN                     PointerY;
+  BOOLEAN                   PointerVisible;
+  UINTN                     LastCursorX;
+  UINTN                     LastCursorY;
+  SETUP_PAGE                TabHit;
+  UINTN                     CardHit;
+  UINTN                     ExitRowHit;
+  UINTN                     ExitOptionHit;
 
   gBS->SetWatchdogTimer (0, 0, 0, NULL);
   mModernSetupImageHandle = ImageHandle;
@@ -136,11 +145,25 @@ UefiMain (
   StatusMessage[0] = L'\0';
   Redraw        = TRUE;
   ResetConfirmationPending = FALSE;
+  PointerX       = 0;
+  PointerY       = 0;
+  PointerVisible = FALSE;
+  LastCursorX    = 0;
+  LastCursorY    = 0;
 
   for (;;) {
     if (Redraw) {
       Theme = ModernUiGetThemeForPreference (mModernSetupPreferences.ThemeId);
       ModernSetupDrawCurrentPage (&Ui, Theme, Page, Focus, DashboardSelection, BootSelection, DeviceSelection, PreferencesSelection, ExitSelection, StatusMessage);
+      //
+      // Composite the pointer cursor last so it rides on top of the frame.
+      //
+      if (PointerVisible) {
+        ModernSetupDrawPointerCursor (&Ui, Theme, PointerX, PointerY);
+        LastCursorX = PointerX;
+        LastCursorY = PointerY;
+      }
+
       Redraw = FALSE;
     }
 
@@ -194,6 +217,75 @@ UefiMain (
     OldResetConfirmationPending  = ResetConfirmationPending;
     CopyMem (&OldPreferences, &mModernSetupPreferences, sizeof (OldPreferences));
     CopyMem (OldStatusMessage, StatusMessage, sizeof (OldStatusMessage));
+
+    if ((Event.Type == ModernUiInputPointer) && Event.PointerValid) {
+      //
+      // Scale the absolute pointer report into framebuffer pixels. When the
+      // device reports no usable range the raw values are taken as pixels.
+      //
+      PointerX = Event.PointerX;
+      PointerY = Event.PointerY;
+      if ((Input.Pointer != NULL) && (Input.Pointer->Mode != NULL) &&
+          (Input.Pointer->Mode->AbsoluteMaxX > Input.Pointer->Mode->AbsoluteMinX) &&
+          (Input.Pointer->Mode->AbsoluteMaxY > Input.Pointer->Mode->AbsoluteMinY) &&
+          (Ui.Width > 0) && (Ui.Height > 0))
+      {
+        PointerX = (UINTN)(((Event.PointerX - (UINTN)Input.Pointer->Mode->AbsoluteMinX) * (Ui.Width - 1)) /
+                           (UINTN)(Input.Pointer->Mode->AbsoluteMaxX - Input.Pointer->Mode->AbsoluteMinX));
+        PointerY = (UINTN)(((Event.PointerY - (UINTN)Input.Pointer->Mode->AbsoluteMinY) * (Ui.Height - 1)) /
+                           (UINTN)(Input.Pointer->Mode->AbsoluteMaxY - Input.Pointer->Mode->AbsoluteMinY));
+      }
+
+      PointerVisible = TRUE;
+
+      if (!Event.PointerPressed) {
+        //
+        // Motion only: repaint when the cursor moved far enough to matter, so
+        // sustained motion does not flood the frame with full redraws.
+        //
+        if (((PointerX > LastCursorX) ? (PointerX - LastCursorX) : (LastCursorX - PointerX)) >= 6 ||
+            ((PointerY > LastCursorY) ? (PointerY - LastCursorY) : (LastCursorY - PointerY)) >= 6)
+        {
+          Redraw = TRUE;
+        }
+
+        continue;
+      }
+
+      //
+      // Click. Route through the same activation paths the keyboard uses:
+      // a successful hit updates the selection state and synthesizes an Enter
+      // event, so the shared Enter handling below stays the single owner of
+      // activation semantics.
+      //
+      if (ModernSetupHitTestTab (&Ui, Page, PointerX, PointerY, &TabHit)) {
+        Page  = TabHit;
+        Focus = SetupFocusNav;
+        mModernSetupLanguageDropdownOpen = FALSE;
+        ModernSetupCancelPreferencePopup ();
+        StatusMessage[0] = L'\0';
+        Redraw = TRUE;
+        continue;
+      }
+
+      if ((Page == PageDashboard) && ModernSetupHitTestDashboardCard (&Ui, PointerX, PointerY, &CardHit)) {
+        DashboardSelection = CardHit;
+        Focus = SetupFocusContent;
+        Event.Type = ModernUiInputEnter;
+      } else if ((Page == PageExit) && ModernSetupHitTestExitRow (&Ui, PointerX, PointerY, &ExitRowHit, &ExitOptionHit)) {
+        if (ExitOptionHit != (UINTN)-1) {
+          mModernSetupLanguageDropdownSelection = ExitOptionHit;
+        } else {
+          ExitSelection = ExitRowHit;
+        }
+
+        Focus      = SetupFocusContent;
+        Event.Type = ModernUiInputEnter;
+      } else {
+        Redraw = TRUE;
+        continue;
+      }
+    }
 
     if ((Focus == SetupFocusContent) && (Page == PagePreferences) && mModernSetupPreferencePopupOpen && (Event.Type == ModernUiInputOther)) {
       ModernSetupHandlePreferenceInputKey (&Event, StatusMessage, sizeof (StatusMessage));

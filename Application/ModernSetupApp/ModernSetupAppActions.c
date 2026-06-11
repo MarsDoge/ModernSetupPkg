@@ -113,6 +113,137 @@ ModernSetupDashboardVisibleQuickCardCount (
   return MAX (Count, (UINTN)1);
 }
 
+/**
+  Hit-test the dashboard quick-card grid for a pointer click. See
+  ModernSetupAppInternal.h.
+
+  @param[in]  Ui    Initialized render context. Must not be NULL.
+  @param[in]  X     Pointer X in pixels.
+  @param[in]  Y     Pointer Y in pixels.
+  @param[out] Card  Receives the catalog index of the clicked card.
+
+  @retval TRUE   (X,Y) lies on a visible quick card; *Card is set.
+  @retval FALSE  No card at this position.
+**/
+BOOLEAN
+ModernSetupHitTestDashboardCard (
+  IN  MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN  UINTN                     X,
+  IN  UINTN                     Y,
+  OUT UINTN                     *Card
+  )
+{
+  MODERN_SETUP_DASHBOARD_QUICK_GRID  Grid;
+  UINTN                              VisibleCount;
+  UINTN                              Index;
+  UINTN                              CardX;
+  UINTN                              CardY;
+
+  if ((Ui == NULL) || (Card == NULL)) {
+    return FALSE;
+  }
+
+  if (!ModernSetupGetDashboardQuickGrid (Ui, mModernSetupPreferences.DashboardDensity, &Grid) ||
+      !Grid.Visible || (Grid.CardsPerRow == 0))
+  {
+    return FALSE;
+  }
+
+  //
+  // Same placement formula the dashboard drawing loop uses; bounded by the
+  // platform-visible count so a hidden card can never be clicked.
+  //
+  VisibleCount = ModernSetupDashboardVisibleQuickCardCount ();
+  for (Index = 0; Index < VisibleCount; Index++) {
+    CardX = Grid.Panel.X + 20 + ((Index % Grid.CardsPerRow) * (Grid.CardWidth + Grid.CardGap));
+    CardY = Grid.Panel.Y + Grid.CardTop + ((Index / Grid.CardsPerRow) * (Grid.CardHeight + Grid.CardGap));
+    if ((X >= CardX) && (X < (CardX + Grid.CardWidth)) &&
+        (Y >= CardY) && (Y < (CardY + Grid.CardHeight)))
+    {
+      *Card = Index;
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+  Hit-test the Exit page rows and the open language dropdown. See
+  ModernSetupAppInternal.h.
+
+  @param[in]  Ui              Initialized render context. Must not be NULL.
+  @param[in]  X               Pointer X in pixels.
+  @param[in]  Y               Pointer Y in pixels.
+  @param[out] Row             Receives the clicked row index.
+  @param[out] DropdownOption  Receives the clicked dropdown option, or
+                              (UINTN)-1 when the click is on a row.
+
+  @retval TRUE   (X,Y) lies on an Exit row or an open dropdown option.
+  @retval FALSE  Nothing clickable at this position.
+**/
+BOOLEAN
+ModernSetupHitTestExitRow (
+  IN  MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN  UINTN                     X,
+  IN  UINTN                     Y,
+  OUT UINTN                     *Row,
+  OUT UINTN                     *DropdownOption
+  )
+{
+  MODERN_UI_RECT  Panel;
+  UINTN           RowX;
+  UINTN           RowWidth;
+  UINTN           Index;
+  UINTN           RowTop;
+  UINTN           DropdownX;
+  UINTN           DropdownY;
+  UINTN           Option;
+  UINTN           OptionTop;
+
+  if ((Ui == NULL) || (Row == NULL) || (DropdownOption == NULL)) {
+    return FALSE;
+  }
+
+  Panel    = ModernSetupContentRect (Ui);
+  RowX     = Panel.X + 26;
+  RowWidth = (Panel.Width > 52) ? (Panel.Width - 52) : Panel.Width;
+
+  //
+  // The open dropdown floats above the rows, so test it first. Geometry mirrors
+  // DrawExit's dropdown block.
+  //
+  if (mModernSetupLanguageDropdownOpen) {
+    DropdownX = RowX + RowWidth - MODERN_SETUP_EXIT_VALUE_WIDTH - 12;
+    DropdownY = Panel.Y + MODERN_SETUP_EXIT_ROW_TOP + MODERN_SETUP_EXIT_ROW_COUNT * MODERN_SETUP_EXIT_ROW_STRIDE - 8;
+    for (Option = 0; Option < 2; Option++) {
+      OptionTop = DropdownY + 7 + Option * 34;
+      if ((X >= (DropdownX + 6)) && (X < (DropdownX + MODERN_SETUP_EXIT_VALUE_WIDTH - 6)) &&
+          (Y >= OptionTop) && (Y < (OptionTop + 30)))
+      {
+        *Row            = MODERN_SETUP_EXIT_ROW_COUNT - 1;
+        *DropdownOption = Option;
+        return TRUE;
+      }
+    }
+  }
+
+  if ((X < RowX) || (X >= (RowX + RowWidth))) {
+    return FALSE;
+  }
+
+  for (Index = 0; Index < MODERN_SETUP_EXIT_ROW_COUNT; Index++) {
+    RowTop = Panel.Y + MODERN_SETUP_EXIT_ROW_TOP + Index * MODERN_SETUP_EXIT_ROW_STRIDE - 10;
+    if ((Y >= RowTop) && (Y < (RowTop + MODERN_SETUP_EXIT_ROW_HEIGHT))) {
+      *Row            = Index;
+      *DropdownOption = (UINTN)-1;
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
 BOOLEAN         mModernSetupLanguageDropdownOpen;
 UINTN           mModernSetupLanguageDropdownSelection;
 BOOLEAN         mModernSetupPreferencePopupOpen;

@@ -145,6 +145,10 @@ boot_manager_menu_fdf_inf = "INF  MdeModulePkg/Application/BootManagerMenuApp/Bo
 # Opt-in control-rich VFR test driver (reachable via Device Manager).
 driver_sample_component = "  MdeModulePkg/Universal/DriverSampleDxe/DriverSampleDxe.inf"
 driver_sample_fdf_inf = "INF  MdeModulePkg/Universal/DriverSampleDxe/DriverSampleDxe.inf"
+# Upstream USB absolute-pointer driver (usb-tablet -> EFI_ABSOLUTE_POINTER): the
+# app's pointer input consumes it; upstream OVMF ships no pointer driver at all.
+usb_pointer_component = "  MdeModulePkg/Bus/Usb/UsbMouseAbsolutePointerDxe/UsbMouseAbsolutePointerDxe.inf"
+usb_pointer_fdf_inf = "INF  MdeModulePkg/Bus/Usb/UsbMouseAbsolutePointerDxe/UsbMouseAbsolutePointerDxe.inf"
 # The renderer library class resolves to the LVGL-backed implementation in lvgl
 # mode and to the hand-rolled GOP rasterizer otherwise. Both expose the identical
 # ModernUiRenderer.h API, so ModernUiEngineLib and its consumers are unchanged.
@@ -260,6 +264,15 @@ if enable_driver_sample and driver_sample_component not in dsc:
         driver_sample_component + r"\n\1",
         "QemuKernelLoaderFsDxe DSC component anchor for DriverSample",
     )
+if usb_pointer_component not in dsc:
+    # Pointer input for the app: upstream OVMF ships no USB pointer driver, so
+    # the overlay always adds the absolute-pointer driver (same stable anchor).
+    dsc = replace_regex_once(
+        dsc,
+        r"^(\s*OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe\.inf \{)",
+        usb_pointer_component + r"\n\1",
+        "QemuKernelLoaderFsDxe DSC component anchor for UsbMouseAbsolutePointer",
+    )
 if video_width is not None:
     # Replace the upstream display-PCD include with its expanded content carrying
     # the requested resolution; this avoids duplicate PCD assignments and leaves
@@ -322,6 +335,13 @@ if enable_driver_sample and driver_sample_fdf_inf not in fdf:
         r"^(\s*INF\s+OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe\.inf\s*)$",
         driver_sample_fdf_inf + r"\n\1",
         "QemuKernelLoaderFsDxe FDF INF anchor for DriverSample",
+    )
+if usb_pointer_fdf_inf not in fdf:
+    fdf = replace_regex_once(
+        fdf,
+        r"^(\s*INF\s+OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe\.inf\s*)$",
+        usb_pointer_fdf_inf + r"\n\1",
+        "QemuKernelLoaderFsDxe FDF INF anchor for UsbMouseAbsolutePointer",
     )
 (overlay / "OvmfX64ModernSetup.fdf").write_text(fdf)
 PY

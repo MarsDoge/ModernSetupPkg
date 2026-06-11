@@ -12,7 +12,34 @@ this file as both a release log and a lightweight development progress record.
 
 ## Unreleased
 
+### Added
+
+- **Mouse support in the front-page App.** A USB mouse now drives the App: an
+  original arrow cursor composites on top of every frame, moving the mouse
+  repaints (throttled), and clicking activates -- top tabs switch pages
+  (hit-testing shares the exact scrolled-window math the tab painter uses),
+  dashboard quick cards select-and-route (bounded by the platform-visible card
+  count, so a hidden card can never be clicked), and Exit-page rows / the open
+  language dropdown select-and-activate. Clicks reuse the keyboard's Enter
+  handling (the hit updates the selection and synthesizes an Enter event), so
+  activation semantics stay single-owner. Validated end-to-end under QEMU
+  (`-device usb-mouse` + monitor injection): card click routes to Devices, tab
+  click switches pages, and clicking "English" in the language dropdown switches
+  the live UI language.
+- The OVMF X64 overlay now always includes the upstream
+  `UsbMouseAbsolutePointerDxe` driver (upstream OVMF ships no pointer driver at
+  all), so `EFI_ABSOLUTE_POINTER_PROTOCOL` exists for the App's pointer input.
+  Note the edk2 driver integrates *relative* HID mice into its own 0..1024
+  absolute space (`-device usb-mouse` under QEMU; a `usb-tablet`'s absolute
+  reports are not understood by it).
+
 ### Fixed
+
+- `ModernUiReadInput` no longer loses pointer reports to double-waiting: it now
+  polls `GetState` non-blocking first, so a caller that pre-waited on the same
+  `WaitForInput` event (the App's clock-tick wait does) and consumed its signal
+  still receives the pending pointer event instead of blocking until the next
+  one. Keyboard input was never affected (key strokes are buffered).
 
 - LVGL widget text no longer renders CJK as `?`. The LVGL backend's widget paths
   (one-of dropdown value, checkbox label, numeric/string field, ordered list)

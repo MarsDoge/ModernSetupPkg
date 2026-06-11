@@ -2005,13 +2005,13 @@ DrawExit (
   Panel = ModernSetupContentRect (Ui);
   RowX = Panel.X + 26;
   RowWidth = Panel.Width - 52;
-  ValueWidth = 220;
+  ValueWidth = MODERN_SETUP_EXIT_VALUE_WIDTH;
   ModernUiDrawPanel (Ui, Panel, Theme);
   ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
   ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, ModernUiGetString (ModernUiStringExitInstruction), Theme->MutedText, Theme->Surface);
 
   for (Index = 0; Index < ARRAY_SIZE (Items); Index++) {
-    Y = Panel.Y + 72 + Index * 54;
+    Y = Panel.Y + MODERN_SETUP_EXIT_ROW_TOP + Index * MODERN_SETUP_EXIT_ROW_STRIDE;
     IsSelected = (BOOLEAN)((Focus == SetupFocusContent) && (Index == Selected));
     RowModel.Rect      = (MODERN_UI_RECT){ RowX, Y - 10, RowWidth, 40 };
     RowModel.Prompt    = Items[Index];
@@ -2027,7 +2027,7 @@ DrawExit (
     UINTN  Option;
 
     DropdownX = RowX + RowWidth - ValueWidth - 12;
-    DropdownY = Panel.Y + 72 + 4 * 54 - 8;
+    DropdownY = Panel.Y + MODERN_SETUP_EXIT_ROW_TOP + MODERN_SETUP_EXIT_ROW_COUNT * MODERN_SETUP_EXIT_ROW_STRIDE - 8;
     PopupModel.Rect  = (MODERN_UI_RECT){ DropdownX, DropdownY, ValueWidth, 80 };
     PopupModel.Title = NULL;
     ModernUiEngineDrawPopup (Ui, &PopupModel, Theme);
