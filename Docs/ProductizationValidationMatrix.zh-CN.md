@@ -63,6 +63,8 @@ OVMF X64 端到端交互验证（lvgl 后端、App 首页、`MODERN_SETUP_SECURE
 | 灰禁控件保真 | 「Attempt Secure Boot」复选框 | `Captured` | 渲染为灰禁不可编辑（未注册 PK，`SetupMode != USER_MODE`），与原生语义一致。 |
 | **跨冷重启 NV 持久化** | `DriverSampleDxe`「My one-of prompt #1」 | `Captured` | 弹窗改值 -> F10 -> Y -> 冷重启（`RESET_VARS=0`）-> 重进表单：改值（`<GrayOut the Checkbox>`）保持，依赖的复选框按新值**变灰**（grayoutif），被 suppress 的「Pick 1」有序列表出现（suppressif 释放）。完整链路：现代引擎输入 -> FormBrowser -> ConfigRouting -> 驱动 `RouteConfig` -> `SetVariable`（NV）-> 重启 -> `ExtractConfig` -> 重新渲染。 |
 
+| **完整 PK 注册 -> Secure Boot 开启** | `SecureBootConfigDxe` 密钥注册流程 | `Captured` + 串口 | 单次会话内全程经现代引擎驱动：Custom 模式 -> Custom Secure Boot Options -> PK Options -> Enroll PK -> **文件浏览器**（选卷 -> 根目录列表 -> 从 ESP 选择 DER X509 `pk.cer`）-> Commit Changes and Exit。同一次启动内：「Current Secure Boot State」翻转 **Enabled**，「Attempt Secure Boot」解除灰禁并显示勾选。冷重启（`RESET_VARS=0`）：Secure Boot **真实执法**——未签名的 ESP `BOOTX64.EFI` 被拒载（串口日志 `BdsDxe: ... Access Denied -- rejected probably by Secure Boot`），BDS 回退至固件内嵌 App。测试 PK 由 openssl 生成（自签名，CN=ModernSetup Test PK）；仅 QEMU，不触碰真实平台。 |
+
 边界说明：上述全部语义归原生 FormBrowser/ConfigAccess 所有；现代引擎只贡献显示与
 输入，A/B 行证明它如实复现原生行为（包括驱动自有的不持久化）。
 
