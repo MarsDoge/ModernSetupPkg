@@ -131,6 +131,10 @@ boot_manager_menu_component = "  MdeModulePkg/Application/BootManagerMenuApp/Boo
 boot_manager_menu_fdf_inf = "INF  MdeModulePkg/Application/BootManagerMenuApp/BootManagerMenuApp.inf"
 driver_sample_component = "  MdeModulePkg/Universal/DriverSampleDxe/DriverSampleDxe.inf"
 driver_sample_fdf_inf = "INF  MdeModulePkg/Universal/DriverSampleDxe/DriverSampleDxe.inf"
+# Upstream USB absolute-pointer driver (relative HID mouse -> EFI_ABSOLUTE_POINTER):
+# the app's mouse support consumes it; the upstream platform ships only UsbKbDxe.
+usb_pointer_component = "  MdeModulePkg/Bus/Usb/UsbMouseAbsolutePointerDxe/UsbMouseAbsolutePointerDxe.inf"
+usb_pointer_fdf_inf = "INF  MdeModulePkg/Bus/Usb/UsbMouseAbsolutePointerDxe/UsbMouseAbsolutePointerDxe.inf"
 # LVGL core (upstream lvgl sources as a BASE library); resolved only in lvgl mode
 # and consumed transitively through the LVGL renderer library.
 lvgl_library_block = "  LvglCoreLib|LvglSpikePkg/Library/LvglLib/LvglCoreLib.inf\n"
@@ -228,6 +232,14 @@ if enable_driver_sample and driver_sample_component not in dsc:
         driver_sample_component + "\n  MdeModulePkg/Application/UiApp/UiApp.inf {",
         1,
     )
+if usb_pointer_component not in dsc:
+    # Pointer input for the app: anchor on the existing USB keyboard driver so
+    # the pointer driver sits with the rest of the USB stack.
+    dsc = dsc.replace(
+        "  MdeModulePkg/Bus/Usb/UsbKbDxe/UsbKbDxe.inf",
+        "  MdeModulePkg/Bus/Usb/UsbKbDxe/UsbKbDxe.inf\n" + usb_pointer_component,
+        1,
+    )
 if (display_engine == "modern" or display_engine == "lvgl"):
     dsc += (
         "\n[PcdsFixedAtBuild]\n"
@@ -292,6 +304,12 @@ if replace_uiapp and "[Rule.Common.UEFI_APPLICATION.MODERN_SETUP_UIAPP]" not in 
         "    PE32     PE32                    $(INF_OUTPUT)/$(MODULE_NAME).efi\n"
         "    UI       STRING=\"ModernSetupApp\" Optional\n"
         "  }\n"
+    )
+if usb_pointer_fdf_inf not in fdf:
+    fdf = fdf.replace(
+        "INF  MdeModulePkg/Bus/Usb/UsbKbDxe/UsbKbDxe.inf",
+        "INF  MdeModulePkg/Bus/Usb/UsbKbDxe/UsbKbDxe.inf\n" + usb_pointer_fdf_inf,
+        1,
     )
 (overlay / "LoongArchVirtQemuModernSetup.fdf").write_text(fdf)
 PY
