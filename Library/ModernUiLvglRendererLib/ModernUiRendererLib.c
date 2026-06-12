@@ -1589,3 +1589,102 @@ ModernUiDrawOemWatermark (
 
   return EFI_SUCCESS;
 }
+
+/**
+  Capture the current on-screen pixels of a rectangle into a caller buffer.
+  See the contract in ModernUi/ModernUiRenderer.h. The LVGL backend reads from
+  the shadow canvas, which mirrors the screen (every primitive flushes through
+  it).
+
+  @param[in]  Context  Initialized render context. Must not be NULL.
+  @param[in]  Rect     Source rectangle; must lie fully on screen, non-empty.
+  @param[out] Buffer   Receives Rect.Width*Rect.Height pixels. Must not be NULL.
+
+  @retval EFI_SUCCESS            Pixels captured.
+  @retval EFI_INVALID_PARAMETER  Bad arguments or off-screen rectangle.
+  @retval EFI_NOT_READY          The canvas bridge is not initialized.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiCaptureRect (
+  IN  MODERN_UI_RENDER_CONTEXT       *Context,
+  IN  MODERN_UI_RECT                 Rect,
+  OUT EFI_GRAPHICS_OUTPUT_BLT_PIXEL  *Buffer
+  )
+{
+  UINTN  Row;
+
+  if ((Context == NULL) || (Buffer == NULL) ||
+      (Rect.Width == 0) || (Rect.Height == 0) ||
+      ((Rect.X + Rect.Width) > Context->Width) ||
+      ((Rect.Y + Rect.Height) > Context->Height))
+  {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (!mLvglReady || (mCanvasBuf == NULL) ||
+      ((Rect.X + Rect.Width) > mCanvasW) || ((Rect.Y + Rect.Height) > mCanvasH))
+  {
+    return EFI_NOT_READY;
+  }
+
+  for (Row = 0; Row < Rect.Height; Row++) {
+    CopyMem (
+      &Buffer[Row * Rect.Width],
+      &mCanvasBuf[(Rect.Y + Row) * mCanvasW + Rect.X],
+      Rect.Width * sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)
+      );
+  }
+
+  return EFI_SUCCESS;
+}
+
+/**
+  Restore previously captured pixels back to the screen.
+  See the contract in ModernUi/ModernUiRenderer.h. The LVGL backend writes the
+  pixels into the shadow canvas and re-flushes the region, so later partial
+  flushes cannot resurrect the overlay that was drawn over them.
+
+  @param[in] Context  Initialized render context. Must not be NULL.
+  @param[in] Rect     Destination rectangle; must lie fully on screen.
+  @param[in] Buffer   Pixels from ModernUiCaptureRect. Must not be NULL.
+
+  @retval EFI_SUCCESS            Pixels restored.
+  @retval EFI_INVALID_PARAMETER  Bad arguments or off-screen rectangle.
+  @retval EFI_NOT_READY          The canvas bridge is not initialized.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRestoreRect (
+  IN MODERN_UI_RENDER_CONTEXT             *Context,
+  IN MODERN_UI_RECT                       Rect,
+  IN CONST EFI_GRAPHICS_OUTPUT_BLT_PIXEL  *Buffer
+  )
+{
+  UINTN  Row;
+
+  if ((Context == NULL) || (Buffer == NULL) ||
+      (Rect.Width == 0) || (Rect.Height == 0) ||
+      ((Rect.X + Rect.Width) > Context->Width) ||
+      ((Rect.Y + Rect.Height) > Context->Height))
+  {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (!mLvglReady || (mCanvasBuf == NULL) ||
+      ((Rect.X + Rect.Width) > mCanvasW) || ((Rect.Y + Rect.Height) > mCanvasH))
+  {
+    return EFI_NOT_READY;
+  }
+
+  for (Row = 0; Row < Rect.Height; Row++) {
+    CopyMem (
+      &mCanvasBuf[(Rect.Y + Row) * mCanvasW + Rect.X],
+      &Buffer[Row * Rect.Width],
+      Rect.Width * sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)
+      );
+  }
+
+  BltCanvasRegion (Rect.X, Rect.Y, Rect.Width, Rect.Height);
+  return EFI_SUCCESS;
+}

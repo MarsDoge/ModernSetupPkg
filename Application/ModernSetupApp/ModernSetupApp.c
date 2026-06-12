@@ -154,12 +154,15 @@ UefiMain (
   for (;;) {
     if (Redraw) {
       Theme = ModernUiGetThemeForPreference (mModernSetupPreferences.ThemeId);
+      //
+      // The full repaint below invalidates any saved under-cursor pixels; the
+      // cursor is then re-composited (with a fresh capture) on top of the new
+      // frame.
+      //
+      ModernSetupInvalidatePointerCursor ();
       ModernSetupDrawCurrentPage (&Ui, Theme, Page, Focus, DashboardSelection, BootSelection, DeviceSelection, PreferencesSelection, ExitSelection, StatusMessage);
-      //
-      // Composite the pointer cursor last so it rides on top of the frame.
-      //
       if (PointerVisible) {
-        ModernSetupDrawPointerCursor (&Ui, Theme, PointerX, PointerY);
+        ModernSetupMovePointerCursor (&Ui, Theme, PointerX, PointerY);
         LastCursorX = PointerX;
         LastCursorY = PointerY;
       }
@@ -240,13 +243,14 @@ UefiMain (
 
       if (!Event.PointerPressed) {
         //
-        // Motion only: repaint when the cursor moved far enough to matter, so
-        // sustained motion does not flood the frame with full redraws.
+        // Motion only: composite the cursor with save-under (restore the old
+        // 16x16 rect, capture and draw at the new position). No full-frame
+        // repaint -- this is what keeps mouse motion flicker-free.
         //
-        if (((PointerX > LastCursorX) ? (PointerX - LastCursorX) : (LastCursorX - PointerX)) >= 6 ||
-            ((PointerY > LastCursorY) ? (PointerY - LastCursorY) : (LastCursorY - PointerY)) >= 6)
-        {
-          Redraw = TRUE;
+        if ((PointerX != LastCursorX) || (PointerY != LastCursorY)) {
+          ModernSetupMovePointerCursor (&Ui, Theme, PointerX, PointerY);
+          LastCursorX = PointerX;
+          LastCursorY = PointerY;
         }
 
         continue;

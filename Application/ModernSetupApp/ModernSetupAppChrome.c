@@ -287,25 +287,84 @@ ModernSetupHitTestTab (
   return TRUE;
 }
 
+//
+// Save-under state for the pointer cursor: the pixels beneath the cursor are
+// captured before the arrow is drawn and restored when it moves, so pointer
+// motion repaints only this small rectangle instead of the whole frame.
+//
+#define MODERN_SETUP_CURSOR_SIZE  16
+
+STATIC EFI_GRAPHICS_OUTPUT_BLT_PIXEL  mCursorSave[MODERN_SETUP_CURSOR_SIZE * MODERN_SETUP_CURSOR_SIZE];
+STATIC BOOLEAN                        mCursorSaveValid = FALSE;
+STATIC UINTN                          mCursorSaveX;
+STATIC UINTN                          mCursorSaveY;
+
 /**
-  Draw the pointer cursor at the given pixel position. See
+  Forget the saved under-cursor pixels. See ModernSetupAppInternal.h.
+
+  Call after any full-frame repaint: the saved pixels describe the old frame
+  and must not be restored on the next cursor move.
+**/
+VOID
+ModernSetupInvalidatePointerCursor (
+  VOID
+  )
+{
+  mCursorSaveValid = FALSE;
+}
+
+/**
+  Move (or first-draw) the pointer cursor using save-under compositing. See
   ModernSetupAppInternal.h.
 
   @param[in] Ui     Initialized render context. Must not be NULL.
   @param[in] Theme  Theme token table. Must not be NULL.
-  @param[in] X      Cursor hotspot X in pixels.
-  @param[in] Y      Cursor hotspot Y in pixels.
+  @param[in] X      Cursor hotspot X in pixels (clamped to keep the arrow
+                    fully on screen).
+  @param[in] Y      Cursor hotspot Y in pixels (clamped likewise).
 **/
 VOID
-ModernSetupDrawPointerCursor (
+ModernSetupMovePointerCursor (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
   IN UINTN                     X,
   IN UINTN                     Y
   )
 {
-  if ((Ui == NULL) || (Theme == NULL) || (X >= Ui->Width) || (Y >= Ui->Height)) {
+  MODERN_UI_RECT  Rect;
+
+  if ((Ui == NULL) || (Theme == NULL) ||
+      (Ui->Width < MODERN_SETUP_CURSOR_SIZE) || (Ui->Height < MODERN_SETUP_CURSOR_SIZE))
+  {
     return;
+  }
+
+  //
+  // Clamp so the full save rectangle stays on screen (fixed-size capture).
+  //
+  if (X > (Ui->Width - MODERN_SETUP_CURSOR_SIZE)) {
+    X = Ui->Width - MODERN_SETUP_CURSOR_SIZE;
+  }
+
+  if (Y > (Ui->Height - MODERN_SETUP_CURSOR_SIZE)) {
+    Y = Ui->Height - MODERN_SETUP_CURSOR_SIZE;
+  }
+
+  if (mCursorSaveValid) {
+    if ((X == mCursorSaveX) && (Y == mCursorSaveY)) {
+      return;
+    }
+
+    Rect = (MODERN_UI_RECT){ mCursorSaveX, mCursorSaveY, MODERN_SETUP_CURSOR_SIZE, MODERN_SETUP_CURSOR_SIZE };
+    ModernUiRestoreRect (Ui, Rect, mCursorSave);
+    mCursorSaveValid = FALSE;
+  }
+
+  Rect = (MODERN_UI_RECT){ X, Y, MODERN_SETUP_CURSOR_SIZE, MODERN_SETUP_CURSOR_SIZE };
+  if (!EFI_ERROR (ModernUiCaptureRect (Ui, Rect, mCursorSave))) {
+    mCursorSaveValid = TRUE;
+    mCursorSaveX     = X;
+    mCursorSaveY     = Y;
   }
 
   //

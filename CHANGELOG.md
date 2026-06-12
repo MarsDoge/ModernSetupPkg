@@ -12,6 +12,21 @@ this file as both a release log and a lightweight development progress record.
 
 ## Unreleased
 
+### Fixed
+
+- Mouse motion no longer flickers the screen. Pointer movement previously
+  triggered a full-frame repaint per motion event (visible flicker, especially
+  through the LVGL backend's full-canvas composite). The cursor now uses
+  classic save-under compositing: the 16x16 pixels beneath the arrow are
+  captured before drawing and restored on move, so motion repaints only that
+  small rectangle. Backed by a new additive renderer API pair --
+  `ModernUiCaptureRect` / `ModernUiRestoreRect` (GOP backend: framebuffer
+  read-back/write; LVGL backend: shadow-canvas read/write plus a region
+  re-flush so later partial flushes cannot resurrect the cursor). Full-frame
+  repaints (page switches, clicks) invalidate the saved pixels and re-composite
+  the cursor with a fresh capture. Verified under QEMU: multi-hop motion leaves
+  no trails, before and after click-driven full repaints.
+
 ### Added
 
 - **Mouse support in the front-page App.** A USB mouse now drives the App: an

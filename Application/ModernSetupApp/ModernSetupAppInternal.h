@@ -422,22 +422,35 @@ ModernSetupHitTestTab (
   );
 
 /**
-  Draw the pointer cursor at the given pixel position.
+  Move (or first-draw) the pointer cursor using save-under compositing.
 
-  Drawn last in the frame so it composites on top of the page. Display-only;
-  a no-op when Ui or Theme is NULL or the position is outside the screen.
+  The pixels beneath the cursor are captured before the arrow is drawn and
+  restored when it moves, so pointer motion repaints only a small rectangle
+  instead of the whole frame (no full-screen flicker). Display-only; a no-op
+  when Ui or Theme is NULL or the screen is smaller than the cursor.
 
   @param[in] Ui     Initialized render context. Must not be NULL.
   @param[in] Theme  Theme token table. Must not be NULL.
-  @param[in] X      Cursor hotspot X in pixels.
-  @param[in] Y      Cursor hotspot Y in pixels.
+  @param[in] X      Cursor hotspot X in pixels (clamped on-screen).
+  @param[in] Y      Cursor hotspot Y in pixels (clamped on-screen).
 **/
 VOID
-ModernSetupDrawPointerCursor (
+ModernSetupMovePointerCursor (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
   IN UINTN                     X,
   IN UINTN                     Y
+  );
+
+/**
+  Forget the saved under-cursor pixels.
+
+  Must be called after any full-frame repaint: the saved pixels describe the
+  previous frame and must not be restored onto the new one.
+**/
+VOID
+ModernSetupInvalidatePointerCursor (
+  VOID
   );
 
 /**
