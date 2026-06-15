@@ -1,5 +1,5 @@
 ## @file
-# Platform summary provider for ModernSetupApp.
+# Shared standard-firmware-table access for ModernSetupPkg providers.
 #
 # Copyright (c) 2026, MarsDoge. All rights reserved.<BR>
 # Author: MarsDoge (Dongyan Qian)
@@ -10,14 +10,14 @@
 
 [Defines]
   INF_VERSION                    = 0x00010005
-  BASE_NAME                      = ModernUiPlatformDataLib
-  FILE_GUID                      = 9C30E3A3-F776-4700-96ED-0F4C906E3DE3
+  BASE_NAME                      = ModernUiPlatformTablesLib
+  FILE_GUID                      = 7B4F2E1A-2D6C-4E3B-9C7A-1E5D9F2A6B40
   MODULE_TYPE                    = BASE
   VERSION_STRING                 = 0.1
-  LIBRARY_CLASS                  = ModernUiPlatformDataLib|UEFI_APPLICATION
+  LIBRARY_CLASS                  = ModernUiPlatformTablesLib|UEFI_APPLICATION DXE_DRIVER
 
 [Sources]
-  ModernUiPlatformDataLib.c
+  ModernUiPlatformTablesLib.c
 
 [Packages]
   MdePkg/MdePkg.dec
@@ -26,8 +26,12 @@
 [LibraryClasses]
   BaseLib
   BaseMemoryLib
-  MemoryAllocationLib
-  ModernUiPlatformTablesLib
-  PrintLib
   UefiBootServicesTableLib
-  UefiRuntimeServicesTableLib
+  UefiLib
+
+[Protocols]
+  gEfiSmbiosProtocolGuid
+
+[Guids]
+  gEfiAcpiTableGuid
+  gEfiAcpi10TableGuid

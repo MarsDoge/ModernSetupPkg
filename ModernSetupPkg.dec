@@ -31,6 +31,7 @@
 
   # Optional ModernSetupApp front-page path. These are intentionally not used
   # by the default ArmVirt overlay or the main package DSC.
+  ModernUiPlatformTablesLib|Include/ModernUi/ModernUiPlatformTables.h
   ModernUiPlatformDataLib|Include/ModernUi/ModernUiPlatformData.h
   ModernUiBootDataLib|Include/ModernUi/ModernUiBootData.h
   ModernUiDeviceDataLib|Include/ModernUi/ModernUiDeviceData.h
