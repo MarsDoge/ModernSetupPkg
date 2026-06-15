@@ -14,6 +14,14 @@ this file as both a release log and a lightweight development progress record.
 
 ### Fixed
 
+- Mouse clicks now work on the Boot / Devices / Preferences list pages (the
+  first mouse pass only wired tabs, dashboard cards, and the Exit rows, so the
+  Boot page rows were unclickable). A new `ModernSetupHitTestPageListRow` maps a
+  click to a visible row using the same `ModernSetupGetPageListLayout`
+  parameters and selectable count each page draws with, then routes through the
+  shared Enter handling (launch boot option / open native HII form / open the
+  preference popup). Verified under QEMU: clicking a Boot row launches it.
+
 - Mouse motion no longer flickers the screen. Pointer movement previously
   triggered a full-frame repaint per motion event (visible flicker, especially
   through the LVGL backend's full-canvas composite). The cursor now uses

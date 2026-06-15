@@ -505,6 +505,32 @@ ModernSetupHitTestExitRow (
   );
 
 /**
+  Hit-test a list-page (Boot / Devices / Preferences) row for a pointer click.
+
+  Uses the same `ModernSetupGetPageListLayout` parameters and selectable count
+  the page's drawing uses, so click bands match the painted rows. The vertical
+  band is the row stride starting at the first row, so a click anywhere on a
+  row line selects it.
+
+  @param[in]  Ui    Initialized render context. Must not be NULL.
+  @param[in]  Page  List page under test (non-list pages return FALSE).
+  @param[in]  X     Pointer X in pixels.
+  @param[in]  Y     Pointer Y in pixels.
+  @param[out] Row   Receives the clicked visible row index. Must not be NULL.
+
+  @retval TRUE   (X,Y) lies on a visible list row; *Row is set.
+  @retval FALSE  Not a list page, or no row at this position.
+**/
+BOOLEAN
+ModernSetupHitTestPageListRow (
+  IN  MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN  SETUP_PAGE                Page,
+  IN  UINTN                     X,
+  IN  UINTN                     Y,
+  OUT UINTN                     *Row
+  );
+
+/**
   Return the number of dashboard quick-cards visible on the current platform.
 
   Counts the applicable catalog cards (see

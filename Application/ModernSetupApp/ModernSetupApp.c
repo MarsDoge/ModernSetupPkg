@@ -101,6 +101,7 @@ UefiMain (
   UINTN                     CardHit;
   UINTN                     ExitRowHit;
   UINTN                     ExitOptionHit;
+  UINTN                     ListRowHit;
 
   gBS->SetWatchdogTimer (0, 0, 0, NULL);
   mModernSetupImageHandle = ImageHandle;
@@ -281,6 +282,28 @@ UefiMain (
           mModernSetupLanguageDropdownSelection = ExitOptionHit;
         } else {
           ExitSelection = ExitRowHit;
+        }
+
+        Focus      = SetupFocusContent;
+        Event.Type = ModernUiInputEnter;
+      } else if (ModernSetupHitTestPageListRow (&Ui, Page, PointerX, PointerY, &ListRowHit)) {
+        //
+        // Boot / Devices / Preferences list rows: select the clicked row and
+        // activate it through the shared Enter handling (launch boot option,
+        // open the native HII form, or open the preference popup/toggle).
+        //
+        switch (Page) {
+          case PageBoot:
+            BootSelection = ListRowHit;
+            break;
+          case PageDevices:
+            DeviceSelection = ListRowHit;
+            break;
+          case PagePreferences:
+            PreferencesSelection = ListRowHit;
+            break;
+          default:
+            break;
         }
 
         Focus      = SetupFocusContent;

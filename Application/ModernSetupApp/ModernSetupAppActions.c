@@ -856,6 +856,80 @@ ModernSetupGetPageSelectableCount (
 }
 
 /**
+  Hit-test a list-page (Boot / Devices / Preferences) row for a pointer click.
+  See ModernSetupAppInternal.h.
+
+  @param[in]  Ui    Initialized render context. Must not be NULL.
+  @param[in]  Page  List page under test.
+  @param[in]  X     Pointer X in pixels.
+  @param[in]  Y     Pointer Y in pixels.
+  @param[out] Row   Receives the clicked visible row index. Must not be NULL.
+
+  @retval TRUE   (X,Y) lies on a visible list row; *Row is set.
+  @retval FALSE  Not a list page, or no row at this position.
+**/
+BOOLEAN
+ModernSetupHitTestPageListRow (
+  IN  MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN  SETUP_PAGE                Page,
+  IN  UINTN                     X,
+  IN  UINTN                     Y,
+  OUT UINTN                     *Row
+  )
+{
+  MODERN_SETUP_PAGE_LIST_LAYOUT  Layout;
+  UINTN                          HardRowCap;
+  BOOLEAN                        AllowPreviewPane;
+  UINTN                          VisibleCount;
+  UINTN                          Index;
+
+  if ((Ui == NULL) || (Row == NULL)) {
+    return FALSE;
+  }
+
+  //
+  // Same layout parameters the page's drawing and selectable-count use, so the
+  // click bands match the painted rows exactly.
+  //
+  switch (Page) {
+    case PageBoot:
+      HardRowCap       = MAX_BOOT_ROWS + MODERN_SETUP_NATIVE_BOOT_TOOLS_ROW_COUNT;
+      AllowPreviewPane = FALSE;
+      break;
+    case PageDevices:
+      HardRowCap       = MAX_DEVICE_ROWS;
+      AllowPreviewPane = TRUE;
+      break;
+    case PagePreferences:
+      HardRowCap       = MODERN_SETUP_PREFERENCE_ROW_COUNT;
+      AllowPreviewPane = FALSE;
+      break;
+    default:
+      return FALSE;
+  }
+
+  if (!ModernSetupGetPageListLayout (Ui, mModernSetupPreferences.DashboardDensity, HardRowCap, AllowPreviewPane, &Layout)) {
+    return FALSE;
+  }
+
+  VisibleCount = ModernSetupGetPageSelectableCount (Ui, Page);
+  if ((VisibleCount == 0) || (Layout.RowStride == 0) ||
+      (X < Layout.RowX) || (X >= (Layout.RowX + Layout.RowWidth)) ||
+      (Y < Layout.FirstRowY))
+  {
+    return FALSE;
+  }
+
+  Index = (Y - Layout.FirstRowY) / Layout.RowStride;
+  if (Index >= VisibleCount) {
+    return FALSE;
+  }
+
+  *Row = Index;
+  return TRUE;
+}
+
+/**
   Launch the selected visible Boot#### option.
 
   The Boot page presents the same filtered Boot#### rows shown on screen. Enter
