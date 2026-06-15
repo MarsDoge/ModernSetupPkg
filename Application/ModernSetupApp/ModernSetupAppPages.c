@@ -18,6 +18,12 @@
 #define MODERN_SETUP_NOINLINE
 #endif
 
+//
+// Number of per-device PCIe identity rows the System Information page lists
+// before summarizing the remainder.
+//
+#define MODERN_SETUP_SYSINFO_PCIE_ROWS  5
+
 /**
   Draw one provider-summary label/value row.
 
@@ -1702,6 +1708,8 @@ DrawServerInventorySummary (
   UINTN                                 LeftWidth;
   UINTN                                 RightWidth;
   UINTN                                 RowY;
+  UINTN                                 PcieIndex;
+  CHAR16                                PcieMoreText[48];
   CHAR16                                MemoryText[48];
   CHAR16                                ProviderCoverage[64];
   CHAR16                                ProviderIssue[96];
@@ -1862,11 +1870,31 @@ DrawServerInventorySummary (
   RowY += 26;
   DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Policy caps", NativePolicyText);
   RowY += 36;
-  DrawProviderSubsectionHeader (Ui, Theme, Column.X, RowY, Column.Width, L"Inventory Note");
-  RowY += 22;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Policy ownership", L"Native HII/FormBrowser");
-  RowY += 26;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"App role", L"Read-only display");
+  DrawProviderSubsectionHeader (Ui, Theme, Column.X, RowY, Column.Width, L"PCIe Devices");
+  RowY += 24;
+  if (EFI_ERROR (Providers.PcieStatus) || (Providers.Pcie.DeviceCount == 0)) {
+    ModernUiDrawTextFit (Ui, Column.X, RowY, Column.Width, UnknownText, Theme->MutedText, Background);
+  } else {
+    //
+    // List up to MODERN_SETUP_SYSINFO_PCIE_ROWS device identities; summarize the
+    // remainder so the read-only inventory stays within the panel.
+    //
+    for (PcieIndex = 0; (PcieIndex < Providers.Pcie.DeviceCount) && (PcieIndex < MODERN_SETUP_SYSINFO_PCIE_ROWS); PcieIndex++) {
+      ModernUiDrawTextFit (Ui, Column.X, RowY, Column.Width, Providers.Pcie.Devices[PcieIndex].Label, Theme->Text, Background);
+      RowY += 22;
+    }
+
+    if (Providers.Pcie.DeviceCount > MODERN_SETUP_SYSINFO_PCIE_ROWS) {
+      UnicodeSPrint (
+        PcieMoreText,
+        sizeof (PcieMoreText),
+        L"+%u more (%u total)",
+        (UINT32)(Providers.Pcie.DeviceCount - MODERN_SETUP_SYSINFO_PCIE_ROWS),
+        (UINT32)Providers.Pcie.DeviceCount
+        );
+      ModernUiDrawTextFit (Ui, Column.X, RowY, Column.Width, PcieMoreText, Theme->MutedText, Background);
+    }
+  }
 }
 
 /**

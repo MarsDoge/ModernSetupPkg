@@ -29,6 +29,7 @@
   BaseMemoryLib
   HiiLib
   MemoryAllocationLib
+  PrintLib
   UefiBootServicesTableLib
   UefiHiiServicesLib
 

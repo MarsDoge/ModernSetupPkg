@@ -15,6 +15,7 @@
 #include <Library/BaseMemoryLib.h>
 #include <Library/HiiLib.h>
 #include <Library/MemoryAllocationLib.h>
+#include <Library/PrintLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiHiiServicesLib.h>
 #include <Protocol/IoMmu.h>
@@ -252,6 +253,85 @@ HasHiiFormsetKeyword (
 }
 
 /**
+  Locate the PCI Express capability structure in conventional config space.
+
+  @param[in]   PciIo      PCI I/O protocol. Must not be NULL.
+  @param[out]  CapOffset  Receives the capability offset on success. Must not be
+                          NULL; set to 0 when the capability is absent.
+
+  @retval TRUE   The PCI Express capability was found; *CapOffset is its offset.
+  @retval FALSE  Absent, unreadable, or a parameter was NULL.
+**/
+STATIC
+BOOLEAN
+FindPciExpressCapability (
+  IN  EFI_PCI_IO_PROTOCOL  *PciIo,
+  OUT UINT8                *CapOffset
+  )
+{
+  EFI_STATUS  Status;
+  UINT16      PciStatus;
+  UINT8       HeaderType;
+  UINT8       Pointer;
+  UINT8       CapabilityId;
+  UINT8       NextPointer;
+  UINTN       Guard;
+
+  if ((PciIo == NULL) || (CapOffset == NULL)) {
+    return FALSE;
+  }
+
+  *CapOffset = 0;
+  Status     = PciRead16 (PciIo, PCI_PRIMARY_STATUS_OFFSET, &PciStatus);
+  if (EFI_ERROR (Status) || ((PciStatus & EFI_PCI_STATUS_CAPABILITY) == 0)) {
+    return FALSE;
+  }
+
+  Status = PciRead8 (PciIo, PCI_HEADER_TYPE_OFFSET, &HeaderType);
+  if (EFI_ERROR (Status)) {
+    return FALSE;
+  }
+
+  if ((HeaderType & HEADER_LAYOUT_CODE) == HEADER_TYPE_CARDBUS_BRIDGE) {
+    Pointer = 0x14;
+  } else {
+    Pointer = PCI_CAPABILITY_POINTER_OFFSET;
+  }
+
+  Status = PciRead8 (PciIo, Pointer, &Pointer);
+  if (EFI_ERROR (Status)) {
+    return FALSE;
+  }
+
+  Pointer &= (UINT8)~0x3;
+  for (Guard = 0; (Pointer >= 0x40) && (Guard < MODERN_UI_PCIE_CAPABILITY_GUARD); Guard++) {
+    Status = PciRead8 (PciIo, Pointer, &CapabilityId);
+    if (EFI_ERROR (Status) || (CapabilityId == 0xFF)) {
+      break;
+    }
+
+    if (CapabilityId == PCI_EXPRESS_CAPABILITY_ID) {
+      *CapOffset = Pointer;
+      return TRUE;
+    }
+
+    Status = PciRead8 (PciIo, Pointer + 1, &NextPointer);
+    if (EFI_ERROR (Status)) {
+      break;
+    }
+
+    NextPointer &= (UINT8)~0x3;
+    if (NextPointer == Pointer) {
+      break;
+    }
+
+    Pointer = NextPointer;
+  }
+
+  return FALSE;
+}
+
+/**
   Scan conventional PCI capabilities for PCIe link/slot capabilities.
 
   @param[in]      PciIo    PCI I/O protocol. Must not be NULL.
@@ -264,76 +344,180 @@ ScanPciExpressCapability (
   IN OUT MODERN_UI_PCIE_SUMMARY   *Summary
   )
 {
-  EFI_STATUS  Status;
-  UINT16      PciStatus;
-  UINT8       HeaderType;
-  UINT8       CapabilityPointer;
-  UINT8       CapabilityId;
-  UINT8       NextCapabilityPointer;
-  UINT32      LinkCapability;
-  UINT32      SlotCapability;
-  UINTN       Guard;
+  UINT8   CapOffset;
+  UINT32  LinkCapability;
+  UINT32  SlotCapability;
 
   if ((PciIo == NULL) || (Summary == NULL)) {
     return;
   }
 
-  Status = PciRead16 (PciIo, PCI_PRIMARY_STATUS_OFFSET, &PciStatus);
-  if (EFI_ERROR (Status) || ((PciStatus & EFI_PCI_STATUS_CAPABILITY) == 0)) {
+  if (!FindPciExpressCapability (PciIo, &CapOffset)) {
     return;
   }
 
-  Status = PciRead8 (PciIo, PCI_HEADER_TYPE_OFFSET, &HeaderType);
+  if (!EFI_ERROR (PciRead32 (PciIo, (UINT32)CapOffset + 0x0C, &LinkCapability)) &&
+      ((LinkCapability & MODERN_UI_PCIE_LINK_CAP_ASPM_MASK) != 0))
+  {
+    Summary->AspmCapableLinkCount++;
+  }
+
+  if (!EFI_ERROR (PciRead32 (PciIo, (UINT32)CapOffset + 0x14, &SlotCapability)) &&
+      ((SlotCapability & MODERN_UI_PCIE_SLOT_CAP_HOTPLUG) != 0))
+  {
+    Summary->HotPlugPortCount++;
+  }
+}
+
+/**
+  Map a PCI base class code to a short display label.
+
+  @param[in] BaseClass  PCI base class code (config space offset 0x0B).
+
+  @return Non-NULL static short label, e.g. L"Storage".
+**/
+STATIC
+CONST CHAR16 *
+PcieClassName (
+  IN UINT8  BaseClass
+  )
+{
+  switch (BaseClass) {
+    case 0x00:
+      return L"Legacy";
+    case 0x01:
+      return L"Storage";
+    case 0x02:
+      return L"Network";
+    case 0x03:
+      return L"Display";
+    case 0x04:
+      return L"Multimedia";
+    case 0x05:
+      return L"Memory";
+    case 0x06:
+      return L"Bridge";
+    case 0x07:
+      return L"Comm";
+    case 0x08:
+      return L"System";
+    case 0x09:
+      return L"Input";
+    case 0x0B:
+      return L"Processor";
+    case 0x0C:
+      return L"Serial bus";
+    case 0x0D:
+      return L"Wireless";
+    case 0x10:
+      return L"Crypto";
+    case 0x12:
+      return L"Accelerator";
+    default:
+      return L"Device";
+  }
+}
+
+/**
+  Capture read-only identity for one PCI(e) device into the summary's device
+  list. Reads location, vendor/device ID, class code, and the negotiated PCIe
+  link (speed/width) from the Link Status register. Skips empty slots
+  (vendor 0x0000/0xFFFF) and stops once MODERN_UI_PCIE_MAX_DEVICES are recorded.
+
+  @param[in]      PciIo    PCI I/O protocol. Must not be NULL.
+  @param[in,out]  Summary  Summary to append the device to. Must not be NULL.
+**/
+STATIC
+VOID
+RecordPciDevice (
+  IN     EFI_PCI_IO_PROTOCOL     *PciIo,
+  IN OUT MODERN_UI_PCIE_SUMMARY  *Summary
+  )
+{
+  EFI_STATUS             Status;
+  MODERN_UI_PCIE_DEVICE  *Entry;
+  UINTN                  Seg;
+  UINTN                  Bus;
+  UINTN                  Dev;
+  UINTN                  Func;
+  UINT16                 VendorId;
+  UINT16                 DeviceId;
+  UINT8                  SubClass;
+  UINT8                  BaseClass;
+  UINT8                  CapOffset;
+  UINT16                 LinkStatus;
+  CHAR16                 LinkText[16];
+
+  if ((PciIo == NULL) || (Summary == NULL) || (Summary->DeviceCount >= MODERN_UI_PCIE_MAX_DEVICES)) {
+    return;
+  }
+
+  Seg    = 0;
+  Bus    = 0;
+  Dev    = 0;
+  Func   = 0;
+  Status = PciIo->GetLocation (PciIo, &Seg, &Bus, &Dev, &Func);
   if (EFI_ERROR (Status)) {
     return;
   }
 
-  if ((HeaderType & HEADER_LAYOUT_CODE) == HEADER_TYPE_CARDBUS_BRIDGE) {
-    CapabilityPointer = 0x14;
-  } else {
-    CapabilityPointer = PCI_CAPABILITY_POINTER_OFFSET;
-  }
-
-  Status = PciRead8 (PciIo, CapabilityPointer, &CapabilityPointer);
-  if (EFI_ERROR (Status)) {
+  VendorId = 0xFFFF;
+  DeviceId = 0xFFFF;
+  PciRead16 (PciIo, PCI_VENDOR_ID_OFFSET, &VendorId);
+  PciRead16 (PciIo, PCI_DEVICE_ID_OFFSET, &DeviceId);
+  if ((VendorId == 0xFFFF) || (VendorId == 0x0000)) {
     return;
   }
 
-  CapabilityPointer &= (UINT8)~0x3;
-  for (Guard = 0; (CapabilityPointer >= 0x40) && (Guard < MODERN_UI_PCIE_CAPABILITY_GUARD); Guard++) {
-    Status = PciRead8 (PciIo, CapabilityPointer, &CapabilityId);
-    if (EFI_ERROR (Status) || (CapabilityId == 0xFF)) {
-      break;
-    }
+  //
+  // Class code occupies offsets 0x09 (ProgIf), 0x0A (SubClass), 0x0B (BaseClass).
+  //
+  SubClass  = 0;
+  BaseClass = 0;
+  PciRead8 (PciIo, 0x0A, &SubClass);
+  PciRead8 (PciIo, 0x0B, &BaseClass);
 
-    Status = PciRead8 (PciIo, CapabilityPointer + 1, &NextCapabilityPointer);
-    if (EFI_ERROR (Status)) {
-      break;
-    }
+  Entry = &Summary->Devices[Summary->DeviceCount];
+  ZeroMem (Entry, sizeof (*Entry));
+  Entry->Segment   = (UINT16)Seg;
+  Entry->Bus       = (UINT8)Bus;
+  Entry->Device    = (UINT8)Dev;
+  Entry->Function  = (UINT8)Func;
+  Entry->VendorId  = VendorId;
+  Entry->DeviceId  = DeviceId;
+  Entry->SubClass  = SubClass;
+  Entry->BaseClass = BaseClass;
 
-    if (CapabilityId == PCI_EXPRESS_CAPABILITY_ID) {
-      if (!EFI_ERROR (PciRead32 (PciIo, CapabilityPointer + 0x0C, &LinkCapability)) &&
-          ((LinkCapability & MODERN_UI_PCIE_LINK_CAP_ASPM_MASK) != 0))
-      {
-        Summary->AspmCapableLinkCount++;
+  //
+  // Negotiated link from the PCIe Link Status register (capability + 0x12):
+  // bits[3:0] current link speed (1..n => Gen1..GenN), bits[9:4] negotiated width.
+  //
+  LinkText[0] = L'\0';
+  if (FindPciExpressCapability (PciIo, &CapOffset)) {
+    LinkStatus = 0;
+    if (!EFI_ERROR (PciRead16 (PciIo, (UINT32)CapOffset + 0x12, &LinkStatus))) {
+      Entry->LinkSpeed = (UINT8)(LinkStatus & 0x0F);
+      Entry->LinkWidth = (UINT8)((LinkStatus >> 4) & 0x3F);
+      if ((Entry->LinkSpeed > 0) && (Entry->LinkWidth > 0)) {
+        UnicodeSPrint (LinkText, sizeof (LinkText), L" Gen%u x%u", Entry->LinkSpeed, Entry->LinkWidth);
       }
-
-      if (!EFI_ERROR (PciRead32 (PciIo, CapabilityPointer + 0x14, &SlotCapability)) &&
-          ((SlotCapability & MODERN_UI_PCIE_SLOT_CAP_HOTPLUG) != 0))
-      {
-        Summary->HotPlugPortCount++;
-      }
-
-      return;
     }
-
-    NextCapabilityPointer &= (UINT8)~0x3;
-    if (NextCapabilityPointer == CapabilityPointer) {
-      break;
-    }
-
-    CapabilityPointer = NextCapabilityPointer;
   }
+
+  UnicodeSPrint (
+    Entry->Label,
+    sizeof (Entry->Label),
+    L"%02x:%02x.%x %04x:%04x %s%s",
+    Entry->Bus,
+    Entry->Device,
+    Entry->Function,
+    Entry->VendorId,
+    Entry->DeviceId,
+    PcieClassName (Entry->BaseClass),
+    LinkText
+    );
+
+  Summary->DeviceCount++;
 }
 
 /**
@@ -481,6 +665,7 @@ CollectPciInventory (
 
     ScanPciExpressCapability (PciIo, Summary);
     ScanPciExpressExtendedCapabilities (PciIo, Summary);
+    RecordPciDevice (PciIo, Summary);
   }
 
   if (Handles != NULL) {

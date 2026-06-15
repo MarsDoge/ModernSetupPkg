@@ -13,6 +13,28 @@
 
 #include <Uefi.h>
 
+#define MODERN_UI_PCIE_MAX_DEVICES       16
+#define MODERN_UI_PCIE_DEVICE_LABEL_MAX  48
+
+//
+// Read-only per-device PCIe identity captured from EFI_PCI_IO_PROTOCOL. This is
+// inventory/telemetry only -- no policy fields (ReBAR/Above-4G/SR-IOV/ASPM/etc.
+// stay owned by platform HII).
+//
+typedef struct {
+  UINT16    Segment;
+  UINT8     Bus;
+  UINT8     Device;
+  UINT8     Function;
+  UINT16    VendorId;
+  UINT16    DeviceId;
+  UINT8     BaseClass;
+  UINT8     SubClass;
+  UINT8     LinkSpeed;                                  // PCIe current link-speed encoding (1..7 => Gen1..Gen7); 0 = unknown/non-PCIe.
+  UINT8     LinkWidth;                                  // Negotiated lane count; 0 = unknown.
+  CHAR16    Label[MODERN_UI_PCIE_DEVICE_LABEL_MAX];     // "BB:DD.F vvvv:dddd <class> GenN xN".
+} MODERN_UI_PCIE_DEVICE;
+
 typedef struct {
   UINTN      ControllerCount;
   UINTN      RootBridgeCount;
@@ -39,6 +61,13 @@ typedef struct {
   UINTN      AriDeviceCount;
   UINTN      HotPlugPortCount;
   UINTN      AspmCapableLinkCount;
+  //
+  // Appended (additive): read-only per-device identity captured from PciIo.
+  // DeviceCount is the number of valid entries in Devices (0..MODERN_UI_PCIE_MAX_DEVICES);
+  // it may be fewer than ControllerCount when more than the cap are present.
+  //
+  UINTN                    DeviceCount;
+  MODERN_UI_PCIE_DEVICE    Devices[MODERN_UI_PCIE_MAX_DEVICES];
 } MODERN_UI_PCIE_SUMMARY;
 
 /**
