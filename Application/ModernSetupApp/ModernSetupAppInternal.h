@@ -67,6 +67,15 @@
 #define DASHBOARD_QUICK_GROUP_LABEL_OFFSET 24
 #define DASHBOARD_QUICK_CARD_BOTTOM 10
 #define DASHBOARD_QUICK_VALUE_MIN_HEIGHT  36
+//
+// Exit-page row layout, shared by DrawExit (drawing) and the pointer hit-test
+// (input routing) so click targets always match the painted rows.
+//
+#define MODERN_SETUP_EXIT_ROW_TOP        72
+#define MODERN_SETUP_EXIT_ROW_STRIDE     54
+#define MODERN_SETUP_EXIT_ROW_HEIGHT     40
+#define MODERN_SETUP_EXIT_ROW_COUNT      4
+#define MODERN_SETUP_EXIT_VALUE_WIDTH    220
 
 typedef enum {
   PageDashboard = 0,
@@ -384,6 +393,141 @@ ModernSetupDashboardSelectionRequestsContinue (
 BOOLEAN
 ModernSetupDashboardQuickCardApplicable (
   IN UINTN  CardIndex
+  );
+
+/**
+  Hit-test the top tab strip for a pointer click.
+
+  Mirrors the same visible-tab window math ModernSetupDrawTabs paints with
+  (including the scrolled chevron inset), so the click targets always match the
+  painted tabs.
+
+  @param[in]  Ui    Initialized render context. Must not be NULL.
+  @param[in]  Page  Currently selected page (determines the scroll window).
+  @param[in]  X     Pointer X in pixels.
+  @param[in]  Y     Pointer Y in pixels.
+  @param[out] Hit   Receives the page of the clicked tab on success. Must not
+                    be NULL.
+
+  @retval TRUE   (X,Y) lies on a visible tab; *Hit is set.
+  @retval FALSE  No tab at this position; *Hit is unchanged.
+**/
+BOOLEAN
+ModernSetupHitTestTab (
+  IN  MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN  SETUP_PAGE                Page,
+  IN  UINTN                     X,
+  IN  UINTN                     Y,
+  OUT SETUP_PAGE                *Hit
+  );
+
+/**
+  Move (or first-draw) the pointer cursor using save-under compositing.
+
+  The pixels beneath the cursor are captured before the arrow is drawn and
+  restored when it moves, so pointer motion repaints only a small rectangle
+  instead of the whole frame (no full-screen flicker). Display-only; a no-op
+  when Ui or Theme is NULL or the screen is smaller than the cursor.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] X      Cursor hotspot X in pixels (clamped on-screen).
+  @param[in] Y      Cursor hotspot Y in pixels (clamped on-screen).
+**/
+VOID
+ModernSetupMovePointerCursor (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN UINTN                     X,
+  IN UINTN                     Y
+  );
+
+/**
+  Forget the saved under-cursor pixels.
+
+  Must be called after any full-frame repaint: the saved pixels describe the
+  previous frame and must not be restored onto the new one.
+**/
+VOID
+ModernSetupInvalidatePointerCursor (
+  VOID
+  );
+
+/**
+  Hit-test the dashboard quick-card grid for a pointer click.
+
+  Uses the same grid contract as drawing and keyboard navigation
+  (ModernSetupGetDashboardQuickGrid + the platform-visible card count), so a
+  hidden card can never be clicked.
+
+  @param[in]  Ui    Initialized render context. Must not be NULL.
+  @param[in]  X     Pointer X in pixels.
+  @param[in]  Y     Pointer Y in pixels.
+  @param[out] Card  Receives the catalog index of the clicked card. Must not
+                    be NULL.
+
+  @retval TRUE   (X,Y) lies on a visible quick card; *Card is set.
+  @retval FALSE  No card at this position; *Card is unchanged.
+**/
+BOOLEAN
+ModernSetupHitTestDashboardCard (
+  IN  MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN  UINTN                     X,
+  IN  UINTN                     Y,
+  OUT UINTN                     *Card
+  );
+
+/**
+  Hit-test the Exit page rows (and the language dropdown when open) for a
+  pointer click.
+
+  Uses the shared MODERN_SETUP_EXIT_ROW_* layout constants so click targets
+  always match DrawExit's painted rows.
+
+  @param[in]  Ui              Initialized render context. Must not be NULL.
+  @param[in]  X               Pointer X in pixels.
+  @param[in]  Y               Pointer Y in pixels.
+  @param[out] Row             Receives the clicked row index. Must not be NULL.
+  @param[out] DropdownOption  Receives the clicked open-dropdown option, or
+                              (UINTN)-1 when the click is on a row instead.
+                              Must not be NULL.
+
+  @retval TRUE   (X,Y) lies on an Exit row or an open dropdown option.
+  @retval FALSE  Nothing clickable at this position.
+**/
+BOOLEAN
+ModernSetupHitTestExitRow (
+  IN  MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN  UINTN                     X,
+  IN  UINTN                     Y,
+  OUT UINTN                     *Row,
+  OUT UINTN                     *DropdownOption
+  );
+
+/**
+  Hit-test a list-page (Boot / Devices / Preferences) row for a pointer click.
+
+  Uses the same `ModernSetupGetPageListLayout` parameters and selectable count
+  the page's drawing uses, so click bands match the painted rows. The vertical
+  band is the row stride starting at the first row, so a click anywhere on a
+  row line selects it.
+
+  @param[in]  Ui    Initialized render context. Must not be NULL.
+  @param[in]  Page  List page under test (non-list pages return FALSE).
+  @param[in]  X     Pointer X in pixels.
+  @param[in]  Y     Pointer Y in pixels.
+  @param[out] Row   Receives the clicked visible row index. Must not be NULL.
+
+  @retval TRUE   (X,Y) lies on a visible list row; *Row is set.
+  @retval FALSE  Not a list page, or no row at this position.
+**/
+BOOLEAN
+ModernSetupHitTestPageListRow (
+  IN  MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN  SETUP_PAGE                Page,
+  IN  UINTN                     X,
+  IN  UINTN                     Y,
+  OUT UINTN                     *Row
   );
 
 /**

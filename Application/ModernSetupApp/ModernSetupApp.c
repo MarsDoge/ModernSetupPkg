@@ -92,6 +92,18 @@ UefiMain (
   EFI_EVENT                 KeyEvent;
   UINTN                     WaitCount;
   UINTN                     WaitIndex;
+  UINTN                     PointerX;
+  UINTN                     PointerY;
+  BOOLEAN                   PointerVisible;
+  UINTN                     LastCursorX;
+  UINTN                     LastCursorY;
+  SETUP_PAGE                TabHit;
+  UINTN                     CardHit;
+  UINTN                     ExitRowHit;
+  UINTN                     ExitOptionHit;
+  UINTN                     ListRowHit;
+  UINTN                     *ListSelPtr;
+  BOOLEAN                   ListRowWasActive;
 
   gBS->SetWatchdogTimer (0, 0, 0, NULL);
   mModernSetupImageHandle = ImageHandle;
@@ -136,11 +148,28 @@ UefiMain (
   StatusMessage[0] = L'\0';
   Redraw        = TRUE;
   ResetConfirmationPending = FALSE;
+  PointerX       = 0;
+  PointerY       = 0;
+  PointerVisible = FALSE;
+  LastCursorX    = 0;
+  LastCursorY    = 0;
 
   for (;;) {
     if (Redraw) {
       Theme = ModernUiGetThemeForPreference (mModernSetupPreferences.ThemeId);
+      //
+      // The full repaint below invalidates any saved under-cursor pixels; the
+      // cursor is then re-composited (with a fresh capture) on top of the new
+      // frame.
+      //
+      ModernSetupInvalidatePointerCursor ();
       ModernSetupDrawCurrentPage (&Ui, Theme, Page, Focus, DashboardSelection, BootSelection, DeviceSelection, PreferencesSelection, ExitSelection, StatusMessage);
+      if (PointerVisible) {
+        ModernSetupMovePointerCursor (&Ui, Theme, PointerX, PointerY);
+        LastCursorX = PointerX;
+        LastCursorY = PointerY;
+      }
+
       Redraw = FALSE;
     }
 
@@ -194,6 +223,114 @@ UefiMain (
     OldResetConfirmationPending  = ResetConfirmationPending;
     CopyMem (&OldPreferences, &mModernSetupPreferences, sizeof (OldPreferences));
     CopyMem (OldStatusMessage, StatusMessage, sizeof (OldStatusMessage));
+
+    if ((Event.Type == ModernUiInputPointer) && Event.PointerValid) {
+      //
+      // Scale the absolute pointer report into framebuffer pixels. When the
+      // device reports no usable range the raw values are taken as pixels.
+      //
+      PointerX = Event.PointerX;
+      PointerY = Event.PointerY;
+      if ((Input.Pointer != NULL) && (Input.Pointer->Mode != NULL) &&
+          (Input.Pointer->Mode->AbsoluteMaxX > Input.Pointer->Mode->AbsoluteMinX) &&
+          (Input.Pointer->Mode->AbsoluteMaxY > Input.Pointer->Mode->AbsoluteMinY) &&
+          (Ui.Width > 0) && (Ui.Height > 0))
+      {
+        PointerX = (UINTN)(((Event.PointerX - (UINTN)Input.Pointer->Mode->AbsoluteMinX) * (Ui.Width - 1)) /
+                           (UINTN)(Input.Pointer->Mode->AbsoluteMaxX - Input.Pointer->Mode->AbsoluteMinX));
+        PointerY = (UINTN)(((Event.PointerY - (UINTN)Input.Pointer->Mode->AbsoluteMinY) * (Ui.Height - 1)) /
+                           (UINTN)(Input.Pointer->Mode->AbsoluteMaxY - Input.Pointer->Mode->AbsoluteMinY));
+      }
+
+      PointerVisible = TRUE;
+
+      if (!Event.PointerPressed) {
+        //
+        // Motion only: composite the cursor with save-under (restore the old
+        // 16x16 rect, capture and draw at the new position). No full-frame
+        // repaint -- this is what keeps mouse motion flicker-free.
+        //
+        if ((PointerX != LastCursorX) || (PointerY != LastCursorY)) {
+          ModernSetupMovePointerCursor (&Ui, Theme, PointerX, PointerY);
+          LastCursorX = PointerX;
+          LastCursorY = PointerY;
+        }
+
+        continue;
+      }
+
+      //
+      // Click. Route through the same activation paths the keyboard uses:
+      // a successful hit updates the selection state and synthesizes an Enter
+      // event, so the shared Enter handling below stays the single owner of
+      // activation semantics.
+      //
+      if (ModernSetupHitTestTab (&Ui, Page, PointerX, PointerY, &TabHit)) {
+        Page  = TabHit;
+        Focus = SetupFocusNav;
+        mModernSetupLanguageDropdownOpen = FALSE;
+        ModernSetupCancelPreferencePopup ();
+        StatusMessage[0] = L'\0';
+        Redraw = TRUE;
+        continue;
+      }
+
+      if ((Page == PageDashboard) && ModernSetupHitTestDashboardCard (&Ui, PointerX, PointerY, &CardHit)) {
+        DashboardSelection = CardHit;
+        Focus = SetupFocusContent;
+        Event.Type = ModernUiInputEnter;
+      } else if ((Page == PageExit) && ModernSetupHitTestExitRow (&Ui, PointerX, PointerY, &ExitRowHit, &ExitOptionHit)) {
+        if (ExitOptionHit != (UINTN)-1) {
+          mModernSetupLanguageDropdownSelection = ExitOptionHit;
+        } else {
+          ExitSelection = ExitRowHit;
+        }
+
+        Focus      = SetupFocusContent;
+        Event.Type = ModernUiInputEnter;
+      } else if (ModernSetupHitTestPageListRow (&Ui, Page, PointerX, PointerY, &ListRowHit)) {
+        //
+        // Boot / Devices / Preferences list rows are two-stage: the first click
+        // only selects the row (focus + highlight), and a second click on the
+        // already-selected row activates it (launch boot option, open the
+        // native HII form, or open the preference popup) -- so a stray click
+        // never launches anything. Activation reuses the shared Enter handling.
+        //
+        ListSelPtr = NULL;
+        switch (Page) {
+          case PageBoot:
+            ListSelPtr = &BootSelection;
+            break;
+          case PageDevices:
+            ListSelPtr = &DeviceSelection;
+            break;
+          case PagePreferences:
+            ListSelPtr = &PreferencesSelection;
+            break;
+          default:
+            break;
+        }
+
+        if (ListSelPtr != NULL) {
+          ListRowWasActive = (BOOLEAN)((Focus == SetupFocusContent) && (*ListSelPtr == ListRowHit));
+          *ListSelPtr      = ListRowHit;
+          Focus            = SetupFocusContent;
+          if (ListRowWasActive) {
+            Event.Type = ModernUiInputEnter;
+          } else {
+            StatusMessage[0] = L'\0';
+            Redraw           = TRUE;
+            continue;
+          }
+        } else {
+          Redraw = TRUE;
+          continue;
+        }
+      } else {
+        Redraw = TRUE;
+        continue;
+      }
+    }
 
     if ((Focus == SetupFocusContent) && (Page == PagePreferences) && mModernSetupPreferencePopupOpen && (Event.Type == ModernUiInputOther)) {
       ModernSetupHandlePreferenceInputKey (&Event, StatusMessage, sizeof (StatusMessage));

@@ -49,6 +49,27 @@ The validation terms below describe current evidence only:
 
 Current Phase35 status in this matrix is `Script`/`Manual` foundation only. Static smoke can check that the helper and manual workflow exist; `--mode generate-only` can check overlay snapshots; `--mode build` can check firmware FD snapshots; only `--mode capture` with successful QEMU `screendump` output creates visual screenshot evidence, and the helper does not inspect pixels or mark visual equivalence as verified.
 
+## VFR Write-Chain Interaction Evidence (2026-06-10)
+
+End-to-end interaction validation on OVMF X64 (lvgl backend, app front page,
+`MODERN_SETUP_SECURE_BOOT=1` + `MODERN_SETUP_DEMO_DRIVER_SAMPLE=1` +
+`MODERN_SETUP_REPLACE_UIAPP=1`), driven by QEMU `sendkey` with screendump
+evidence at each step:
+
+| Step | Surface | Evidence | Result |
+| --- | --- | --- | --- |
+| One-of popup open/select/commit | `SecureBootConfigDxe` "Secure Boot Mode" | `Captured` | Popup renders as a modern panel; selecting Custom updates the value lane to `<Custom Mode>` and the form **live-reevaluates IFR conditionals** — the suppressed "Custom Secure Boot Options" row appears. |
+| F10 save dialog + Y confirm | Same form | `Captured` | "Save configuration changes?" dialog renders and Y dismisses it with the changed value retained in-browser. |
+| Driver-owned no-persist semantics | Same form, exit + re-enter | `Captured` | Mode reverts to `<Standard Mode>` after re-entry — **identical under the native DisplayEngine** (A/B re-run with `MODERN_SETUP_DISPLAY_ENGINE=native`). Driver source confirms `SecureBootRouteConfig` persists only `AttemptSecureBoot`; the `CustomMode` variable is written exclusively by the key-enrollment flows. Not an engine defect. |
+| Grayed-out control fidelity | "Attempt Secure Boot" checkbox | `Captured` | Renders grayed and non-editable (no PK enrolled, `SetupMode != USER_MODE`), matching native semantics. |
+| **NV persistence across cold reboot** | `DriverSampleDxe` "My one-of prompt #1" | `Captured` | Change option (popup) -> F10 -> Y -> cold reboot (`RESET_VARS=0`) -> re-enter form: the changed value (`<GrayOut the Checkbox>`) persists, the dependent checkbox renders **grayed** (grayoutif on the new value) and the suppressed "Pick 1" ordered list appears (suppressif released). Full chain: modern engine input -> FormBrowser -> ConfigRouting -> driver `RouteConfig` -> `SetVariable` (NV) -> reboot -> `ExtractConfig` -> re-render. |
+
+| **Full PK enrollment -> Secure Boot enabled** | `SecureBootConfigDxe` key-enrollment flow | `Captured` + serial | Complete flow driven through the modern engine in one session: Custom mode -> Custom Secure Boot Options -> PK Options -> Enroll PK -> **file explorer** (volume select -> root listing -> pick a DER X509 `pk.cer` from the ESP) -> Commit Changes and Exit. Same boot: "Current Secure Boot State" flips **Enabled**, "Attempt Secure Boot" un-grays and shows checked. Cold reboot (`RESET_VARS=0`): Secure Boot **enforces** -- the unsigned ESP `BOOTX64.EFI` is rejected (`BdsDxe: ... Access Denied -- rejected probably by Secure Boot` in the serial log) and BDS falls back to the FV-embedded app. Test PK generated via openssl (self-signed, CN=ModernSetup Test PK); QEMU-only, no real platform touched. |
+
+Boundary note: all semantics above are owned by native FormBrowser/ConfigAccess;
+the modern engine contributes display and input only, and the A/B row shows it
+reproduces native behavior including driver-owned non-persistence.
+
 ## Phase32 Responsive Page Layout Matrix
 
 Phase32 (`ModernSetupGetPageListLayout`, `Application/ModernSetupApp/ModernSetupAppActions.c`, landed in `038a156`) drives Boot/Devices/provider-summary list rows, padding, the visible row cap, and the Devices preview split from the app-owned `DashboardDensity` preference and the active content rect; drawing and keyboard row counts share the helper, and smoke fixes its compact/comfortable branches.
@@ -60,6 +81,21 @@ Resolution floor (applies to every row below): `SelectPreferredGopMode` (`Librar
 | Boot | Density rows, visible row cap, right value lane, native boot-tools row | 1280x800 (firmware GOP default, at/above floor) | `Captured` | Rows render without clipping; serial log has no `Exception`/`#PF`/`ASSERT`. |
 | Devices | Density rows plus the `>=720`-width native-setup preview split | 1280x800 | `Captured` | Left list and preview pane both render; no missing-glyph squares or value-lane overlap. |
 | Firmware (provider summary) | Density rows for the read-only provider summary | 1280x800 | `Captured` | Localized zh labels and `N/A`/read-only states render cleanly. |
+
+### Resolution matrix (Gate 4 closure, 2026-06-10)
+
+Dashboard captured per active GOP mode, driven from the QEMU side
+(`-vga none -device VGA,edid=on,xres=<W>,yres=<H>`). Finding: OVMF's
+`QemuVideoDxe` adopts the EDID preferred mode and overwrites the display PCDs at
+runtime when `PcdVideoResolutionSource==0`, so the DSC PCD default is **not**
+the effective lever under modern QEMU; `Scripts/build-ovmf-x64.sh` documents
+this and its `MODERN_SETUP_VIDEO_RES` override applies only with `edid=off`.
+
+| Requested (EDID) | Active mode rendered | Evidence | Result |
+| --- | --- | --- | --- |
+| 1920x1080 | 1920x1080 (kept; above floor) | `Captured` | Full 13-tab nav row (no scroll chevron), 3-column quick cards with detail lines, dashboard `Display` row reads `1920 x 1080`; no clipping/overlap. |
+| 1024x768 | 1024x768 (kept; equals floor) | `Captured` | Tab row scrolls with `>` chevron, quick cards reflow to a compact layout (detail lines dropped by the height guard), long values truncate with ellipsis; no overlap. |
+| 800x600 | 1024x768 (auto-promoted) | `Captured` | `SelectPreferredGopMode` promotes the sub-floor EDID mode to the smallest qualifying mode; the render is identical to the native 1024x768 case and the `Display` row reads `1024 x 768`. |
 
 Captured via `Scripts/capture-ovmf-x64.sh` (`BOOT_APP=1` plus a tab `SENDKEY_SEQUENCE`) after rebuilding the App ESP at the current `main` HEAD; inspected as modern-App-only artifacts, which is **not** a native-vs-modern maintainer `Visual reviewed` sign-off. Captures default to `${TMPDIR:-/tmp}/modernsetup-qemu` and are not committed as assets.
 

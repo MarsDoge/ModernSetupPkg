@@ -136,17 +136,17 @@ failures or leaks under sustained navigation.
 
 **Current:** canvas sizes to the active GOP mode and re-inits on change; guards
 skip draws when a region is too small. Graceful degradation (GOP-absent +
-degenerate-mode) and mode-change re-init are now defined and fixed; mode-matrix
-visual validation is the remaining open item.
+degenerate-mode), mode-change re-init, and the resolution-matrix visual
+validation are all done — Gate 4 is closed.
 
 | ✓ | Step | Effort | Note |
 | --- | --- | --- | --- |
-| [ ] | Resolution matrix | M | Validate 1024×768, 1280×800, 1920×1080, and a small mode (e.g. 800×600). Confirm chrome/rows/right-rail/popups/watermark scale and the size guards behave. Needs a per-resolution OVMF build (resolution PCDs) + capture loop. |
+| [x] | Resolution matrix | M | Validated 2026-06-10 on OVMF X64 (lvgl, app front page): 1920×1080 kept (13-tab nav, 3-column cards), 1024×768 kept (tab scroll chevron, compact cards, ellipsis truncation), 800×600 auto-promoted to 1024×768 by `SelectPreferredGopMode`. Driven via QEMU EDID (`-vga none -device VGA,edid=on,xres=…,yres=…`) — OVMF `QemuVideoDxe` adopts EDID over the DSC display PCDs; `MODERN_SETUP_VIDEO_RES` on `build-ovmf-x64.sh` covers the `edid=off` case. Evidence table in `Docs/ProductizationValidationMatrix.md` (Phase32 → Resolution matrix). |
 | [x] | Re-init correctness on mode change | S | LVGL re-init now syncs `lv_display_set_resolution` to the reallocated canvas and creates the canvas object once (rebinding its buffer) instead of re-creating it each change (which orphaned the prior canvas + its freed buffer). Commit `fix(displayengine): degrade gracefully on absent/degenerate GOP mode`. |
 | [x] | GOP-absent / degenerate fallback | M | Both `ModernUiRendererInit` backends refuse modes below `MODERN_UI_MIN_RENDER_WIDTH`×`_HEIGHT` (640×480); the in-setup display engine's `PrintInternal` now falls back to text-console `OutputString` (padded) when the renderer is unavailable instead of emitting nothing (blank screen), and the front-page app exits to the native shell. |
 
-**Acceptance:** correct rendering across the matrix (open); graceful degradation
-with no GOP or an unusably small mode (done).
+**Acceptance:** correct rendering across the matrix (done); graceful degradation
+with no GOP or an unusably small mode (done). **Gate 4 closed 2026-06-10.**
 
 ## Gate 5 — Interaction completeness & polish
 

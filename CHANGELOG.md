@@ -12,6 +12,104 @@ this file as both a release log and a lightweight development progress record.
 
 ## Unreleased
 
+### Fixed
+
+- Mouse clicks now work on the Boot / Devices / Preferences list pages (the
+  first mouse pass only wired tabs, dashboard cards, and the Exit rows, so the
+  Boot page rows were unclickable). A new `ModernSetupHitTestPageListRow` maps a
+  click to a visible row using the same `ModernSetupGetPageListLayout`
+  parameters and selectable count each page draws with. List rows are
+  **two-stage**: the first click only selects (focus + highlight), and a second
+  click on the already-selected row activates it (launch boot option / open the
+  native HII form / open the preference popup), so a stray click never launches
+  anything. Activation reuses the shared Enter handling. Verified under QEMU:
+  first click selects the Boot row, second click launches it.
+
+- Mouse motion no longer flickers the screen. Pointer movement previously
+  triggered a full-frame repaint per motion event (visible flicker, especially
+  through the LVGL backend's full-canvas composite). The cursor now uses
+  classic save-under compositing: the 16x16 pixels beneath the arrow are
+  captured before drawing and restored on move, so motion repaints only that
+  small rectangle. Backed by a new additive renderer API pair --
+  `ModernUiCaptureRect` / `ModernUiRestoreRect` (GOP backend: framebuffer
+  read-back/write; LVGL backend: shadow-canvas read/write plus a region
+  re-flush so later partial flushes cannot resurrect the cursor). Full-frame
+  repaints (page switches, clicks) invalidate the saved pixels and re-composite
+  the cursor with a fresh capture. Verified under QEMU: multi-hop motion leaves
+  no trails, before and after click-driven full repaints.
+
+### Added
+
+- **Mouse support in the front-page App.** A USB mouse now drives the App: an
+  original arrow cursor composites on top of every frame, moving the mouse
+  repaints (throttled), and clicking activates -- top tabs switch pages
+  (hit-testing shares the exact scrolled-window math the tab painter uses),
+  dashboard quick cards select-and-route (bounded by the platform-visible card
+  count, so a hidden card can never be clicked), and Exit-page rows / the open
+  language dropdown select-and-activate. Clicks reuse the keyboard's Enter
+  handling (the hit updates the selection and synthesizes an Enter event), so
+  activation semantics stay single-owner. Validated end-to-end under QEMU
+  (`-device usb-mouse` + monitor injection): card click routes to Devices, tab
+  click switches pages, and clicking "English" in the language dropdown switches
+  the live UI language.
+- The OVMF X64 overlay now always includes the upstream
+  `UsbMouseAbsolutePointerDxe` driver (upstream OVMF ships no pointer driver at
+  all), so `EFI_ABSOLUTE_POINTER_PROTOCOL` exists for the App's pointer input.
+  Note the edk2 driver integrates *relative* HID mice into its own 0..1024
+  absolute space (`-device usb-mouse` under QEMU; a `usb-tablet`'s absolute
+  reports are not understood by it).
+
+### Fixed
+
+- `ModernUiReadInput` no longer loses pointer reports to double-waiting: it now
+  polls `GetState` non-blocking first, so a caller that pre-waited on the same
+  `WaitForInput` event (the App's clock-tick wait does) and consumed its signal
+  still receives the pending pointer event instead of blocking until the next
+  one. Keyboard input was never affected (key strokes are buffered).
+
+- LVGL widget text no longer renders CJK as `?`. The LVGL backend's widget paths
+  (one-of dropdown value, checkbox label, numeric/string field, ordered list)
+  previously ASCII-folded all non-ASCII to `'?'` ("中文" showed as "??", e.g. the
+  front-page Exit language dropdown when the app renders through the LVGL
+  backend, as in `MODERN_SETUP_REPLACE_UIAPP=1` lvgl firmware). The backend now
+  registers a custom `lv_font_t` backed by the embedded Noto Sans CJK SC A8
+  subset (the same bitmaps the primitive text path composites) with the stock
+  Latin font as fallback, and converts widget labels to UTF-8. Subset CJK renders
+  natively in widgets; out-of-subset code points still degrade to `'?'` (never an
+  LVGL placeholder/tofu box), per the graceful-fallback policy.
+
+### Added
+
+- Resolution-matrix validation (LVGL productization Gate 4 closure): the OVMF X64
+  app front page is visually verified at 1920x1080 (kept; full 13-tab nav,
+  3-column cards), 1024x768 (kept; tab scroll chevron, compact cards, ellipsis
+  truncation), and 800x600 (auto-promoted to 1024x768 by
+  `SelectPreferredGopMode`). Evidence recorded in
+  `Docs/ProductizationValidationMatrix.md` (+ zh mirror); Gate 4 is now closed in
+  `Docs/LvglProductizationPlan.md`. A new optional `MODERN_SETUP_VIDEO_RES=<W>x<H>`
+  switch on `Scripts/build-ovmf-x64.sh` rewrites the overlay's display-PCD
+  defaults for the `edid=off` case; under modern QEMU the effective lever is the
+  QEMU EDID (`-vga none -device VGA,edid=on,xres=,yres=`) because OVMF's
+  `QemuVideoDxe` adopts the EDID preferred mode over the DSC PCDs at runtime.
+- New `MODERN_SETUP_SECURE_BOOT=1` switch on `Scripts/build-ovmf-x64.sh`: passes
+  `-D SECURE_BOOT_ENABLE=TRUE` through to the upstream OVMF DSC/FDF `!if` blocks
+  so SecurityPkg's real **Secure Boot Configuration** formset
+  (`SecureBootConfigDxe`) is included -- a production VFR surface for validating
+  the App Devices page and the modern DisplayEngine beyond `DriverSampleDxe`.
+  Display-only validation aid; off by default; no upstream file is edited.
+  Verified end-to-end under QEMU: the Devices page lists the real formsets
+  (Secure Boot, RAM Disk, OVMF Platform Configuration, Driver Health, File
+  Explorer) and the Secure Boot form renders through native FormBrowser with the
+  LVGL backend (checkbox, mode dropdown, goto, context help).
+
+### Fixed
+
+- `MODERN_SETUP_DEMO_DRIVER_SAMPLE=1` can now be combined with
+  `MODERN_SETUP_REPLACE_UIAPP=1` on OVMF X64: the DriverSample DSC/FDF insertion
+  is re-anchored on `QemuKernelLoaderFsDxe` (stable) instead of the UiApp
+  component, which `MODERN_SETUP_REPLACE_UIAPP` may already have replaced. The
+  smoke OVMF fixture gains the same anchor.
+
 ### Changed
 
 - Refreshed the GitHub showcase screenshots (`Assets/Screenshots/`) to the current

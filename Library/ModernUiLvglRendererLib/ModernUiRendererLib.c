@@ -790,36 +790,191 @@ ModernUiDrawText (
 }
 
 
+//
+// Baseline (from the bottom of line_height) used by the widget fallback font.
+// Chosen so Latin fallback glyphs keep a sane baseline while the full-cell
+// 18x18 CJK bitmaps stay top-aligned within the 18px line (ofs_y compensates).
+//
+#define LVGL_CJK_FONT_BASE_LINE  2
+
+STATIC lv_font_t  mLvglCjkFont;
+STATIC BOOLEAN    mLvglCjkFontReady = FALSE;
+
 /**
-  Convert a UCS-2 run to an ASCII label for LVGL's Latin fonts.
+  lv_font_t get_glyph_dsc callback serving the embedded builtin glyph subset.
 
-  Glyph-width markers and non-ASCII code points are dropped/replaced; CJK in a
-  widget label is a known limitation of the widget path (handled elsewhere for
-  primitive text).
+  Returns FALSE for any code point outside the subset so LVGL consults the
+  configured fallback (the default Latin font) — ASCII intentionally lives in
+  the fallback, this font only serves the embedded CJK/punctuation bitmaps.
 
-  @param[out] Out  Destination ASCII buffer.
+  @param[in]  Font        Font being queried (this font). Not used.
+  @param[out] DscOut      Glyph descriptor to fill. Must not be NULL.
+  @param[in]  Letter      Unicode code point being resolved.
+  @param[in]  LetterNext  Following code point (kerning); unused.
+
+  @retval TRUE   Glyph is served by the embedded subset; DscOut is filled.
+  @retval FALSE  Glyph is not in the subset (fallback font is consulted).
+**/
+STATIC
+bool
+LvglCjkGetGlyphDsc (
+  const lv_font_t        *Font,
+  lv_font_glyph_dsc_t    *DscOut,
+  uint32_t               Letter,
+  uint32_t               LetterNext
+  )
+{
+  CONST MODERN_UI_BUILTIN_GLYPH  *Glyph;
+
+  (void)Font;
+  (void)LetterNext;
+
+  if (Letter > 0xFFFF) {
+    return false;
+  }
+
+  Glyph = ModernUiFindBuiltinGlyph ((CHAR16)Letter);
+  if (Glyph == NULL) {
+    return false;
+  }
+
+  DscOut->gid.index      = Letter;
+  DscOut->adv_w          = Glyph->Advance;
+  DscOut->box_w          = Glyph->Width;
+  DscOut->box_h          = Glyph->Height;
+  DscOut->ofs_x          = 0;
+  DscOut->ofs_y          = -LVGL_CJK_FONT_BASE_LINE;
+  DscOut->format         = LV_FONT_GLYPH_FORMAT_A8;
+  DscOut->is_placeholder = 0;
+  DscOut->stride         = 0;
+  return true;
+}
+
+/**
+  lv_font_t get_glyph_bitmap callback for the embedded builtin glyph subset.
+
+  Copies the glyph's A8 rows into the renderer-provided draw buffer using the
+  stride LVGL expects for A8 (mirroring the upstream fmt_txt contract) and
+  returns the draw buffer.
+
+  @param[in] GlyphDsc  Glyph descriptor previously filled by LvglCjkGetGlyphDsc.
+  @param[in] DrawBuf   Renderer-provided destination buffer. May be NULL.
+
+  @retval NULL    Glyph or destination unavailable.
+  @retval others  DrawBuf with the A8 bitmap copied in.
+**/
+STATIC
+const void *
+LvglCjkGetGlyphBitmap (
+  lv_font_glyph_dsc_t  *GlyphDsc,
+  lv_draw_buf_t        *DrawBuf
+  )
+{
+  CONST MODERN_UI_BUILTIN_GLYPH  *Glyph;
+  uint8_t                        *Out;
+  uint32_t                       StrideOut;
+  UINTN                          Row;
+
+  if ((GlyphDsc == NULL) || (DrawBuf == NULL) || (GlyphDsc->gid.index > 0xFFFF)) {
+    return NULL;
+  }
+
+  Glyph = ModernUiFindBuiltinGlyph ((CHAR16)GlyphDsc->gid.index);
+  if (Glyph == NULL) {
+    return NULL;
+  }
+
+  Out       = DrawBuf->data;
+  StrideOut = lv_draw_buf_width_to_stride (Glyph->Width, LV_COLOR_FORMAT_A8);
+  for (Row = 0; Row < Glyph->Height; Row++) {
+    CopyMem (
+      Out + (Row * StrideOut),
+      &Glyph->Bitmap[Row * MODERN_UI_BUILTIN_GLYPH_WIDTH],
+      Glyph->Width
+      );
+  }
+
+  return DrawBuf;
+}
+
+/**
+  Return the widget text font: the embedded CJK subset with the default Latin
+  font as fallback.
+
+  Lazily initializes a static lv_font_t on first use. ASCII resolves through
+  the fallback (this font serves only the embedded subset), so Latin text in
+  widgets keeps the stock LVGL look while subset CJK renders from the same
+  bitmaps the primitive text path uses.
+
+  @return Non-NULL font usable with lv_obj_set_style_text_font().
+**/
+STATIC
+CONST lv_font_t *
+LvglCjkFont (
+  VOID
+  )
+{
+  if (!mLvglCjkFontReady) {
+    ZeroMem (&mLvglCjkFont, sizeof (mLvglCjkFont));
+    mLvglCjkFont.get_glyph_dsc    = LvglCjkGetGlyphDsc;
+    mLvglCjkFont.get_glyph_bitmap = LvglCjkGetGlyphBitmap;
+    mLvglCjkFont.line_height      = MODERN_UI_BUILTIN_GLYPH_HEIGHT;
+    mLvglCjkFont.base_line        = LVGL_CJK_FONT_BASE_LINE;
+    mLvglCjkFont.fallback         = LV_FONT_DEFAULT;
+    mLvglCjkFontReady             = TRUE;
+  }
+
+  return &mLvglCjkFont;
+}
+
+/**
+  Convert a UCS-2 run to a UTF-8 label for LVGL widget text.
+
+  Glyph-width markers are dropped. CJK code points covered by the embedded
+  builtin subset are emitted as UTF-8 (rendered by the widget font's subset
+  path); any other non-ASCII code point degrades to '?' so LVGL never draws a
+  placeholder/tofu box (graceful-fallback policy).
+
+  @param[out] Out  Destination UTF-8 buffer.
   @param[in]  Cap  Capacity of Out in bytes (>= 1).
   @param[in]  Src  Null-terminated UCS-2 source. May be NULL (empty result).
 **/
 STATIC
 VOID
-LvglAsciiLabel (
+LvglWidgetLabel (
   OUT CHAR8         *Out,
   IN  UINTN         Cap,
   IN  CONST CHAR16  *Src
   )
 {
-  UINTN  SrcIdx;
-  UINTN  DstIdx;
+  UINTN   SrcIdx;
+  UINTN   DstIdx;
+  CHAR16  Ch;
 
   DstIdx = 0;
   if (Src != NULL) {
     for (SrcIdx = 0; (Src[SrcIdx] != CHAR_NULL) && (DstIdx < (Cap - 1)); SrcIdx++) {
-      if (Src[SrcIdx] >= 0xFFF0) {
+      Ch = Src[SrcIdx];
+      if (Ch >= 0xFFF0) {
         continue;
       }
 
-      Out[DstIdx++] = ((Src[SrcIdx] >= 0x20) && (Src[SrcIdx] < 0x7F)) ? (CHAR8)Src[SrcIdx] : '?';
+      if ((Ch >= 0x20) && (Ch < 0x7F)) {
+        Out[DstIdx++] = (CHAR8)Ch;
+        continue;
+      }
+
+      if ((Ch >= 0x80) && (ModernUiFindBuiltinGlyph (Ch) != NULL) && ((DstIdx + 3) < Cap)) {
+        //
+        // Emit as UTF-8 (all subset code points are >= U+0800: 3 bytes).
+        //
+        Out[DstIdx++] = (CHAR8)(0xE0 | ((Ch >> 12) & 0x0F));
+        Out[DstIdx++] = (CHAR8)(0x80 | ((Ch >> 6) & 0x3F));
+        Out[DstIdx++] = (CHAR8)(0x80 | (Ch & 0x3F));
+        continue;
+      }
+
+      Out[DstIdx++] = '?';
     }
   }
 
@@ -851,6 +1006,11 @@ LvglStyleControl (
   lv_obj_set_style_bg_color (Obj, ToLvColor (Selected ? Theme->SelectedBand : Theme->Surface), 0);
   lv_obj_set_style_bg_opa (Obj, LV_OPA_COVER, 0);
   lv_obj_set_style_border_color (Obj, ToLvColor (Selected ? Theme->PopupBorder : Theme->Border), 0);
+  //
+  // Embedded-subset CJK with the stock Latin font as fallback, so localized
+  // HII value text renders in widgets instead of degrading to '?'.
+  //
+  lv_obj_set_style_text_font (Obj, LvglCjkFont (), 0);
 }
 
 /**
@@ -986,7 +1146,7 @@ ModernUiRenderOneOf (
     return ModernUiDrawValueBox (Context, Rect, Value, Selected, Theme);
   }
 
-  LvglAsciiLabel (Label, sizeof (Label), Value);
+  LvglWidgetLabel (Label, sizeof (Label), Value);
 
   Dropdown = lv_dropdown_create (lv_display_get_screen_active (mDisplay));
   if (Dropdown == NULL) {
@@ -1101,7 +1261,7 @@ LvglRenderTextField (
     return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
   }
 
-  LvglAsciiLabel (Text, sizeof (Text), Value);
+  LvglWidgetLabel (Text, sizeof (Text), Value);
 
   //
   // Display-only single-line lv_textarea: a real LVGL input control. one-line
@@ -1228,7 +1388,7 @@ ModernUiRenderOrderedList (
     return ModernUiDrawFieldBox (Context, Rect, Norm, Selected, Theme);
   }
 
-  LvglAsciiLabel (Text, sizeof (Text), Norm);
+  LvglWidgetLabel (Text, sizeof (Text), Norm);
   //
   // LV_SYMBOL_LIST is a UTF-8 glyph from the bundled Montserrat symbol set; it is
   // copied verbatim ahead of the ASCII order text to mark the field as a list.
@@ -1291,7 +1451,7 @@ ModernUiRenderDateTime (
     return ModernUiDrawFieldBox (Context, Rect, Value, Selected, Theme);
   }
 
-  LvglAsciiLabel (Raw, sizeof (Raw), Value);
+  LvglWidgetLabel (Raw, sizeof (Raw), Value);
   //
   // Pad each date/time delimiter with surrounding spaces so the segments read as
   // discrete cells (e.g. "06 / 05 / 2026"), without parsing the field layout.
@@ -1427,5 +1587,104 @@ ModernUiDrawOemWatermark (
     MIN ((UINTN)OEM_WATERMARK_HEIGHT, mCanvasH - AnchorY)
     );
 
+  return EFI_SUCCESS;
+}
+
+/**
+  Capture the current on-screen pixels of a rectangle into a caller buffer.
+  See the contract in ModernUi/ModernUiRenderer.h. The LVGL backend reads from
+  the shadow canvas, which mirrors the screen (every primitive flushes through
+  it).
+
+  @param[in]  Context  Initialized render context. Must not be NULL.
+  @param[in]  Rect     Source rectangle; must lie fully on screen, non-empty.
+  @param[out] Buffer   Receives Rect.Width*Rect.Height pixels. Must not be NULL.
+
+  @retval EFI_SUCCESS            Pixels captured.
+  @retval EFI_INVALID_PARAMETER  Bad arguments or off-screen rectangle.
+  @retval EFI_NOT_READY          The canvas bridge is not initialized.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiCaptureRect (
+  IN  MODERN_UI_RENDER_CONTEXT       *Context,
+  IN  MODERN_UI_RECT                 Rect,
+  OUT EFI_GRAPHICS_OUTPUT_BLT_PIXEL  *Buffer
+  )
+{
+  UINTN  Row;
+
+  if ((Context == NULL) || (Buffer == NULL) ||
+      (Rect.Width == 0) || (Rect.Height == 0) ||
+      ((Rect.X + Rect.Width) > Context->Width) ||
+      ((Rect.Y + Rect.Height) > Context->Height))
+  {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (!mLvglReady || (mCanvasBuf == NULL) ||
+      ((Rect.X + Rect.Width) > mCanvasW) || ((Rect.Y + Rect.Height) > mCanvasH))
+  {
+    return EFI_NOT_READY;
+  }
+
+  for (Row = 0; Row < Rect.Height; Row++) {
+    CopyMem (
+      &Buffer[Row * Rect.Width],
+      &mCanvasBuf[(Rect.Y + Row) * mCanvasW + Rect.X],
+      Rect.Width * sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)
+      );
+  }
+
+  return EFI_SUCCESS;
+}
+
+/**
+  Restore previously captured pixels back to the screen.
+  See the contract in ModernUi/ModernUiRenderer.h. The LVGL backend writes the
+  pixels into the shadow canvas and re-flushes the region, so later partial
+  flushes cannot resurrect the overlay that was drawn over them.
+
+  @param[in] Context  Initialized render context. Must not be NULL.
+  @param[in] Rect     Destination rectangle; must lie fully on screen.
+  @param[in] Buffer   Pixels from ModernUiCaptureRect. Must not be NULL.
+
+  @retval EFI_SUCCESS            Pixels restored.
+  @retval EFI_INVALID_PARAMETER  Bad arguments or off-screen rectangle.
+  @retval EFI_NOT_READY          The canvas bridge is not initialized.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRestoreRect (
+  IN MODERN_UI_RENDER_CONTEXT             *Context,
+  IN MODERN_UI_RECT                       Rect,
+  IN CONST EFI_GRAPHICS_OUTPUT_BLT_PIXEL  *Buffer
+  )
+{
+  UINTN  Row;
+
+  if ((Context == NULL) || (Buffer == NULL) ||
+      (Rect.Width == 0) || (Rect.Height == 0) ||
+      ((Rect.X + Rect.Width) > Context->Width) ||
+      ((Rect.Y + Rect.Height) > Context->Height))
+  {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  if (!mLvglReady || (mCanvasBuf == NULL) ||
+      ((Rect.X + Rect.Width) > mCanvasW) || ((Rect.Y + Rect.Height) > mCanvasH))
+  {
+    return EFI_NOT_READY;
+  }
+
+  for (Row = 0; Row < Rect.Height; Row++) {
+    CopyMem (
+      &mCanvasBuf[(Rect.Y + Row) * mCanvasW + Rect.X],
+      &Buffer[Row * Rect.Width],
+      Rect.Width * sizeof (EFI_GRAPHICS_OUTPUT_BLT_PIXEL)
+      );
+  }
+
+  BltCanvasRegion (Rect.X, Rect.Y, Rect.Width, Rect.Height);
   return EFI_SUCCESS;
 }

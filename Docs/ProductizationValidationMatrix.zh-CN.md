@@ -49,6 +49,25 @@ XArch 是 ModernSetupPkg 的跨架构验证/产品化术语。XArch 不会替代
 
 本矩阵中的 Phase35 当前状态仅为 `Script`/`Manual` foundation。Static smoke 可检查 helper 和手动工作流存在；`--mode generate-only` 可检查 overlay snapshot；`--mode build` 可检查 firmware FD snapshot；只有 `--mode capture` 成功产出 QEMU `screendump` 后才形成视觉截图证据，并且该 helper 不检查像素，也不会将视觉等价标记为 verified。
 
+## VFR 写链交互证据（2026-06-10）
+
+OVMF X64 端到端交互验证（lvgl 后端、App 首页、`MODERN_SETUP_SECURE_BOOT=1` +
+`MODERN_SETUP_DEMO_DRIVER_SAMPLE=1` + `MODERN_SETUP_REPLACE_UIAPP=1`），由 QEMU
+`sendkey` 驱动并逐步截图取证：
+
+| 步骤 | 验证面 | 证据 | 结果 |
+| --- | --- | --- | --- |
+| oneof 弹窗打开/选择/提交 | `SecureBootConfigDxe`「Secure Boot Mode」 | `Captured` | 弹窗以现代面板渲染；选 Custom 后值栏变为 `<Custom Mode>`，且表单**实时重评估 IFR 条件**——被 suppress 的「Custom Secure Boot Options」行出现。 |
+| F10 保存对话框 + Y 确认 | 同一表单 | `Captured` | 「Save configuration changes?」对话框渲染正常，Y 关闭后浏览器内保留改值。 |
+| 驱动自有的不持久化语义 | 同一表单，退出后重进 | `Captured` | 重进后 Mode 回退 `<Standard Mode>`——**原生 DisplayEngine 下行为完全一致**（`MODERN_SETUP_DISPLAY_ENGINE=native` A/B 复跑）。驱动源码证实 `SecureBootRouteConfig` 只持久化 `AttemptSecureBoot`；`CustomMode` 变量仅由密钥注册流程写入。非引擎缺陷。 |
+| 灰禁控件保真 | 「Attempt Secure Boot」复选框 | `Captured` | 渲染为灰禁不可编辑（未注册 PK，`SetupMode != USER_MODE`），与原生语义一致。 |
+| **跨冷重启 NV 持久化** | `DriverSampleDxe`「My one-of prompt #1」 | `Captured` | 弹窗改值 -> F10 -> Y -> 冷重启（`RESET_VARS=0`）-> 重进表单：改值（`<GrayOut the Checkbox>`）保持，依赖的复选框按新值**变灰**（grayoutif），被 suppress 的「Pick 1」有序列表出现（suppressif 释放）。完整链路：现代引擎输入 -> FormBrowser -> ConfigRouting -> 驱动 `RouteConfig` -> `SetVariable`（NV）-> 重启 -> `ExtractConfig` -> 重新渲染。 |
+
+| **完整 PK 注册 -> Secure Boot 开启** | `SecureBootConfigDxe` 密钥注册流程 | `Captured` + 串口 | 单次会话内全程经现代引擎驱动：Custom 模式 -> Custom Secure Boot Options -> PK Options -> Enroll PK -> **文件浏览器**（选卷 -> 根目录列表 -> 从 ESP 选择 DER X509 `pk.cer`）-> Commit Changes and Exit。同一次启动内：「Current Secure Boot State」翻转 **Enabled**，「Attempt Secure Boot」解除灰禁并显示勾选。冷重启（`RESET_VARS=0`）：Secure Boot **真实执法**——未签名的 ESP `BOOTX64.EFI` 被拒载（串口日志 `BdsDxe: ... Access Denied -- rejected probably by Secure Boot`），BDS 回退至固件内嵌 App。测试 PK 由 openssl 生成（自签名，CN=ModernSetup Test PK）；仅 QEMU，不触碰真实平台。 |
+
+边界说明：上述全部语义归原生 FormBrowser/ConfigAccess 所有；现代引擎只贡献显示与
+输入，A/B 行证明它如实复现原生行为（包括驱动自有的不持久化）。
+
 ## Phase32 响应式页面布局矩阵
 
 Phase32（`ModernSetupGetPageListLayout`，`Application/ModernSetupApp/ModernSetupAppActions.c`，已在 `038a156` 落地）让 Boot/Devices/provider 摘要页的列表行高、padding、可见行上限以及 Devices 预览分栏跟随 app 自有的 `DashboardDensity` 偏好和当前内容矩形；绘制与键盘行数共用同一 helper，smoke 固化其 compact/comfortable 分支。
@@ -60,6 +79,21 @@ Phase32（`ModernSetupGetPageListLayout`，`Application/ModernSetupApp/ModernSet
 | Boot | 密度行、可见行上限、右侧值列、原生 boot-tools 行 | 1280x800（固件 GOP 默认，达下限） | `Captured` | 行无截断；串口日志无 `Exception`/`#PF`/`ASSERT`。 |
 | Devices | 密度行加 `>=720` 宽度的 native-setup 预览分栏 | 1280x800 | `Captured` | 左列表与预览栏均渲染；无缺字方块、无值列重叠。 |
 | Firmware（provider 摘要） | 只读 provider 摘要的密度行 | 1280x800 | `Captured` | 本地化 zh 标签与 `N/A`/只读状态渲染干净。 |
+
+### 分辨率矩阵（Gate 4 收尾，2026-06-10）
+
+按活动 GOP 模式逐档捕获仪表盘，从 QEMU 侧驱动
+（`-vga none -device VGA,edid=on,xres=<W>,yres=<H>`）。发现：当
+`PcdVideoResolutionSource==0` 时 OVMF 的 `QemuVideoDxe` 会采纳 EDID 首选模式并
+在运行时覆写显示 PCD，因此在现代 QEMU 下 DSC 的 PCD 默认值**不是**有效杠杆；
+`Scripts/build-ovmf-x64.sh` 已记录此事，其 `MODERN_SETUP_VIDEO_RES` 覆盖仅在
+`edid=off` 时生效。
+
+| 请求（EDID） | 实际渲染模式 | 证据 | 结果 |
+| --- | --- | --- | --- |
+| 1920x1080 | 1920x1080（保持；高于下限） | `Captured` | 13 个导航标签全展开（无滚动符），快捷卡三列含详情行，仪表盘「显示」行读数 `1920 x 1080`；无截断/重叠。 |
+| 1024x768 | 1024x768（保持；等于下限） | `Captured` | 标签行带 `>` 滚动符，快捷卡回流为紧凑布局（高度守卫剪掉详情行），长值省略号截断；无重叠。 |
+| 800x600 | 1024x768（自动升档） | `Captured` | `SelectPreferredGopMode` 把低于下限的 EDID 模式升到最小合格模式；渲染与原生 1024x768 一致，「显示」行读数 `1024 x 768`。 |
 
 经 `Scripts/capture-ovmf-x64.sh`（`BOOT_APP=1` 加 tab `SENDKEY_SEQUENCE`）在重建当前 `main` HEAD 的 App ESP 后捕获；作为「仅 modern App」产物审阅，**不是** native-vs-modern 的 maintainer `Visual reviewed` 签署。截图默认输出到 `${TMPDIR:-/tmp}/modernsetup-qemu`，不作为资产提交。
 

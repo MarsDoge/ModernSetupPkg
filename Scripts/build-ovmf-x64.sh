@@ -21,6 +21,22 @@ MODERN_SETUP_REPLACE_UIAPP="${MODERN_SETUP_REPLACE_UIAPP:-0}"
 # password/ordered-list), reachable via Device Manager. Used to exercise the
 # DisplayEngine control affordances; off by default.
 MODERN_SETUP_DEMO_DRIVER_SAMPLE="${MODERN_SETUP_DEMO_DRIVER_SAMPLE:-0}"
+# Opt-in real-platform HII validation: passes -D SECURE_BOOT_ENABLE=TRUE through
+# to the upstream OVMF DSC/FDF !if blocks so SecurityPkg's SecureBootConfigDxe
+# (the real Secure Boot configuration formset) is included. This exercises the
+# App Devices page and the modern DisplayEngine against a production VFR surface
+# instead of only DriverSampleDxe. Display-only validation aid; off by default.
+MODERN_SETUP_SECURE_BOOT="${MODERN_SETUP_SECURE_BOOT:-0}"
+# Opt-in firmware video resolution override (e.g. MODERN_SETUP_VIDEO_RES=1920x1080)
+# for the Gate 4 / Phase32 resolution-matrix validation. Rewrites the overlay
+# DSC's display-PCD include with inline values; empty keeps the upstream default
+# (1280x800). Only the generated overlay is written; upstream files are not edited.
+# NOTE: when QEMU presents an EDID (modern QEMU std VGA default), OVMF's
+# QemuVideoDxe overwrites these PCDs at runtime from the EDID preferred mode
+# (PcdVideoResolutionSource==0 path). To drive the matrix from QEMU instead, use
+# `-vga none -device VGA,edid=on,xres=<W>,yres=<H>`; this PCD override only
+# decides the resolution when no EDID hint is present (e.g. `edid=off`).
+MODERN_SETUP_VIDEO_RES="${MODERN_SETUP_VIDEO_RES:-}"
 GENERATE_ONLY="${GENERATE_ONLY:-0}"
 OVERLAY_DIR="${WORKSPACE}/Build/ModernSetupPkgOverlay"
 
@@ -47,7 +63,7 @@ fi
 
 mkdir -p "${OVERLAY_DIR}"
 
-python3 - <<'PY' "${WORKSPACE}" "${OVERLAY_DIR}" "${MODERN_SETUP_THEME}" "${MODERN_SETUP_DISPLAY_ENGINE}" "${MODERN_SETUP_REPLACE_UIAPP}" "${MODERN_SETUP_DEMO_DRIVER_SAMPLE}"
+python3 - <<'PY' "${WORKSPACE}" "${OVERLAY_DIR}" "${MODERN_SETUP_THEME}" "${MODERN_SETUP_DISPLAY_ENGINE}" "${MODERN_SETUP_REPLACE_UIAPP}" "${MODERN_SETUP_DEMO_DRIVER_SAMPLE}" "${MODERN_SETUP_VIDEO_RES}"
 from pathlib import Path
 import re
 import sys
@@ -58,6 +74,15 @@ theme_name = sys.argv[3].strip().lower()
 display_engine = sys.argv[4].strip().lower()
 replace_uiapp_flag = sys.argv[5].strip().lower()
 enable_driver_sample = sys.argv[6].strip().lower() in {"1", "true", "yes"}
+video_res = sys.argv[7].strip().lower()
+video_width = video_height = None
+if video_res:
+    match = re.fullmatch(r"(\d{3,4})x(\d{3,4})", video_res)
+    if match is None:
+        raise SystemExit(
+            f"Unsupported MODERN_SETUP_VIDEO_RES={video_res!r}; use <width>x<height>, e.g. 1920x1080"
+        )
+    video_width, video_height = match.group(1), match.group(2)
 theme_pcd = {
     "orange": "0x00",
     "amber": "0x00",
@@ -120,6 +145,10 @@ boot_manager_menu_fdf_inf = "INF  MdeModulePkg/Application/BootManagerMenuApp/Bo
 # Opt-in control-rich VFR test driver (reachable via Device Manager).
 driver_sample_component = "  MdeModulePkg/Universal/DriverSampleDxe/DriverSampleDxe.inf"
 driver_sample_fdf_inf = "INF  MdeModulePkg/Universal/DriverSampleDxe/DriverSampleDxe.inf"
+# Upstream USB absolute-pointer driver (usb-tablet -> EFI_ABSOLUTE_POINTER): the
+# app's pointer input consumes it; upstream OVMF ships no pointer driver at all.
+usb_pointer_component = "  MdeModulePkg/Bus/Usb/UsbMouseAbsolutePointerDxe/UsbMouseAbsolutePointerDxe.inf"
+usb_pointer_fdf_inf = "INF  MdeModulePkg/Bus/Usb/UsbMouseAbsolutePointerDxe/UsbMouseAbsolutePointerDxe.inf"
 # The renderer library class resolves to the LVGL-backed implementation in lvgl
 # mode and to the hand-rolled GOP rasterizer otherwise. Both expose the identical
 # ModernUiRenderer.h API, so ModernUiEngineLib and its consumers are unchanged.
@@ -226,12 +255,46 @@ if (display_engine == "modern" or display_engine == "lvgl"):
         f"  gModernSetupPkgTokenSpaceGuid.PcdModernSetupTheme|{theme_pcd}\n"
     )
 if enable_driver_sample and driver_sample_component not in dsc:
+    # Anchor on QemuKernelLoaderFsDxe (also used for BootManagerMenuApp): it is
+    # stable whether or not MODERN_SETUP_REPLACE_UIAPP has already replaced the
+    # UiApp component above.
     dsc = replace_regex_once(
         dsc,
-        r"^(  MdeModulePkg/Application/UiApp/UiApp\.inf)",
+        r"^(\s*OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe\.inf \{)",
         driver_sample_component + r"\n\1",
-        "UiApp DSC component anchor for DriverSample",
+        "QemuKernelLoaderFsDxe DSC component anchor for DriverSample",
     )
+if usb_pointer_component not in dsc:
+    # Pointer input for the app: upstream OVMF ships no USB pointer driver, so
+    # the overlay always adds the absolute-pointer driver (same stable anchor).
+    dsc = replace_regex_once(
+        dsc,
+        r"^(\s*OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe\.inf \{)",
+        usb_pointer_component + r"\n\1",
+        "QemuKernelLoaderFsDxe DSC component anchor for UsbMouseAbsolutePointer",
+    )
+if video_width is not None:
+    # Replace the upstream display-PCD include with its expanded content carrying
+    # the requested resolution; this avoids duplicate PCD assignments and leaves
+    # the upstream .inc untouched (resolution-matrix validation builds).
+    video_pcd_block = (
+        f"  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoHorizontalResolution|{video_width}\n"
+        f"  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoVerticalResolution|{video_height}\n"
+        f"  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupVideoHorizontalResolution|{video_width}\n"
+        f"  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupVideoVerticalResolution|{video_height}\n"
+        "  gEfiMdeModulePkgTokenSpaceGuid.PcdConOutRow|0\n"
+        "  gEfiMdeModulePkgTokenSpaceGuid.PcdConOutColumn|0\n"
+        "  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupConOutRow|0\n"
+        "  gEfiMdeModulePkgTokenSpaceGuid.PcdSetupConOutColumn|0\n"
+        "  gUefiOvmfPkgTokenSpaceGuid.PcdVideoResolutionSource|0"
+    )
+    dsc = replace_regex_once(
+        dsc,
+        r"^!include OvmfPkg/Include/Dsc/OvmfDisplayPcds\.dsc\.inc\s*$",
+        video_pcd_block,
+        "OvmfDisplayPcds include",
+    )
+
 (overlay / "OvmfX64ModernSetup.dsc").write_text(dsc)
 
 fdf_path = workspace / "OvmfPkg/OvmfPkgX64.fdf"
@@ -266,11 +329,19 @@ if replace_uiapp:
             "  }\n"
         )
 if enable_driver_sample and driver_sample_fdf_inf not in fdf:
+    # Same stable anchor as the DSC side (UiApp may already be replaced).
     fdf = replace_regex_once(
         fdf,
-        r"^(\s*INF\s+MdeModulePkg/Application/UiApp/UiApp\.inf\s*)$",
+        r"^(\s*INF\s+OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe\.inf\s*)$",
         driver_sample_fdf_inf + r"\n\1",
-        "UiApp FDF INF anchor for DriverSample",
+        "QemuKernelLoaderFsDxe FDF INF anchor for DriverSample",
+    )
+if usb_pointer_fdf_inf not in fdf:
+    fdf = replace_regex_once(
+        fdf,
+        r"^(\s*INF\s+OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe\.inf\s*)$",
+        usb_pointer_fdf_inf + r"\n\1",
+        "QemuKernelLoaderFsDxe FDF INF anchor for UsbMouseAbsolutePointer",
     )
 (overlay / "OvmfX64ModernSetup.fdf").write_text(fdf)
 PY
@@ -279,6 +350,8 @@ echo "Generated: ${OVERLAY_DIR}/OvmfX64ModernSetup.dsc"
 echo "Generated: ${OVERLAY_DIR}/OvmfX64ModernSetup.fdf"
 echo "DisplayEngine: ${MODERN_SETUP_DISPLAY_ENGINE}"
 echo "Replace UiApp with ModernSetupApp: ${MODERN_SETUP_REPLACE_UIAPP}"
+echo "Secure Boot HII (SecureBootConfigDxe): ${MODERN_SETUP_SECURE_BOOT}"
+echo "Video resolution override: ${MODERN_SETUP_VIDEO_RES:-(upstream default)}"
 
 if [[ "${GENERATE_ONLY}" == "1" ]]; then
   exit 0
@@ -295,12 +368,20 @@ set +u
 source edksetup.sh
 set -u
 
+# Extra -D defines flow into the upstream !if blocks preserved by the overlay
+# DSC/FDF; no upstream file is edited.
+EXTRA_BUILD_DEFINES=()
+if [[ "${MODERN_SETUP_SECURE_BOOT}" =~ ^(1|true|yes)$ ]]; then
+  EXTRA_BUILD_DEFINES+=( -D SECURE_BOOT_ENABLE=TRUE )
+fi
+
 build \
   -a X64 \
   -t "${TOOL_CHAIN_TAG}" \
   -p Build/ModernSetupPkgOverlay/OvmfX64ModernSetup.dsc \
   -b "${TARGET}" \
-  -n "${JOBS}"
+  -n "${JOBS}" \
+  ${EXTRA_BUILD_DEFINES[@]+"${EXTRA_BUILD_DEFINES[@]}"}
 
 echo "Built: ${WORKSPACE}/Build/OvmfX64/${TARGET}_${TOOL_CHAIN_TAG}/FV/OVMF_CODE.fd"
 echo "Vars:  ${WORKSPACE}/Build/OvmfX64/${TARGET}_${TOOL_CHAIN_TAG}/FV/OVMF_VARS.fd"

@@ -677,4 +677,59 @@ ModernUiDrawOemWatermark (
   IN CONST MODERN_UI_THEME             *Theme
   );
 
+/**
+  Capture the current on-screen pixels of a rectangle into a caller buffer.
+
+  Used for small save-under overlays (e.g. the pointer cursor): capture before
+  drawing the overlay, restore on move, so motion does not require a full-frame
+  repaint. The buffer is tightly packed Rect.Width x Rect.Height pixels and the
+  caller owns its sizing; the rectangle must lie fully inside the screen.
+
+  - GOP backend: reads back from the framebuffer (EfiBltVideoToBltBuffer).
+  - LVGL backend: reads from the shadow canvas (which mirrors the screen).
+
+  @param[in]  Context  Initialized render context. Must not be NULL.
+  @param[in]  Rect     Source rectangle; must lie fully on screen and be
+                       non-empty.
+  @param[out] Buffer   Receives Rect.Width*Rect.Height pixels. Must not be NULL.
+
+  @retval EFI_SUCCESS            Pixels captured.
+  @retval EFI_INVALID_PARAMETER  Context/Buffer is NULL, Rect is empty, or Rect
+                                 exceeds the screen.
+  @retval EFI_NOT_READY          The backend surface is not initialized.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiCaptureRect (
+  IN  MODERN_UI_RENDER_CONTEXT       *Context,
+  IN  MODERN_UI_RECT                 Rect,
+  OUT EFI_GRAPHICS_OUTPUT_BLT_PIXEL  *Buffer
+  );
+
+/**
+  Restore previously captured pixels back to the screen.
+
+  Counterpart of ModernUiCaptureRect; Rect must match the capture. On the LVGL
+  backend the shadow canvas is updated and the region re-flushed so later
+  partial flushes cannot resurrect the overlay.
+
+  @param[in] Context  Initialized render context. Must not be NULL.
+  @param[in] Rect     Destination rectangle; must lie fully on screen and be
+                      non-empty.
+  @param[in] Buffer   Rect.Width*Rect.Height pixels from ModernUiCaptureRect.
+                      Must not be NULL.
+
+  @retval EFI_SUCCESS            Pixels restored.
+  @retval EFI_INVALID_PARAMETER  Context/Buffer is NULL, Rect is empty, or Rect
+                                 exceeds the screen.
+  @retval EFI_NOT_READY          The backend surface is not initialized.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiRestoreRect (
+  IN MODERN_UI_RENDER_CONTEXT             *Context,
+  IN MODERN_UI_RECT                       Rect,
+  IN CONST EFI_GRAPHICS_OUTPUT_BLT_PIXEL  *Buffer
+  );
+
 #endif

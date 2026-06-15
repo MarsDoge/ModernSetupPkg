@@ -133,6 +133,26 @@ ModernUiReadInput (
   ZeroMem (Event, sizeof (*Event));
   Event->Type = ModernUiInputNone;
 
+  //
+  // Poll the pointer first, non-blocking. Callers that pre-wait on the same
+  // WaitForInput event (e.g. alongside a periodic tick) consume its signaled
+  // state before reaching this function; GetState still reports the pending
+  // movement/button data, so polling here keeps that report from being lost to
+  // the second blocking wait below. GetState returns EFI_NOT_READY when there
+  // is nothing new, in which case we fall through to the normal wait.
+  //
+  if (Context->Pointer != NULL) {
+    Status = Context->Pointer->GetState (Context->Pointer, &PointerState);
+    if (!EFI_ERROR (Status)) {
+      Event->Type           = ModernUiInputPointer;
+      Event->PointerValid   = TRUE;
+      Event->PointerX       = (UINTN)PointerState.CurrentX;
+      Event->PointerY       = (UINTN)PointerState.CurrentY;
+      Event->PointerPressed = (BOOLEAN)((PointerState.ActiveButtons & EFI_ABSP_TouchActive) != 0);
+      return EFI_SUCCESS;
+    }
+  }
+
   EventCount = 0;
   if (Context->TextInEx != NULL) {
     Events[EventCount++] = Context->TextInEx->WaitForKeyEx;

@@ -166,6 +166,217 @@ ModernSetupRefreshHeaderClock (
 }
 
 /**
+  Compute the visible tab window and strip rectangles for the current page.
+
+  Single source of layout truth shared by ModernSetupDrawTabs (painting) and
+  ModernSetupHitTestTab (pointer routing): the scroll window selection and the
+  chevron inset are identical in both, so click targets always match the
+  painted tabs.
+
+  @param[in]  Ui               Initialized render context. Must not be NULL.
+  @param[in]  Page             Currently selected page.
+  @param[out] SelectedTab      Receives the absolute selected tab index.
+  @param[out] FirstVisibleTab  Receives the first visible tab index.
+  @param[out] VisibleTabCount  Receives the visible tab count (>= 1).
+  @param[out] TabRect          Receives the full strip rectangle.
+  @param[out] DrawTabRect      Receives the strip rectangle after the scrolled
+                               chevron inset (the rect tabs are painted in).
+**/
+STATIC
+VOID
+ModernSetupGetTabWindow (
+  IN  MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN  SETUP_PAGE                Page,
+  OUT UINTN                     *SelectedTab,
+  OUT UINTN                     *FirstVisibleTab,
+  OUT UINTN                     *VisibleTabCount,
+  OUT MODERN_UI_RECT            *TabRect,
+  OUT MODERN_UI_RECT            *DrawTabRect
+  )
+{
+  UINTN  Index;
+  UINTN  TabCapacity;
+
+  *SelectedTab = 0;
+  for (Index = 0; Index < ARRAY_SIZE (mPages); Index++) {
+    if (mPages[Index].Page == Page) {
+      *SelectedTab = Index;
+    }
+  }
+
+  *TabRect         = (MODERN_UI_RECT){ SCREEN_MARGIN, TOP_BAR_HEIGHT, (Ui->Width > (SCREEN_MARGIN * 2)) ? (Ui->Width - (SCREEN_MARGIN * 2)) : Ui->Width, TAB_BAR_HEIGHT };
+  *DrawTabRect     = *TabRect;
+  *VisibleTabCount = ARRAY_SIZE (mPages);
+  *FirstVisibleTab = 0;
+  if ((*VisibleTabCount > 0) && ((TabRect->Width / *VisibleTabCount) < 118)) {
+    TabCapacity = TabRect->Width / 132;
+    if (TabCapacity < 5) {
+      TabCapacity = 5;
+    }
+
+    if (TabCapacity < *VisibleTabCount) {
+      *VisibleTabCount = TabCapacity;
+      *FirstVisibleTab = (*SelectedTab > (*VisibleTabCount / 2)) ? (*SelectedTab - (*VisibleTabCount / 2)) : 0;
+      if ((*FirstVisibleTab + *VisibleTabCount) > ARRAY_SIZE (mPages)) {
+        *FirstVisibleTab = ARRAY_SIZE (mPages) - *VisibleTabCount;
+      }
+    }
+  }
+
+  if (((*FirstVisibleTab > 0) || ((*FirstVisibleTab + *VisibleTabCount) < ARRAY_SIZE (mPages))) && (DrawTabRect->Width > 48)) {
+    DrawTabRect->X     += 18;
+    DrawTabRect->Width -= 36;
+  }
+}
+
+/**
+  Hit-test the top tab strip for a pointer click. See ModernSetupAppInternal.h.
+
+  @param[in]  Ui    Initialized render context. Must not be NULL.
+  @param[in]  Page  Currently selected page (determines the scroll window).
+  @param[in]  X     Pointer X in pixels.
+  @param[in]  Y     Pointer Y in pixels.
+  @param[out] Hit   Receives the page of the clicked tab on success.
+
+  @retval TRUE   (X,Y) lies on a visible tab; *Hit is set.
+  @retval FALSE  No tab at this position.
+**/
+BOOLEAN
+ModernSetupHitTestTab (
+  IN  MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN  SETUP_PAGE                Page,
+  IN  UINTN                     X,
+  IN  UINTN                     Y,
+  OUT SETUP_PAGE                *Hit
+  )
+{
+  UINTN           SelectedTab;
+  UINTN           FirstVisibleTab;
+  UINTN           VisibleTabCount;
+  MODERN_UI_RECT  TabRect;
+  MODERN_UI_RECT  DrawTabRect;
+  UINTN           TabWidth;
+  UINTN           Index;
+
+  if ((Ui == NULL) || (Hit == NULL)) {
+    return FALSE;
+  }
+
+  if ((Y < TOP_BAR_HEIGHT) || (Y >= (TOP_BAR_HEIGHT + TAB_BAR_HEIGHT))) {
+    return FALSE;
+  }
+
+  ModernSetupGetTabWindow (Ui, Page, &SelectedTab, &FirstVisibleTab, &VisibleTabCount, &TabRect, &DrawTabRect);
+  if ((VisibleTabCount == 0) || (DrawTabRect.Width == 0) ||
+      (X < DrawTabRect.X) || (X >= (DrawTabRect.X + DrawTabRect.Width)))
+  {
+    return FALSE;
+  }
+
+  TabWidth = DrawTabRect.Width / VisibleTabCount;
+  if (TabWidth == 0) {
+    return FALSE;
+  }
+
+  Index = (X - DrawTabRect.X) / TabWidth;
+  if (Index >= VisibleTabCount) {
+    Index = VisibleTabCount - 1;
+  }
+
+  *Hit = mPages[FirstVisibleTab + Index].Page;
+  return TRUE;
+}
+
+//
+// Save-under state for the pointer cursor: the pixels beneath the cursor are
+// captured before the arrow is drawn and restored when it moves, so pointer
+// motion repaints only this small rectangle instead of the whole frame.
+//
+#define MODERN_SETUP_CURSOR_SIZE  16
+
+STATIC EFI_GRAPHICS_OUTPUT_BLT_PIXEL  mCursorSave[MODERN_SETUP_CURSOR_SIZE * MODERN_SETUP_CURSOR_SIZE];
+STATIC BOOLEAN                        mCursorSaveValid = FALSE;
+STATIC UINTN                          mCursorSaveX;
+STATIC UINTN                          mCursorSaveY;
+
+/**
+  Forget the saved under-cursor pixels. See ModernSetupAppInternal.h.
+
+  Call after any full-frame repaint: the saved pixels describe the old frame
+  and must not be restored on the next cursor move.
+**/
+VOID
+ModernSetupInvalidatePointerCursor (
+  VOID
+  )
+{
+  mCursorSaveValid = FALSE;
+}
+
+/**
+  Move (or first-draw) the pointer cursor using save-under compositing. See
+  ModernSetupAppInternal.h.
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] X      Cursor hotspot X in pixels (clamped to keep the arrow
+                    fully on screen).
+  @param[in] Y      Cursor hotspot Y in pixels (clamped likewise).
+**/
+VOID
+ModernSetupMovePointerCursor (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN UINTN                     X,
+  IN UINTN                     Y
+  )
+{
+  MODERN_UI_RECT  Rect;
+
+  if ((Ui == NULL) || (Theme == NULL) ||
+      (Ui->Width < MODERN_SETUP_CURSOR_SIZE) || (Ui->Height < MODERN_SETUP_CURSOR_SIZE))
+  {
+    return;
+  }
+
+  //
+  // Clamp so the full save rectangle stays on screen (fixed-size capture).
+  //
+  if (X > (Ui->Width - MODERN_SETUP_CURSOR_SIZE)) {
+    X = Ui->Width - MODERN_SETUP_CURSOR_SIZE;
+  }
+
+  if (Y > (Ui->Height - MODERN_SETUP_CURSOR_SIZE)) {
+    Y = Ui->Height - MODERN_SETUP_CURSOR_SIZE;
+  }
+
+  if (mCursorSaveValid) {
+    if ((X == mCursorSaveX) && (Y == mCursorSaveY)) {
+      return;
+    }
+
+    Rect = (MODERN_UI_RECT){ mCursorSaveX, mCursorSaveY, MODERN_SETUP_CURSOR_SIZE, MODERN_SETUP_CURSOR_SIZE };
+    ModernUiRestoreRect (Ui, Rect, mCursorSave);
+    mCursorSaveValid = FALSE;
+  }
+
+  Rect = (MODERN_UI_RECT){ X, Y, MODERN_SETUP_CURSOR_SIZE, MODERN_SETUP_CURSOR_SIZE };
+  if (!EFI_ERROR (ModernUiCaptureRect (Ui, Rect, mCursorSave))) {
+    mCursorSaveValid = TRUE;
+    mCursorSaveX     = X;
+    mCursorSaveY     = Y;
+  }
+
+  //
+  // Simple high-contrast arrow: a dark outline triangle with a lighter accent
+  // triangle inset, apex at the hotspot pointing right-down. Original artwork
+  // built from the shared primitive vocabulary (no bitmap asset).
+  //
+  ModernUiFillTriangle (Ui, (MODERN_UI_RECT){ X, Y, 16, 16 }, ModernUiTriRight, Theme->BackgroundBlack);
+  ModernUiFillTriangle (Ui, (MODERN_UI_RECT){ X + 1, Y + 2, 12, 12 }, ModernUiTriRight, Theme->AccentYellow);
+}
+
+/**
   Draw the top page tab bar.
 
   @param[in] Ui     Initialized render context. Must not be NULL.
@@ -187,45 +398,16 @@ ModernSetupDrawTabs (
   UINTN                          FirstVisibleTab;
   UINTN                          VisibleTabCount;
   UINTN                          LocalSelectedTab;
-  UINTN                          TabCapacity;
   MODERN_UI_RECT                 TabRect;
   MODERN_UI_RECT                 DrawTabRect;
 
-  SelectedTab = 0;
-  for (Index = 0; Index < ARRAY_SIZE (mPages); Index++) {
-    if (mPages[Index].Page == Page) {
-      SelectedTab = Index;
-    }
-  }
-
-  TabRect         = (MODERN_UI_RECT){ SCREEN_MARGIN, TOP_BAR_HEIGHT, (Ui->Width > (SCREEN_MARGIN * 2)) ? (Ui->Width - (SCREEN_MARGIN * 2)) : Ui->Width, TAB_BAR_HEIGHT };
-  DrawTabRect     = TabRect;
-  VisibleTabCount = ARRAY_SIZE (mPages);
-  FirstVisibleTab = 0;
-  if ((VisibleTabCount > 0) && ((TabRect.Width / VisibleTabCount) < 118)) {
-    TabCapacity = TabRect.Width / 132;
-    if (TabCapacity < 5) {
-      TabCapacity = 5;
-    }
-
-    if (TabCapacity < VisibleTabCount) {
-      VisibleTabCount = TabCapacity;
-      FirstVisibleTab = (SelectedTab > (VisibleTabCount / 2)) ? (SelectedTab - (VisibleTabCount / 2)) : 0;
-      if ((FirstVisibleTab + VisibleTabCount) > ARRAY_SIZE (mPages)) {
-        FirstVisibleTab = ARRAY_SIZE (mPages) - VisibleTabCount;
-      }
-    }
-  }
+  ModernSetupGetTabWindow (Ui, Page, &SelectedTab, &FirstVisibleTab, &VisibleTabCount, &TabRect, &DrawTabRect);
 
   for (Index = 0; Index < VisibleTabCount; Index++) {
     Tabs[Index].Text = ModernSetupGetCompactTabLabel (FirstVisibleTab + Index);
   }
 
   LocalSelectedTab = SelectedTab - FirstVisibleTab;
-  if (((FirstVisibleTab > 0) || ((FirstVisibleTab + VisibleTabCount) < ARRAY_SIZE (mPages))) && (DrawTabRect.Width > 48)) {
-    DrawTabRect.X     += 18;
-    DrawTabRect.Width -= 36;
-  }
 
   ModernUiEngineDrawTabs (
     Ui,
