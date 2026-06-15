@@ -14,8 +14,8 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Protocol/IpmiProtocol.h>
 #include <Protocol/RedfishDiscover.h>
-#include <Protocol/Smbios.h>
 
+#include <ModernUi/ModernUiPlatformTables.h>
 #include <ModernUi/ModernUiManagementData.h>
 
 /**
@@ -54,29 +54,8 @@ HasSmbiosManagementInterface (
   VOID
   )
 {
-  EFI_STATUS           Status;
-  EFI_SMBIOS_PROTOCOL  *Smbios;
-  EFI_SMBIOS_HANDLE    Handle;
-  EFI_SMBIOS_TABLE_HEADER  *Record;
-  EFI_SMBIOS_TYPE      Type;
-
-  Smbios = NULL;
-  Status = gBS->LocateProtocol (&gEfiSmbiosProtocolGuid, NULL, (VOID **)&Smbios);
-  if (EFI_ERROR (Status) || (Smbios == NULL)) {
-    return FALSE;
-  }
-
-  Handle = SMBIOS_HANDLE_PI_RESERVED;
-  Type   = SMBIOS_TYPE_IPMI_DEVICE_INFORMATION;
-  Status = Smbios->GetNext (Smbios, &Handle, &Type, &Record, NULL);
-  if (!EFI_ERROR (Status)) {
-    return TRUE;
-  }
-
-  Handle = SMBIOS_HANDLE_PI_RESERVED;
-  Type   = SMBIOS_TYPE_MANAGEMENT_CONTROLLER_HOST_INTERFACE;
-  Status = Smbios->GetNext (Smbios, &Handle, &Type, &Record, NULL);
-  return (BOOLEAN)!EFI_ERROR (Status);
+  return (BOOLEAN)(ModernUiSmbiosTypePresent (SMBIOS_TYPE_IPMI_DEVICE_INFORMATION) ||
+                   ModernUiSmbiosTypePresent (SMBIOS_TYPE_MANAGEMENT_CONTROLLER_HOST_INTERFACE));
 }
 
 /**

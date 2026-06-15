@@ -17,9 +17,9 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiHiiServicesLib.h>
 #include <Protocol/CpuIo2.h>
-#include <Protocol/Smbios.h>
 #include <Uefi/UefiInternalFormRepresentation.h>
 
+#include <ModernUi/ModernUiPlatformTables.h>
 #include <ModernUi/ModernUiPerformanceData.h>
 
 /**
@@ -44,39 +44,6 @@ IsProtocolPresent (
 
   Protocol = NULL;
   return (BOOLEAN)!EFI_ERROR (gBS->LocateProtocol ((EFI_GUID *)ProtocolGuid, NULL, &Protocol));
-}
-
-/**
-  Return whether an SMBIOS table type is present.
-
-  @param[in] Type  SMBIOS table type to locate.
-
-  @retval TRUE   At least one table of Type is present.
-  @retval FALSE  SMBIOS protocol is absent or Type is not present.
-**/
-STATIC
-BOOLEAN
-IsSmbiosTypePresent (
-  IN EFI_SMBIOS_TYPE  Type
-  )
-{
-  EFI_STATUS              Status;
-  EFI_SMBIOS_PROTOCOL     *Smbios;
-  EFI_SMBIOS_HANDLE       Handle;
-  EFI_SMBIOS_TABLE_HEADER *Record;
-  EFI_SMBIOS_TYPE         SearchType;
-
-  Smbios = NULL;
-  Status = gBS->LocateProtocol (&gEfiSmbiosProtocolGuid, NULL, (VOID **)&Smbios);
-  if (EFI_ERROR (Status) || (Smbios == NULL)) {
-    return FALSE;
-  }
-
-  Handle     = SMBIOS_HANDLE_PI_RESERVED;
-  SearchType = Type;
-  Record     = NULL;
-  Status = Smbios->GetNext (Smbios, &Handle, &SearchType, &Record, NULL);
-  return (BOOLEAN)!EFI_ERROR (Status);
 }
 
 /**
@@ -219,8 +186,8 @@ ModernUiPerformanceDataGetSummary (
   }
 
   ZeroMem (Summary, sizeof (*Summary));
-  Summary->ProcessorInventoryPresent      = IsSmbiosTypePresent (SMBIOS_TYPE_PROCESSOR_INFORMATION);
-  Summary->MemoryInventoryPresent         = IsSmbiosTypePresent (SMBIOS_TYPE_MEMORY_DEVICE);
+  Summary->ProcessorInventoryPresent      = ModernUiSmbiosTypePresent (SMBIOS_TYPE_PROCESSOR_INFORMATION);
+  Summary->MemoryInventoryPresent         = ModernUiSmbiosTypePresent (SMBIOS_TYPE_MEMORY_DEVICE);
   Summary->CpuIo2ProtocolPresent          = IsProtocolPresent (&gEfiCpuIo2ProtocolGuid);
   Summary->VirtualizationPolicyEntryPresent = HasHiiFormsetKeyword (mVirtualizationKeywords, ARRAY_SIZE (mVirtualizationKeywords));
   Summary->RasPolicyEntryPresent          = HasHiiFormsetKeyword (mRasKeywords, ARRAY_SIZE (mRasKeywords));

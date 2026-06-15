@@ -29,9 +29,9 @@
   BaseMemoryLib
   HiiLib
   MemoryAllocationLib
+  ModernUiPlatformTablesLib
   UefiBootServicesTableLib
   UefiHiiServicesLib
 
 [Protocols]
   gEfiCpuIo2ProtocolGuid
-  gEfiSmbiosProtocolGuid

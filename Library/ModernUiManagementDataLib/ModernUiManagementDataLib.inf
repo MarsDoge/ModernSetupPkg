@@ -26,9 +26,9 @@
 
 [LibraryClasses]
   BaseMemoryLib
+  ModernUiPlatformTablesLib
   UefiBootServicesTableLib
 
 [Protocols]
   gEfiRedfishDiscoverProtocolGuid
-  gEfiSmbiosProtocolGuid
   gIpmiProtocolGuid

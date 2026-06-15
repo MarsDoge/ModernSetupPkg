@@ -16,8 +16,8 @@
 #include <Library/PrintLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Protocol/AcpiSystemDescriptionTable.h>
-#include <Protocol/Smbios.h>
 
+#include <ModernUi/ModernUiPlatformTables.h>
 #include <ModernUi/ModernUiPowerData.h>
 
 /**
@@ -126,26 +126,14 @@ CollectSmbiosPowerState (
   OUT MODERN_UI_POWER_SUMMARY  *Summary
   )
 {
-  EFI_STATUS              Status;
-  EFI_SMBIOS_PROTOCOL     *Smbios;
-  EFI_SMBIOS_HANDLE       Handle;
-  EFI_SMBIOS_TABLE_HEADER *Record;
-  EFI_SMBIOS_TYPE         Type;
+  EFI_SMBIOS_TABLE_HEADER  *Record;
 
   if (Summary == NULL) {
     return;
   }
 
-  Smbios = NULL;
-  Status = gBS->LocateProtocol (&gEfiSmbiosProtocolGuid, NULL, (VOID **)&Smbios);
-  if (EFI_ERROR (Status) || (Smbios == NULL)) {
-    return;
-  }
-
-  Handle = SMBIOS_HANDLE_PI_RESERVED;
-  Type   = SMBIOS_TYPE_SYSTEM_ENCLOSURE;
-  Status = Smbios->GetNext (Smbios, &Handle, &Type, &Record, NULL);
-  if (!EFI_ERROR (Status) && (Record != NULL)) {
+  Record = ModernUiSmbiosFindStructure (SMBIOS_TYPE_SYSTEM_ENCLOSURE, 0);
+  if (Record != NULL) {
     Summary->SmbiosChassisPresent = TRUE;
     FormatThermalState (
       ((SMBIOS_TABLE_TYPE3 *)Record)->ThermalState,
@@ -154,10 +142,7 @@ CollectSmbiosPowerState (
       );
   }
 
-  Handle = SMBIOS_HANDLE_PI_RESERVED;
-  Type   = SMBIOS_TYPE_SYSTEM_POWER_SUPPLY;
-  Status = Smbios->GetNext (Smbios, &Handle, &Type, &Record, NULL);
-  Summary->SmbiosPowerSupplyPresent = (BOOLEAN)!EFI_ERROR (Status);
+  Summary->SmbiosPowerSupplyPresent = ModernUiSmbiosTypePresent (SMBIOS_TYPE_SYSTEM_POWER_SUPPLY);
 }
 
 /**

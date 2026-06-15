@@ -26,12 +26,12 @@
 [LibraryClasses]
   BaseLib
   BaseMemoryLib
+  ModernUiPlatformTablesLib
   PrintLib
   UefiBootServicesTableLib
 
 [Protocols]
   gEfiAcpiSdtProtocolGuid
-  gEfiSmbiosProtocolGuid
 
 [Guids]
   gEfiAcpi20TableGuid

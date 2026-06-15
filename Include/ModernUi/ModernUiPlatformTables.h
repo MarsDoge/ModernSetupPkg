@@ -17,6 +17,7 @@
 
 #include <Uefi.h>
 #include <IndustryStandard/SmBios.h>
+#include <Protocol/Smbios.h>                  // EFI_SMBIOS_TYPE / EFI_SMBIOS_TABLE_HEADER
 
 /**
   Find the Index-th (0-based) SMBIOS structure of a given type.
