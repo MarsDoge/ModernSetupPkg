@@ -18,9 +18,12 @@ this file as both a release log and a lightweight development progress record.
   first mouse pass only wired tabs, dashboard cards, and the Exit rows, so the
   Boot page rows were unclickable). A new `ModernSetupHitTestPageListRow` maps a
   click to a visible row using the same `ModernSetupGetPageListLayout`
-  parameters and selectable count each page draws with, then routes through the
-  shared Enter handling (launch boot option / open native HII form / open the
-  preference popup). Verified under QEMU: clicking a Boot row launches it.
+  parameters and selectable count each page draws with. List rows are
+  **two-stage**: the first click only selects (focus + highlight), and a second
+  click on the already-selected row activates it (launch boot option / open the
+  native HII form / open the preference popup), so a stray click never launches
+  anything. Activation reuses the shared Enter handling. Verified under QEMU:
+  first click selects the Boot row, second click launches it.
 
 - Mouse motion no longer flickers the screen. Pointer movement previously
   triggered a full-frame repaint per motion event (visible flicker, especially

@@ -102,6 +102,8 @@ UefiMain (
   UINTN                     ExitRowHit;
   UINTN                     ExitOptionHit;
   UINTN                     ListRowHit;
+  UINTN                     *ListSelPtr;
+  BOOLEAN                   ListRowWasActive;
 
   gBS->SetWatchdogTimer (0, 0, 0, NULL);
   mModernSetupImageHandle = ImageHandle;
@@ -288,26 +290,42 @@ UefiMain (
         Event.Type = ModernUiInputEnter;
       } else if (ModernSetupHitTestPageListRow (&Ui, Page, PointerX, PointerY, &ListRowHit)) {
         //
-        // Boot / Devices / Preferences list rows: select the clicked row and
-        // activate it through the shared Enter handling (launch boot option,
-        // open the native HII form, or open the preference popup/toggle).
+        // Boot / Devices / Preferences list rows are two-stage: the first click
+        // only selects the row (focus + highlight), and a second click on the
+        // already-selected row activates it (launch boot option, open the
+        // native HII form, or open the preference popup) -- so a stray click
+        // never launches anything. Activation reuses the shared Enter handling.
         //
+        ListSelPtr = NULL;
         switch (Page) {
           case PageBoot:
-            BootSelection = ListRowHit;
+            ListSelPtr = &BootSelection;
             break;
           case PageDevices:
-            DeviceSelection = ListRowHit;
+            ListSelPtr = &DeviceSelection;
             break;
           case PagePreferences:
-            PreferencesSelection = ListRowHit;
+            ListSelPtr = &PreferencesSelection;
             break;
           default:
             break;
         }
 
-        Focus      = SetupFocusContent;
-        Event.Type = ModernUiInputEnter;
+        if (ListSelPtr != NULL) {
+          ListRowWasActive = (BOOLEAN)((Focus == SetupFocusContent) && (*ListSelPtr == ListRowHit));
+          *ListSelPtr      = ListRowHit;
+          Focus            = SetupFocusContent;
+          if (ListRowWasActive) {
+            Event.Type = ModernUiInputEnter;
+          } else {
+            StatusMessage[0] = L'\0';
+            Redraw           = TRUE;
+            continue;
+          }
+        } else {
+          Redraw = TRUE;
+          continue;
+        }
       } else {
         Redraw = TRUE;
         continue;
