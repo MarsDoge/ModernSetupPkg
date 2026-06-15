@@ -85,9 +85,9 @@ Type 1/2)——不引入任何新的策略面。
 | --- | --- | --- |
 | 处理器版本/型号 | **SMBIOS Type 4**(`ProcessorVersion`) | Done |
 | 核/线程数 | **SMBIOS Type 4**(`CoreCount`/`ThreadCount` + `*2`) | Done |
-| 实时已启用核/线程数 | **MP Services**(`EFI_MP_SERVICES_PROTOCOL`) | Gap |
-| 当前/最大频率(MHz) | **SMBIOS Type 4**(`CurrentSpeed`/`MaxSpeed`) | Gap |
-| **L1/L2/L3 缓存** | **SMBIOS Type 7**(Cache);Arm 上 **ACPI PPTT** | **Gap** |
+| 实时已启用核/线程数 | **MP Services**(`EFI_MP_SERVICES_PROTOCOL`) | Done |
+| 当前/最大频率(MHz) | **SMBIOS Type 4**(`CurrentSpeed`/`MaxSpeed`) | Done |
+| **L1/L2/L3 缓存** | **SMBIOS Type 7**(Cache);Arm 上 **ACPI PPTT** | Done(Type 7) |
 | 处理器清单存在性 | SMBIOS Type 4 存在性 | Done(布尔) |
 
 > 注:CPU 数据当前是分裂的 —— 身份在 Platform、存在性布尔在 Performance。契约
@@ -108,8 +108,8 @@ Type 1/2)——不引入任何新的策略面。
 | --- | --- | --- |
 | 控制器/根桥/端点/桥计数 | **PciIo / PciRootBridgeIo** 枚举 | Done |
 | 策略入口存在性提示(ReBAR/4G/SR-IOV/ASPM/…) | 协议存在性探测 | Done(只读提示) |
-| 逐设备厂商/设备 ID、类 | **PciIo** 配置空间 `0x00`/`0x09` | Gap |
-| 逐设备链路速率/宽度 | **PciIo** PCIe 能力(`0x10` cap)配置读 | Gap |
+| 逐设备厂商/设备 ID、类 | **PciIo** 配置空间 `0x00`/`0x09` | Done |
+| 逐设备链路速率/宽度 | **PciIo** PCIe 能力(`0x10` cap)配置读 | Done |
 | 物理槽占用 | **SMBIOS Type 9**(System Slots) | Gap |
 
 > 边界(不变,smoke 强制):PCIe **策略** —— ReBAR、Above-4G、SR-IOV、ASPM、

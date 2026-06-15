@@ -93,9 +93,9 @@ not yet wired; **Roadmap** = larger follow-up.
 | --- | --- | --- |
 | Processor version / model | **SMBIOS Type 4** (`ProcessorVersion`) | Done |
 | Core / thread count | **SMBIOS Type 4** (`CoreCount`/`ThreadCount` + `*2`) | Done |
-| Live enabled core/thread count | **MP Services** (`EFI_MP_SERVICES_PROTOCOL`) | Gap |
-| Current / max speed (MHz) | **SMBIOS Type 4** (`CurrentSpeed`/`MaxSpeed`) | Gap |
-| **L1 / L2 / L3 cache** | **SMBIOS Type 7** (Cache Information); **ACPI PPTT** on Arm | **Gap** |
+| Live enabled core/thread count | **MP Services** (`EFI_MP_SERVICES_PROTOCOL`) | Done |
+| Current / max speed (MHz) | **SMBIOS Type 4** (`CurrentSpeed`/`MaxSpeed`) | Done |
+| **L1 / L2 / L3 cache** | **SMBIOS Type 7** (Cache Information); **ACPI PPTT** on Arm | Done (Type 7) |
 | Processor inventory present | SMBIOS Type 4 presence | Done (boolean) |
 
 > Note: CPU data is currently split — identity in Platform, presence booleans in
@@ -117,8 +117,8 @@ not yet wired; **Roadmap** = larger follow-up.
 | --- | --- | --- |
 | Controller / root-bridge / endpoint / bridge counts | **PciIo / PciRootBridgeIo** enumeration | Done |
 | Policy-entry presence hints (ReBAR/4G/SR-IOV/ASPM/…) | protocol presence probes | Done (read-only hints) |
-| Per-device vendor/device ID, class | **PciIo** config space `0x00`/`0x09` | Gap |
-| Per-device link speed / width | **PciIo** PCIe capability (`0x10` cap) config reads | Gap |
+| Per-device vendor/device ID, class | **PciIo** config space `0x00`/`0x09` | Done |
+| Per-device link speed / width | **PciIo** PCIe capability (`0x10` cap) config reads | Done |
 | Physical slot occupancy | **SMBIOS Type 9** (System Slots) | Gap |
 
 > Boundary (unchanged, smoke-enforced): PCIe **policy** — ReBAR, Above-4G,
@@ -187,18 +187,26 @@ treated as absent (already done for SMBIOS identity).
 
 ## 5. Shared access layer (the "connect" work)
 
-Today four providers each `LocateProtocol(gEfiSmbiosProtocolGuid)` and walk
-tables independently, and SMBIOS string/UUID extraction is re-implemented per
-provider — duplication, and the place strict-alignment bugs hid (the AArch64
-packed-UUID fault). The contract target:
+Previously four providers each `LocateProtocol(gEfiSmbiosProtocolGuid)` and
+walked tables independently, and SMBIOS string/UUID extraction was
+re-implemented per provider — duplication, and the place strict-alignment bugs
+hid (the AArch64 packed-UUID fault).
 
-- A single **`ModernUiPlatformTablesLib`** (or equivalent) owns: the cached
-  SMBIOS entry, `FindStructure(type[, index])`, NUL-safe string extraction,
-  alignment-safe fixed-field copy (GUID/UINT16/…), and ACPI RSDP/XSDT +
-  `FindAcpiTable(signature)`.
-- Every `ModernUi*DataLib` consumes that helper instead of rolling its own.
-- Smoke **SHOULD** gain a guard: a provider source `LocateProtocol`ing SMBIOS or
-  walking ACPI directly (outside the shared lib) is a finding.
+**Status: implemented.** **`ModernUiPlatformTablesLib`**
+(`Include/ModernUi/ModernUiPlatformTables.h`) is the single table-access layer:
+
+- `ModernUiSmbiosFindStructure(type, index)`, `ModernUiSmbiosTypePresent(type)`,
+  NUL-safe `ModernUiSmbiosGetString()`, and `ModernUiSmbiosIsPlaceholder()`.
+- ACPI RSDP/XSDT (RSDT fallback) walk via `ModernUiAcpiFindTable(signature)` /
+  `ModernUiAcpiTablePresent(signature)`.
+- `ModernUiPlatformDataLib` consumes it (its private SMBIOS string/placeholder
+  helpers and per-reader `LocateProtocol`+`GetNext` prologues were removed).
+
+Remaining: migrate the other SMBIOS/ACPI-reading providers
+(`ModernUiPerformanceDataLib`, `ModernUiManagementDataLib`,
+`ModernUiPowerDataLib`, `ModernUiDiagnosticsDataLib`) onto it, then add a smoke
+guard that a provider `LocateProtocol`ing SMBIOS or walking ACPI directly
+(outside the shared lib) is a finding.
 
 This is a pure refactor behind the existing `*Data.h` contract — no public API
 change — and is the prerequisite that makes the optional protocol step (§7)

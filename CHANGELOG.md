@@ -12,6 +12,26 @@ this file as both a release log and a lightweight development progress record.
 
 ## Unreleased
 
+### Added
+
+- **Shared standard-table access layer.** New `ModernUiPlatformTablesLib`
+  (`Include/ModernUi/ModernUiPlatformTables.h`) centralizes SMBIOS structure
+  lookup, NUL-safe string extraction, OEM-placeholder filtering, and an ACPI
+  RSDP/XSDT (RSDT fallback) table walk. `ModernUiPlatformDataLib` now consumes
+  it instead of its own private SMBIOS helpers and per-reader protocol walks.
+  See `Docs/ProviderDataContract.md` §5.
+
+- **System Information page now shows real CPU and PCIe detail.** A new
+  **Processor** subsection surfaces clock speed (SMBIOS Type 4
+  `CurrentSpeed`/`MaxSpeed`), per-level cache (SMBIOS Type 7), and the live
+  logical-processor count (`EFI_MP_SERVICES_PROTOCOL`). A new **PCIe Devices**
+  subsection lists per-device identity read from `EFI_PCI_IO_PROTOCOL` — BDF,
+  vendor:device ID, base-class label, and the negotiated PCIe link
+  (`GenN xN` from the Link Status register) — replacing the old boilerplate
+  "Inventory Note" block. All fields degrade to "Unknown"/"N/A" when their
+  source is absent. New fields are appended to `MODERN_UI_PLATFORM_SUMMARY` and
+  `MODERN_UI_PCIE_SUMMARY` (additive; no reorder).
+
 ### Fixed
 
 - Mouse clicks now work on the Boot / Devices / Preferences list pages (the
