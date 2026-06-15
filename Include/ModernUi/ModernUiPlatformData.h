@@ -48,6 +48,21 @@ typedef struct {
   CHAR16    Baseboard[MODERN_UI_PLATFORM_TEXT_MAX];
   CHAR16    BiosVersion[MODERN_UI_PLATFORM_TEXT_MAX];
   CHAR16    BiosDate[MODERN_UI_PLATFORM_TEXT_MAX];
+  //
+  // Appended (additive): deeper CPU detail for the System Information page. Each
+  // is empty when its source is absent.
+  //   ProcessorSpeed     - clock speed from SMBIOS Type 4 CurrentSpeed/MaxSpeed,
+  //                        e.g. "2.50 GHz (max 4.80 GHz)".
+  //   Cache              - aggregated cache sizes per level from SMBIOS Type 7,
+  //                        e.g. "L1 64 KB / L2 512 KB / L3 8 MB".
+  //   LogicalProcessors  - live processor count from EFI_MP_SERVICES_PROTOCOL,
+  //                        e.g. "8 enabled / 8 total". Empty when MP Services is
+  //                        unavailable (the SMBIOS core/thread count stays in
+  //                        Processor above).
+  //
+  CHAR16    ProcessorSpeed[MODERN_UI_PLATFORM_TEXT_MAX];
+  CHAR16    Cache[MODERN_UI_PLATFORM_TEXT_MAX];
+  CHAR16    LogicalProcessors[MODERN_UI_PLATFORM_TEXT_MAX];
 } MODERN_UI_PLATFORM_SUMMARY;
 
 /**

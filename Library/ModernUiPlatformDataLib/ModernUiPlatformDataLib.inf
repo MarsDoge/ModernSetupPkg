@@ -31,3 +31,6 @@
   PrintLib
   UefiBootServicesTableLib
   UefiRuntimeServicesTableLib
+
+[Protocols]
+  gEfiMpServiceProtocolGuid                     ## SOMETIMES_CONSUMES

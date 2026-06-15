@@ -1842,6 +1842,16 @@ DrawServerInventorySummary (
 
   Column = (MODERN_UI_RECT){ Panel.X + 38 + LeftWidth, Panel.Y + 70, RightWidth, Panel.Height - 86 };
   RowY   = Column.Y;
+  DrawProviderSubsectionHeader (Ui, Theme, Column.X, RowY, Column.Width, L"Processor");
+  RowY += 22;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Model", (EFI_ERROR (Providers.PlatformStatus) || (Providers.Platform.Processor[0] == L'\0')) ? UnknownText : Providers.Platform.Processor);
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Speed", (Providers.Platform.ProcessorSpeed[0] != L'\0') ? Providers.Platform.ProcessorSpeed : UnknownText);
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Cache", (Providers.Platform.Cache[0] != L'\0') ? Providers.Platform.Cache : UnknownText);
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Logical CPUs", (Providers.Platform.LogicalProcessors[0] != L'\0') ? Providers.Platform.LogicalProcessors : UnknownText);
+  RowY += 36;
   DrawProviderSubsectionHeader (Ui, Theme, Column.X, RowY, Column.Width, L"PCIe Fabric");
   RowY += 22;
   DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Controllers / Roots", FabricText);

@@ -11,6 +11,8 @@
 #include <Uefi.h>
 #include <IndustryStandard/SmBios.h>
 #include <Protocol/Smbios.h>
+#include <Pi/PiMultiPhase.h>
+#include <Protocol/MpService.h>
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/MemoryAllocationLib.h>
@@ -630,6 +632,205 @@ GetBootModeName (
   UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"UEFI");
 }
 
+/**
+  Read the processor clock speed from SMBIOS Type 4 when available.
+
+  Composes "<current> GHz" and appends "(max <rated> GHz)" when the rated speed
+  differs. CurrentSpeed/MaxSpeed are reported in MHz; 0 means "unknown". Leaves
+  the buffer empty when Type 4 is absent or the current speed is unknown.
+
+  @param[out] Buffer  Destination buffer. Must not be NULL.
+  @param[in]  Count   Number of CHAR16 entries in Buffer.
+**/
+STATIC
+VOID
+GetSmbiosProcessorSpeed (
+  OUT CHAR16  *Buffer,
+  IN  UINTN   Count
+  )
+{
+  EFI_SMBIOS_TABLE_HEADER  *Record;
+  SMBIOS_TABLE_TYPE4       *Type4;
+  UINT16                   Current;
+  UINT16                   Max;
+
+  if ((Buffer == NULL) || (Count == 0)) {
+    return;
+  }
+
+  Buffer[0] = L'\0';
+  Record    = ModernUiSmbiosFindStructure (SMBIOS_TYPE_PROCESSOR_INFORMATION, 0);
+  if (Record == NULL) {
+    return;
+  }
+
+  Type4   = (SMBIOS_TABLE_TYPE4 *)Record;
+  Current = Type4->CurrentSpeed;
+  Max     = Type4->MaxSpeed;
+  if (Current == 0) {
+    return;
+  }
+
+  //
+  // MHz -> GHz with two decimals: integer GHz = MHz / 1000; hundredths of a GHz
+  // = (MHz % 1000) / 10. Show the rated max only when it differs from current.
+  //
+  if ((Max != 0) && (Max != Current)) {
+    UnicodeSPrint (
+      Buffer,
+      Count * sizeof (CHAR16),
+      L"%u.%02u GHz (max %u.%02u GHz)",
+      Current / 1000,
+      (Current % 1000) / 10,
+      Max / 1000,
+      (Max % 1000) / 10
+      );
+  } else {
+    UnicodeSPrint (
+      Buffer,
+      Count * sizeof (CHAR16),
+      L"%u.%02u GHz",
+      Current / 1000,
+      (Current % 1000) / 10
+      );
+  }
+}
+
+/**
+  Read the per-level cache sizes from SMBIOS Type 7 when available.
+
+  Aggregates the installed size of every enabled-level cache record by cache
+  level (L1/L2/L3) and composes "L1 64 KB / L2 512 KB / L3 8 MB". The 32-bit
+  InstalledSize2 (SMBIOS 3.1+) is preferred over the 16-bit InstalledSize; in
+  both encodings the top bit selects 64 KB granularity. Leaves the buffer empty
+  when Type 7 is absent or reports no installed cache.
+
+  @param[out] Buffer  Destination buffer. Must not be NULL.
+  @param[in]  Count   Number of CHAR16 entries in Buffer.
+**/
+STATIC
+VOID
+GetSmbiosCache (
+  OUT CHAR16  *Buffer,
+  IN  UINTN   Count
+  )
+{
+  EFI_SMBIOS_TABLE_HEADER  *Record;
+  SMBIOS_TABLE_TYPE7       *Type7;
+  UINTN                    Index;
+  UINT32                   LevelKb[3];
+  UINT8                    Level;
+  UINT32                   SizeKb;
+  CHAR16                   Segment[40];
+  CONST CHAR16             *Sep;
+
+  if ((Buffer == NULL) || (Count == 0)) {
+    return;
+  }
+
+  Buffer[0]  = L'\0';
+  LevelKb[0] = 0;
+  LevelKb[1] = 0;
+  LevelKb[2] = 0;
+
+  for (Index = 0; (Record = ModernUiSmbiosFindStructure (SMBIOS_TYPE_CACHE_INFORMATION, Index)) != NULL; Index++) {
+    Type7 = (SMBIOS_TABLE_TYPE7 *)Record;
+    //
+    // Cache Configuration bits[2:0] hold the 0-based cache level. Clamp to the
+    // L1..L3 buckets the dashboard shows; higher levels (rare) are ignored.
+    //
+    Level = (UINT8)((Type7->CacheConfiguration & 0x07) + 1);
+    if ((Level < 1) || (Level > 3)) {
+      continue;
+    }
+
+    //
+    // InstalledSize/InstalledSize2 are bitfields: Size with a Granularity64K
+    // flag (0 => 1 KB units, 1 => 64 KB units). Prefer the 32-bit InstalledSize2
+    // (SMBIOS 3.1+) when the record is long enough and reports a size.
+    //
+    SizeKb = 0;
+    if ((Record->Length >= OFFSET_OF (SMBIOS_TABLE_TYPE7, InstalledSize2) + sizeof (Type7->InstalledSize2)) &&
+        (Type7->InstalledSize2.Size != 0))
+    {
+      SizeKb = Type7->InstalledSize2.Granularity64K ? (Type7->InstalledSize2.Size * 64)
+                                                    : Type7->InstalledSize2.Size;
+    } else if (Type7->InstalledSize.Size != 0) {
+      SizeKb = Type7->InstalledSize.Granularity64K ? ((UINT32)Type7->InstalledSize.Size * 64)
+                                                   : (UINT32)Type7->InstalledSize.Size;
+    }
+
+    LevelKb[Level - 1] += SizeKb;
+  }
+
+  if ((LevelKb[0] == 0) && (LevelKb[1] == 0) && (LevelKb[2] == 0)) {
+    return;
+  }
+
+  Sep = L"";
+  for (Index = 0; Index < 3; Index++) {
+    if (LevelKb[Index] == 0) {
+      continue;
+    }
+
+    //
+    // Show whole-MB caches in MB, otherwise KB.
+    //
+    if ((LevelKb[Index] >= 1024) && ((LevelKb[Index] % 1024) == 0)) {
+      UnicodeSPrint (Segment, sizeof (Segment), L"%sL%u %u MB", Sep, (UINT32)Index + 1, LevelKb[Index] / 1024);
+    } else {
+      UnicodeSPrint (Segment, sizeof (Segment), L"%sL%u %u KB", Sep, (UINT32)Index + 1, LevelKb[Index]);
+    }
+
+    StrCatS (Buffer, Count, Segment);
+    Sep = L" / ";
+  }
+}
+
+/**
+  Read the live logical-processor count from EFI_MP_SERVICES_PROTOCOL.
+
+  Composes "<enabled> enabled / <total> total" from GetNumberOfProcessors. This
+  is the authoritative runtime count, distinct from the SMBIOS Type 4
+  core/thread fields. Leaves the buffer empty when MP Services is unavailable
+  (e.g. before it is published, or on a platform that does not provide it).
+
+  @param[out] Buffer  Destination buffer. Must not be NULL.
+  @param[in]  Count   Number of CHAR16 entries in Buffer.
+**/
+STATIC
+VOID
+GetMpLogicalProcessors (
+  OUT CHAR16  *Buffer,
+  IN  UINTN   Count
+  )
+{
+  EFI_STATUS                Status;
+  EFI_MP_SERVICES_PROTOCOL  *Mp;
+  UINTN                     Total;
+  UINTN                     Enabled;
+
+  if ((Buffer == NULL) || (Count == 0)) {
+    return;
+  }
+
+  Buffer[0] = L'\0';
+  Mp        = NULL;
+  Status    = gBS->LocateProtocol (&gEfiMpServiceProtocolGuid, NULL, (VOID **)&Mp);
+  if (EFI_ERROR (Status) || (Mp == NULL)) {
+    return;
+  }
+
+  Total   = 0;
+  Enabled = 0;
+  Status  = Mp->GetNumberOfProcessors (Mp, &Total, &Enabled);
+  if (EFI_ERROR (Status) || (Total == 0)) {
+    return;
+  }
+
+  UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"%u enabled / %u total", (UINT32)Enabled, (UINT32)Total);
+}
+
 EFI_STATUS
 EFIAPI
 ModernUiPlatformDataGetSummary (
@@ -673,6 +874,9 @@ ModernUiPlatformDataGetSummary (
   }
 
   GetSmbiosProcessor (Summary->Processor, ARRAY_SIZE (Summary->Processor));
+  GetSmbiosProcessorSpeed (Summary->ProcessorSpeed, ARRAY_SIZE (Summary->ProcessorSpeed));
+  GetSmbiosCache (Summary->Cache, ARRAY_SIZE (Summary->Cache));
+  GetMpLogicalProcessors (Summary->LogicalProcessors, ARRAY_SIZE (Summary->LogicalProcessors));
   GetSmbiosMemoryDetail (Summary->MemoryDetail, ARRAY_SIZE (Summary->MemoryDetail));
   GetSmbiosSystemDetail (
     Summary->Serial,
