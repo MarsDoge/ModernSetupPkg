@@ -60,6 +60,7 @@ InitializeProviderSnapshotDefaults (
   Snapshot->HardwareHealthStatus = EFI_NOT_READY;
   Snapshot->PerformanceStatus = EFI_NOT_READY;
   Snapshot->PcieStatus        = EFI_NOT_READY;
+  Snapshot->InventoryStatus   = EFI_NOT_READY;
 
   SetUnknownText (Snapshot->Platform.FirmwareVendor, ARRAY_SIZE (Snapshot->Platform.FirmwareVendor));
   SetUnknownText (Snapshot->Platform.FirmwareRevision, ARRAY_SIZE (Snapshot->Platform.FirmwareRevision));
@@ -193,6 +194,7 @@ ModernSetupGetProviderSnapshot (
   MODERN_UI_HARDWARE_HEALTH_SUMMARY HardwareHealth;
   MODERN_UI_PERFORMANCE_SUMMARY   Performance;
   MODERN_UI_PCIE_SUMMARY          Pcie;
+  MODERN_UI_INVENTORY_SUMMARY     Inventory;
 
   if (Snapshot == NULL) {
     return EFI_INVALID_PARAMETER;
@@ -251,6 +253,11 @@ ModernSetupGetProviderSnapshot (
   Snapshot->PcieStatus = ModernUiPcieDataGetSummary (&Pcie);
   if (!EFI_ERROR (Snapshot->PcieStatus)) {
     CopyMem (&Snapshot->Pcie, &Pcie, sizeof (Snapshot->Pcie));
+  }
+
+  Snapshot->InventoryStatus = ModernUiInventoryDataGetSummary (&Inventory);
+  if (!EFI_ERROR (Snapshot->InventoryStatus)) {
+    CopyMem (&Snapshot->Inventory, &Inventory, sizeof (Snapshot->Inventory));
   }
 
   return EFI_SUCCESS;

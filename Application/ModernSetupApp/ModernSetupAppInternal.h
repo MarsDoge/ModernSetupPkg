@@ -27,6 +27,7 @@
 #include <ModernUi/ModernUiDiagnosticsData.h>
 #include <ModernUi/ModernUiFirmwareData.h>
 #include <ModernUi/ModernUiHardwareHealthData.h>
+#include <ModernUi/ModernUiInventoryData.h>
 #include <ModernUi/ModernUiInput.h>
 #include <ModernUi/ModernUiEngine.h>
 #include <ModernUi/ModernUiManagementData.h>
@@ -115,6 +116,7 @@ typedef struct {
   MODERN_UI_HARDWARE_HEALTH_SUMMARY HardwareHealth;
   MODERN_UI_PERFORMANCE_SUMMARY    Performance;
   MODERN_UI_PCIE_SUMMARY           Pcie;
+  MODERN_UI_INVENTORY_SUMMARY      Inventory;
   EFI_STATUS                       PlatformStatus;
   EFI_STATUS                       SecurityStatus;
   EFI_STATUS                       FirmwareStatus;
@@ -124,6 +126,7 @@ typedef struct {
   EFI_STATUS                       HardwareHealthStatus;
   EFI_STATUS                       PerformanceStatus;
   EFI_STATUS                       PcieStatus;
+  EFI_STATUS                       InventoryStatus;
 } MODERN_SETUP_PROVIDER_SNAPSHOT;
 
 typedef enum {

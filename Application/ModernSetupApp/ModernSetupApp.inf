@@ -42,6 +42,7 @@
   ModernUiHardwareHealthDataLib
   ModernUiHiiBridgeLib
   ModernUiInputLib
+  ModernUiInventoryDataLib
   ModernUiManagementDataLib
   ModernUiPerformanceDataLib
   ModernUiPreferencesLib

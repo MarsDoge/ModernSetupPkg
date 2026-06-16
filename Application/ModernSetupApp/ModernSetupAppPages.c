@@ -1710,6 +1710,8 @@ DrawServerInventorySummary (
   UINTN                                 RowY;
   UINTN                                 PcieIndex;
   CHAR16                                PcieMoreText[48];
+  CHAR16                                StorageText[72];
+  CHAR16                                NetworkText[72];
   CHAR16                                MemoryText[48];
   CHAR16                                ProviderCoverage[64];
   CHAR16                                ProviderIssue[96];
@@ -1787,6 +1789,26 @@ DrawServerInventorySummary (
       );
   }
 
+  //
+  // Compact storage / network digest: count plus the first device identity,
+  // read from the inventory provider (BlockIo/DiskInfo and SimpleNetwork).
+  //
+  if (EFI_ERROR (Providers.InventoryStatus) || (Providers.Inventory.StorageCount == 0)) {
+    UnicodeSPrint (StorageText, sizeof (StorageText), L"%s", (Providers.Inventory.StorageCount == 0) ? L"None" : UnknownText);
+  } else if (Providers.Inventory.StorageCount == 1) {
+    UnicodeSPrint (StorageText, sizeof (StorageText), L"%s", Providers.Inventory.Storage[0].Label);
+  } else {
+    UnicodeSPrint (StorageText, sizeof (StorageText), L"%u disks, %s +%u", (UINT32)Providers.Inventory.StorageCount, Providers.Inventory.Storage[0].Label, (UINT32)(Providers.Inventory.StorageCount - 1));
+  }
+
+  if (EFI_ERROR (Providers.InventoryStatus) || (Providers.Inventory.NicCount == 0)) {
+    UnicodeSPrint (NetworkText, sizeof (NetworkText), L"%s", (Providers.Inventory.NicCount == 0) ? L"None" : UnknownText);
+  } else if (Providers.Inventory.NicCount == 1) {
+    UnicodeSPrint (NetworkText, sizeof (NetworkText), L"%s", Providers.Inventory.Nic[0].Label);
+  } else {
+    UnicodeSPrint (NetworkText, sizeof (NetworkText), L"%u NICs, %s +%u", (UINT32)Providers.Inventory.NicCount, Providers.Inventory.Nic[0].Label, (UINT32)(Providers.Inventory.NicCount - 1));
+  }
+
   Content    = ModernSetupContentRect (Ui);
   Panel      = (MODERN_UI_RECT){ Content.X, Content.Y, Content.Width, MIN (Content.Height, 540) };
   Background = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
@@ -1843,6 +1865,10 @@ DrawServerInventorySummary (
   DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"First issue", ProviderIssue);
   RowY += 26;
   DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, ModernUiGetString (ModernUiStringRasPolicy), SnapshotCapabilityText (Providers.PerformanceStatus, Providers.Performance.RasPolicyEntryPresent));
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Storage", StorageText);
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Network", NetworkText);
 
   if (RightWidth == 0) {
     return;
