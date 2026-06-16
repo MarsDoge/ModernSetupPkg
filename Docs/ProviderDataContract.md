@@ -126,20 +126,21 @@ not yet wired; **Roadmap** = larger follow-up.
 > **stays native HII/FormBrowser**. PciIo here is **read-only enumeration for
 > display**; the App MUST NOT call `SetBarAttributes` or mutate config space.
 
-### Storage — (roadmap provider)
+### Storage — `ModernUiInventoryDataLib`
 
 | Field | Standard source | Status |
 | --- | --- | --- |
 | Bootable storage presence | device-path inventory (via Devices) | Done (indirect) |
-| Device model / type (NVMe/SATA) | **DiskInfo** (`EFI_DISK_INFO_PROTOCOL`) + BlockIo | Roadmap |
+| Device bus type (NVMe/SATA/…) + capacity | **DiskInfo** (`EFI_DISK_INFO_PROTOCOL`) + BlockIo | Done |
+| Device model string | DiskInfo Identify/Inquiry parse | Roadmap |
 
-### Network — `ModernUiManagementDataLib` (server) / Devices
+### Network — `ModernUiInventoryDataLib` + `ModernUiManagementDataLib` (server)
 
 | Field | Standard source | Status |
 | --- | --- | --- |
 | Management host interface | **SMBIOS Type 38/42** (IPMI/Redfish) | Done (presence) |
 | IPMI / Redfish protocol presence | protocol probes | Done |
-| NIC MAC / identity | **SimpleNetwork** / device paths | Roadmap |
+| NIC MAC / link state | **SimpleNetwork** (`Mode->CurrentAddress`/`MediaPresent`) | Done |
 
 ### Diagnostics / ACPI — `ModernUiDiagnosticsDataLib`
 

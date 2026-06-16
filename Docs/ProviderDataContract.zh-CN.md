@@ -116,20 +116,21 @@ Type 1/2)——不引入任何新的策略面。
 > bifurcation、热插拔、ACS/ARI、IOMMU、BAR/资源分配 —— **仍归原生 HII/FormBrowser**。
 > 这里的 PciIo 是**只读枚举供显示**;App 禁止调 `SetBarAttributes` 或改配置空间。
 
-### 存储 —(roadmap provider)
+### 存储 — `ModernUiInventoryDataLib`
 
 | 字段 | 标准源 | 现状 |
 | --- | --- | --- |
 | 可启动存储存在性 | 设备路径清单(经 Devices) | Done(间接) |
-| 设备型号/类型(NVMe/SATA) | **DiskInfo**(`EFI_DISK_INFO_PROTOCOL`)+ BlockIo | Roadmap |
+| 设备总线类型(NVMe/SATA…)+ 容量 | **DiskInfo**(`EFI_DISK_INFO_PROTOCOL`)+ BlockIo | Done |
+| 设备型号字符串 | DiskInfo Identify/Inquiry 解析 | Roadmap |
 
-### 网络 — `ModernUiManagementDataLib`(服务器)/ Devices
+### 网络 — `ModernUiInventoryDataLib` + `ModernUiManagementDataLib`(服务器)
 
 | 字段 | 标准源 | 现状 |
 | --- | --- | --- |
 | 管理 host interface | **SMBIOS Type 38/42**(IPMI/Redfish) | Done(存在性) |
 | IPMI / Redfish 协议存在性 | 协议探测 | Done |
-| NIC MAC / 身份 | **SimpleNetwork** / 设备路径 | Roadmap |
+| NIC MAC / 链路状态 | **SimpleNetwork**(`Mode->CurrentAddress`/`MediaPresent`) | Done |
 
 ### 诊断 / ACPI — `ModernUiDiagnosticsDataLib`
 

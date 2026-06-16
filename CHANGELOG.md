@@ -32,6 +32,12 @@ this file as both a release log and a lightweight development progress record.
   source is absent. New fields are appended to `MODERN_UI_PLATFORM_SUMMARY` and
   `MODERN_UI_PCIE_SUMMARY` (additive; no reorder).
 
+- **Storage & network inventory.** New `ModernUiInventoryDataLib` surfaces
+  read-only storage identity (bus type from `EFI_DISK_INFO_PROTOCOL` + capacity
+  from `EFI_BLOCK_IO_PROTOCOL`, e.g. `SATA 504 MB`) and NIC identity (MAC + link
+  from `EFI_SIMPLE_NETWORK_PROTOCOL`), shown as compact **Storage** and
+  **Network** rows on the System Information page. Inventory only — no policy.
+
 ### Fixed
 
 - Mouse clicks now work on the Boot / Devices / Preferences list pages (the
