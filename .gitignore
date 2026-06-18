@@ -11,3 +11,6 @@ Conf/
 __pycache__/
 *.pyc
 .DS_Store
+
+# Cloudflare Wrangler local state (R2 simulator, etc.)
+.wrangler/

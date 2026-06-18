@@ -12,6 +12,8 @@ this file as both a release log and a lightweight development progress record.
 
 ## Unreleased
 
+## v1.1.0 - 2026-06-16
+
 ### Added
 
 - **Shared standard-table access layer.** New `ModernUiPlatformTablesLib`
