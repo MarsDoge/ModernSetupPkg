@@ -11,7 +11,7 @@ Language: English | [简体中文](ConfigurableItemsAndQuickSettings.zh-CN.md)
 
 This document defines **how, and how far, ModernSetupPkg may make platform
 configuration "UI-configurable"** in the modern shell. It surveys the
-high-churn configurable items found in IBV and 信创 (China-domestic) product
+high-churn configurable items found across IBV and other platform
 BIOS, and binds each to a sanctioned handling tier.
 
 It is a companion to:
@@ -66,7 +66,7 @@ Every configurable item maps to exactly one tier.
 | Tier | What the shell does | Who writes | Examples |
 | --- | --- | --- | --- |
 | **A — App-owned direct edit** | The shell reads and writes its own state. | `ModernSetupApp` (its own store) | Language, theme, EZ/Advanced mode, favorites, App preferences (`ModernUiPreferencesLib`). |
-| **B — Curated quick-settings deep-link** | Locate a known high-churn HII question, present it grouped in a modern page; on activate, `SendForm()` into the owning formset/form/question. **Edit stays native; ModernDisplayEngine renders it.** | Native FormBrowser + platform ConfigAccess | Secure Boot, TPM enable, VT-d/IOMMU, SR-IOV, Above-4G, ReBAR, SATA mode, primary display, WoL, AC-loss restore, fast boot, TCM/国密. |
+| **B — Curated quick-settings deep-link** | Locate a known high-churn HII question, present it grouped in a modern page; on activate, `SendForm()` into the owning formset/form/question. **Edit stays native; ModernDisplayEngine renders it.** | Native FormBrowser + platform ConfigAccess | Secure Boot, TPM enable, VT-d/IOMMU, SR-IOV, Above-4G, ReBAR, SATA mode, primary display, WoL, AC-loss restore, fast boot, TCM. |
 | **C — Whole native page** | Open the entire formset via `SendForm()`. | Native FormBrowser + platform ConfigAccess | RAS, NUMA, memory timing, CPU voltage, BMC networking, multi-question flows. |
 
 Tier B is the new productization work. It does **not** relax the boundary: the
@@ -74,25 +74,25 @@ only new code is *discovery + grouping + a deep-link `SendForm` target*. The
 modern "switch" look comes from the DisplayEngine rendering the platform's
 existing checkbox/oneof question, not from the App owning the value.
 
-## 4. Configurable-item inventory (IBV + 信创)
+## 4. Configurable-item inventory
 
 Churn = how often an end user changes it. Tier = §3 handling.
 
-| Domain | High-churn items | Seen in IBV (AMI/Insyde/Phoenix/Byosoft) | Seen in 信创 (Zhaoxin/Hygon/Phytium/Loongson/Kunpeng) | Churn | Tier |
+| Domain | High-churn items | IBV firmware | Other platforms | Churn | Tier |
 | --- | --- | --- | --- | --- | --- |
-| Boot | Boot order, Fast Boot, CSM/Legacy (x86), PXE/HTTP boot, timeout | All | Most (no CSM on Loongson/Phytium) | High | B/C |
-| Security | Secure Boot, TPM/PTT/fTPM enable, clear TPM, passwords | All | **+ TCM/国密 (SM2/3/4)**, 国密 Secure Boot certs | High | B/C |
-| Virtualization / isolation | VT-x/SVM, **VT-d/IOMMU/SMMU**, **SR-IOV**, ACS/ARI/PASID | All | Hygon/Kunpeng servers; Phytium SMMU | Med-High | **B/C** |
+| Boot | Boot order, Fast Boot, CSM/Legacy (x86), PXE/HTTP boot, timeout | All | Most (non-x86 platforms usually omit CSM) | High | B/C |
+| Security | Secure Boot, TPM/PTT/fTPM enable, clear TPM, passwords | All | **+ TCM (trusted computing)**, Secure Boot certs | High | B/C |
+| Virtualization / isolation | VT-x/SVM, **VT-d/IOMMU/SMMU**, **SR-IOV**, ACS/ARI/PASID | All | Server platforms; some Arm expose SMMU | Med-High | **B/C** |
 | PCIe resource | **Above-4G, ReBAR, ASPM, link speed, bifurcation, hot-plug** | All | Server side | Med-High | B/C |
-| CPU | SMT, C-states, Turbo/Boost, P-state/CPPC, core enable | All | Hygon/Kunpeng; partial Loongson/Phytium | Med | C |
+| CPU | SMT, C-states, Turbo/Boost, P-state/CPPC, core enable | All | Server platforms; partial elsewhere | Med | C |
 | Memory | XMP/EXPO, frequency, **ECC, patrol scrub, NUMA/SNC/NPS, interleave** | Desktop XMP; server RAS | Server RAS/NUMA | Med | C |
 | Storage | **SATA mode (AHCI/RAID)**, VMD, NVMe RAID, Opal | x86 all | Platform-dependent | Med | B/C |
 | Graphics | Primary display (iGPU/dGPU/Auto), UMA size, hybrid/mux | Desktop/laptop | iGPU platforms | Med | B/C |
 | Power | **ErP/Deep S5, Wake-on-LAN, AC-loss restore**, RTC wake; (laptop) charge threshold, lid behavior | All | Most | High | B/C |
 | Thermal | Fan mode (silent/standard/perf), fan curves | Desktop/server | Server/industrial | Med | C |
 | Network | Onboard LAN enable, WoL, network stack, MAC passthrough | All | Most | Med | B/C |
-| Management (server) | BMC network (DHCP/static), IPMI over LAN, Redfish enable | Server | Hygon/Kunpeng servers | Med | C |
-| 信创-specific | **TCM/国密 trusted computing, 国产化/兼容模式, kernel integrity measurement** | — | Common (Kylin/UOS ecosystem) | Med | B/C |
+| Management (server) | BMC network (DHCP/static), IPMI over LAN, Redfish enable | Server | Server platforms | Med | C |
+| Trusted computing | **Trusted Cryptography Module (TCM), compatibility mode, kernel integrity measurement** | — | Some platforms | Med | B/C |
 | Self / branding | Language, EZ/Advanced, favorites, theme, date/time | All | All | High | **A** |
 
 ## 5. Quick Settings (Tier B) design
@@ -103,7 +103,7 @@ A new modern page (`PageQuickSettings`, opt-in) that:
    the existing keyword-probe approach (`HasHiiFormsetKeyword`-style scanning in
    a provider), producing a typed read-only list of *(group, label, owning
    formset/form/question coordinates, present?)*. No IFR mutation, no ConfigAccess.
-2. **Groups** them (Security / Virtualization / PCIe / Power / Boot / 信创) and
+2. **Groups** them (Security / Virtualization / PCIe / Power / Boot) and
    renders each as a modern row with the platform-reported current value when it
    can be read read-only (else "Configure ›").
 3. On activate, calls `EFI_FORM_BROWSER2_PROTOCOL.SendForm()` targeting the
@@ -135,7 +135,6 @@ validation chain).
 
 - UEFI PI/UEFI spec — HII, ConfigAccess, ConfigKeywordHandler, FormBrowser2.
 - edk2 `MdeModulePkg` — `SetupBrowserDxe`, `DisplayEngine`, PCD database, HII.
-- AMI Aptio / InsydeH2O / Phoenix SecureCore / Nanjing Byosoft ByoCore setup
+- Mainstream IBV setup
   references (visual/IA only; see IbvAndPlatformSetupSurvey.md).
-- 信创 platform references: Loongson/Phytium/Zhaoxin/Hygon/Kunpeng UEFI setup;
-  Kylin/UOS trusted-computing (TCM/国密) documentation.
+- Other platform UEFI setup references; trusted-computing (TPM/TCM) documentation.

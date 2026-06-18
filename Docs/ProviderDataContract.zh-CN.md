@@ -32,11 +32,10 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 6. **单一访问层。** 结构化表访问(SMBIOS 遍历 + 字符串/UUID 提取、ACPI 查表)
    **应当**走单一共享辅助库,而非每个 provider 各写一遍(见 §5)。
 
-## 2. 参考:IBV / 信创 设置页显示什么
+## 2. 参考:IBV 设置页显示什么
 
-仅信息架构参考(不复用素材/字符串)。主流 IBV(AMI Aptio、Insyde H2O、Phoenix
-SecureCore)与信创平台(龙芯 Loongson、飞腾 Phytium、鲲鹏 Kunpeng、海光 Hygon、
-兆芯 Zhaoxin;固件多为 edk2 衍生或 ByoCore/昆仑)在**系统信息/主页**面收敛到
+仅信息架构参考(不复用素材/字符串)。主流 IBV 与其他平台固件(多为 edk2 衍生),覆盖 x86、Arm、LoongArch、RISC-V,
+在**系统信息/主页**面收敛到
 相似形态,外加更深的硬件页:
 
 | 常见信息页项 | 典型设置标签 | 对应的标准源 |
@@ -52,10 +51,10 @@ SecureCore)与信创平台(龙芯 Loongson、飞腾 Phytium、鲲鹏 Kunpeng、�
 | PCIe/扩展槽 | "Slot occupancy, link" | SMBIOS Type 9 + PciIo(逐设备) |
 | 网络 | "MAC address"、"NIC" | SimpleNetwork / 设备路径 |
 | 安全态势 | "Secure Boot"、"TPM/TCM" | UEFI 变量 + TCG2 协议 |
-| 信创特有 | "可信计算 TCM(国密)"、"国产化平台标识" | TCG2/厂商协议 + SMBIOS 身份 |
+| 可信计算(TCM) | "可信计算模块(TCM)"、平台标识 | TCG2/厂商协议 + SMBIOS 身份 |
 
-信创要点:国产平台强调**可信计算/国密 TCM**(与 TPM 并列或替代),以及**平台/
-厂商标识("国产化标识")**。二者都映射到既有只读源(TCG2 存在性、SMBIOS
+要点:部分平台强调**可信计算模块(TCM)**(与 TPM 并列或替代),以及**平台/
+厂商标识**字符串。二者都映射到既有只读源(TCG2 存在性、SMBIOS
 Type 1/2)——不引入任何新的策略面。
 
 ## 3. 数据源映射表(域 → 字段 → edk2 源 → 现状)
@@ -156,7 +155,7 @@ Type 1/2)——不引入任何新的策略面。
 | Secure Boot / Setup Mode | **UEFI 变量**(`SecureBoot`、`SetupMode`) | Done |
 | PK/KEK/db/dbx 存在性 | UEFI 变量 | Done |
 | TPM / TCG 存在性 | **TCG2**(`EFI_TCG2_PROTOCOL`) | Done |
-| TCM / 国密可信计算 | 厂商/TCG 协议存在性 | Roadmap(信创) |
+| 可信计算(TCM) | 厂商/TCG 协议存在性 | Roadmap |
 
 ## 4. 数据源优先级与回退
 
@@ -197,7 +196,7 @@ SMBIOS 字符串/UUID 提取每个 provider 重写一遍 —— 重复,也正是
 | ACPI(PPTT/SRAT/SLIT/MADT) | 常见 | 常见 | ACPI 或 DT | ACPI 或 DT |
 | PciIo / PciRootBridgeIo | 常见 | 平台相关 | 平台相关 | 萌芽 |
 | MP Services | 常见 | 常见 | 平台相关 | 平台相关 |
-| TCG2 | 常见 | 平台相关 | 平台相关(含国密 TCM) | 平台相关 |
+| TCG2 | 常见 | 平台相关 | 平台相关(含 TCM) | 平台相关 |
 | UEFI 内存映射 / GOP | 是 | 是 | 是 | 是 |
 
 没有字段以写死的 ARCH 门控;薄 SMBIOS 目标(RISC-V/LoongArch VM)按 §4 下穿到

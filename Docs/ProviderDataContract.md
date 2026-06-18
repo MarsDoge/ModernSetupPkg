@@ -38,12 +38,11 @@ Key words **MUST / MUST NOT / SHOULD / MAY** are RFC 2119.
    extraction, ACPI table lookup) **SHOULD** go through a single shared helper
    library, not be re-implemented per provider (see §5).
 
-## 2. Reference: what IBV / 信创 setups show
+## 2. Reference: what IBV setups show
 
 Information-architecture reference only (no asset/string reuse). Mainstream IBV
-setup utilities (AMI Aptio, Insyde H2O, Phoenix SecureCore) and China-market /
-信创 platforms (龙芯 Loongson, 飞腾 Phytium, 鲲鹏 Kunpeng, 海光 Hygon, 兆芯
-Zhaoxin; firmware often edk2-derived or ByoCore/昆仑) converge on a similar
+setup utilities and other platform firmware (often edk2-derived), across x86,
+Arm, LoongArch, and RISC-V, converge on a similar
 **System Information / Main** surface, plus deeper hardware pages:
 
 | Common info-page item | Typical setup label | Standard source it maps to |
@@ -59,10 +58,10 @@ Zhaoxin; firmware often edk2-derived or ByoCore/昆仑) converge on a similar
 | PCIe/expansion slots | "Slot occupancy, link" | SMBIOS Type 9 + PciIo (per-device) |
 | Network | "MAC address", "NIC" | SimpleNetwork / device paths |
 | Security posture | "Secure Boot", "TPM/TCM" | UEFI vars + TCG2 protocol |
-| 信创-specific | "可信计算 TCM (国密)", "国产化平台标识" | TCG2/vendor protocol + SMBIOS identity |
+| Trusted computing (TCM) | "Trusted Cryptography Module (TCM)", platform identity | TCG2/vendor protocol + SMBIOS identity |
 
-信创 nuance: domestic platforms emphasize **可信计算 / 国密 TCM** alongside or
-instead of TPM, and a **platform/vendor identity** ("国产化标识"). Both map to
+Note: some platforms emphasize a **Trusted Cryptography Module (TCM)** alongside or
+instead of TPM, and a **platform/vendor identity** string. Both map to
 existing read-only sources (TCG2 presence, SMBIOS Type 1/2) — no new policy
 surface is implied.
 
@@ -166,7 +165,7 @@ not yet wired; **Roadmap** = larger follow-up.
 | Secure Boot / Setup Mode | **UEFI variables** (`SecureBoot`, `SetupMode`) | Done |
 | PK/KEK/db/dbx presence | UEFI variables | Done |
 | TPM / TCG presence | **TCG2** (`EFI_TCG2_PROTOCOL`) | Done |
-| TCM / 国密 trusted computing | vendor/TCG protocol presence | Roadmap (信创) |
+| Trusted computing (TCM) | vendor/TCG protocol presence | Roadmap |
 
 ## 4. Source precedence and fallback
 
@@ -221,7 +220,7 @@ clean.
 | ACPI (PPTT/SRAT/SLIT/MADT) | Common | Common | ACPI or DT | ACPI or DT |
 | PciIo / PciRootBridgeIo | Common | Platform-dep. | Platform-dep. | Emerging |
 | MP Services | Common | Common | Platform-dep. | Platform-dep. |
-| TCG2 | Common | Platform-dep. | Platform-dep. (incl. 国密 TCM) | Platform-dep. |
+| TCG2 | Common | Platform-dep. | Platform-dep. (incl. TCM) | Platform-dep. |
 | UEFI memory map / GOP | Yes | Yes | Yes | Yes |
 
 No field is gated on a hard-coded ARCH; thin-SMBIOS targets (RISC-V/LoongArch
