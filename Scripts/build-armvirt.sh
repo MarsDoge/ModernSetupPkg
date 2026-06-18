@@ -129,6 +129,18 @@ def replace_regex_once(text: str, pattern: str, replacement: str, description: s
     return text
 
 dsc = (workspace / "ArmVirtPkg/ArmVirtQemu.dsc").read_text()
+#
+# The UiApp component, the upstream DisplayEngine component, and the
+# CustomizedDisplayLib resolution live in the included ArmVirt.dsc.inc, not the
+# top-level ArmVirtQemu.dsc. Edits that swap or remove those must therefore
+# operate on a shadow copy of the include (mirroring how the FDF side shadows
+# ArmVirtQemuFvMain.fdf.inc); the overlay DSC is repointed to that copy. Library
+# additions stay in the top-level [LibraryClasses.common] because global
+# resolution there reaches the components declared in the include. The include's
+# own !include lines are all package-root relative, so the shadow copy resolves
+# them unchanged.
+#
+inc = (workspace / "ArmVirtPkg/ArmVirt.dsc.inc").read_text()
 boot_manager_menu_guid_bytes = "{ 0xdc, 0x5b, 0xc2, 0xee, 0xf2, 0x67, 0x95, 0x4d, 0xb1, 0xd5, 0xf8, 0x1b, 0x20, 0x39, 0xd1, 0x1d }"
 ui_app_guid_bytes = "{ 0x21, 0xaa, 0x2c, 0x46, 0x14, 0x76, 0x03, 0x45, 0x83, 0x6e, 0x8a, 0xb6, 0xf4, 0x66, 0x23, 0x31 }"
 dsc = re.sub(
@@ -141,6 +153,12 @@ dsc = dsc.replace(
     "  FLASH_DEFINITION               = ArmVirtPkg/ArmVirtQemu.fdf",
     "  FLASH_DEFINITION               = Build/ModernSetupPkgOverlay/ArmVirtQemuModernSetup.fdf",
 )
+dsc = replace_regex_once(
+    dsc,
+    r"^!include ArmVirtPkg/ArmVirt\.dsc\.inc\s*$",
+    "!include Build/ModernSetupPkgOverlay/ArmVirtModernSetup.dsc.inc",
+    "ArmVirt.dsc.inc include",
+)
 if "ModernUiEngineLib|ModernSetupPkg" not in dsc:
     if (display_engine == "modern" or display_engine == "lvgl") or replace_uiapp:
         dsc = dsc.replace("[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + library_block, 1)
@@ -149,32 +167,32 @@ if display_engine == "lvgl" and "LvglCoreLib|LvglSpikePkg" not in dsc:
 if replace_uiapp and "ModernUiPlatformDataLib|ModernSetupPkg" not in dsc:
     dsc = dsc.replace("[LibraryClasses.common]\n", "[LibraryClasses.common]\n" + app_library_block, 1)
 if replace_uiapp:
-    dsc = replace_regex_once(
-        dsc,
+    inc = replace_regex_once(
+        inc,
         r"^  MdeModulePkg/Application/UiApp/UiApp\.inf \{\r?\n(?:    [^\r\n]*\r?\n)*?  \}\r?\n",
         modern_setup_app_component_boot_manager_fallback + "\n",
         "UiApp DSC component",
     )
 if (display_engine == "modern" or display_engine == "lvgl"):
-    dsc = dsc.replace(
+    inc = inc.replace(
         "  CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf",
         "  CustomizedDisplayLib|ModernSetupPkg/Library/ModernUiCustomizedDisplayLib/ModernUiCustomizedDisplayLib.inf",
         1,
     )
-    dsc = dsc.replace(
+    inc = inc.replace(
         "  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf",
         modern_display_component_lvgl if display_engine == "lvgl" else modern_display_component,
         1,
     )
-if enable_driver_sample and driver_sample_component not in dsc:
+if enable_driver_sample and driver_sample_component not in inc:
     if replace_uiapp:
-        dsc = dsc.replace(
+        inc = inc.replace(
             modern_setup_app_component_boot_manager_fallback,
             driver_sample_component + "\n" + modern_setup_app_component_boot_manager_fallback,
             1,
         )
     else:
-        dsc = dsc.replace(
+        inc = inc.replace(
             "  MdeModulePkg/Application/UiApp/UiApp.inf {",
             driver_sample_component + "\n  MdeModulePkg/Application/UiApp/UiApp.inf {",
             1,
@@ -185,6 +203,7 @@ if (display_engine == "modern" or display_engine == "lvgl"):
         f"  gModernSetupPkgTokenSpaceGuid.PcdModernSetupTheme|{theme_pcd}\n"
     )
 (overlay / "ArmVirtQemuModernSetup.dsc").write_text(dsc)
+(overlay / "ArmVirtModernSetup.dsc.inc").write_text(inc)
 
 fdf = (workspace / "ArmVirtPkg/ArmVirtQemu.fdf").read_text()
 fdf = fdf.replace("!include VarStore.fdf.inc", "!include ArmVirtPkg/VarStore.fdf.inc")

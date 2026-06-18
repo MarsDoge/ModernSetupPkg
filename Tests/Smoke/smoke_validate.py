@@ -545,6 +545,9 @@ def write(path: Path, text: str) -> None:
 
 def armvirt_fixture(workspace: Path) -> None:
     (workspace / "MdePkg").mkdir(parents=True)
+    # ArmVirt keeps the UiApp/DisplayEngine components and the CustomizedDisplayLib
+    # resolution in the included ArmVirt.dsc.inc (not the top-level DSC), so the
+    # fixture mirrors that split and the overlay generator must shadow the include.
     write(
         workspace / "ArmVirtPkg" / "ArmVirtQemu.dsc",
         """[Defines]
@@ -552,6 +555,13 @@ def armvirt_fixture(workspace: Path) -> None:
   gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile|{ 0x00 }
 
 [LibraryClasses.common]
+
+!include ArmVirtPkg/ArmVirt.dsc.inc
+""",
+    )
+    write(
+        workspace / "ArmVirtPkg" / "ArmVirt.dsc.inc",
+        """[LibraryClasses]
   CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf
 
 [Components]
@@ -2675,6 +2685,37 @@ def check_overlay_generation(root: Path) -> list[str]:
         assert_contains(fdf, "INF  RuleOverride = MODERN_SETUP_UIAPP ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf")
         assert_contains(fdf, "FILE APPLICATION = 462CAA21-7614-4503-836E-8AB6F4662331")
         messages.append("PASS loongarch replace-uiapp opt-in overlay generation dry run")
+
+        # ArmVirt keeps the UiApp/DisplayEngine components in the included
+        # ArmVirt.dsc.inc, so the DSC-side replacement must land in a shadow copy
+        # of that include (the overlay DSC repoints its !include to it).
+        if overlay_dir.exists():
+            shutil.rmtree(overlay_dir)
+        env = os.environ.copy()
+        env.update(
+            {
+                "WORKSPACE": str(workspace),
+                "GENERATE_ONLY": "1",
+                "MODERN_SETUP_DISPLAY_ENGINE": "modern",
+                "MODERN_SETUP_DEMO_DRIVER_SAMPLE": "0",
+                "MODERN_SETUP_REPLACE_UIAPP": "1",
+            }
+        )
+        script = workspace / "ModernSetupPkg" / "Scripts" / "build-armvirt.sh"
+        run([bash, str(script)], cwd=workspace / "ModernSetupPkg", env=env)
+
+        overlay = workspace / "Build" / "ModernSetupPkgOverlay"
+        dsc = overlay / "ArmVirtQemuModernSetup.dsc"
+        inc = overlay / "ArmVirtModernSetup.dsc.inc"
+        # ArmVirt appends the UiApp-GUID RuleOverride to the FV include, not the
+        # top-level FDF.
+        fv = overlay / "ArmVirtQemuModernSetupFvMain.fdf.inc"
+        assert_contains(dsc, "!include Build/ModernSetupPkgOverlay/ArmVirtModernSetup.dsc.inc")
+        assert_contains(inc, "ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf")
+        assert_not_contains_any(inc, ("MdeModulePkg/Application/UiApp/UiApp.inf {",))
+        assert_contains(fv, "RuleOverride = MODERN_SETUP_UIAPP ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf")
+        assert_contains(fv, "FILE APPLICATION = 462CAA21-7614-4503-836E-8AB6F4662331")
+        messages.append("PASS armvirt replace-uiapp opt-in overlay generation dry run")
 
     return messages
 
