@@ -28,6 +28,7 @@
 #include <ModernUi/ModernUiFirmwareData.h>
 #include <ModernUi/ModernUiHardwareHealthData.h>
 #include <ModernUi/ModernUiInventoryData.h>
+#include <ModernUi/ModernUiVersion.h>
 #include <ModernUi/ModernUiInput.h>
 #include <ModernUi/ModernUiEngine.h>
 #include <ModernUi/ModernUiManagementData.h>

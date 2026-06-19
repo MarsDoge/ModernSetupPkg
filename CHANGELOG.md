@@ -12,6 +12,15 @@ this file as both a release log and a lightweight development progress record.
 
 ## Unreleased
 
+### Added
+
+- The ModernSetupApp header now shows the UI release version (e.g.
+  "Modern UEFI Setup  v1.1.0"), so a running UI can be matched to a specific
+  release on screen. The version is a single source of truth in
+  `Include/ModernUi/ModernUiVersion.h` (`MODERN_SETUP_VERSION_STRING`); keep it
+  in sync with the release tag / this changelog heading. The package
+  `PACKAGE_VERSION` and the app `VERSION_STRING` were aligned to the same value.
+
 ## v1.1.0 - 2026-06-16
 
 ### Added

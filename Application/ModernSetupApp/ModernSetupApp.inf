@@ -13,7 +13,7 @@
   BASE_NAME                      = ModernSetupApp
   FILE_GUID                      = 26C98B3A-29DD-4F73-A07A-4A4E0E1D9C4C
   MODULE_TYPE                    = UEFI_APPLICATION
-  VERSION_STRING                 = 0.1
+  VERSION_STRING                 = 1.1.0
   ENTRY_POINT                    = UefiMain
 
 [Sources]

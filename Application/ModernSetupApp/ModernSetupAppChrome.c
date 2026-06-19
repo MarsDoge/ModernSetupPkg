@@ -101,10 +101,23 @@ ModernSetupDrawHeader (
   )
 {
   MODERN_UI_PAGE_MODEL  PageModel;
+  CHAR16                TitleWithVersion[96];
+
+  //
+  // Append the UI release version to the product title so a running UI is
+  // identifiable on screen, e.g. "Modern UEFI Setup  v1.1.0".
+  //
+  UnicodeSPrint (
+    TitleWithVersion,
+    sizeof (TitleWithVersion),
+    L"%s  v%s",
+    ModernUiGetString (ModernUiStringHeaderTitle),
+    MODERN_SETUP_VERSION_STRING
+    );
 
   ZeroMem (&PageModel, sizeof (PageModel));
   PageModel.Rect        = (MODERN_UI_RECT){ 0, 0, Ui->Width, TOP_BAR_HEIGHT };
-  PageModel.ProductName = ModernUiGetString (ModernUiStringHeaderTitle);
+  PageModel.ProductName = TitleWithVersion;
   PageModel.ModeName    = ModernUiGetString (ModernUiStringHeaderMode);
   ModernUiEngineDrawPage (Ui, &PageModel, Theme);
 }

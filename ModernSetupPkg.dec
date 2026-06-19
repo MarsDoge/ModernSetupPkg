@@ -12,7 +12,7 @@
   DEC_SPECIFICATION              = 0x00010005
   PACKAGE_NAME                   = ModernSetupPkg
   PACKAGE_GUID                   = 8B5E39C3-7D63-49F7-A32E-BC476C117B72
-  PACKAGE_VERSION                = 0.1
+  PACKAGE_VERSION                = 1.1.0
 
 [Includes]
   Include
