@@ -73,15 +73,6 @@ ModernDisplayStatementTextInset (
   );
 
 STATIC
-VOID
-ModernDisplayDrawRightRailDivider (
-  IN CONST MODERN_DISPLAY_LAYOUT  *Layout,
-  IN CONST MODERN_UI_THEME        *Theme,
-  IN UINTN                        CellWidth,
-  IN UINTN                        CellHeight
-  );
-
-STATIC
 UINTN
 ModernDisplayRightHelpStartColumn (
   IN CONST MODERN_DISPLAY_LAYOUT  *Layout
@@ -273,11 +264,16 @@ ModernDisplayCalculateLayout (
   Layout->ContentLeftColumn = gScreenDimensions.LeftColumn + HorizontalMargin;
   Layout->ContentRightColumn = gScreenDimensions.RightColumn - HorizontalMargin;
 
-  Layout->RightRailVisible = (BOOLEAN)(
-                                      (ScreenColumns >= MODERN_SETUP_RIGHT_RAIL_MIN_COLUMNS) &&
-                                      ((Layout->ContentRightColumn - Layout->ContentLeftColumn) >
-                                       (MODERN_SETUP_RIGHT_RAIL_COLUMNS + 44))
-                                      );
+  //
+  // The decorative telemetry rail (CPU/Architecture/Memory/Voltage) is a static,
+  // partly-placeholder panel that does not belong on a native FormBrowser form:
+  // it shows no live data, steals horizontal width from the statements/help, and
+  // reads as crude next to the real form content. Suppress it so the form
+  // reclaims the full content width. The front-page App owns its own (real)
+  // system summary; this engine only frames the native form. The layout fields
+  // stay wired (rail rects zeroed) so help/watermark column math is unaffected.
+  //
+  Layout->RightRailVisible = FALSE;
   if (Layout->RightRailVisible) {
     Layout->RightRailRightColumn = Layout->ContentRightColumn;
     Layout->RightRailLeftColumn  = Layout->RightRailRightColumn - MODERN_SETUP_RIGHT_RAIL_COLUMNS;
@@ -337,58 +333,6 @@ ModernDisplayStatementTextInset (
   }
 
   return MIN (6, MAX (2, CellWidth / 3));
-}
-
-/**
-  Draw a lightweight divider between the statement list and right-side help rail.
-
-  This is a visual grouping hint only. FormBrowser still owns where help text is
-  printed and how it wraps; the divider simply makes the modern chrome read as
-  two regions: actionable statements on the left, contextual help on the right.
-
-  @param[in] Layout      Calculated DisplayEngine layout. Must not be NULL.
-  @param[in] Theme       Theme token table. Must not be NULL.
-  @param[in] CellWidth   Pixel width for one text column.
-  @param[in] CellHeight  Pixel height for one text row.
-**/
-STATIC
-VOID
-ModernDisplayDrawRightRailDivider (
-  IN CONST MODERN_DISPLAY_LAYOUT  *Layout,
-  IN CONST MODERN_UI_THEME        *Theme,
-  IN UINTN                        CellWidth,
-  IN UINTN                        CellHeight
-  )
-{
-  UINTN  X;
-  UINTN  Y;
-  UINTN  Height;
-
-  if ((Layout == NULL) || (Theme == NULL) || !Layout->RightRailVisible || (CellWidth == 0) || (CellHeight == 0)) {
-    return;
-  }
-
-  X      = (Layout->RightRailLeftColumn * CellWidth > 8) ? (Layout->RightRailLeftColumn * CellWidth - 8) : 0;
-  Y      = Layout->ContentTopRow * CellHeight;
-  Height = (Layout->ContentBottomRow > Layout->ContentTopRow) ?
-           ((Layout->ContentBottomRow - Layout->ContentTopRow) * CellHeight) :
-           0;
-
-  if (Height < 8) {
-    return;
-  }
-
-  ModernUiFillRect (
-    &mModernRenderContext,
-    (MODERN_UI_RECT){ X, Y + 8, 2, Height - 16 },
-    ModernUiBlendColor (Theme->AccentOrange, Theme->Background, 32)
-    );
-
-  ModernUiFillRect (
-    &mModernRenderContext,
-    (MODERN_UI_RECT){ X - 2, Y + 8, 6, 1 },
-    ModernUiBlendColor (Theme->AccentOrange, Theme->BackgroundBlack, 45)
-    );
 }
 
 /**
@@ -641,7 +585,13 @@ ModernDisplayPageStatusText (
       return L"LIVE REFRESH";
     case ModernDisplayPageStateLive:
     default:
-      return L"LIVE VIEW";
+      //
+      // The ordinary "nothing noteworthy" state shows no footer status pill: a
+      // permanent "LIVE VIEW" badge added no information and rendered as a
+      // clipped stub in the thin form footer. Only actionable states
+      // (unsaved / reboot / modal / live-refresh) surface a pill now.
+      //
+      return NULL;
   }
 }
 
@@ -1495,9 +1445,8 @@ ModernDisplayDrawPageChrome (
   PageModel.ProductName   = ModernUiGetString (ModernUiStringHeaderTitle);
   PageModel.ModeName      = ModernUiGetString (ModernUiStringHeaderMode);
   PageModel.StatusText    = ModernDisplayPageStatusText (FormData);
-  PageModel.DrawRightRail = TRUE;
+  PageModel.DrawRightRail = FALSE;
   ModernUiEngineDrawPage (&mModernRenderContext, &PageModel, Theme);
-  ModernDisplayDrawRightRailDivider (&Layout, Theme, CellWidth, CellHeight);
   ModernDisplayDrawFormTitleContext (&Layout, Theme, CellWidth, CellHeight, PrintableTitle);
   ModernDisplayDrawRightHelpRailContext (&Layout, Theme, CellWidth, CellHeight);
 

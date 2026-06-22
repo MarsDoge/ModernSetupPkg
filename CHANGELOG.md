@@ -12,6 +12,17 @@ this file as both a release log and a lightweight development progress record.
 
 ## Unreleased
 
+### Changed
+
+- **Native HII forms look cleaner when entered through the modern engine.**
+  Removed the decorative telemetry rail (a static, partly-placeholder
+  CPU/Architecture/Memory/Voltage panel) that the DisplayEngine drew on the
+  right of every FormBrowser form; the form now reclaims that width and shows
+  no fake data. Also dropped the permanent "LIVE VIEW" footer status pill,
+  which carried no information and rendered as a clipped stub -- only
+  actionable states (unsaved / reboot / modal / live-refresh) surface a pill
+  now. Affects both the GOP and LVGL backends.
+
 ### Added
 
 - The ModernSetupApp header now shows the UI release version (e.g.
