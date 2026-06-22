@@ -90,6 +90,7 @@ typedef enum {
   PageManagement,
   PagePower,
   PagePerformance,
+  PageQuickSettings,
   PageServerInventory,
   PagePreferences,
   PageExit,

@@ -100,6 +100,7 @@ APP_NOINLINE_DRAW_HELPERS = (
     "DrawManagement",
     "DrawPower",
     "DrawPerformance",
+    "DrawQuickSettings",
     "DrawServerInventorySummary",
     "DrawPreferences",
     "DrawExit",

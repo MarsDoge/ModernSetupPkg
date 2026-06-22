@@ -21,6 +21,7 @@ STATIC CONST PAGE_DESCRIPTOR  mPages[] = {
   { PageManagement, ModernUiStringPageManagement, ModernUiStringPageManagementHint },
   { PagePower, ModernUiStringPagePower, ModernUiStringPagePowerHint },
   { PagePerformance, ModernUiStringPagePerformance, ModernUiStringPagePerformanceHint },
+  { PageQuickSettings, ModernUiStringPageQuickSettings, ModernUiStringPageQuickSettingsHint },
   { PageServerInventory, ModernUiStringPageServerInventory, ModernUiStringPageServerInventoryHint },
   { PagePreferences, ModernUiStringPagePreferences, ModernUiStringPagePreferencesHint },
   { PageExit,      ModernUiStringPageExit,      ModernUiStringPageExitHint      }
@@ -37,6 +38,7 @@ STATIC CONST CHAR16  *mEnglishCompactTabLabels[] = {
   L"Mgmt",
   L"Power",
   L"Perf",
+  L"Quick",
   L"Assets",
   L"Prefs",
   L"Exit"
@@ -53,6 +55,7 @@ STATIC CONST CHAR16  *mChineseCompactTabLabels[] = {
   L"管理",
   L"电源",
   L"性能",
+  L"设置",
   L"资产",
   L"偏好",
   L"退出"

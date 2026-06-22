@@ -1681,6 +1681,110 @@ SnapshotCapabilityText (
 }
 
 /**
+  Draw the Quick Settings page: high-churn platform knobs grouped by domain.
+
+  Tier-B prototype per Docs/ConfigurableItemsAndQuickSettings.md. This curates
+  the read-only policy-entry presence hints the providers already discover
+  (SR-IOV, Above-4G, ASPM, VT-d/IOMMU, RAS, Secure Boot, ...) into one screen so
+  a user can see, at a glance, which high-churn settings this platform exposes.
+  It is intentionally read-only: changing any of these stays in native
+  FormBrowser. (Per-row SendForm deep-link is a follow-up slice.)
+
+  @param[in] Ui     Initialized render context. Must not be NULL.
+  @param[in] Theme  Theme token table. Must not be NULL.
+  @param[in] Focus  Current focus area.
+**/
+STATIC
+VOID
+MODERN_SETUP_NOINLINE
+DrawQuickSettings (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_FOCUS               Focus
+  )
+{
+  MODERN_SETUP_PROVIDER_SNAPSHOT  Providers;
+  MODERN_UI_RECT                  Content;
+  MODERN_UI_RECT                  Panel;
+  MODERN_UI_RECT                  Column;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL   Background;
+  UINTN                           LeftWidth;
+  UINTN                           RightWidth;
+  UINTN                           RowY;
+  CONST CHAR16                    *SecureBootText;
+
+  ModernSetupGetCachedProviderSnapshot (&Providers);
+
+  SecureBootText = (Providers.Security.SecureBoot == ModernUiSecurityStateEnabled) ? ModernUiGetString (ModernUiStringEnabled) :
+                   ((Providers.Security.SecureBoot == ModernUiSecurityStateDisabled) ? ModernUiGetString (ModernUiStringDisabled) : ModernUiGetString (ModernUiStringUnknown));
+
+  Content    = ModernSetupContentRect (Ui);
+  Panel      = (MODERN_UI_RECT){ Content.X, Content.Y, Content.Width, MIN (Content.Height, 540) };
+  Background = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
+  DrawProviderSummarySection (Ui, Theme, Panel, L"Quick Settings", TRUE);
+  ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
+  ModernUiDrawTextFit (
+    Ui,
+    Panel.X + 22,
+    Panel.Y + 38,
+    Panel.Width - 44,
+    L"Read-only entry points to high-churn settings. Change them in native setup.",
+    Theme->MutedText,
+    Background
+    );
+
+  if (Panel.Width >= 720) {
+    LeftWidth  = (Panel.Width - 60) / 2;
+    RightWidth = Panel.Width - 60 - LeftWidth;
+  } else {
+    LeftWidth  = Panel.Width - 44;
+    RightWidth = 0;
+  }
+
+  Column = (MODERN_UI_RECT){ Panel.X + 22, Panel.Y + 70, LeftWidth, Panel.Height - 86 };
+  RowY   = Column.Y;
+  DrawProviderSubsectionHeader (Ui, Theme, Column.X, RowY, Column.Width, L"Virtualization & Isolation");
+  RowY += 22;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"VT-d / IOMMU", SnapshotCapabilityText (Providers.PcieStatus, (BOOLEAN)(Providers.Pcie.IommuPolicyEntryPresent || Providers.Pcie.IoMmuProtocolPresent)));
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"SR-IOV", SnapshotCapabilityText (Providers.PcieStatus, Providers.Pcie.SriovPolicyEntryPresent));
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"ACS / ARI", SnapshotCapabilityText (Providers.PcieStatus, (BOOLEAN)(Providers.Pcie.AcsPolicyEntryPresent || Providers.Pcie.AriPolicyEntryPresent)));
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"CPU virtualization", SnapshotCapabilityText (Providers.PerformanceStatus, Providers.Performance.VirtualizationPolicyEntryPresent));
+  RowY += 36;
+
+  DrawProviderSubsectionHeader (Ui, Theme, Column.X, RowY, Column.Width, L"Security");
+  RowY += 22;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, ModernUiGetString (ModernUiStringSecureBoot), SecureBootText);
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"TPM (TCG2)", SnapshotCapabilityText (Providers.SecurityStatus, (BOOLEAN)(Providers.Security.Tcg2Protocol == ModernUiSecurityStateEnabled)));
+
+  if (RightWidth == 0) {
+    return;
+  }
+
+  Column = (MODERN_UI_RECT){ Panel.X + 38 + LeftWidth, Panel.Y + 70, RightWidth, Panel.Height - 86 };
+  RowY   = Column.Y;
+  DrawProviderSubsectionHeader (Ui, Theme, Column.X, RowY, Column.Width, L"PCIe Resource");
+  RowY += 22;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Above 4G Decoding", SnapshotCapabilityText (Providers.PcieStatus, Providers.Pcie.Above4GPolicyEntryPresent));
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Resizable BAR", SnapshotCapabilityText (Providers.PcieStatus, Providers.Pcie.ResizeBarPolicyEntryPresent));
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"ASPM", SnapshotCapabilityText (Providers.PcieStatus, Providers.Pcie.AspmPolicyEntryPresent));
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Hot-Plug", SnapshotCapabilityText (Providers.PcieStatus, Providers.Pcie.HotPlugPolicyEntryPresent));
+  RowY += 36;
+
+  DrawProviderSubsectionHeader (Ui, Theme, Column.X, RowY, Column.Width, L"Tuning / Serviceability");
+  RowY += 22;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"RAS policy", SnapshotCapabilityText (Providers.PerformanceStatus, Providers.Performance.RasPolicyEntryPresent));
+  RowY += 26;
+  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"PCIe config page", SnapshotCapabilityText (Providers.PcieStatus, Providers.Pcie.PciePolicyEntryPresent));
+}
+
+/**
   Draw a compact read-only Server Inventory summary from app provider snapshots.
 
   This page is intentionally view-only. Native HII/FormBrowser owns policy
@@ -2171,6 +2275,9 @@ ModernSetupDrawCurrentPage (
       break;
     case PagePerformance:
       DrawPerformance (Ui, Theme, Focus);
+      break;
+    case PageQuickSettings:
+      DrawQuickSettings (Ui, Theme, Focus);
       break;
     case PageServerInventory:
       DrawServerInventorySummary (Ui, Theme, Focus);

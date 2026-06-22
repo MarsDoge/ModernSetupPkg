@@ -153,7 +153,9 @@ STATIC CONST CHAR16  *mEnglishStrings[ModernUiStringMax] = {
   L"Preferences saved: %r",
   L"Preference defaults loaded; save to persist.",
   L"System Information",
-  L"Platform, firmware and memory specifications"
+  L"Platform, firmware and memory specifications",
+  L"Quick Settings",
+  L"High-churn settings exposed by this platform"
 };
 
 STATIC CONST CHAR16  *mSimplifiedChineseStrings[ModernUiStringMax] = {
@@ -287,7 +289,9 @@ STATIC CONST CHAR16  *mSimplifiedChineseStrings[ModernUiStringMax] = {
   L"偏好保存结果：%r",
   L"已载入默认偏好；保存后持久化。",
   L"系统规格",
-  L"平台、固件与内存规格"
+  L"平台、固件与内存规格",
+  L"平台设置",
+  L"本平台可见的设置项"
 };
 
 /**
