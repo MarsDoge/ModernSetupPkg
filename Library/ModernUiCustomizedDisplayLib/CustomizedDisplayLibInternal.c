@@ -523,6 +523,116 @@ ModernDisplayDrawFormTitleContext (
 }
 
 /**
+  Draw an honest "<category> > <form title>" breadcrumb in the header tab band
+  for native (non-front-page) FormBrowser forms.
+
+  Replaces the decorative five-category tab strip, which on a native form read as
+  clickable navigation but performed none -- FormBrowser owns navigation
+  (Esc = back, arrows = move highlight). The breadcrumb instead states where the
+  user is and makes the real form identity the prominent element. The category
+  prefix is shown only for clearly classified forms (Devices/Boot/Security/Exit);
+  an unclassified form shows just its title so no misleading label is attached.
+
+  Presentation-only: the title comes from FormBrowser-owned FormData and the
+  category is the same classifier the chrome already used. It does not alter
+  form navigation, HII GUID binding, callbacks, or storage.
+
+  @param[in] Layout          Calculated DisplayEngine layout. Must not be NULL.
+  @param[in] Theme           Theme token table. Must not be NULL.
+  @param[in] CellHeight      Pixel height for one text row.
+  @param[in] CategoryIndex   Chrome tab classifier result (0..4).
+  @param[in] PrintableTitle  Printable form title text. May be NULL.
+**/
+STATIC
+VOID
+ModernDisplayDrawFormBreadcrumb (
+  IN CONST MODERN_DISPLAY_LAYOUT  *Layout,
+  IN CONST MODERN_UI_THEME        *Theme,
+  IN UINTN                        CellWidth,
+  IN UINTN                        CellHeight,
+  IN UINTN                        CategoryIndex,
+  IN CONST CHAR16                 *PrintableTitle
+  )
+{
+  UINTN         HeaderHeight;
+  UINTN         BandY;
+  UINTN         X;
+  UINTN         Width;
+  UINTN         PrefixWidth;
+  CONST CHAR16  *Category;
+  CHAR16        Prefix[64];
+
+  if ((Layout == NULL) || (Theme == NULL) || (PrintableTitle == NULL) ||
+      (PrintableTitle[0] == CHAR_NULL) || (CellWidth == 0) || (CellHeight == 0))
+  {
+    return;
+  }
+
+  HeaderHeight = Layout->HeaderRows * CellHeight;
+  BandY        = (HeaderHeight > 52) ? (HeaderHeight - 52) : 0;
+  X            = Layout->ContentLeftColumn * CellWidth;
+  Width        = (Layout->ContentRightColumn > Layout->ContentLeftColumn) ?
+                 ((Layout->ContentRightColumn - Layout->ContentLeftColumn) * CellWidth) : 0;
+  if (Width == 0) {
+    return;
+  }
+
+  //
+  // Category prefix only for the clearly classified buckets; index 0 is both the
+  // "Setup Categories" front bucket and the unmatched default, so prefixing it
+  // would risk a wrong label -- show the bare title there.
+  //
+  Category = NULL;
+  switch (CategoryIndex) {
+    case 1:
+      Category = ModernUiGetString (ModernUiStringPageDevices);
+      break;
+    case 2:
+      Category = ModernUiGetString (ModernUiStringPageBoot);
+      break;
+    case 3:
+      Category = ModernUiGetString (ModernUiStringPageSecurity);
+      break;
+    case 4:
+      Category = ModernUiGetString (ModernUiStringPageExit);
+      break;
+    default:
+      Category = NULL;
+      break;
+  }
+
+  PrefixWidth = 0;
+  if (Category != NULL) {
+    UnicodeSPrint (Prefix, sizeof (Prefix), L"%s  >  ", Category);
+    ModernUiDrawText (&mModernRenderContext, X, BandY + 8, Prefix, Theme->MutedText, Theme->BackgroundBlack);
+    PrefixWidth = ModernUiMeasureText (Prefix);
+  }
+
+  //
+  // The form title is the prominent element (bright Text), so the operator reads
+  // the page identity at a glance instead of a faint sub-line.
+  //
+  ModernUiDrawTextFit (
+    &mModernRenderContext,
+    X + PrefixWidth,
+    BandY + 8,
+    (Width > PrefixWidth) ? (Width - PrefixWidth) : Width,
+    PrintableTitle,
+    Theme->Text,
+    Theme->BackgroundBlack
+    );
+
+  //
+  // A short accent underline keeps the modern bar affordance the tabs provided.
+  //
+  ModernUiFillRect (
+    &mModernRenderContext,
+    (MODERN_UI_RECT){ X, BandY + 34, MIN (Width, 240), 2 },
+    Theme->AccentYellow
+    );
+}
+
+/**
   Return normalized page-level state for the Modern DisplayEngine footer.
 
   This is intentionally presentation-only. It reflects FormBrowser-owned page
@@ -1376,6 +1486,8 @@ ModernDisplayDrawPageChrome (
   MODERN_UI_PAGE_MODEL   PageModel;
   MODERN_UI_TAB_MODEL    Tabs[5];
   UINTN                  HeaderHeight;
+  UINTN                  CategoryIndex;
+  BOOLEAN                IsFrontPage;
 
   ASSERT (FormData != NULL);
   if ((FormData == NULL) || EFI_ERROR (ModernDisplayEnsureRenderer ())) {
@@ -1437,17 +1549,31 @@ ModernDisplayDrawPageChrome (
   Tabs[3].Text = ModernUiGetString (ModernUiStringPageSecurity);
   Tabs[4].Text = ModernUiGetString (ModernUiStringPageExit);
 
+  CategoryIndex = ModernDisplaySelectChromeTab (PrintableTitle);
+  //
+  // The native front page is a real menu, so it keeps the category tab strip.
+  // Every other form reached via SendForm gets an honest breadcrumb title bar
+  // instead: the five tabs there were decorative (they performed no navigation)
+  // and read as clickable, while the real form title was only a faint sub-line.
+  //
+  IsFrontPage = (BOOLEAN)(gClassOfVfr == FORMSET_CLASS_FRONT_PAGE);
+
   CopyMem (&PageModel.Layout, &EngineLayout, sizeof (PageModel.Layout));
   PageModel.Rect          = EngineLayout.Header;
   PageModel.Tabs          = Tabs;
-  PageModel.TabCount      = ARRAY_SIZE (Tabs);
-  PageModel.SelectedTab   = ModernDisplaySelectChromeTab (PrintableTitle);
+  PageModel.TabCount      = IsFrontPage ? ARRAY_SIZE (Tabs) : 0;
+  PageModel.SelectedTab   = CategoryIndex;
   PageModel.ProductName   = ModernUiGetString (ModernUiStringHeaderTitle);
   PageModel.ModeName      = ModernUiGetString (ModernUiStringHeaderMode);
   PageModel.StatusText    = ModernDisplayPageStatusText (FormData);
   PageModel.DrawRightRail = FALSE;
   ModernUiEngineDrawPage (&mModernRenderContext, &PageModel, Theme);
-  ModernDisplayDrawFormTitleContext (&Layout, Theme, CellWidth, CellHeight, PrintableTitle);
+  if (IsFrontPage) {
+    ModernDisplayDrawFormTitleContext (&Layout, Theme, CellWidth, CellHeight, PrintableTitle);
+  } else {
+    ModernDisplayDrawFormBreadcrumb (&Layout, Theme, CellWidth, CellHeight, CategoryIndex, PrintableTitle);
+  }
+
   ModernDisplayDrawRightHelpRailContext (&Layout, Theme, CellWidth, CellHeight);
 
   if (PrintableTitle != NULL) {

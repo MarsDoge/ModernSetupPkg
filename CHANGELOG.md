@@ -14,6 +14,11 @@ this file as both a release log and a lightweight development progress record.
 
 ### Changed
 
+- **Native HII forms get an honest breadcrumb title bar.** On forms reached
+  via SendForm, the decorative five-category tab strip (which read as clickable
+  but performed no navigation -- FormBrowser owns Esc=back / arrows=move) is
+  replaced by a "<category> > <form title>" breadcrumb that makes the real form
+  identity prominent. The native front page keeps its menu tabs.
 - **Native HII forms look cleaner when entered through the modern engine.**
   Removed the decorative telemetry rail (a static, partly-placeholder
   CPU/Architecture/Memory/Voltage panel) that the DisplayEngine drew on the
