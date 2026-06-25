@@ -158,13 +158,13 @@ renderer_inf = (
     else "ModernSetupPkg/Library/ModernUiRendererLib/ModernUiRendererLib.inf"
 )
 library_block = (
+    "  ModernUiPlatformTablesLib|ModernSetupPkg/Library/ModernUiPlatformTablesLib/ModernUiPlatformTablesLib.inf\n"
     "  ModernUiEngineLib|ModernSetupPkg/Library/ModernUiEngineLib/ModernUiEngineLib.inf\n"
     f"  ModernUiRendererLib|{renderer_inf}\n"
     "  ModernUiThemeLib|ModernSetupPkg/Library/ModernUiThemeLib/ModernUiThemeLib.inf\n"
     "  ModernUiStringLib|ModernSetupPkg/Library/ModernUiStringLib/ModernUiStringLib.inf\n"
 )
-app_library_block = """  ModernUiPlatformTablesLib|ModernSetupPkg/Library/ModernUiPlatformTablesLib/ModernUiPlatformTablesLib.inf
-  ModernUiPlatformDataLib|ModernSetupPkg/Library/ModernUiPlatformDataLib/ModernUiPlatformDataLib.inf
+app_library_block = """  ModernUiPlatformDataLib|ModernSetupPkg/Library/ModernUiPlatformDataLib/ModernUiPlatformDataLib.inf
   ModernUiBootDataLib|ModernSetupPkg/Library/ModernUiBootDataLib/ModernUiBootDataLib.inf
   ModernUiDeviceDataLib|ModernSetupPkg/Library/ModernUiDeviceDataLib/ModernUiDeviceDataLib.inf
   ModernUiSecurityDataLib|ModernSetupPkg/Library/ModernUiSecurityDataLib/ModernUiSecurityDataLib.inf

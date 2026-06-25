@@ -26,6 +26,7 @@
 [LibraryClasses]
   BaseLib
   BaseMemoryLib
+  ModernUiPlatformTablesLib
   ModernUiRendererLib
   ModernUiThemeLib
   PrintLib

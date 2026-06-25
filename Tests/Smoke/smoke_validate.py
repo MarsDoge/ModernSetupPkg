@@ -2323,6 +2323,7 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         "ModernDisplayFormRowIsTextOnly",
         "ModernUiStrokeRect",
         "ModernDisplayStatementTextInset",
+        "ModernDisplayDrawRightRailDivider",
         "ModernDisplayPageStatusText",
         "ModernDisplayKindToValueType",
         "ModernDisplayDrawStatementRowCue",

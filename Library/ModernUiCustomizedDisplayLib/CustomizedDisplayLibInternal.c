@@ -73,6 +73,15 @@ ModernDisplayStatementTextInset (
   );
 
 STATIC
+VOID
+ModernDisplayDrawRightRailDivider (
+  IN CONST MODERN_DISPLAY_LAYOUT  *Layout,
+  IN CONST MODERN_UI_THEME        *Theme,
+  IN UINTN                        CellWidth,
+  IN UINTN                        CellHeight
+  );
+
+STATIC
 UINTN
 ModernDisplayRightHelpStartColumn (
   IN CONST MODERN_DISPLAY_LAYOUT  *Layout
@@ -265,15 +274,17 @@ ModernDisplayCalculateLayout (
   Layout->ContentRightColumn = gScreenDimensions.RightColumn - HorizontalMargin;
 
   //
-  // The decorative telemetry rail (CPU/Architecture/Memory/Voltage) is a static,
-  // partly-placeholder panel that does not belong on a native FormBrowser form:
-  // it shows no live data, steals horizontal width from the statements/help, and
-  // reads as crude next to the real form content. Suppress it so the form
-  // reclaims the full content width. The front-page App owns its own (real)
-  // system summary; this engine only frames the native form. The layout fields
-  // stay wired (rail rects zeroed) so help/watermark column math is unaffected.
+  // The right rail is a system-context panel beside the native form: real
+  // platform/CPU/memory identity sourced from SMBIOS (see DrawRightRail), with
+  // a slot reserved for live sensors a physical platform can populate. It is
+  // shown only when the screen is wide enough that reserving its columns does
+  // not crowd the statements/help.
   //
-  Layout->RightRailVisible = FALSE;
+  Layout->RightRailVisible = (BOOLEAN)(
+                                      (ScreenColumns >= MODERN_SETUP_RIGHT_RAIL_MIN_COLUMNS) &&
+                                      ((Layout->ContentRightColumn - Layout->ContentLeftColumn) >
+                                       (MODERN_SETUP_RIGHT_RAIL_COLUMNS + 44))
+                                      );
   if (Layout->RightRailVisible) {
     Layout->RightRailRightColumn = Layout->ContentRightColumn;
     Layout->RightRailLeftColumn  = Layout->RightRailRightColumn - MODERN_SETUP_RIGHT_RAIL_COLUMNS;
@@ -333,6 +344,58 @@ ModernDisplayStatementTextInset (
   }
 
   return MIN (6, MAX (2, CellWidth / 3));
+}
+
+/**
+  Draw a lightweight divider between the statement list and the right rail.
+
+  Visual grouping hint only: FormBrowser still owns where help text is printed.
+  The divider makes the modern chrome read as two regions -- actionable
+  statements on the left, the system-context rail on the right.
+
+  @param[in] Layout      Calculated DisplayEngine layout. Must not be NULL.
+  @param[in] Theme       Theme token table. Must not be NULL.
+  @param[in] CellWidth   Pixel width for one text column.
+  @param[in] CellHeight  Pixel height for one text row.
+**/
+STATIC
+VOID
+ModernDisplayDrawRightRailDivider (
+  IN CONST MODERN_DISPLAY_LAYOUT  *Layout,
+  IN CONST MODERN_UI_THEME        *Theme,
+  IN UINTN                        CellWidth,
+  IN UINTN                        CellHeight
+  )
+{
+  UINTN  X;
+  UINTN  Y;
+  UINTN  Height;
+
+  if ((Layout == NULL) || (Theme == NULL) || !Layout->RightRailVisible || (CellWidth == 0) || (CellHeight == 0)) {
+    return;
+  }
+
+  X      = (Layout->RightRailLeftColumn * CellWidth > 8) ? (Layout->RightRailLeftColumn * CellWidth - 8) : 0;
+  Y      = Layout->ContentTopRow * CellHeight;
+  Height = (Layout->ContentBottomRow > Layout->ContentTopRow) ?
+           ((Layout->ContentBottomRow - Layout->ContentTopRow) * CellHeight) :
+           0;
+
+  if (Height < 8) {
+    return;
+  }
+
+  ModernUiFillRect (
+    &mModernRenderContext,
+    (MODERN_UI_RECT){ X, Y + 8, 2, Height - 16 },
+    ModernUiBlendColor (Theme->AccentOrange, Theme->Background, 32)
+    );
+
+  ModernUiFillRect (
+    &mModernRenderContext,
+    (MODERN_UI_RECT){ X - 2, Y + 8, 6, 1 },
+    ModernUiBlendColor (Theme->AccentOrange, Theme->BackgroundBlack, 45)
+    );
 }
 
 /**
@@ -559,6 +622,7 @@ ModernDisplayDrawFormBreadcrumb (
   UINTN         X;
   UINTN         Width;
   UINTN         PrefixWidth;
+  UINTN         UnderlineWidth;
   CONST CHAR16  *Category;
   CHAR16        Prefix[64];
 
@@ -623,11 +687,15 @@ ModernDisplayDrawFormBreadcrumb (
     );
 
   //
-  // A short accent underline keeps the modern bar affordance the tabs provided.
+  // Accent underline sized to the actual breadcrumb width (prefix + title,
+  // clamped to the band), so it tracks the text instead of a fixed stub.
   //
+  UnderlineWidth = PrefixWidth + ModernUiMeasureText (PrintableTitle);
+  UnderlineWidth = MIN (UnderlineWidth, Width);
+  UnderlineWidth = MAX (UnderlineWidth, 24);
   ModernUiFillRect (
     &mModernRenderContext,
-    (MODERN_UI_RECT){ X, BandY + 34, MIN (Width, 240), 2 },
+    (MODERN_UI_RECT){ X, BandY + 34, UnderlineWidth, 2 },
     Theme->AccentYellow
     );
 }
@@ -845,24 +913,55 @@ ModernDisplaySelectChromeTab (
     return 0;
   }
 
-  if ((StrStr (Title, L"Boot") != NULL) || (StrStr (Title, L"启动") != NULL)) {
+  //
+  // Boot / network-boot forms.
+  //
+  if ((StrStr (Title, L"Boot") != NULL) || (StrStr (Title, L"PXE") != NULL) ||
+      (StrStr (Title, L"iSCSI") != NULL) || (StrStr (Title, L"HTTP") != NULL) ||
+      (StrStr (Title, L"启动") != NULL))
+  {
     return 2;
   }
 
-  if ((StrStr (Title, L"Device") != NULL) || (StrStr (Title, L"Driver") != NULL) ||
-      (StrStr (Title, L"设备") != NULL))
+  //
+  // Security / trusted-computing forms.
+  //
+  if ((StrStr (Title, L"Security") != NULL) || (StrStr (Title, L"Secure") != NULL) ||
+      (StrStr (Title, L"TPM") != NULL) || (StrStr (Title, L"TCG") != NULL) ||
+      (StrStr (Title, L"TCM") != NULL) || (StrStr (Title, L"Password") != NULL) ||
+      (StrStr (Title, L"安全") != NULL) || (StrStr (Title, L"密码") != NULL))
   {
-    return 1;
-  }
-
-  if ((StrStr (Title, L"Security") != NULL) || (StrStr (Title, L"安全") != NULL)) {
     return 3;
   }
 
+  //
+  // Exit / save-and-reset forms.
+  //
   if ((StrStr (Title, L"Exit") != NULL) || (StrStr (Title, L"Save") != NULL) ||
       (StrStr (Title, L"退出") != NULL))
   {
     return 4;
+  }
+
+  //
+  // Device-class hardware forms map to the Devices bucket -- the only chrome
+  // category that fits controllers, network, storage, memory, graphics, and
+  // similar device setup pages. Kept last so the more specific buckets above win.
+  //
+  if ((StrStr (Title, L"Device") != NULL) || (StrStr (Title, L"Driver") != NULL) ||
+      (StrStr (Title, L"Controller") != NULL) || (StrStr (Title, L"Adapter") != NULL) ||
+      (StrStr (Title, L"Network") != NULL) || (StrStr (Title, L"LAN") != NULL) ||
+      (StrStr (Title, L"NIC") != NULL) || (StrStr (Title, L"Ethernet") != NULL) ||
+      (StrStr (Title, L"PCI") != NULL) || (StrStr (Title, L"USB") != NULL) ||
+      (StrStr (Title, L"Storage") != NULL) || (StrStr (Title, L"SATA") != NULL) ||
+      (StrStr (Title, L"NVMe") != NULL) || (StrStr (Title, L"Disk") != NULL) ||
+      (StrStr (Title, L"Memory") != NULL) || (StrStr (Title, L"Graphics") != NULL) ||
+      (StrStr (Title, L"Display") != NULL) || (StrStr (Title, L"Audio") != NULL) ||
+      (StrStr (Title, L"Health") != NULL) || (StrStr (Title, L"File Explorer") != NULL) ||
+      (StrStr (Title, L"设备") != NULL) || (StrStr (Title, L"网络") != NULL) ||
+      (StrStr (Title, L"存储") != NULL) || (StrStr (Title, L"内存") != NULL))
+  {
+    return 1;
   }
 
   return 0;
@@ -1566,8 +1665,9 @@ ModernDisplayDrawPageChrome (
   PageModel.ProductName   = ModernUiGetString (ModernUiStringHeaderTitle);
   PageModel.ModeName      = ModernUiGetString (ModernUiStringHeaderMode);
   PageModel.StatusText    = ModernDisplayPageStatusText (FormData);
-  PageModel.DrawRightRail = FALSE;
+  PageModel.DrawRightRail = TRUE;
   ModernUiEngineDrawPage (&mModernRenderContext, &PageModel, Theme);
+  ModernDisplayDrawRightRailDivider (&Layout, Theme, CellWidth, CellHeight);
   if (IsFrontPage) {
     ModernDisplayDrawFormTitleContext (&Layout, Theme, CellWidth, CellHeight, PrintableTitle);
   } else {
