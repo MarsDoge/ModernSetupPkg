@@ -2196,11 +2196,11 @@ DrawExit (
 
     DropdownX = RowX + RowWidth - ValueWidth - 12;
     DropdownY = Panel.Y + MODERN_SETUP_EXIT_ROW_TOP + MODERN_SETUP_EXIT_ROW_COUNT * MODERN_SETUP_EXIT_ROW_STRIDE - 8;
-    PopupModel.Rect  = (MODERN_UI_RECT){ DropdownX, DropdownY, ValueWidth, 80 };
+    PopupModel.Rect  = (MODERN_UI_RECT){ DropdownX, DropdownY, ValueWidth, 14 + MODERN_SETUP_LANGUAGE_OPTION_COUNT * 34 };
     PopupModel.Title = NULL;
     ModernUiEngineDrawPopup (Ui, &PopupModel, Theme);
 
-    for (Option = 0; Option < 2; Option++) {
+    for (Option = 0; Option < MODERN_SETUP_LANGUAGE_OPTION_COUNT; Option++) {
       IsSelected = (BOOLEAN)(Option == mModernSetupLanguageDropdownSelection);
       RowModel.Rect      = (MODERN_UI_RECT){ DropdownX + 6, DropdownY + 7 + Option * 34, ValueWidth - 12, 30 };
       RowModel.Prompt    = ModernSetupGetLanguageOptionName (Option);

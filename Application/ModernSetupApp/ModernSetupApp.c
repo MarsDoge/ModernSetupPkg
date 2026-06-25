@@ -413,7 +413,7 @@ UefiMain (
         if ((Focus == SetupFocusContent) && (Page == PagePreferences) && mModernSetupPreferencePopupOpen) {
           ModernSetupHandlePreferencePopupUp ();
         } else if ((Focus == SetupFocusContent) && (Page == PageExit) && mModernSetupLanguageDropdownOpen) {
-          mModernSetupLanguageDropdownSelection = (mModernSetupLanguageDropdownSelection == 0) ? 1 : 0;
+          mModernSetupLanguageDropdownSelection = (mModernSetupLanguageDropdownSelection == 0) ? (MODERN_SETUP_LANGUAGE_OPTION_COUNT - 1) : (mModernSetupLanguageDropdownSelection - 1);
         } else if ((Focus == SetupFocusContent) && (Page == PageDashboard)) {
           if (ModernSetupGetDashboardQuickGrid (&Ui, mModernSetupPreferences.DashboardDensity, &DashboardGrid) &&
               (DashboardSelection >= DashboardGrid.CardsPerRow))
@@ -437,7 +437,7 @@ UefiMain (
         if ((Focus == SetupFocusContent) && (Page == PagePreferences) && mModernSetupPreferencePopupOpen) {
           ModernSetupHandlePreferencePopupDown ();
         } else if ((Focus == SetupFocusContent) && (Page == PageExit) && mModernSetupLanguageDropdownOpen) {
-          mModernSetupLanguageDropdownSelection = (mModernSetupLanguageDropdownSelection + 1) % 2;
+          mModernSetupLanguageDropdownSelection = (mModernSetupLanguageDropdownSelection + 1) % MODERN_SETUP_LANGUAGE_OPTION_COUNT;
         } else if (Focus == SetupFocusNav) {
           if (ModernSetupGetPageSelectableCount (&Ui, Page) > 0) {
             Focus = SetupFocusContent;
