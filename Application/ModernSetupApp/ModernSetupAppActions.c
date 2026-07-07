@@ -216,7 +216,7 @@ ModernSetupHitTestExitRow (
   if (mModernSetupLanguageDropdownOpen) {
     DropdownX = RowX + RowWidth - MODERN_SETUP_EXIT_VALUE_WIDTH - 12;
     DropdownY = Panel.Y + MODERN_SETUP_EXIT_ROW_TOP + MODERN_SETUP_EXIT_ROW_COUNT * MODERN_SETUP_EXIT_ROW_STRIDE - 8;
-    for (Option = 0; Option < 2; Option++) {
+    for (Option = 0; Option < MODERN_SETUP_LANGUAGE_OPTION_COUNT; Option++) {
       OptionTop = DropdownY + 7 + Option * 34;
       if ((X >= (DropdownX + 6)) && (X < (DropdownX + MODERN_SETUP_EXIT_VALUE_WIDTH - 6)) &&
           (Y >= OptionTop) && (Y < (OptionTop + 30)))

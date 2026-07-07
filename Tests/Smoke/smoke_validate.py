@@ -1605,6 +1605,17 @@ def check_phase25_server_inventory_summary(root: Path) -> list[str]:
         if token not in pages_body:
             raise SmokeFailure(f"IBV-style page affordance polish missing token: {token}")
 
+    for token in (
+        "MODERN_SETUP_LANGUAGE_OPTION_COUNT  3",
+        "Option < MODERN_SETUP_LANGUAGE_OPTION_COUNT",
+        "ModernUiStringLanguageRussian",
+        "\"ru-RU\"",
+    ):
+        if token not in (internal_body + actions_body + pages_body):
+            raise SmokeFailure(f"Russian language selector must keep draw/apply/hit-test paths in sync: missing {token}")
+    if "Option < 2" in actions_body:
+        raise SmokeFailure("Russian language selector hit-test must not hard-code two dropdown options")
+
     return ["PASS Phase25 Server Inventory read-only summary/dashboard contract"]
 
 
