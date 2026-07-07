@@ -145,6 +145,9 @@ typedef enum {
   ModernUiStringPreferenceDefaultsLoaded,
   ModernUiStringPageSystemInfo,
   ModernUiStringPageSystemInfoHint,
+  ModernUiStringPageQuickSettings,
+  ModernUiStringPageQuickSettingsHint,
+  ModernUiStringLanguageRussian,
   ModernUiStringMax
 } MODERN_UI_STRING_ID;
 

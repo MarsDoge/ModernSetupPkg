@@ -9,10 +9,13 @@
 **/
 
 #include <Uefi.h>
+#include <IndustryStandard/SmBios.h>
+#include <Protocol/Smbios.h>
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/PrintLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
+#include <ModernUi/ModernUiPlatformTables.h>
 #include <ModernUi/ModernUiEngine.h>
 
 #define MODERN_UI_ENGINE_RIGHT_RAIL_MIN_WIDTH  1000
@@ -80,6 +83,165 @@ GetPlatformName (
 #else
   return L"UEFI platform";
 #endif
+}
+
+/**
+  Fill Buffer with the real system identity from SMBIOS Type 1, or empty it.
+
+  Composes "<Manufacturer> <Product>" (or whichever single field is present),
+  filtering well-known OEM placeholders. Read-only; uses the shared table-access
+  layer so a populated platform (including a real board's written SMBIOS) shows
+  its true identity. Buffer is left empty when Type 1 is absent / placeholders.
+
+  @param[out] Buffer  Destination. Must not be NULL.
+  @param[in]  Count   CHAR16 capacity of Buffer.
+**/
+STATIC
+VOID
+RailGetSystemName (
+  OUT CHAR16  *Buffer,
+  IN  UINTN   Count
+  )
+{
+  EFI_SMBIOS_TABLE_HEADER  *Record;
+  SMBIOS_TABLE_TYPE1       *Type1;
+  CHAR8                    *Manufacturer;
+  CHAR8                    *Product;
+
+  if ((Buffer == NULL) || (Count == 0)) {
+    return;
+  }
+
+  Buffer[0] = L'\0';
+  Record    = ModernUiSmbiosFindStructure (SMBIOS_TYPE_SYSTEM_INFORMATION, 0);
+  if (Record == NULL) {
+    return;
+  }
+
+  Type1        = (SMBIOS_TABLE_TYPE1 *)Record;
+  Manufacturer = ModernUiSmbiosGetString (Record, Type1->Manufacturer);
+  Product      = ModernUiSmbiosGetString (Record, Type1->ProductName);
+  if (ModernUiSmbiosIsPlaceholder (Manufacturer)) {
+    Manufacturer = NULL;
+  }
+
+  if (ModernUiSmbiosIsPlaceholder (Product)) {
+    Product = NULL;
+  }
+
+  if ((Manufacturer != NULL) && (Product != NULL)) {
+    UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"%a %a", Manufacturer, Product);
+  } else if (Product != NULL) {
+    UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"%a", Product);
+  } else if (Manufacturer != NULL) {
+    UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"%a", Manufacturer);
+  }
+}
+
+/**
+  Fill Buffer with the processor model from SMBIOS Type 4, or empty it.
+
+  @param[out] Buffer  Destination. Must not be NULL.
+  @param[in]  Count   CHAR16 capacity of Buffer.
+**/
+STATIC
+VOID
+RailGetCpuModel (
+  OUT CHAR16  *Buffer,
+  IN  UINTN   Count
+  )
+{
+  EFI_SMBIOS_TABLE_HEADER  *Record;
+  SMBIOS_TABLE_TYPE4       *Type4;
+  CHAR8                    *Version;
+
+  if ((Buffer == NULL) || (Count == 0)) {
+    return;
+  }
+
+  Buffer[0] = L'\0';
+  Record    = ModernUiSmbiosFindStructure (SMBIOS_TYPE_PROCESSOR_INFORMATION, 0);
+  if (Record == NULL) {
+    return;
+  }
+
+  Type4   = (SMBIOS_TABLE_TYPE4 *)Record;
+  Version = ModernUiSmbiosGetString (Record, Type4->ProcessorVersion);
+  if (!ModernUiSmbiosIsPlaceholder (Version)) {
+    UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"%a", Version);
+  }
+}
+
+/**
+  Fill Buffer with a memory type/speed summary from SMBIOS Type 17, or empty it.
+
+  Takes the type and configured speed from the first populated module, e.g.
+  "DDR4-3200" or "DDR4". Empty when Type 17 is absent or no module is populated.
+
+  @param[out] Buffer  Destination. Must not be NULL.
+  @param[in]  Count   CHAR16 capacity of Buffer.
+**/
+STATIC
+VOID
+RailGetMemorySummary (
+  OUT CHAR16  *Buffer,
+  IN  UINTN   Count
+  )
+{
+  EFI_SMBIOS_TABLE_HEADER  *Record;
+  SMBIOS_TABLE_TYPE17      *Type17;
+  CONST CHAR16             *TypeName;
+  UINT16                   Speed;
+  UINTN                    Index;
+
+  if ((Buffer == NULL) || (Count == 0)) {
+    return;
+  }
+
+  Buffer[0] = L'\0';
+  for (Index = 0; (Record = ModernUiSmbiosFindStructure (SMBIOS_TYPE_MEMORY_DEVICE, Index)) != NULL; Index++) {
+    Type17 = (SMBIOS_TABLE_TYPE17 *)Record;
+    //
+    // Size 0 = empty slot, 0xFFFF = unknown. Use the first populated module.
+    //
+    if ((Type17->Size == 0) || (Type17->Size == 0xFFFF)) {
+      continue;
+    }
+
+    switch (Type17->MemoryType) {
+      case MemoryTypeDdr2:
+      case MemoryTypeDdr2FbDimm:
+        TypeName = L"DDR2";
+        break;
+      case MemoryTypeDdr3:
+        TypeName = L"DDR3";
+        break;
+      case MemoryTypeDdr4:
+        TypeName = L"DDR4";
+        break;
+      case MemoryTypeDdr5:
+        TypeName = L"DDR5";
+        break;
+      case MemoryTypeLpddr4:
+        TypeName = L"LPDDR4";
+        break;
+      case MemoryTypeLpddr5:
+        TypeName = L"LPDDR5";
+        break;
+      default:
+        TypeName = L"RAM";
+        break;
+    }
+
+    Speed = (Type17->ConfiguredMemoryClockSpeed != 0) ? Type17->ConfiguredMemoryClockSpeed : Type17->Speed;
+    if (Speed > 0) {
+      UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"%s-%u", TypeName, Speed);
+    } else {
+      UnicodeSPrint (Buffer, Count * sizeof (CHAR16), L"%s", TypeName);
+    }
+
+    return;
+  }
 }
 
 /**
@@ -298,93 +460,78 @@ DrawRightRail (
   IN CONST MODERN_UI_THEME     *Theme
   )
 {
-  UINTN       X;
-  UINTN       Y;
-  UINTN       SeparatorWidth;
-  EFI_STATUS  Status;
+  UINTN         X;
+  UINTN         Y;
+  UINTN         SeparatorWidth;
+  UINTN         ValueWidth;
+  CHAR16        SystemName[48];
+  CHAR16        CpuModel[40];
+  CHAR16        MemSummary[24];
+  CONST CHAR16  *SystemText;
 
   if ((Context == NULL) || (Theme == NULL) || (Rect.Width == 0) || (Rect.Height == 0)) {
     return EFI_INVALID_PARAMETER;
   }
 
-  Status = ModernUiFillRect (Context, Rect, Theme->BackgroundBlack);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
+  ModernUiFillRect (Context, Rect, Theme->BackgroundBlack);
+  ModernUiFillRect (Context, (MODERN_UI_RECT){ Rect.X, Rect.Y, 1, Rect.Height }, Theme->Border);
 
-  Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ Rect.X, Rect.Y, 1, Rect.Height }, Theme->Border);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
-  X = Rect.X + 16;
-  Y = Rect.Y + 18;
+  X              = Rect.X + 16;
+  Y              = Rect.Y + 18;
   SeparatorWidth = (Rect.Width > 24) ? (Rect.Width - 24) : Rect.Width;
+  ValueWidth     = (Rect.Width > 28) ? (Rect.Width - 28) : Rect.Width;
 
-  Status = ModernUiDrawText (Context, X, Y, L"CPU", Theme->AccentYellow, Theme->BackgroundBlack);
-  if (EFI_ERROR (Status)) {
-    return Status;
+  //
+  // Real platform/CPU/memory identity from SMBIOS. Empty fields fall back to the
+  // architecture-derived defaults, so QEMU shows what its SMBIOS provides and a
+  // physical board shows its written identity.
+  //
+  RailGetSystemName (SystemName, ARRAY_SIZE (SystemName));
+  RailGetCpuModel (CpuModel, ARRAY_SIZE (CpuModel));
+  RailGetMemorySummary (MemSummary, ARRAY_SIZE (MemSummary));
+  SystemText = (SystemName[0] != L'\0') ? SystemName : GetPlatformName ();
+
+  //
+  // System.
+  //
+  ModernUiDrawText (Context, X, Y, L"SYSTEM", Theme->AccentYellow, Theme->BackgroundBlack);
+  ModernUiDrawTextFit (Context, X, Y + 24, ValueWidth, SystemText, Theme->TelemetryText, Theme->BackgroundBlack);
+
+  ModernUiFillRect (Context, (MODERN_UI_RECT){ Rect.X + 12, Y + 56, SeparatorWidth, 1 }, Theme->Border);
+
+  //
+  // Processor: architecture (always real) plus the SMBIOS model when present.
+  //
+  ModernUiDrawText (Context, X, Y + 78, L"PROCESSOR", Theme->AccentYellow, Theme->BackgroundBlack);
+  ModernUiDrawText (Context, X, Y + 102, GetArchitectureName (), Theme->TelemetryText, Theme->BackgroundBlack);
+  if (CpuModel[0] != L'\0') {
+    ModernUiDrawTextFit (Context, X, Y + 124, ValueWidth, CpuModel, Theme->MutedText, Theme->BackgroundBlack);
   }
 
-  Status = ModernUiDrawText (Context, X, Y + 28, L"Architecture", Theme->MutedText, Theme->BackgroundBlack);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
+  ModernUiFillRect (Context, (MODERN_UI_RECT){ Rect.X + 12, Y + 156, SeparatorWidth, 1 }, Theme->Border);
 
-  Status = ModernUiDrawText (Context, X, Y + 48, GetArchitectureName (), Theme->TelemetryText, Theme->BackgroundBlack);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
+  //
+  // Memory: real type/speed from SMBIOS Type 17, else the UEFI memory-map note.
+  //
+  ModernUiDrawText (Context, X, Y + 178, L"MEMORY", Theme->AccentYellow, Theme->BackgroundBlack);
+  ModernUiDrawTextFit (
+    Context,
+    X,
+    Y + 202,
+    ValueWidth,
+    (MemSummary[0] != L'\0') ? MemSummary : L"UEFI memory map",
+    Theme->TelemetryText,
+    Theme->BackgroundBlack
+    );
 
-  Status = ModernUiDrawText (Context, X, Y + 82, L"Platform", Theme->MutedText, Theme->BackgroundBlack);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
+  ModernUiFillRect (Context, (MODERN_UI_RECT){ Rect.X + 12, Y + 234, SeparatorWidth, 1 }, Theme->Border);
 
-  Status = ModernUiDrawText (Context, X, Y + 102, GetPlatformName (), Theme->TelemetryText, Theme->BackgroundBlack);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
-  Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ Rect.X + 12, Y + 136, SeparatorWidth, 1 }, Theme->Border);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
-  Status = ModernUiDrawText (Context, X, Y + 158, L"Memory", Theme->AccentYellow, Theme->BackgroundBlack);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
-  Status = ModernUiDrawText (Context, X, Y + 188, L"Provided by", Theme->MutedText, Theme->BackgroundBlack);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
-  Status = ModernUiDrawText (Context, X, Y + 208, L"UEFI memory map", Theme->TelemetryText, Theme->BackgroundBlack);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
-  Status = ModernUiFillRect (Context, (MODERN_UI_RECT){ Rect.X + 12, Y + 242, SeparatorWidth, 1 }, Theme->Border);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
-  Status = ModernUiDrawText (Context, X, Y + 264, L"Voltage", Theme->AccentYellow, Theme->BackgroundBlack);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
-  Status = ModernUiDrawText (Context, X, Y + 294, L"Sensor provider", Theme->MutedText, Theme->BackgroundBlack);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
-
-  Status = ModernUiDrawText (Context, X, Y + 314, L"N/A", Theme->TelemetryText, Theme->BackgroundBlack);
-  if (EFI_ERROR (Status)) {
-    return Status;
-  }
+  //
+  // Sensors: honest placeholder. SMBIOS carries no live readings; a physical
+  // platform can populate this from a hardware-monitor / IPMI source later.
+  //
+  ModernUiDrawText (Context, X, Y + 256, L"SENSORS", Theme->AccentYellow, Theme->BackgroundBlack);
+  ModernUiDrawText (Context, X, Y + 280, L"N/A", Theme->MutedText, Theme->BackgroundBlack);
 
   return EFI_SUCCESS;
 }

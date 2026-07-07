@@ -216,7 +216,7 @@ ModernSetupHitTestExitRow (
   if (mModernSetupLanguageDropdownOpen) {
     DropdownX = RowX + RowWidth - MODERN_SETUP_EXIT_VALUE_WIDTH - 12;
     DropdownY = Panel.Y + MODERN_SETUP_EXIT_ROW_TOP + MODERN_SETUP_EXIT_ROW_COUNT * MODERN_SETUP_EXIT_ROW_STRIDE - 8;
-    for (Option = 0; Option < 2; Option++) {
+    for (Option = 0; Option < MODERN_SETUP_LANGUAGE_OPTION_COUNT; Option++) {
       OptionTop = DropdownY + 7 + Option * 34;
       if ((X >= (DropdownX + 6)) && (X < (DropdownX + MODERN_SETUP_EXIT_VALUE_WIDTH - 6)) &&
           (Y >= OptionTop) && (Y < (OptionTop + 30)))
@@ -530,22 +530,54 @@ ModernSetupGetLanguageOptionName (
   IN UINTN  Selection
   )
 {
-  return (Selection == 0) ?
-         ModernUiGetString (ModernUiStringLanguageChinese) :
-         ModernUiGetString (ModernUiStringLanguageEnglish);
+  switch (Selection) {
+    case 0:
+      return ModernUiGetString (ModernUiStringLanguageChinese);
+    case 2:
+      return ModernUiGetString (ModernUiStringLanguageRussian);
+    case 1:
+    default:
+      return ModernUiGetString (ModernUiStringLanguageEnglish);
+  }
+}
+
+/**
+  Return TRUE when the active UI language is Russian.
+
+  @retval TRUE   Active language starts with "ru".
+  @retval FALSE  Active language is another supported language.
+**/
+STATIC
+BOOLEAN
+IsRussianLanguage (
+  VOID
+  )
+{
+  CONST CHAR8  *Language;
+
+  Language = ModernUiGetLanguage ();
+  return (BOOLEAN)((Language[0] == 'r') && (Language[1] == 'u'));
 }
 
 /**
   Return the selector index for the active language.
 
-  @return Zero for Chinese, one for English.
+  @return Zero for Chinese, two for Russian, one for English.
 **/
 UINTN
 ModernSetupGetActiveLanguageSelection (
   VOID
   )
 {
-  return IsChineseLanguage () ? 0 : 1;
+  if (IsChineseLanguage ()) {
+    return 0;
+  }
+
+  if (IsRussianLanguage ()) {
+    return 2;
+  }
+
+  return 1;
 }
 
 /**
@@ -1135,7 +1167,7 @@ ApplyLanguageSelection (
     return;
   }
 
-  Language     = (Selection == 0) ? "zh-Hans" : "en-US";
+  Language     = (Selection == 0) ? "zh-Hans" : ((Selection == 2) ? "ru-RU" : "en-US");
   Status       = ModernUiSetLanguage (Language, TRUE);
   LanguageName = ModernSetupGetLanguageOptionName (ModernSetupGetActiveLanguageSelection ());
 

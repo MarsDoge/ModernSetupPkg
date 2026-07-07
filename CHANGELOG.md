@@ -14,6 +14,39 @@ this file as both a release log and a lightweight development progress record.
 
 ### Added
 
+- **Russian (ru) UI language.** The language selector is now three-way
+  (Chinese / English / Russian); selecting Русский switches the whole
+  ModernSetupApp UI to Russian. The Cyrillic glyph subset is baked from
+  Noto Sans CJK SC (SIL OFL 1.1) into the shared built-in glyph table with
+  per-glyph proportional advance and baseline alignment, so Cyrillic renders
+  anti-aliased and properly spaced alongside the Latin/CJK glyphs. Translations
+  are a best-effort technical pass pending native review.
+
+### Changed
+
+- **Native HII form right rail now shows real SMBIOS system data.** The
+  in-setup chrome's right rail previously displayed a static, partly-placeholder
+  telemetry panel; it now sources System (SMBIOS Type 1), Processor
+  (architecture + Type 4 model) and Memory (Type 17 type/speed) from the shared
+  ModernUiPlatformTablesLib, with an honest Sensors slot (N/A until a physical
+  platform supplies live readings). Empty fields fall back cleanly, so QEMU
+  shows what its SMBIOS provides and a real board shows its written identity.
+- **Native HII forms get an honest breadcrumb title bar.** On forms reached
+  via SendForm, the decorative five-category tab strip (which read as clickable
+  but performed no navigation -- FormBrowser owns Esc=back / arrows=move) is
+  replaced by a "<category> > <form title>" breadcrumb that makes the real form
+  identity prominent. The native front page keeps its menu tabs.
+- **Native HII forms look cleaner when entered through the modern engine.**
+  Removed the decorative telemetry rail (a static, partly-placeholder
+  CPU/Architecture/Memory/Voltage panel) that the DisplayEngine drew on the
+  right of every FormBrowser form; the form now reclaims that width and shows
+  no fake data. Also dropped the permanent "LIVE VIEW" footer status pill,
+  which carried no information and rendered as a clipped stub -- only
+  actionable states (unsaved / reboot / modal / live-refresh) surface a pill
+  now. Affects both the GOP and LVGL backends.
+
+### Added
+
 - The ModernSetupApp header now shows the UI release version (e.g.
   "Modern UEFI Setup  v1.1.0"), so a running UI can be matched to a specific
   release on screen. The version is a single source of truth in

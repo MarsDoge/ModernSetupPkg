@@ -79,6 +79,13 @@
 #define MODERN_SETUP_EXIT_ROW_COUNT      4
 #define MODERN_SETUP_EXIT_VALUE_WIDTH    220
 
+//
+// Language selector options, in selector-index order: 0 Chinese, 1 English,
+// 2 Russian. Keep the dropdown cycle, draw loop, and option-name/apply mapping
+// in sync with this count.
+//
+#define MODERN_SETUP_LANGUAGE_OPTION_COUNT  3
+
 typedef enum {
   PageDashboard = 0,
   PageSystemInfo,
@@ -90,6 +97,7 @@ typedef enum {
   PageManagement,
   PagePower,
   PagePerformance,
+  PageQuickSettings,
   PageServerInventory,
   PagePreferences,
   PageExit,
