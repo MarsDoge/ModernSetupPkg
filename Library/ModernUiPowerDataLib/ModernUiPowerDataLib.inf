@@ -32,6 +32,3 @@
 
 [Protocols]
   gEfiAcpiSdtProtocolGuid
-
-[Guids]
-  gEfiAcpi20TableGuid

@@ -22,6 +22,24 @@
 #include <ModernUi/ModernUiPlatformTables.h>
 
 /**
+  Return TRUE when the SMBIOS protocol is installed.
+
+  @retval TRUE   SMBIOS protocol is present.
+  @retval FALSE  SMBIOS protocol is absent.
+**/
+BOOLEAN
+EFIAPI
+ModernUiSmbiosPresent (
+  VOID
+  )
+{
+  EFI_SMBIOS_PROTOCOL  *Smbios;
+
+  Smbios = NULL;
+  return (BOOLEAN)!EFI_ERROR (gBS->LocateProtocol (&gEfiSmbiosProtocolGuid, NULL, (VOID **)&Smbios));
+}
+
+/**
   Find the Index-th (0-based) SMBIOS structure of a given type. See the contract
   in ModernUi/ModernUiPlatformTables.h.
 
@@ -191,6 +209,21 @@ ModernUiAcpiGetRsdp (
   }
 
   return (EFI_ACPI_2_0_ROOT_SYSTEM_DESCRIPTION_POINTER *)Rsdp;
+}
+
+/**
+  Return TRUE when ACPI is installed via the UEFI configuration table.
+
+  @retval TRUE   ACPI RSDP is present.
+  @retval FALSE  ACPI is absent.
+**/
+BOOLEAN
+EFIAPI
+ModernUiAcpiPresent (
+  VOID
+  )
+{
+  return (BOOLEAN)(ModernUiAcpiGetRsdp () != NULL);
 }
 
 /**

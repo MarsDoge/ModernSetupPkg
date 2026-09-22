@@ -9,7 +9,6 @@
 **/
 
 #include <Uefi.h>
-#include <Guid/Acpi.h>
 #include <IndustryStandard/SmBios.h>
 #include <Library/BaseLib.h>
 #include <Library/BaseMemoryLib.h>
@@ -42,35 +41,6 @@ IsProtocolPresent (
 
   Protocol = NULL;
   return (BOOLEAN)!EFI_ERROR (gBS->LocateProtocol ((EFI_GUID *)ProtocolGuid, NULL, &Protocol));
-}
-
-/**
-  Return whether a system configuration table is installed.
-
-  @param[in] TableGuid  Configuration table GUID. Must not be NULL.
-
-  @retval TRUE   The configuration table is present.
-  @retval FALSE  The configuration table is absent or TableGuid is NULL.
-**/
-STATIC
-BOOLEAN
-IsConfigurationTablePresent (
-  IN CONST EFI_GUID  *TableGuid
-  )
-{
-  UINTN  Index;
-
-  if (TableGuid == NULL) {
-    return FALSE;
-  }
-
-  for (Index = 0; Index < gST->NumberOfTableEntries; Index++) {
-    if (CompareGuid (&gST->ConfigurationTable[Index].VendorGuid, TableGuid)) {
-      return TRUE;
-    }
-  }
-
-  return FALSE;
 }
 
 /**
@@ -165,7 +135,7 @@ ModernUiPowerDataGetSummary (
 
   ZeroMem (Summary, sizeof (*Summary));
   UnicodeSPrint (Summary->ChassisThermalState, sizeof (Summary->ChassisThermalState), L"Unknown");
-  Summary->AcpiTablePresent       = IsConfigurationTablePresent (&gEfiAcpi20TableGuid);
+  Summary->AcpiTablePresent       = ModernUiAcpiPresent ();
   Summary->AcpiSdtProtocolPresent = IsProtocolPresent (&gEfiAcpiSdtProtocolGuid);
   CollectSmbiosPowerState (Summary);
   return EFI_SUCCESS;

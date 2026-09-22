@@ -22,6 +22,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 | 开发指南 | [DEVELOPMENT.zh-CN.md](DEVELOPMENT.zh-CN.md) | [DEVELOPMENT.md](DEVELOPMENT.md) |
 | IBV 与平台 Setup 调研 | [IbvAndPlatformSetupSurvey.zh-CN.md](IbvAndPlatformSetupSurvey.zh-CN.md) | [IbvAndPlatformSetupSurvey.md](IbvAndPlatformSetupSurvey.md) |
 | 可配置项与快捷设置（规范） | [ConfigurableItemsAndQuickSettings.zh-CN.md](ConfigurableItemsAndQuickSettings.zh-CN.md) | [ConfigurableItemsAndQuickSettings.md](ConfigurableItemsAndQuickSettings.md) |
+| 通用配置目录与底层接入 | [SetupSettingCatalog.zh-CN.md](SetupSettingCatalog.zh-CN.md) | [SetupSettingCatalog.md](SetupSettingCatalog.md) |
 
 ## 兼容性和流程文档
 

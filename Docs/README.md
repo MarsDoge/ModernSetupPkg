@@ -25,6 +25,7 @@ Simplified Chinese counterparts for the core project docs.
 | Module boundaries | [MODULE_BOUNDARIES.md](MODULE_BOUNDARIES.md) | [MODULE_BOUNDARIES.zh-CN.md](MODULE_BOUNDARIES.zh-CN.md) |
 | Development guide | [DEVELOPMENT.md](DEVELOPMENT.md) | [DEVELOPMENT.zh-CN.md](DEVELOPMENT.zh-CN.md) |
 | IBV and platform setup survey | [IbvAndPlatformSetupSurvey.md](IbvAndPlatformSetupSurvey.md) | [IbvAndPlatformSetupSurvey.zh-CN.md](IbvAndPlatformSetupSurvey.zh-CN.md) |
+| Universal setting catalog and backend contract | [SetupSettingCatalog.md](SetupSettingCatalog.md) | [SetupSettingCatalog.zh-CN.md](SetupSettingCatalog.zh-CN.md) |
 
 ## Compatibility and process docs
 

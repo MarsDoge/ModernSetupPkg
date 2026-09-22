@@ -20,6 +20,7 @@
   ModernSetupApp.c
   ModernSetupAppActions.c
   ModernSetupAppChrome.c
+  ModernSetupAppCatalog.c
   ModernSetupAppDashboard.c
   ModernSetupAppPages.c
   ModernSetupAppProvider.c

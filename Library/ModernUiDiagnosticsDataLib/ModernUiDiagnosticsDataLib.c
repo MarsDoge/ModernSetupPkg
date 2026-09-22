@@ -9,42 +9,12 @@
 **/
 
 #include <Uefi.h>
-#include <Guid/Acpi.h>
-#include <Guid/SmBios.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 
 #include <ModernUi/ModernUiDiagnosticsData.h>
-
-/**
-  Return whether a system configuration table is installed.
-
-  @param[in] TableGuid  Configuration table GUID. Must not be NULL.
-
-  @retval TRUE   The configuration table is present.
-  @retval FALSE  The configuration table is absent or TableGuid is NULL.
-**/
-STATIC
-BOOLEAN
-IsConfigurationTablePresent (
-  IN CONST EFI_GUID  *TableGuid
-  )
-{
-  UINTN  Index;
-
-  if (TableGuid == NULL) {
-    return FALSE;
-  }
-
-  for (Index = 0; Index < gST->NumberOfTableEntries; Index++) {
-    if (CompareGuid (&gST->ConfigurationTable[Index].VendorGuid, TableGuid)) {
-      return TRUE;
-    }
-  }
-
-  return FALSE;
-}
+#include <ModernUi/ModernUiPlatformTables.h>
 
 /**
   Count descriptors in the current UEFI memory map.
@@ -165,8 +135,8 @@ ModernUiDiagnosticsDataGetSummary (
   }
 
   ZeroMem (Summary, sizeof (*Summary));
-  Summary->AcpiPresent             = IsConfigurationTablePresent (&gEfiAcpi20TableGuid);
-  Summary->SmbiosPresent           = (BOOLEAN)(IsConfigurationTablePresent (&gEfiSmbios3TableGuid) || IsConfigurationTablePresent (&gEfiSmbiosTableGuid));
+  Summary->AcpiPresent             = ModernUiAcpiPresent ();
+  Summary->SmbiosPresent           = ModernUiSmbiosPresent ();
   Summary->ConfigurationTableCount = gST->NumberOfTableEntries;
 
   MemoryStatus = GetMemoryDescriptorCount (&Summary->MemoryDescriptorCount);

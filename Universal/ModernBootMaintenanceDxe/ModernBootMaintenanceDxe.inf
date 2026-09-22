@@ -1,0 +1,27 @@
+## @file
+# Resident native Boot Maintenance owner for replace-UiApp overlays only.
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+[Defines]
+  INF_VERSION = 0x0001001B
+  BASE_NAME = ModernBootMaintenanceDxe
+  FILE_GUID = 842d7f31-7a96-4ec0-98a1-d5e238b46017
+  MODULE_TYPE = DXE_DRIVER
+  VERSION_STRING = 1.0
+  ENTRY_POINT = ModernBootMaintenanceEntryPoint
+
+[Sources]
+  ModernBootMaintenanceDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+
+[LibraryClasses]
+  UefiDriverEntryPoint
+  UefiBootServicesTableLib
+
+# Never dispatch before BDS. The overlay-only loader explicitly starts this
+# image after validating console/HII services; StartImage does not use DEPEX.
+# DXE_DRIVER is required by the unmodified upstream NULL library's type list.
+[Depex]
+  FALSE

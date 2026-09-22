@@ -79,8 +79,16 @@ replace_uiapp = replace_uiapp_flag in {"1", "true", "yes"}
 modern_setup_app_component_boot_manager_fallback = """  ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf {
     <BuildOptions>
       GCC:*_*_*_CC_FLAGS = -DMODERN_SETUP_NATIVE_FALLBACK_BOOT_MANAGER_MENU=1
+    <LibraryClasses>
+      NULL|ModernSetupPkg/Library/ModernBootMaintenanceLoaderLib/ModernBootMaintenanceLoaderLib.inf
   }"""
 modern_setup_app_uiapp_fdf_inf = "INF  RuleOverride = MODERN_SETUP_UIAPP ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf"
+
+# One resident DXE owner with FALSE DEPEX; only the app loader starts it.
+# Keep native NULL constructors/destructors out of every app image.
+modern_setup_app_component_boot_manager_fallback += "\n  ModernSetupPkg/Universal/ModernBootMaintenanceDxe/ModernBootMaintenanceDxe.inf {\n    <LibraryClasses>\n      NULL|MdeModulePkg/Library/BootMaintenanceManagerUiLib/BootMaintenanceManagerUiLib.inf\n  }"
+modern_setup_app_uiapp_fdf_inf += "\n  INF ModernSetupPkg/Universal/ModernBootMaintenanceDxe/ModernBootMaintenanceDxe.inf"
+
 modern_display_component = "  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
 # In lvgl mode the ModernDisplayEngine force-links compiler intrinsics
 # (memcpy/memset) pulled by the LVGL software draw pipeline.
@@ -240,6 +248,8 @@ if replace_uiapp:
         )
 (overlay / "RiscVVirtQemuModernSetup.fdf").write_text(fdf)
 PY
+
+python3 "${PKG_DIR}/Scripts/SaveReview/wire.py" "${WORKSPACE}" "${MODERN_SETUP_DISPLAY_ENGINE}" RiscVVirtQemuModernSetup.dsc RiscVVirtQemuModernSetup.fdf
 
 echo "Generated: ${OVERLAY_DIR}/RiscVVirtQemuModernSetup.dsc"
 echo "Generated: ${OVERLAY_DIR}/RiscVVirtQemuModernSetup.fdf"

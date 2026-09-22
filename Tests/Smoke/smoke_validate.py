@@ -297,6 +297,7 @@ BILINGUAL_DOC_PAIRS = (
     (Path("Docs") / "MODULE_BOUNDARIES.md", Path("Docs") / "MODULE_BOUNDARIES.zh-CN.md"),
     (Path("Docs") / "DEVELOPMENT.md", Path("Docs") / "DEVELOPMENT.zh-CN.md"),
     (Path("Docs") / "IbvAndPlatformSetupSurvey.md", Path("Docs") / "IbvAndPlatformSetupSurvey.zh-CN.md"),
+    (Path("Docs") / "SetupSettingCatalog.md", Path("Docs") / "SetupSettingCatalog.zh-CN.md"),
 )
 DOC_INDEX_PAIRS = (
     (Path("Docs") / "README.md", Path("Docs") / "README.zh-CN.md"),
@@ -622,12 +623,17 @@ def riscvvirt_fixture(workspace: Path) -> None:
         """[Defines]
   FLASH_DEFINITION               = OvmfPkg/RiscVVirt/RiscVVirtQemu.fdf
 
+[PcdsFixedAtBuild]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile|{ 0x21, 0xaa, 0x2c, 0x46, 0x14, 0x76, 0x03, 0x45, 0x83, 0x6e, 0x8a, 0xb6, 0xf4, 0x66, 0x23, 0x31 }
+
 [LibraryClasses.common]
   CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf
 
 [Components]
   MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
   MdeModulePkg/Application/UiApp/UiApp.inf {
+  }
+  OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.inf {
   }
 """,
     )
@@ -637,6 +643,7 @@ def riscvvirt_fixture(workspace: Path) -> None:
 !include VarStore.fdf.inc
 INF  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
 INF  MdeModulePkg/Application/UiApp/UiApp.inf
+INF  OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.inf
 """,
     )
 
@@ -1237,6 +1244,68 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
     for helper in APP_NOINLINE_DRAW_HELPERS:
         if not re.search(rf"\bSTATIC\s+VOID\s+MODERN_SETUP_NOINLINE\s+{helper}\s*\(", pages_body):
             raise SmokeFailure(f"ModernSetupAppPages.c must mark {helper} MODERN_SETUP_NOINLINE")
+    system_info_body = extract_c_function_body(pages_body, "DrawSystemInfo")
+    boot_body = extract_c_function_body(pages_body, "DrawBoot")
+    security_body = extract_c_function_body(pages_body, "DrawSecurity")
+    power_body = extract_c_function_body(pages_body, "DrawPower")
+    page_user_prompts = {
+        "Boot": (
+            boot_body,
+            (
+                "Uses the UEFI boot list",
+                "Enter boots; N/C set or clear BootNext",
+                "Default Boot#### rows move with +/-",
+                "Advanced policy edits stay in Native Boot Tools",
+            ),
+        ),
+        "Security": (
+            security_body,
+            (
+                "Read-only security posture from Secure Boot and TCG protocols",
+                "Native Security setup owns keys and TPM policy",
+                "unavailable means not reported",
+            ),
+        ),
+        "Power": (
+            power_body,
+            (
+                "Read-only power and thermal summary from ACPI, SMBIOS, and sensor providers",
+                "Platform EC/BMC/native setup owns policy",
+                "Not reported means provider unavailable",
+            ),
+        ),
+    }
+    for page_name, (body, tokens) in page_user_prompts.items():
+        for token in tokens:
+            if token not in body:
+                raise SmokeFailure(f"{page_name} page missing user-facing ownership/source prompt token: {token}")
+    for stale_token in (
+        "Unavailable means this OVMF/demo platform did not report that capability",
+        "Only default Boot#### rows can move",
+    ):
+        if stale_token in pages_body:
+            raise SmokeFailure(f"Boot/Security/Power page contract must avoid stale demo-only wording: {stale_token}")
+    for token in (
+        "System Identity",
+        "ModernUiStringGroupFirmware",
+        "Summary->BiosVersion",
+        "Summary->BiosDate",
+        "Summary->ProcessorSpeed",
+        "Summary->Cache",
+        "Summary->LogicalProcessors",
+        "Runtime",
+    ):
+        if token not in system_info_body:
+            raise SmokeFailure(f"SystemInfo Main page missing IBV identity/inventory token: {token}")
+    for diagnostic_token in ("ProviderHealth", "AcpiPresent", "SmbiosPresent", "MemoryDescriptorCount", "ConfigurationTableCount"):
+        if diagnostic_token in system_info_body:
+            raise SmokeFailure(f"SystemInfo must keep diagnostics/service health out of Main inventory: {diagnostic_token}")
+    if re.search(r"CONST CHAR16\s+\*Labels\[(?:1[0-5]|[0-9])\]", system_info_body):
+        raise SmokeFailure("SystemInfo label/value arrays must leave room for full identity + CPU inventory groups")
+    if re.search(r"CONST CHAR16\s+\*Values\[(?:1[0-5]|[0-9])\]", system_info_body):
+        raise SmokeFailure("SystemInfo value arrays must leave room for full identity + CPU inventory groups")
+    if re.search(r"CONST CHAR16\s+\*Groups\[(?:1[0-5]|[0-9])\]", system_info_body):
+        raise SmokeFailure("SystemInfo group arrays must leave room for full identity + CPU inventory groups")
     if re.search(r"\bMODERN_UI_HII_VIEW\s+View\s*;", pages_body):
         raise SmokeFailure("DrawHiiReadOnlyPreview must not place MODERN_UI_HII_VIEW on the UEFI stack")
     if "AllocateZeroPool (sizeof (*View))" not in pages_body:
@@ -1375,8 +1444,64 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
     if "ModernUiDeviceDataGetEntries (&Entries, &EntryCount)" in pages_body:
         raise SmokeFailure("Phase43 Devices page must not enumerate HII/device entries directly during redraw")
     open_device_body = extract_c_function_body(actions_body, "ModernSetupOpenSelectedDeviceEntry")
-    if "ModernSetupInvalidateDeviceEntriesCache ()" not in open_device_body or "ModernSetupInvalidateProviderSnapshotCache ()" not in open_device_body:
-        raise SmokeFailure("Phase43 native FormBrowser handoff must invalidate app-side data caches")
+    for helper, handoff in (
+        ("ModernSetupOpenSelectedDeviceEntry", "ModernUiDeviceDataOpenEntry (&Entry)"),
+        ("ModernSetupLaunchUiAppFallback", "gBS->StartImage (ChildHandle, NULL, NULL)"),
+    ):
+        body = extract_c_function_body(actions_body, helper)
+        for cache in ("BootOptions", "DeviceEntries", "ProviderSnapshot"):
+            token = f"ModernSetupInvalidate{cache}Cache ()"
+            if token not in body or body.index(token) < body.index(handoff):
+                raise SmokeFailure(f"{helper} must invalidate {cache} after handoff, including errors")
+    secure_find = extract_c_function_body(actions_body, "ModernSetupFindSecureBootConfiguration")
+    secure_open = extract_c_function_body(actions_body, "ModernSetupOpenSecureBootConfiguration")
+    for token in ("ModernSetupGetCachedDeviceEntries", "Index < EntryCount",
+                  "Entries[Index].HasForm", "Entries[Index].HiiHandle != NULL",
+                  "CompareGuid (&Entries[Index].FormSetGuid, &mSecureBootFormSetGuid)"):
+        if token not in secure_find:
+            raise SmokeFailure(f"Secure Boot discovery missing {token}")
+    for token in ("Title", "MAX_DEVICE_ROWS", "LaunchUiAppFallback", "StrStr"):
+        if token in secure_find + secure_open:
+            raise SmokeFailure("Secure Boot must use exact GUID across all entries, with no fallback")
+    for token in ("ModernSetupInvalidateDeviceEntriesCache ()", "ModernSetupFindSecureBootConfiguration",
+                  "ModernSetupOpenSelectedDeviceEntry (Selection)"):
+        if token not in secure_open:
+            raise SmokeFailure(f"Secure Boot handoff missing {token}")
+    quick_enter = extract_c_function_body(actions_body, "ModernSetupHandleQuickSettingsEnter")
+    if not re.search(r"case 4:.*?ModernSetupOpenSecureBootConfiguration", quick_enter, re.S):
+        raise SmokeFailure("Quick Settings Secure Boot must enter native configuration")
+    if "Status = ModernSetupOpenSecureBootConfiguration ();" not in app_body:
+        raise SmokeFailure("Security must expose a shared native configuration action")
+    for body in (actions_body, pages_body):
+        if "ModernSetupGetSecurityEntryRect (Ui)" not in body or "ModernSetupQuickSettingsRowOffset (" not in body:
+            raise SmokeFailure("Security/Quick Settings must share painted and pointer geometry")
+    if "SecureBootText, ModernSetupSecureBootEntryText ()" not in pages_body:
+        raise SmokeFailure("Secure Boot state and configuration availability must remain separate")
+    if "Providers.Security.Tcg2Protocol == ModernUiSecurityStateEnabled" in pages_body:
+        raise SmokeFailure("TPM protocol presence uses Present, not Enabled")
+    boot_wrapper = extract_c_function_body(actions_body, "ModernSetupOpenBootConfiguration")
+    if "ModernSetupOpenBootConfigurationWithFallback (ImageHandle, TRUE)" not in boot_wrapper:
+        raise SmokeFailure("Generic Boot tools must retain native fallback")
+    boot_config = extract_c_function_body(actions_body, "ModernSetupOpenBootConfigurationWithFallback")
+    for token in ("ModernSetupInvalidateDeviceEntriesCache ()", "ModernSetupGetCachedDeviceEntries",
+                  "Entries[Index].HasForm", "Entries[Index].HiiHandle != NULL",
+                  "CompareGuid (&Entries[Index].FormSetGuid, &mBootMaintenanceFormSetGuid)",
+                  "return ModernSetupOpenSelectedDeviceEntry (Index)",
+                  "return AllowFallback ? ModernSetupLaunchUiAppFallback (ImageHandle) : EFI_NOT_FOUND"):
+        if token not in boot_config:
+            raise SmokeFailure(f"Boot configuration routing missing {token}")
+    if "MAX_DEVICE_ROWS" in boot_config or "Title" in boot_config:
+        raise SmokeFailure("Boot configuration must match all provider formsets by GUID, not visible rows/titles")
+    if "Status = ModernSetupOpenBootConfiguration (ImageHandle);" not in app_body:
+        raise SmokeFailure("Boot tools must enter Boot Maintenance before native app fallback")
+    engine_body = (root / "Library/ModernUiEngineLib/ModernUiEngineLib.c").read_text(encoding="utf-8")
+    for name, value in (("MODERN_UI_ROW_VALUE_LANE_WIDTH", 300),
+                        ("MODERN_UI_ROW_VALUE_LANE_GAP", 16)):
+        if re.search(rf"#define\s+{name}\s+{value}\b", engine_body) is None:
+            raise SmokeFailure("Boot detail width must be updated with the engine value-lane geometry")
+    boot_draw = extract_c_function_body(pages_body, "DrawBoot")
+    if "Layout.RowWidth > 396" not in boot_draw or "DetailWidth," not in boot_draw:
+        raise SmokeFailure("Boot path details must be clipped before the value lane")
     if "ModernSetupDashboardSelectionRequestsContinue (DashboardSelection)" not in app_body:
         raise SmokeFailure("Dashboard Enter handling must support native UiApp-style Continue directly from the front page")
     if "return EFI_SUCCESS;" not in app_body:
@@ -1419,6 +1544,56 @@ def check_modern_setup_app_module_boundaries(root: Path) -> list[str]:
             )
     if "Provider Health" not in pages_body:
         raise SmokeFailure("ModernSetupAppPages.c diagnostics summary must include provider health details")
+
+    #
+    # Quick Settings is a Tier-B curated entry surface: it may be selectable and
+    # report native-owner/handoff hints, but the App still must not own or write
+    # platform policy. Keep the affordance and the read-only boundary explicit.
+    #
+    for token in (
+        "MODERN_SETUP_QUICK_SETTINGS_ROW_COUNT  10",
+        "mModernSetupQuickSettingsSelection",
+        "ModernSetupHandleQuickSettingsEnter",
+    ):
+        if token not in internal_body:
+            raise SmokeFailure(f"Quick Settings selection contract missing internal token: {token}")
+    for token in (
+        "return mModernSetupQuickSettingsSelection;",
+        "mModernSetupQuickSettingsSelection = (MODERN_SETUP_QUICK_SETTINGS_ROW_COUNT == 0) ? 0 : (Selection % MODERN_SETUP_QUICK_SETTINGS_ROW_COUNT);",
+        "return MODERN_SETUP_QUICK_SETTINGS_ROW_COUNT;",
+        "HardRowCap       = MODERN_SETUP_QUICK_SETTINGS_ROW_COUNT;",
+        "AllowPreviewPane = FALSE;",
+    ):
+        if token not in actions_body:
+            raise SmokeFailure(f"Quick Settings selection helper missing action token: {token}")
+    for token in (
+        "OldQuickSettingsSelection",
+        "ListSelPtr = &mModernSetupQuickSettingsSelection;",
+        "ModernSetupHandleQuickSettingsEnter (mModernSetupQuickSettingsSelection, StatusMessage, sizeof (StatusMessage));",
+    ):
+        if token not in app_body:
+            raise SmokeFailure(f"Quick Settings keyboard/pointer dispatch missing app token: {token}")
+    for token in (
+        "Read-only overview. Enter reports the native owner or handoff status.",
+        "Native owner",
+        "Summary only",
+        "Security page",
+        "DrawQuickSettingsRow",
+        "mModernSetupQuickSettingsSelection == RowIndex",
+    ):
+        if token not in pages_body:
+            raise SmokeFailure(f"Quick Settings read-only affordance missing page token: {token}")
+    quick_settings_enter_body = extract_c_function_body(actions_body, "ModernSetupHandleQuickSettingsEnter")
+    for token in (
+        "Native PCIe/Performance owner",
+        "Native security owner",
+        "Summary only: no native owner page was reported.",
+    ):
+        if token not in quick_settings_enter_body:
+            raise SmokeFailure(f"Quick Settings Enter handler missing status token: {token}")
+    for token in PCIE_FORBIDDEN_MUTATION_TOKENS:
+        if token in quick_settings_enter_body:
+            raise SmokeFailure(f"Quick Settings Enter handler must stay read-only; found mutation token: {token}")
 
     return ["PASS ModernSetupApp module boundary checks"]
 
@@ -1528,14 +1703,12 @@ def check_phase25_server_inventory_summary(root: Path) -> list[str]:
     for token in (
         "ModernUiBootDataGetBootNext",
         "BootNext",
-        "N=Next boot",
-        "C=Clear next",
-        "+/-=Move",
+        "N/C set or clear BootNext",
+        "Default Boot#### rows move with +/-",
+        "Advanced policy edits stay in Native Boot Tools",
         "L\"On\"",
         "L\"/Hid\"",
         "L\"/Next\"",
-        "Only default Boot#### rows can move",
-        "app/shell/manual entries use Enter or Next boot",
     ):
         if token not in pages_body:
             raise SmokeFailure(f"Phase44/45/46 Boot page missing policy affordance token: {token}")
@@ -1705,6 +1878,75 @@ def check_phase26_interactive_app_owned_preferences(root: Path) -> list[str]:
         raise SmokeFailure("Up/Down must move an open Preferences popup selection")
     if "ModernSetupGetCompactTabLabel" not in chrome or "L\"Perf\"" not in chrome or "L\"Mgmt\"" not in chrome:
         raise SmokeFailure("Phase26 top navigation must use compact IBV-style tab labels")
+    for token in (
+        "MODERN_SETUP_MAX_VISIBLE_TABS       5",
+        "MODERN_SETUP_MIN_VISIBLE_TABS       3",
+        "MODERN_SETUP_TARGET_TAB_WIDTH       160",
+        "mTopLevelPages[]",
+        "ModernSetupGetTopLevelPage",
+        "ModernSetupBuildPageHierarchy",
+        "ModernSetupDrawSecondaryNav",
+        "ModernSetupHitTestSecondaryNav",
+        "ModernSetupMoveSecondaryNavPage",
+        "ModernSetupSecondaryNavVisible",
+        "ModernSetupSecondaryNavCanFit",
+        "ModernSetupSecondaryNavX",
+        "ModernSetupDashboardContentRect",
+        "ModernSetupGetSecondaryGroupLabel",
+        "MODERN_SETUP_SECONDARY_NAV_WIDTH",
+        "MODERN_SETUP_SECONDARY_NAV_GAP",
+        "L\"Platform\", L\"Setting Catalog\", L\"Runtime\", L\"Service\", L\"UX\"",
+        "L\"Posture\", L\"Secure Boot\", L\"TPM\"",
+        "AdvancedDestinations[] = { PageDevices, PageCatalog, PageQuickSettings, PageDiagnostics, PagePreferences }",
+        "Level2 = L\"Runtime\"",
+        "Level3 = L\"Power\"",
+        "Level2 = L\"System\"",
+        "Level3 = L\"Inventory\"",
+        "L\"%s > %s > %s\"",
+        "Theme->AccentYellow",
+        "L\"Advanced\"",
+        "L\"高级\"",
+        "MODERN_SETUP_TAB_CHEVRON_GUTTER",
+        "*VisibleTabCount = TabCapacity",
+    ):
+        if token not in chrome:
+            raise SmokeFailure(f"Phase26 top navigation must keep a reduced top-level IA token: {token}")
+    if "(FirstVisibleTab + VisibleTabCount) < ARRAY_SIZE (mPages)" in chrome:
+        raise SmokeFailure("Phase26 top navigation chevrons must use the reduced top-level tab count")
+    title_body = chrome.split("ModernSetupDrawPageTitle", 1)[1]
+    for hidden_hierarchy in ("RightEdge", "HierarchyX", "HierarchyWidth + SCREEN_MARGIN + 240"):
+        if hidden_hierarchy in title_body:
+            raise SmokeFailure(f"Phase26 secondary hierarchy must be fixed-visible, not hidden by width gates: {hidden_hierarchy}")
+    if "ModernSetupDrawSecondaryNav (Ui, Theme, Page);" not in title_body:
+        raise SmokeFailure("Phase26 page titles must draw the fixed-visible second-level navigation rail")
+    app_text = (root / "Application/ModernSetupApp/ModernSetupApp.c").read_text(encoding="utf-8")
+    if "ModernSetupHitTestSecondaryNav (&Ui, Page, PointerX, PointerY, &TabHit)" not in app_text:
+        raise SmokeFailure("Phase26 second-level subnav must be clickable, not decorative")
+    if "ChipY = TOP_BAR_HEIGHT + TAB_BAR_HEIGHT + 8" in chrome or "ChipX = SCREEN_MARGIN" in chrome:
+        raise SmokeFailure("Phase26 second-level navigation must use a vertical rail, not a horizontal chip row")
+    if "ModernSetupSecondaryNavX (Ui) + MODERN_SETUP_SECONDARY_NAV_WIDTH + MODERN_SETUP_SECONDARY_NAV_GAP" not in chrome:
+        raise SmokeFailure("Phase26 content rect must follow the secondary rail anchor")
+    if "Width = (Ui->Width > (X + SCREEN_MARGIN)) ? (Ui->Width - X - SCREEN_MARGIN) : 0" not in chrome:
+        raise SmokeFailure("Phase26 content rect must reserve space to the right of the vertical second-level rail")
+    if "(Page != PageDashboard)" not in chrome:
+        raise SmokeFailure("Phase26 dashboard must not draw the secondary rail")
+    dashboard_text = (root / "Application/ModernSetupApp/ModernSetupAppDashboard.c").read_text(encoding="utf-8")
+    if "ModernSetupDashboardContentRect (Ui)" not in dashboard_text:
+        raise SmokeFailure("Phase26 dashboard must use full-width content rect, not the detail-page rail rect")
+    for token in (
+        "mModernSetupTopNavPages[]",
+        "ModernSetupMoveTopNavPage (Page, FALSE)",
+        "ModernSetupMoveTopNavPage (Page, TRUE)",
+    ):
+        if token not in app_main:
+            raise SmokeFailure(f"Phase26 keyboard top navigation must use reduced top-level IA token: {token}")
+    if "Page = (Page == 0) ? (PageMax - 1) : (Page - 1)" in app_main or "Page = (Page + 1) % PageMax" in app_main:
+        raise SmokeFailure("Phase26 keyboard top navigation must not cycle every concrete page")
+    for hidden_tab in ("ModernUiStringPageFirmware", "ModernUiStringPageDiagnostics", "ModernUiStringPageManagement", "ModernUiStringPagePerformance", "ModernUiStringPageQuickSettings", "ModernUiStringPageServerInventory", "ModernUiStringPagePreferences"):
+        if hidden_tab in chrome.split("mTopLevelPages[]", 1)[1].split("};", 1)[0]:
+            raise SmokeFailure(f"Phase26 top navigation must not expose second-level page as a horizontal tab: {hidden_tab}")
+    if "TabCapacity = TabRect->Width / 132" in chrome or "TabRect->Width / *VisibleTabCount" in chrome:
+        raise SmokeFailure("Phase26 top navigation must not expand the tab window based on the full page count")
     if "Tabs[Index].Text = ModernUiGetString (mPages[Index].Title)" in chrome:
         raise SmokeFailure("Phase26 top navigation must not use full page titles as tab labels")
 
@@ -2042,6 +2284,44 @@ def check_bilingual_documentation_contract(root: Path) -> list[str]:
     for token in PRODUCTIZATION_ZH_PARITY_TOKENS:
         if token not in productization_zh:
             raise SmokeFailure(f"ProductizationFeatureMatrix.zh-CN.md missing parity token: {token}")
+
+    audience_docs = {
+        Path("Docs") / "AppFeatureStandard.md": (
+            "Interface user",
+            "UI category/display implementation",
+            "Interface-flow implementation",
+        ),
+        Path("Docs") / "AppFeatureStandard.zh-CN.md": (
+            "界面使用用户",
+            "界面分类与显示实现",
+            "接口流相关实现",
+        ),
+        Path("Docs") / "ProductizationFeatureMatrix.md": (
+            "Interface users",
+            "category/display needs",
+            "Developer contributors",
+        ),
+        Path("Docs") / "ProductizationFeatureMatrix.zh-CN.md": (
+            "界面使用用户",
+            "分类/显示需求",
+            "开发者参与用户",
+        ),
+        Path("Docs") / "ProviderDataContract.md": (
+            "developer/contributor",
+            "interface-flow",
+            "category/display needs",
+        ),
+        Path("Docs") / "ProviderDataContract.zh-CN.md": (
+            "开发者/参与用户",
+            "接口流实现",
+            "分类/显示需求",
+        ),
+    }
+    for relative, tokens in audience_docs.items():
+        text = (root / relative).read_text(encoding="utf-8")
+        for token in tokens:
+            if token not in text:
+                raise SmokeFailure(f"{relative} missing audience workflow split token: {token}")
 
     return [f"PASS bilingual documentation pairs and IBV taxonomy split: {len(pairs)} pairs"]
 
@@ -2414,7 +2694,7 @@ def check_phase33_display_form_view_model_boundary(root: Path) -> list[str]:
         "Layout->Statement.RightColumn",
         "Theme->MutedText",
         "Theme->BackgroundBlack",
-        "Theme->AccentOrange",
+        "Theme->Border",
     ):
         if token not in right_help_body:
             raise SmokeFailure(f"Phase40 FormBrowser right-help rail polish missing token: {token}")
@@ -2587,6 +2867,8 @@ def check_overlay_generation(root: Path) -> list[str]:
         return ["SKIP overlay generation: bash not found"]
 
     messages: list[str] = []
+    run([sys.executable, str(root / "Tests/Smoke/boot_owner_test.py")], cwd=root)
+    messages.append("PASS resident Boot Maintenance owner real-C host regression")
     with tempfile.TemporaryDirectory(prefix="modernsetup-smoke-") as tmp:
         base = Path(tmp)
         workspace = base / "edk2"
@@ -2623,6 +2905,10 @@ def check_overlay_generation(root: Path) -> list[str]:
                     {
                         "WORKSPACE": str(workspace),
                         "GENERATE_ONLY": "1",
+                        # Minimal platform fixtures contain no real browser sources.
+                        # Production review wiring is checked against the pinned SDK
+                        # by save_review_overlay_test.py, not these mock fixtures.
+                        "MODERN_SETUP_SAVE_REVIEW": "0",
                         "MODERN_SETUP_DISPLAY_ENGINE": engine,
                         "MODERN_SETUP_DEMO_DRIVER_SAMPLE": "1",
                     }
@@ -2677,6 +2963,7 @@ def check_overlay_generation(root: Path) -> list[str]:
             {
                 "WORKSPACE": str(workspace),
                 "GENERATE_ONLY": "1",
+                "MODERN_SETUP_SAVE_REVIEW": "0",
                 "MODERN_SETUP_DISPLAY_ENGINE": "modern",
                 "MODERN_SETUP_DEMO_DRIVER_SAMPLE": "0",
                 "MODERN_SETUP_REPLACE_UIAPP": "1",
@@ -2708,6 +2995,7 @@ def check_overlay_generation(root: Path) -> list[str]:
             {
                 "WORKSPACE": str(workspace),
                 "GENERATE_ONLY": "1",
+                "MODERN_SETUP_SAVE_REVIEW": "0",
                 "MODERN_SETUP_DISPLAY_ENGINE": "modern",
                 "MODERN_SETUP_DEMO_DRIVER_SAMPLE": "0",
                 "MODERN_SETUP_REPLACE_UIAPP": "1",
@@ -2729,7 +3017,89 @@ def check_overlay_generation(root: Path) -> list[str]:
         assert_contains(fv, "FILE APPLICATION = 462CAA21-7614-4503-836E-8AB6F4662331")
         messages.append("PASS armvirt replace-uiapp opt-in overlay generation dry run")
 
+        # The replacement shell must retain the real native configuration owner,
+        # not just the BootManagerMenuApp boot picker. Check the app component
+        # itself (a matching library elsewhere in the DSC is insufficient).
+        for platform, script_name, dsc_name, _ in cases:
+            env.update({"MODERN_SETUP_DISPLAY_ENGINE": "lvgl", "MODERN_SETUP_REPLACE_UIAPP": "1"})
+            run([bash, str(workspace / "ModernSetupPkg" / "Scripts" / script_name)],
+                cwd=workspace / "ModernSetupPkg", env=env)
+            component_file = overlay / ("ArmVirtModernSetup.dsc.inc" if platform == "armvirt" else dsc_name)
+            component = re.search(
+                r"ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp\.inf\s*\{([^}]+)\}",
+                component_file.read_text(encoding="utf-8"), re.S,
+            )
+            native = "NULL|MdeModulePkg/Library/BootMaintenanceManagerUiLib/BootMaintenanceManagerUiLib.inf"
+            loader = "NULL|ModernSetupPkg/Library/ModernBootMaintenanceLoaderLib/ModernBootMaintenanceLoaderLib.inf"
+            owner = "ModernSetupPkg/Universal/ModernBootMaintenanceDxe/ModernBootMaintenanceDxe.inf"
+            if component is None or loader not in component.group(1) or native in component.group(1):
+                raise SmokeFailure(f"{platform} replacement app must link only lazy owner loader")
+            dsc_text = component_file.read_text(encoding="utf-8")
+            owner_component = re.search(re.escape(owner) + r"\s*\{([^}]+)\}", dsc_text, re.S)
+            if owner_component is None or native not in owner_component.group(1) or dsc_text.count(owner) != 1:
+                raise SmokeFailure(f"{platform} must have exactly one native resident owner component")
+            fv_files = [p for p in generated_files_for(platform, workspace) if ".fdf" in p.name]
+            fv_text = "\n".join(p.read_text() for p in fv_files)
+            if fv_text.count(owner) != 1:
+                raise SmokeFailure(f"{platform} must package exactly one persistent owner")
+            env["MODERN_SETUP_REPLACE_UIAPP"] = "0"
+            run([bash, str(workspace / "ModernSetupPkg" / "Scripts" / script_name)],
+                cwd=workspace / "ModernSetupPkg", env=env)
+            if owner in component_file.read_text() or any(owner in p.read_text() for p in fv_files):
+                raise SmokeFailure(f"{platform} non-replacement must not package owner")
+            messages.append(f"PASS {platform} lazy singleton owner replacement/non-replacement gates")
+
     return messages
+
+
+def check_provider_standard_source_access(root: Path) -> list[str]:
+    """Ensure SMBIOS/ACPI source liveness is centralized in PlatformTablesLib."""
+
+    header = root / "Include" / "ModernUi" / "ModernUiPlatformTables.h"
+    platform_tables = root / "Library" / "ModernUiPlatformTablesLib" / "ModernUiPlatformTablesLib.c"
+    diagnostics = root / "Library" / "ModernUiDiagnosticsDataLib" / "ModernUiDiagnosticsDataLib.c"
+    diagnostics_inf = root / "Library" / "ModernUiDiagnosticsDataLib" / "ModernUiDiagnosticsDataLib.inf"
+    power = root / "Library" / "ModernUiPowerDataLib" / "ModernUiPowerDataLib.c"
+    power_inf = root / "Library" / "ModernUiPowerDataLib" / "ModernUiPowerDataLib.inf"
+
+    header_text = strip_c_comments(header.read_text(encoding="utf-8"))
+    platform_tables_text = strip_c_comments(platform_tables.read_text(encoding="utf-8"))
+    diagnostics_text = strip_c_comments(diagnostics.read_text(encoding="utf-8"))
+    diagnostics_inf_text = diagnostics_inf.read_text(encoding="utf-8")
+    power_text = strip_c_comments(power.read_text(encoding="utf-8"))
+    power_inf_text = power_inf.read_text(encoding="utf-8")
+
+    for token in ("ModernUiSmbiosPresent", "ModernUiAcpiPresent"):
+        if token not in header_text or token not in platform_tables_text:
+            raise SmokeFailure(f"PlatformTablesLib missing source-liveness API token: {token}")
+    for token in ("gEfiSmbiosProtocolGuid", "EfiGetSystemConfigurationTable", "ModernUiAcpiGetRsdp"):
+        if token not in platform_tables_text:
+            raise SmokeFailure(f"PlatformTablesLib must own standard table access token: {token}")
+
+    for token in ("ModernUiAcpiPresent ()", "ModernUiSmbiosPresent ()"):
+        if token not in diagnostics_text:
+            raise SmokeFailure(f"Diagnostics provider must use PlatformTables source-liveness token: {token}")
+    if "ModernUiPlatformTablesLib" not in diagnostics_inf_text:
+        raise SmokeFailure("Diagnostics provider INF must depend on ModernUiPlatformTablesLib")
+    for token in ("Guid/Acpi.h", "Guid/SmBios.h", "gEfiAcpi20TableGuid", "gEfiSmbiosTableGuid", "gEfiSmbios3TableGuid", "IsConfigurationTablePresent"):
+        if token in diagnostics_text or token in diagnostics_inf_text:
+            raise SmokeFailure(f"Diagnostics provider must not bypass PlatformTablesLib for source liveness: {token}")
+
+    if "ModernUiAcpiPresent ()" not in power_text:
+        raise SmokeFailure("Power provider must use PlatformTablesLib for ACPI source liveness")
+    for token in ("Guid/Acpi.h", "gEfiAcpi20TableGuid", "IsConfigurationTablePresent"):
+        if token in power_text or token in power_inf_text:
+            raise SmokeFailure(f"Power provider must not bypass PlatformTablesLib for ACPI source liveness: {token}")
+
+    for provider in (root / "Library").glob("ModernUi*DataLib/ModernUi*DataLib.c"):
+        if provider.parent.name == "ModernUiPlatformTablesLib":
+            continue
+        body = strip_c_comments(provider.read_text(encoding="utf-8"))
+        for token in ("gEfiSmbiosProtocolGuid", "EFI_SMBIOS_PROTOCOL", "EfiGetSystemConfigurationTable"):
+            if token in body:
+                raise SmokeFailure(f"{provider.relative_to(root)} bypasses ModernUiPlatformTablesLib with token: {token}")
+
+    return ["PASS provider SMBIOS/ACPI source access is centralized through PlatformTablesLib"]
 
 
 def main() -> int:
@@ -2741,6 +3111,15 @@ def main() -> int:
         root = require_repo_root(args.repo_root)
         messages: list[str] = []
         messages.extend(check_shell_syntax(root))
+        run([sys.executable, str(root / "Scripts/setup-setting-catalog.py"), "--check"], cwd=root)
+        run([sys.executable, str(root / "Tests/Smoke/setting_catalog_test.py")], cwd=root)
+        messages.append("PASS universal Setup catalog and generated-C contract")
+        run([sys.executable, str(root / "Tests/Smoke/build_stamp_test.py")], cwd=root)
+        messages.append("PASS frozen build identity and explicit epoch reproducibility")
+        run([sys.executable, str(root / "Tests/Smoke/catalog_routing_test.py")], cwd=root)
+        messages.append("PASS Catalog strict native routing and unavailable values")
+        run([sys.executable, str(root / "Tests/Smoke/catalog_localization_test.py")], cwd=root)
+        messages.append("PASS Catalog Chinese/English/Russian fallback, UTF-16 and glyph coverage")
         messages.extend(check_modern_setup_app_inf_sources(root))
         messages.extend(check_modern_setup_app_module_boundaries(root))
         messages.extend(check_phase25_server_inventory_summary(root))
@@ -2749,6 +3128,7 @@ def main() -> int:
         messages.extend(check_phase27_app_owned_input_preferences(root))
         messages.extend(check_phase28_runtime_theme_switching(root))
         messages.extend(check_phase29_dashboard_density_layout(root))
+        messages.extend(check_provider_standard_source_access(root))
         messages.extend(check_pcie_provider_foundation(root))
         messages.extend(check_hardware_health_demo_provider(root))
         messages.extend(check_pcie_docs_language(root))
