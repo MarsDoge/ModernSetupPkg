@@ -117,14 +117,26 @@ _app_lvgl_intrinsics = (
     if display_engine == "lvgl"
     else ""
 )
+# Preserve UiApp's native Boot Maintenance owner when replacing its shell.
+# This constructor installs HII; ModernSetupApp only routes via DeviceData.
+_app_boot_maintenance_libraries = (
+    (_app_lvgl_intrinsics or "    <LibraryClasses>\n")
+    + "      NULL|ModernSetupPkg/Library/ModernBootMaintenanceLoaderLib/ModernBootMaintenanceLoaderLib.inf\n"
+)
 modern_setup_app_component_boot_manager_fallback = (
     "  ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf {\n"
     "    <BuildOptions>\n"
     "      GCC:*_*_*_CC_FLAGS = -DMODERN_SETUP_NATIVE_FALLBACK_BOOT_MANAGER_MENU=1\n"
-    f"{_app_lvgl_intrinsics}"
+    f"{_app_boot_maintenance_libraries}"
     "  }"
 )
 modern_setup_app_uiapp_fdf_inf = "INF  RuleOverride = MODERN_SETUP_UIAPP ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf"
+
+# One resident DXE owner with FALSE DEPEX; only the app loader starts it.
+# Keep native NULL constructors/destructors out of every app image.
+modern_setup_app_component_boot_manager_fallback += "\n  ModernSetupPkg/Universal/ModernBootMaintenanceDxe/ModernBootMaintenanceDxe.inf {\n    <LibraryClasses>\n      NULL|MdeModulePkg/Library/BootMaintenanceManagerUiLib/BootMaintenanceManagerUiLib.inf\n  }"
+modern_setup_app_uiapp_fdf_inf += "\n  INF ModernSetupPkg/Universal/ModernBootMaintenanceDxe/ModernBootMaintenanceDxe.inf"
+
 # In lvgl mode the SAME ModernDisplayEngineDxe interaction backend is used as in
 # modern mode; only the renderer library class is swapped to the LVGL-backed
 # implementation (below), and IntrinsicLib is force-linked because the renderer
@@ -347,6 +359,8 @@ if usb_pointer_fdf_inf not in fdf:
     )
 (overlay / "OvmfX64ModernSetup.fdf").write_text(fdf)
 PY
+
+python3 "${PKG_DIR}/Scripts/SaveReview/wire.py" "${WORKSPACE}" "${MODERN_SETUP_DISPLAY_ENGINE}" OvmfX64ModernSetup.dsc OvmfX64ModernSetup.fdf
 
 echo "Generated: ${OVERLAY_DIR}/OvmfX64ModernSetup.dsc"
 echo "Generated: ${OVERLAY_DIR}/OvmfX64ModernSetup.fdf"

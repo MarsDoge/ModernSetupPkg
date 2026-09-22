@@ -12,6 +12,57 @@
 
 EFI_HANDLE      mModernSetupImageHandle;
 
+STATIC CONST SETUP_PAGE  mModernSetupTopNavPages[] = {
+  PageDashboard,
+  PageDevices,
+  PageBoot,
+  PageSecurity,
+  PageExit
+};
+
+STATIC
+SETUP_PAGE
+ModernSetupNormalizeTopNavPage (
+  IN SETUP_PAGE  Page
+  )
+{
+  switch (Page) {
+    case PageDashboard:
+    case PageBoot:
+    case PageSecurity:
+    case PageExit:
+      return Page;
+    case PageSystemInfo:
+      return PageDashboard;
+    default:
+      return PageDevices;
+  }
+}
+
+STATIC
+SETUP_PAGE
+ModernSetupMoveTopNavPage (
+  IN SETUP_PAGE  Page,
+  IN BOOLEAN     Forward
+  )
+{
+  UINTN       Index;
+  SETUP_PAGE  TopPage;
+
+  TopPage = ModernSetupNormalizeTopNavPage (Page);
+  for (Index = 0; Index < ARRAY_SIZE (mModernSetupTopNavPages); Index++) {
+    if (mModernSetupTopNavPages[Index] == TopPage) {
+      if (Forward) {
+        return mModernSetupTopNavPages[(Index + 1) % ARRAY_SIZE (mModernSetupTopNavPages)];
+      }
+
+      return mModernSetupTopNavPages[(Index == 0) ? (ARRAY_SIZE (mModernSetupTopNavPages) - 1) : (Index - 1)];
+    }
+  }
+
+  return PageDashboard;
+}
+
 /**
   Cancel and release the header-clock refresh timer, if one was armed.
 
@@ -77,6 +128,7 @@ UefiMain (
   UINTN                     OldDeviceSelection;
   UINTN                     OldPreferencesSelection;
   UINTN                     OldExitSelection;
+  UINTN                     OldQuickSettingsSelection;
   BOOLEAN                   OldLanguageDropdownOpen;
   UINTN                     OldLanguageDropdownSelection;
   BOOLEAN                   OldPreferencePopupOpen;
@@ -157,6 +209,15 @@ UefiMain (
   for (;;) {
     if (Redraw) {
       Theme = ModernUiGetThemeForPreference (mModernSetupPreferences.ThemeId);
+      // Native configuration may remove rows. Clamp before painting or accepting
+      // another key, using the refreshed visible count rather than stale indices.
+      if ((Page == PageBoot) || (Page == PageDevices)) {
+        SelectableCount = ModernSetupGetPageSelectableCount (&Ui, Page);
+        Selection = ModernSetupGetPageSelection (Page, DashboardSelection, BootSelection, DeviceSelection, PreferencesSelection, ExitSelection);
+        Selection = (SelectableCount == 0) ? 0 : MIN (Selection, SelectableCount - 1);
+        ModernSetupSetPageSelection (Page, Selection, &DashboardSelection, &BootSelection, &DeviceSelection, &PreferencesSelection, &ExitSelection);
+      }
+
       //
       // The full repaint below invalidates any saved under-cursor pixels; the
       // cursor is then re-composited (with a fresh capture) on top of the new
@@ -213,6 +274,7 @@ UefiMain (
     OldDeviceSelection           = DeviceSelection;
     OldPreferencesSelection      = PreferencesSelection;
     OldExitSelection             = ExitSelection;
+    OldQuickSettingsSelection    = mModernSetupQuickSettingsSelection;
     OldLanguageDropdownOpen      = mModernSetupLanguageDropdownOpen;
     OldLanguageDropdownSelection = mModernSetupLanguageDropdownSelection;
     OldPreferencePopupOpen       = mModernSetupPreferencePopupOpen;
@@ -265,12 +327,45 @@ UefiMain (
       // event, so the shared Enter handling below stays the single owner of
       // activation semantics.
       //
+      // An open preference popup owns the click, including outside dismissal.
+      // Never let the same press activate a background row or navigation tab.
+      if (ModernSetupHandlePreferencePopupClick (&Ui, PointerX, PointerY, StatusMessage, sizeof (StatusMessage))) {
+        Redraw = TRUE;
+        continue;
+      }
+
       if (ModernSetupHitTestTab (&Ui, Page, PointerX, PointerY, &TabHit)) {
         Page  = TabHit;
         Focus = SetupFocusNav;
         mModernSetupLanguageDropdownOpen = FALSE;
         ModernSetupCancelPreferencePopup ();
         StatusMessage[0] = L'\0';
+        Redraw = TRUE;
+        continue;
+      }
+
+      if (ModernSetupHitTestSecondaryNav (&Ui, Page, PointerX, PointerY, &TabHit)) {
+        Page  = TabHit;
+        Focus = SetupFocusNav;
+        mModernSetupLanguageDropdownOpen = FALSE;
+        ModernSetupCancelPreferencePopup ();
+        StatusMessage[0] = L'\0';
+        Redraw = TRUE;
+        continue;
+      }
+
+      if (Page == PageCatalog) {
+        if (ModernSetupCatalogInput (&Ui, ModernUiInputPointer, PointerX, PointerY)) {
+          Focus = SetupFocusContent;
+        } else {
+          MODERN_UI_RECT  CatalogPanel;
+          CatalogPanel = ModernSetupContentRect (&Ui);
+          if ((PointerX >= CatalogPanel.X) && (PointerX < CatalogPanel.X + CatalogPanel.Width) &&
+              (PointerY >= CatalogPanel.Y) && (PointerY < CatalogPanel.Y + 32)) {
+            Page = PageDevices;
+          }
+          Focus = SetupFocusNav;
+        }
         Redraw = TRUE;
         continue;
       }
@@ -288,13 +383,16 @@ UefiMain (
 
         Focus      = SetupFocusContent;
         Event.Type = ModernUiInputEnter;
+      } else if ((Page == PageSecurity) && ModernSetupHitTestPageListRow (&Ui, Page, PointerX, PointerY, &ListRowHit)) {
+        Focus = SetupFocusContent;
+        Event.Type = ModernUiInputEnter;
       } else if (ModernSetupHitTestPageListRow (&Ui, Page, PointerX, PointerY, &ListRowHit)) {
         //
-        // Boot / Devices / Preferences list rows are two-stage: the first click
-        // only selects the row (focus + highlight), and a second click on the
-        // already-selected row activates it (launch boot option, open the
-        // native HII form, or open the preference popup) -- so a stray click
-        // never launches anything. Activation reuses the shared Enter handling.
+        // Boot / Devices / Preferences / Quick Settings list rows are
+        // two-stage: the first click only selects the row (focus + highlight),
+        // and a second click on the already-selected row activates it. Quick
+        // Settings activation is still read-only: it reports the native owner
+        // or handoff affordance instead of writing platform policy.
         //
         ListSelPtr = NULL;
         switch (Page) {
@@ -306,6 +404,9 @@ UefiMain (
             break;
           case PagePreferences:
             ListSelPtr = &PreferencesSelection;
+            break;
+          case PageQuickSettings:
+            ListSelPtr = &mModernSetupQuickSettingsSelection;
             break;
           default:
             break;
@@ -408,6 +509,13 @@ UefiMain (
       }
     }
 
+    if ((Page == PageCatalog) && (Focus == SetupFocusContent) &&
+        ModernSetupCatalogInput (&Ui, Event.Type, 0, 0)) {
+      StatusMessage[0] = L'\0';
+      Redraw = TRUE;
+      continue;
+    }
+
     switch (Event.Type) {
       case ModernUiInputUp:
         if ((Focus == SetupFocusContent) && (Page == PagePreferences) && mModernSetupPreferencePopupOpen) {
@@ -422,6 +530,10 @@ UefiMain (
           } else {
             Focus = SetupFocusNav;
           }
+        } else if ((Focus == SetupFocusNav) && (Page != PageDashboard)) {
+          Page = ModernSetupMoveSecondaryNavPage (Page, FALSE);
+          mModernSetupLanguageDropdownOpen = FALSE;
+          ModernSetupCancelPreferencePopup ();
         } else if (Focus == SetupFocusContent) {
           SelectableCount = ModernSetupGetPageSelectableCount (&Ui, Page);
           if (SelectableCount > 0) {
@@ -438,6 +550,10 @@ UefiMain (
           ModernSetupHandlePreferencePopupDown ();
         } else if ((Focus == SetupFocusContent) && (Page == PageExit) && mModernSetupLanguageDropdownOpen) {
           mModernSetupLanguageDropdownSelection = (mModernSetupLanguageDropdownSelection + 1) % MODERN_SETUP_LANGUAGE_OPTION_COUNT;
+        } else if ((Focus == SetupFocusNav) && (Page != PageDashboard)) {
+          Page = ModernSetupMoveSecondaryNavPage (Page, TRUE);
+          mModernSetupLanguageDropdownOpen = FALSE;
+          ModernSetupCancelPreferencePopup ();
         } else if (Focus == SetupFocusNav) {
           if (ModernSetupGetPageSelectableCount (&Ui, Page) > 0) {
             Focus = SetupFocusContent;
@@ -479,7 +595,7 @@ UefiMain (
             DashboardSelection = (DashboardSelection == 0) ? (ModernSetupDashboardVisibleQuickCardCount () - 1) : (DashboardSelection - 1);
           }
         } else if (Focus == SetupFocusNav) {
-          Page = (Page == 0) ? (PageMax - 1) : (Page - 1);
+          Page = ModernSetupMoveTopNavPage (Page, FALSE);
           mModernSetupLanguageDropdownOpen = FALSE;
           ModernSetupCancelPreferencePopup ();
         } else {
@@ -491,7 +607,7 @@ UefiMain (
         break;
       case ModernUiInputRight:
         if (Focus == SetupFocusNav) {
-          Page = (Page + 1) % PageMax;
+          Page = ModernSetupMoveTopNavPage (Page, TRUE);
           mModernSetupLanguageDropdownOpen = FALSE;
           ModernSetupCancelPreferencePopup ();
         } else if (Page == PageDashboard) {
@@ -551,7 +667,7 @@ UefiMain (
           Redraw = TRUE;
         } else if (Page == PageBoot) {
           if (ModernSetupBootSelectionIsNativeFallback (BootSelection, ModernSetupGetPageSelectableCount (&Ui, PageBoot))) {
-            Status = ModernSetupLaunchUiAppFallback (ImageHandle);
+            Status = ModernSetupOpenBootConfiguration (ImageHandle);
           } else {
             Status = ModernSetupLaunchSelectedBootOption (BootSelection);
           }
@@ -567,6 +683,13 @@ UefiMain (
           } else {
             ModernSetupHandlePreferencesEnter (PreferencesSelection, StatusMessage, sizeof (StatusMessage));
           }
+          Redraw = TRUE;
+        } else if (Page == PageSecurity) {
+          Status = ModernSetupOpenSecureBootConfiguration ();
+          UnicodeSPrint (StatusMessage, sizeof (StatusMessage), L"Secure Boot setup returned: %r", Status);
+          Redraw = TRUE;
+        } else if (Page == PageQuickSettings) {
+          ModernSetupHandleQuickSettingsEnter (mModernSetupQuickSettingsSelection, StatusMessage, sizeof (StatusMessage));
           Redraw = TRUE;
         } else if (Page == PageExit) {
           if (ExitSelection == 0) {
@@ -619,6 +742,7 @@ UefiMain (
         (OldDeviceSelection == DeviceSelection) &&
         (OldPreferencesSelection == PreferencesSelection) &&
         (OldExitSelection == ExitSelection) &&
+        (OldQuickSettingsSelection == mModernSetupQuickSettingsSelection) &&
         (OldLanguageDropdownOpen == mModernSetupLanguageDropdownOpen) &&
         (OldLanguageDropdownSelection == mModernSetupLanguageDropdownSelection) &&
         (OldPreferencePopupOpen == mModernSetupPreferencePopupOpen) &&

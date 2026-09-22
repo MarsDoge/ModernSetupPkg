@@ -12,7 +12,38 @@ this file as both a release log and a lightweight development progress record.
 
 ## Unreleased
 
+- **Setup catalog and native navigation / 配置目录与原生入口。** Add 21 categories
+  and 203 unbound settings with N/A values and help. Selected Boot/Secure Boot
+  items open native owner pages without unrelated fallback. Replace the unused
+  App countdown editor with native Boot Maintenance navigation.
+- **Build identity and narrow input / 构建标识与窄屏操作。** Display a frozen
+  Asia/Shanghai build stamp and expose clickable catalog navigation below the
+  secondary-rail breakpoint.
+- **Native owner lifetime / 原生页面生命周期。** Keep Boot Maintenance in a
+  lazily loaded resident driver; handle failed image starts without duplicate
+  owner registration.
+
+- **Native HII clock and presentation / 原生 HII 时钟与呈现。** Idle and modal
+  key waits update only the header clock; form refresh and exit-timeout semantics
+  stay native. Full-screen graphical forms gain a taller private row grid,
+  graphite focus surfaces, real form titles and a dedicated help area without
+  duplicate hardware telemetry. Popup viewport follows the same grid.
+
+- **Secure Boot native HII handoff / Secure Boot 原生配置交接。** Quick Settings
+  and Security enter the exact SecureBootConfig formset through shared DeviceData
+  and FormBrowser, retaining ModernDisplayEngine/LVGL. Availability is separate
+  from enabled state; absence never launches an unrelated picker. Handoff returns
+  invalidate caches even on errors. Shared pointer geometry and host routing/smoke
+  guards added; TPM presence enum corrected without adding a TPM config entry.
+  两处入口共用原生交接，缺失不误跳转，返回后刷新摘要。
+
 ### Added
+
+- **Quick Settings native-owner affordances.** Quick Settings rows are now
+  selectable and Enter reports the native owner / handoff status for each
+  read-only high-churn policy summary. The App still does not write platform
+  policy, parse IFR, or call ConfigAccess; actual edits remain native
+  HII/FormBrowser-owned.
 
 - **Russian (ru) UI language.** The language selector is now three-way
   (Chinese / English / Russian); selecting Русский switches the whole
@@ -23,6 +54,64 @@ this file as both a release log and a lightweight development progress record.
   are a best-effort technical pass pending native review.
 
 ### Changed
+
+- **Boot configuration now enters native Boot Maintenance through FormBrowser.**
+  Native Boot Tools matches the installed formset through DeviceData; replace-UiApp
+  overlays retain the upstream HII-owner constructor, including with LVGL.
+  Missing formsets retain the native app fallback (BootManagerMenuApp is only
+  a picker). Boot/device/provider caches refresh lazily after FormBrowser or
+  native-app return, including errors. Existing BootNext/BootOrder wrappers are
+  unchanged; no new App policy writes.
+- **启动配置优先进入原生 Boot Maintenance。** Native Boot Tools 通过 DeviceData
+  匹配已安装的 formset；替换 UiApp 的 overlay 保留上游 HII 所有者构造函数，
+  使用所选 DisplayEngine（含 LVGL）。缺少 formset 时保留原生应用回退；
+  BootManagerMenuApp 只是启动选择器。FormBrowser 或原生应用返回（含错误）后，
+  启动、设备及 provider 缓存按需重建；不新增 App 策略写入，现有 BootNext/BootOrder
+  wrapper 保持不变。
+
+- **Top navigation now exposes only reduced top-level IA categories.**
+  ModernSetupApp limits the horizontal strip to Main, Advanced, Boot, Security,
+  and Exit. Firmware, Diagnostics, Management, Power, Performance, Quick
+  Settings, Assets, and Preferences stay available as Dashboard/second-level
+  destinations instead of first-row tabs.
+- **Top navigation now has a Colorful/IBV-style vertical second-level rail.**
+  The first row stays limited to Main, Advanced, Boot, Security, and Exit, while
+  a fixed-visible left-side vertical rail, shows only detail/category-page groups; the Dashboard remains a
+  full-width entry directory without the rail. The rail shows the selected category's
+  groups, such as Platform, Runtime, Service, and UX under Advanced. Clicking a
+  group routes to its representative third-level page; detailed destinations
+  remain in the page title hierarchy and content cards/lists.
+
+- **Audience-specific ModernSetup feedback is now documented across product and provider docs.**
+  Productization docs define interface-user feedback as category/display needs,
+  while ProviderDataContract is explicitly the developer/contributor view of the
+  interface-flow implementation.
+
+- **Boot, Security, and Power pages now separate UI-user hints from developer contracts.**
+  Visible page copy gives concise user-facing ownership and fallback guidance,
+  while `AppFeatureStandard.md` documents that the full source/access/provider
+  contract belongs in contributor docs, issues, code comments, and smoke guards.
+
+- **System Information now follows the IBV Main-page grouping.**
+  `PageSystemInfo` groups read-only data as System Identity, Firmware Identity,
+  CPU, Memory, and Runtime, and surfaces provider-reported CPU speed/cache/logical
+  processor detail while keeping provider-health/ACPI/SMBIOS service diagnostics
+  on Diagnostics.
+
+- **Provider standard-table access is more centralized.**
+  `ModernUiPlatformTablesLib` now exposes `ModernUiSmbiosPresent()` and
+  `ModernUiAcpiPresent()` source-liveness helpers. Diagnostics and Power
+  providers consume those helpers instead of private SMBIOS/ACPI configuration
+  table probes, and smoke now rejects provider-side direct SMBIOS protocol or
+  ACPI configuration-table access outside the shared table layer.
+
+- **IBV-style product IA and field-source contracts are now explicit.**
+  `AppFeatureStandard.md`, `ProductizationFeatureMatrix.md`, and
+  `ProviderDataContract.md` now map the current `SETUP_PAGE` enum to a
+  product-facing Main / Advanced / Chipset / Boot / Security / Server
+  Management / Power & Thermal / Diagnostics / Preferences / Save & Exit IA,
+  and require new provider-visible fields to document source, access API,
+  provider owner, display surface, native owner, fallback, and status.
 
 - **Native HII form right rail now shows real SMBIOS system data.** The
   in-setup chrome's right rail previously displayed a static, partly-placeholder

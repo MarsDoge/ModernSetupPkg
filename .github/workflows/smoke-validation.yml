@@ -26,3 +26,30 @@ jobs:
 
       - name: Run smoke validation
         run: python3 Tests/Smoke/smoke_validate.py
+
+      - name: Test catalog localization
+        run: python3 Tests/Smoke/catalog_localization_test.py
+
+      - name: Check out pinned native browser SDK
+        uses: actions/checkout@v4
+        with:
+          repository: tianocore/edk2
+          ref: b03a21a63e3bd001f52c527e5a57feddb53a690b
+          path: External/edk2
+          persist-credentials: false
+
+      - name: Test native save review and platform integration
+        run: |
+          python3 Tests/Smoke/save_review_runtime_test.py
+          python3 Tests/Smoke/save_review_overlay_test.py
+          python3 Tests/Smoke/save_review_pointer_test.py
+          python3 Tests/Smoke/save_review_layout_test.py
+          python3 Tests/Smoke/preference_popup_pointer_test.py --edk2 External/edk2
+
+      - name: Test Boot configuration routing
+        run: python3 Tests/Smoke/boot_handoff_test.py
+
+      - name: Test HII clock event routing
+        run: |
+          python3 Tests/Smoke/hii_clock_test.py
+          python3 Tests/Smoke/hii_presentation_test.py

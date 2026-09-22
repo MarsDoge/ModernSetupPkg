@@ -47,6 +47,12 @@ def collect_chars(sources: list[Path]) -> list[str]:
     for source in sources:
         if source.suffix.lower() == ".uni":
             chars.update(collect_uni_chars(source))
+        elif source.name.endswith('.generated.h'):
+            # Catalog CHAR8 metadata uses octal UTF-8 bytes, not wide literals.
+            for literal in re.findall(r'"((?:[^"\\]|\\.)*)"', source.read_text(encoding='ascii')):
+                raw = re.sub(r'\\([0-7]{3})', lambda m: chr(int(m[1], 8)), literal)
+                decoded = raw.encode('latin-1').decode('utf-8')
+                chars.update(c for c in decoded if ord(c) > 0x7F)
         else:
             chars.update(collect_c_chars(source))
     return sorted(chars, key=ord)
@@ -151,12 +157,32 @@ def main() -> None:
     )
     parser.add_argument("--glyph-size", default=18, type=int, help="Fixed glyph bitmap size in pixels.")
     parser.add_argument("--font-size", default=17, type=int, help="FreeType font size used for glyph rendering.")
+    parser.add_argument('--font-index', default=0, type=int,
+                        help='Collection face index (Noto CJK Regular TTC uses 2 for SC).')
+    parser.add_argument('--preserve-existing', action='store_true',
+                        help='Keep existing glyph bitmaps and add missing source characters only.')
     args = parser.parse_args()
 
     chars = collect_chars(args.source)
-    font = ImageFont.truetype(str(args.font), args.font_size)
-    pixels_by_char = {char: render_bitmap(font, char, args.glyph_size) for char in chars}
-    write_c_file(args.output, chars, pixels_by_char, args.glyph_size)
+    font = ImageFont.truetype(str(args.font), args.font_size, index=args.font_index)
+    existing = {}
+    if args.preserve_existing and args.output.exists():
+        existing = {chr(int(m[1], 16)): m[0] for m in re.finditer(
+            r'^  \{ 0x([0-9A-Fa-f]+),.*$', args.output.read_text(encoding='utf-8'), re.M)}
+        if not existing:
+            raise ValueError('No existing glyphs found; refusing lossy regeneration')
+    missing = [char for char in chars if char not in existing]
+    pixels_by_char = {char: render_bitmap(font, char, args.glyph_size) for char in missing}
+    write_c_file(args.output, missing, pixels_by_char, args.glyph_size)
+    generated = args.output.read_text(encoding='utf-8')
+    new_rows = {chr(int(m[1], 16)): m[0] for m in re.finditer(
+        r'^  \{ 0x([0-9A-Fa-f]+),.*$', generated, re.M)}
+    existing.update(new_rows)
+    start = generated.index('mModernUiBuiltinGlyphs[] = {') + len('mModernUiBuiltinGlyphs[] = {')
+    end = generated.index('};', start)
+    chars = sorted(existing, key=ord)
+    generated = generated[:start] + '\n' + '\n'.join(existing[c] for c in chars) + '\n' + generated[end:]
+    args.output.write_text(generated, encoding='utf-8')
     print(f"Wrote {args.output} with {len(chars)} glyphs")
 
 

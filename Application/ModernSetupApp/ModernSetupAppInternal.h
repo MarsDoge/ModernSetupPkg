@@ -45,7 +45,7 @@
 #define CARD_GAP           16
 #define TOP_BAR_HEIGHT     54
 #define TAB_BAR_HEIGHT     54
-#define PAGE_TITLE_HEIGHT  64
+#define PAGE_TITLE_HEIGHT  80
 #define FOOTER_HEIGHT      36
 #define SCREEN_MARGIN      24
 #define MAX_BOOT_ROWS      9
@@ -86,6 +86,13 @@
 //
 #define MODERN_SETUP_LANGUAGE_OPTION_COUNT  3
 
+//
+// Quick Settings is a read-only high-churn policy summary. Rows are selectable
+// only to expose native handoff/status affordances; ModernSetupApp does not own
+// these platform policy values.
+//
+#define MODERN_SETUP_QUICK_SETTINGS_ROW_COUNT  10
+
 typedef enum {
   PageDashboard = 0,
   PageSystemInfo,
@@ -101,6 +108,7 @@ typedef enum {
   PageServerInventory,
   PagePreferences,
   PageExit,
+  PageCatalog,
   PageMax
 } SETUP_PAGE;
 
@@ -201,8 +209,14 @@ typedef enum {
 } MODERN_SETUP_PREFERENCE_POPUP_KIND;
 
 extern EFI_HANDLE  mModernSetupImageHandle;
+EFI_STATUS ModernSetupOpenBootConfigurationWithFallback (IN EFI_HANDLE ImageHandle, IN BOOLEAN AllowFallback);
+UINTN ModernSetupCatalogSelectableCount (VOID);
+CONST CHAR16 *ModernSetupCatalogUi (CONST CHAR16 *English, CONST CHAR16 *Chinese);
+VOID ModernSetupDrawCatalog (IN MODERN_UI_RENDER_CONTEXT *Ui, IN CONST MODERN_UI_THEME *Theme, IN SETUP_FOCUS Focus);
+BOOLEAN ModernSetupCatalogInput (IN MODERN_UI_RENDER_CONTEXT *Ui, IN MODERN_UI_INPUT_TYPE Type, IN UINTN X, IN UINTN Y);
 extern BOOLEAN     mModernSetupLanguageDropdownOpen;
 extern UINTN       mModernSetupLanguageDropdownSelection;
+extern UINTN       mModernSetupQuickSettingsSelection;
 extern BOOLEAN     mModernSetupPreferencePopupOpen;
 extern UINTN       mModernSetupPreferencePopupRow;
 extern UINTN       mModernSetupPreferencePopupSelection;
@@ -234,6 +248,11 @@ ModernSetupInvalidateDeviceEntriesCache (
 
 MODERN_UI_RECT
 ModernSetupContentRect (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui
+  );
+
+MODERN_UI_RECT
+ModernSetupDashboardContentRect (
   IN MODERN_UI_RENDER_CONTEXT  *Ui
   );
 
@@ -434,6 +453,36 @@ ModernSetupHitTestTab (
   );
 
 /**
+  Move within the active category's second-level rail using keyboard navigation.
+**/
+SETUP_PAGE
+ModernSetupMoveSecondaryNavPage (
+  IN SETUP_PAGE  Page,
+  IN BOOLEAN     Forward
+  );
+
+/**
+  Hit-test the fixed second-level subnav row for a pointer click.
+
+  @param[in]  Ui    Initialized render context. Must not be NULL.
+  @param[in]  Page  Currently selected page.
+  @param[in]  X     Pointer X in pixels.
+  @param[in]  Y     Pointer Y in pixels.
+  @param[out] Hit   Receives the representative page for the clicked group.
+
+  @retval TRUE   (X,Y) lies on a visible second-level chip; *Hit is set.
+  @retval FALSE  No chip at this position; *Hit is unchanged.
+**/
+BOOLEAN
+ModernSetupHitTestSecondaryNav (
+  IN  MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN  SETUP_PAGE                Page,
+  IN  UINTN                     X,
+  IN  UINTN                     Y,
+  OUT SETUP_PAGE                *Hit
+  );
+
+/**
   Move (or first-draw) the pointer cursor using save-under compositing.
 
   The pixels beneath the cursor are captured before the arrow is drawn and
@@ -607,6 +656,13 @@ ModernSetupHandleLanguageSelectorEnter (
   IN  UINTN   StatusSize
   );
 
+VOID
+ModernSetupHandleQuickSettingsEnter (
+  IN  UINTN   Selection,
+  OUT CHAR16  *StatusMessage,
+  IN  UINTN   StatusSize
+  );
+
 CONST CHAR16 *
 ModernSetupGetPreferenceChoiceName (
   IN UINTN  Row,
@@ -649,6 +705,26 @@ ModernSetupCommitPreferencePopup (
   IN  UINTN   StatusSize
   );
 
+MODERN_UI_RECT
+ModernSetupPreferencePopupRect (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui
+  );
+
+MODERN_UI_RECT
+ModernSetupPreferencePopupChoiceRect (
+  IN MODERN_UI_RECT  Popup,
+  IN UINTN          Choice
+  );
+
+BOOLEAN
+ModernSetupHandlePreferencePopupClick (
+  IN  MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN  UINTN                     X,
+  IN  UINTN                     Y,
+  OUT CHAR16                    *StatusMessage,
+  IN  UINTN                     StatusSize
+  );
+
 VOID
 ModernSetupHandlePreferenceInputKey (
   IN  CONST MODERN_UI_INPUT_EVENT  *Event,
@@ -661,6 +737,36 @@ ModernSetupHandlePreferencesEnter (
   IN  UINTN   Selection,
   OUT CHAR16  *StatusMessage,
   IN  UINTN   StatusSize
+  );
+
+EFI_STATUS
+ModernSetupFindSecureBootConfiguration (
+  OUT UINTN  *Selection
+  );
+
+CONST CHAR16 *
+ModernSetupSecureBootEntryText (
+  VOID
+  );
+
+EFI_STATUS
+ModernSetupOpenSecureBootConfiguration (
+  VOID
+  );
+
+MODERN_UI_RECT
+ModernSetupGetSecurityEntryRect (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui
+  );
+
+UINTN
+ModernSetupQuickSettingsRowOffset (
+  IN UINTN  Row
+  );
+
+EFI_STATUS
+ModernSetupOpenBootConfiguration (
+  IN EFI_HANDLE  ImageHandle
   );
 
 EFI_STATUS

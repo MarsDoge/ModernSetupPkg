@@ -17,7 +17,33 @@ the **evolution rule**. It is the data-side companion to the presentation-side
 [App Feature Standard](AppFeatureStandard.md) and the reference
 [IBV and Platform Setup Survey](IbvAndPlatformSetupSurvey.md).
 
+Audience: this is the **developer/contributor** view of interface-flow
+implementation. Interface users should propose category/display needs in terms
+of page, label, visible value/status, row behavior, and screenshots; this
+document then maps those requests to source/access/provider/native-owner/fallback
+contracts.
+
 Key words **MUST / MUST NOT / SHOULD / MAY** are RFC 2119.
+
+## Secure Boot native configuration
+
+Quick Settings Secure Boot (row 4) and Security's selectable **Secure Boot
+configuration** entry match `5daf50a5-ea81-4de2-8f9b-cabda9cf5c14` from pinned
+edk2 `SecurityPkg/Include/Guid/SecureBootConfigHii.h`. Discovery uses all cached
+DeviceData entries, not translated titles or the visible Devices row cap.
+`Open setup` / `Unavailable` / `Discovery error` describe entry discovery,
+independently of the read-only SecureBoot enabled state. Activation refreshes
+discovery, then uses `ModernUiDeviceDataOpenEntry()` and FormBrowser2; the
+configured ModernDisplayEngine/LVGL remains the renderer. Missing forms return
+`EFI_NOT_FOUND`, never UiApp/BootManagerMenuApp or unrelated HII. Native callbacks
+own keys and policy; no new IFR parsing, ConfigAccess or variable writes are added.
+The shared handoff invalidates boot/device/provider caches even on error, so
+security summaries refresh lazily on return. TPM remains a presence summary,
+not a configuration entry. Keyboard and pointer use the same activation path;
+Quick Settings retains select-then-activate clicks with shared grouped-row geometry.
+
+Host coverage: `python3 Tests/Smoke/boot_handoff_test.py` and smoke guards.
+Firmware builds and LVGL visual/callback validation remain separate requirements.
 
 ## 1. Principles
 
@@ -26,9 +52,11 @@ Key words **MUST / MUST NOT / SHOULD / MAY** are RFC 2119.
    from hard-coded board assumptions or a vendor-private back channel.
 2. **Read-only.** Providers **MUST NOT** write variables, program hardware, or
    change policy. They observe; native FormBrowser/HII owns every mutation.
-3. **Graceful absence.** A field whose source is absent **MUST** degrade to a
-   localized `N/A`/`Unknown` (or a hidden row), never tofu, garbage, or a fake
-   value.
+3. **Graceful absence.** A catalog field whose source/owner is absent **MUST**
+   remain visible as `N/A`, not hidden, editable, or submittable; it remains
+   selectable for help/reason. Valid `Disabled` / `0` data is not absence.
+   Platform security suppression and authorization still take precedence (§2.2).
+   Other read-only summaries may use localized `Unknown`, never fake values.
 4. **Architecture-neutral gating.** A field is gated by *source liveness*, not by
    a hard-coded `ARCH`. The same App build runs on X64 / AARCH64 / LOONGARCH64 /
    RISCV64; only which sources answer differs (see §6).
@@ -64,6 +92,74 @@ Note: some platforms emphasize a **Trusted Cryptography Module (TCM)** alongside
 instead of TPM, and a **platform/vendor identity** string. Both map to
 existing read-only sources (TCG2 presence, SMBIOS Type 1/2) — no new policy
 surface is implied.
+
+## 2.1 Field contract shape
+
+Every new provider-visible field **MUST** be documented with the same contract
+shape before or alongside code. This keeps the App behaving like an IBV setup
+front end rather than a collection of ad-hoc probes.
+
+| Contract column | Meaning |
+| --- | --- |
+| Field | User-visible value or entry hint, e.g. BIOS Version, CPU Model, Above 4G entry present. |
+| Standard source | SMBIOS type/field, ACPI table, UEFI/PI protocol, UEFI variable, Boot#### variable, or Boot Services query. |
+| Access API | The library/API that reads it (`ModernUiPlatformTablesLib`, BootDataLib, PciIo, DiskInfo, SimpleNetwork, etc.). |
+| Provider owner | The `ModernUi*DataLib` summary that owns the normalized value. |
+| Display surface | Main / Advanced / Chipset / Boot / Security / Server Management / Power & Thermal / Diagnostics / Save & Exit. |
+| Native owner | The HII/FormBrowser page or platform service that owns real edits, if any. |
+| Fallback | `N/A`, `Unknown`, or a verified lower-priority source per §4; no hiding catalog items merely because their source/owner is missing. |
+| Status | Done, Gap, or Roadmap. |
+
+Example:
+
+| Field | Standard source | Access API | Provider owner | Display surface | Native owner | Fallback | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| BIOS Version | SMBIOS Type 0 `BiosVersion` | `ModernUiPlatformTablesLib` | `ModernUiPlatformDataLib` | Main | Native firmware information page, if present | `gST->FirmwareRevision` / `Unknown` | Done |
+| Above 4G entry present | Exact platform HII owner registration required; PCIe probes alone do not prove an editable entry | Read-only registration resolver (target) | `ModernUiPcieDataLib` domain | Advanced / Chipset / Server Management | Registered platform PCIe policy HII | Visible `N/A`; selectable help, no edit/submit | Roadmap (exact binding; existing hints are not proof) |
+
+## 2.2 Generic settings catalog and variable bindings (target contract)
+
+This section specifies integration requirements, not an implemented generic UI,
+registration resolver, or editing backend. Existing native Secure Boot routing
+above remains a specific implementation, not evidence that other settings work.
+
+- **Catalog identity:** stable item ID, category, localized label/help, value
+  type/options/units, read source/provider, validity, provenance, and coverage
+  status. Catalog inclusion MUST NOT be reported as platform implementation.
+- **Exact owner:** register formset GUID and verified form/question identifiers,
+  with device-path/instance disambiguation as needed. Resolve against live HII
+  and revalidate on activation. Titles, translated strings, keywords, and protocol
+  presence MUST NOT guess an owner. Missing/ambiguous/stale targets are unavailable;
+  no unrelated form or Boot picker fallback. `SendForm()` accepts a form target,
+  not a `QuestionId`; question focus needs a separately verified native mechanism.
+- **Independent states:** keep value validity, owner availability, edit/submit
+  capability, and selection/help capability separate. Missing source/owner/binding
+  keeps the catalog row visible with `N/A` and a reason, non-editable and
+  non-submittable but selectable for explanation. A verified read-only value may
+  remain alongside `N/A` entry availability. Real `Disabled` / `0` values MUST NOT
+  be converted to `N/A`, nor may unknown values default to `Disabled` / `0`.
+- **Security precedence:** this is not permission to bypass native authorization,
+  security suppression, `suppressif`, `grayoutif`, or `disableif`. Respect native
+  hiding/restrictions and do not reveal protected metadata through catalog help.
+- **Binding provenance:** record the platform/revision, source evidence, owner,
+  storage kind, and, where applicable, verified variable name/GUID, attributes,
+  layout revision, offset/width or name/value key, encoding, range/options,
+  defaults, dependencies, reset requirements, and actual consumer. Unknown
+  GUIDs/offsets stay unbound; no label-based inference or copied board layouts.
+  Buffer/name-value/EFI-variable storage, callbacks, and services need not use
+  `DynamicHii`; it is one binding mechanism, not the sole configurable source.
+  Date/time belongs to platform RTC services (`GetTime` / `SetTime`), not App NV
+  preferences, and editing must remain with its native owner.
+- **No new write authority:** bindings describe data; they do not authorize App
+  or provider writes. Platform changes remain native FormBrowser/ConfigAccess
+  operations and owner service calls. No unavailable item enters pending changes
+  or reports saved. Submit success, read-back, and reset/reboot application are
+  separate states; persistence/effect claims require actual owner/consumer tests.
+
+See [Configurable Items and Quick Settings](ConfigurableItemsAndQuickSettings.md)
+for the matching presentation contract. Platform-specific bindings require an
+explicit reviewed contract, not a private provider back channel; unspecified
+fields remain gaps. This documentation slice adds no runtime access implementation.
 
 ## 3. Data-source map (domain → field → edk2 source → status)
 
@@ -115,7 +211,7 @@ not yet wired; **Roadmap** = larger follow-up.
 | Field | Standard source | Status |
 | --- | --- | --- |
 | Controller / root-bridge / endpoint / bridge counts | **PciIo / PciRootBridgeIo** enumeration | Done |
-| Policy-entry presence hints (ReBAR/4G/SR-IOV/ASPM/…) | protocol presence probes | Done (read-only hints) |
+| Policy-entry presence hints (ReBAR/4G/SR-IOV/ASPM/…) | protocol presence probes | Done (read-only hints only; not exact owner bindings or proof of editability) |
 | Per-device vendor/device ID, class | **PciIo** config space `0x00`/`0x09` | Done |
 | Per-device link speed / width | **PciIo** PCIe capability (`0x10` cap) config reads | Done |
 | Physical slot occupancy | **SMBIOS Type 9** (System Slots) | Gap |
@@ -180,7 +276,9 @@ in this order and fall through on absence:
    topology, SRAT/SLIT for NUMA).
 4. **UEFI core services** (memory map, handle database) as the architecture-
    neutral floor.
-5. **`N/A` / hidden row** when none answer.
+5. **Visible `N/A`** when none answer; catalog rows remain selectable for help,
+   not editable/submittable. A missing owner never justifies hiding the item;
+   platform security suppression remains authoritative (§2.2).
 
 Placeholder strings ("To Be Filled By O.E.M.", "Not Specified", …) **MUST** be
 treated as absent (already done for SMBIOS identity).
@@ -197,20 +295,23 @@ hid (the AArch64 packed-UUID fault).
 
 - `ModernUiSmbiosFindStructure(type, index)`, `ModernUiSmbiosTypePresent(type)`,
   NUL-safe `ModernUiSmbiosGetString()`, and `ModernUiSmbiosIsPlaceholder()`.
+- `ModernUiSmbiosPresent()` / `ModernUiAcpiPresent()` source-liveness probes
+  for providers that need to report whether SMBIOS/ACPI exists at all.
 - ACPI RSDP/XSDT (RSDT fallback) walk via `ModernUiAcpiFindTable(signature)` /
   `ModernUiAcpiTablePresent(signature)`.
-- `ModernUiPlatformDataLib` consumes it (its private SMBIOS string/placeholder
-  helpers and per-reader `LocateProtocol`+`GetNext` prologues were removed).
+- `ModernUiPlatformDataLib`, `ModernUiDiagnosticsDataLib`, and
+  `ModernUiPowerDataLib` consume it for standard table/source liveness instead
+  of private SMBIOS/ACPI/config-table probes.
 
-Remaining: migrate the other SMBIOS/ACPI-reading providers
-(`ModernUiPerformanceDataLib`, `ModernUiManagementDataLib`,
-`ModernUiPowerDataLib`, `ModernUiDiagnosticsDataLib`) onto it, then add a smoke
-guard that a provider `LocateProtocol`ing SMBIOS or walking ACPI directly
-(outside the shared lib) is a finding.
+Remaining: keep provider-specific live protocols (IPMI, Redfish, CpuIo2,
+AcpiSdt, etc.) local to their domain providers, but route SMBIOS/ACPI table
+liveness and structure lookup through `ModernUiPlatformTablesLib`. Smoke now
+guards this by rejecting direct SMBIOS protocol or ACPI configuration-table access
+from provider libraries outside the shared table layer.
 
-This is a pure refactor behind the existing `*Data.h` contract — no public API
-change — and is the prerequisite that makes the optional protocol step (§7)
-clean.
+This is an additive helper expansion behind the existing `*Data.h` summaries — no
+summary struct reordering and no provider ABI commitment — and is the
+prerequisite that makes the optional protocol step (§7) clean.
 
 ## 6. Architecture coverage (XArch)
 

@@ -73,6 +73,29 @@ extern CHAR16   gOptionBlockWidth;
 extern CHAR16   gHelpBlockWidth;
 extern CHAR16   *mUnknownString;
 extern BOOLEAN  gMisMatch;
+extern EFI_SCREEN_DESCRIPTOR  gScreenDimensions;
+
+// Atomically publish/remove the display, popup and save-review interfaces.
+EFI_STATUS
+ModernInstallSaveReview (
+  EFI_HANDLE *Handle,
+  EDKII_FORM_DISPLAY_ENGINE_PROTOCOL *Display,
+  EFI_HII_POPUP_PROTOCOL *Popup
+  );
+
+EFI_STATUS
+ModernUninstallSaveReview (
+  EFI_HANDLE Handle,
+  EDKII_FORM_DISPLAY_ENGINE_PROTOCOL *Display,
+  EFI_HII_POPUP_PROTOCOL *Popup
+  );
+
+/** Refresh only the graphical header clock, without changing form state. **/
+VOID
+EFIAPI
+ModernDisplayRefreshClock (
+  VOID
+  );
 
 /**
   Draw a ModernSetup row background for one FormBrowser statement.

@@ -1430,64 +1430,82 @@ UiWaitForEvent (
   EFI_STATUS     Status;
   UINTN          Index;
   UINTN          EventNum;
+  UINTN          RefreshIndex;
+  UINTN          ClockIndex;
   UINT64         Timeout;
   EFI_EVENT      TimerEvent;
-  EFI_EVENT      WaitList[3];
+  EFI_EVENT      ClockEvent;
+  EFI_EVENT      WaitList[4];
   UI_EVENT_TYPE  EventType;
 
-  TimerEvent = NULL;
-  Timeout    = FormExitTimeout (gFormData);
+  TimerEvent   = NULL;
+  ClockEvent   = NULL;
+  RefreshIndex = MAX_UINTN;
+  ClockIndex   = MAX_UINTN;
+  Timeout      = FormExitTimeout (gFormData);
+  WaitList[0]  = Event;
+  EventNum     = 1;
+
+  if (gFormData->FormRefreshEvent != NULL) {
+    RefreshIndex = EventNum;
+    WaitList[EventNum++] = gFormData->FormRefreshEvent;
+  }
 
   if (Timeout != 0) {
     Status = gBS->CreateEvent (EVT_TIMER, 0, NULL, NULL, &TimerEvent);
-
-    //
-    // Set the timer event
-    //
-    gBS->SetTimer (
-           TimerEvent,
-           TimerRelative,
-           Timeout
-           );
-  }
-
-  WaitList[0] = Event;
-  EventNum    = 1;
-  if (gFormData->FormRefreshEvent != NULL) {
-    WaitList[EventNum] = gFormData->FormRefreshEvent;
-    EventNum++;
-  }
-
-  if (Timeout != 0) {
-    WaitList[EventNum] = TimerEvent;
-    EventNum++;
-  }
-
-  Status = gBS->WaitForEvent (EventNum, WaitList, &Index);
-  ASSERT_EFI_ERROR (Status);
-
-  switch (Index) {
-    case 0:
-      EventType = UIEventKey;
-      break;
-
-    case 1:
-      if (gFormData->FormRefreshEvent != NULL) {
-        EventType = UIEventDriver;
+    if (!EFI_ERROR (Status)) {
+      Status = gBS->SetTimer (TimerEvent, TimerRelative, Timeout);
+      if (EFI_ERROR (Status)) {
+        gBS->CloseEvent (TimerEvent);
+        TimerEvent = NULL;
       } else {
-        ASSERT (Timeout != 0 && EventNum == 2);
-        EventType = UIEventTimeOut;
+        WaitList[EventNum++] = TimerEvent;
       }
-
-      break;
-
-    default:
-      ASSERT (Index == 2 && EventNum == 3);
-      EventType = UIEventTimeOut;
-      break;
+    }
   }
 
-  if (Timeout != 0) {
+  // The clock is presentation-only. Never synthesize a key, return to the
+  // browser, restart the form-exit timeout, or repaint the form on this tick.
+  Status = gBS->CreateEvent (EVT_TIMER, 0, NULL, NULL, &ClockEvent);
+  if (!EFI_ERROR (Status)) {
+    Status = gBS->SetTimer (ClockEvent, TimerPeriodic, ONE_SECOND);
+    if (EFI_ERROR (Status)) {
+      gBS->CloseEvent (ClockEvent);
+      ClockEvent = NULL;
+    } else {
+      ClockIndex = EventNum;
+      WaitList[EventNum++] = ClockEvent;
+    }
+  }
+
+  while (TRUE) {
+    Status = gBS->WaitForEvent (EventNum, WaitList, &Index);
+    ASSERT_EFI_ERROR (Status);
+    if (EFI_ERROR (Status)) {
+      continue;
+    }
+
+    if (Index == ClockIndex) {
+      ModernDisplayRefreshClock ();
+      continue;
+    }
+
+    if (Index == 0) {
+      EventType = UIEventKey;
+    } else if (Index == RefreshIndex) {
+      EventType = UIEventDriver;
+    } else {
+      EventType = UIEventTimeOut;
+    }
+
+    break;
+  }
+
+  if (ClockEvent != NULL) {
+    gBS->CloseEvent (ClockEvent);
+  }
+
+  if (TimerEvent != NULL) {
     gBS->CloseEvent (TimerEvent);
   }
 
@@ -2454,6 +2472,7 @@ DisplayOneMenu (
   //
   Status = ProcessOptions (MenuOption, FALSE, &OptionString, FALSE);
   if (EFI_ERROR (Status)) {
+    ModernDisplayResetHighlightRowTracking ();
     return Status;
   }
 
@@ -4364,29 +4383,22 @@ InitializeDisplayEngine (
                  ModernDisplayEngineStrings,
                  NULL
                  );
-  ASSERT (gHiiHandle != NULL);
+  if (gHiiHandle == NULL) {
+    return EFI_OUT_OF_RESOURCES;
+  }
 
-  //
-  // Install Form Display protocol
-  //
-  Status = gBS->InstallProtocolInterface (
-                  &mPrivateData.Handle,
-                  &gEdkiiFormDisplayEngineProtocolGuid,
-                  EFI_NATIVE_INTERFACE,
-                  &mPrivateData.FromDisplayProt
-                  );
-  ASSERT_EFI_ERROR (Status);
-
-  //
-  // Install HII Popup Protocol.
-  //
-  Status = gBS->InstallProtocolInterface (
-                  &mPrivateData.Handle,
-                  &gEfiHiiPopupProtocolGuid,
-                  EFI_NATIVE_INTERFACE,
-                  &mPrivateData.HiiPopup
-                  );
-  ASSERT_EFI_ERROR (Status);
+  // Publish all interfaces atomically: failed initialization must not leave
+  // callable protocol pointers into an image that the loader will release.
+  Status = ModernInstallSaveReview (
+             &mPrivateData.Handle,
+             &mPrivateData.FromDisplayProt,
+             &mPrivateData.HiiPopup
+             );
+  if (EFI_ERROR (Status)) {
+    HiiRemovePackages (gHiiHandle);
+    gHiiHandle = NULL;
+    return Status;
+  }
 
   InitializeDisplayStrings ();
 
@@ -4433,6 +4445,13 @@ UnloadDisplayEngine (
   IN EFI_HANDLE  ImageHandle
   )
 {
+  EFI_STATUS Status;
+  Status = ModernUninstallSaveReview (
+             mPrivateData.Handle,
+             &mPrivateData.FromDisplayProt,
+             &mPrivateData.HiiPopup
+             );
+  if (EFI_ERROR (Status)) { return Status; }
   HiiRemovePackages (gHiiHandle);
 
   FreeDisplayStrings ();

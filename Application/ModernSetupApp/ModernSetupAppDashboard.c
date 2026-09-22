@@ -384,7 +384,7 @@ ModernSetupDrawDashboard (
   MODERN_SETUP_PROVIDER_HEALTH_SUMMARY  ProviderHealth;
   BOOLEAN                              Zh;
 
-  Content = ModernSetupContentRect (Ui);
+  Content = ModernSetupDashboardContentRect (Ui);
   Zh = DashboardUseZh ();
   PanelBackground = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
   UnicodeSPrint (Resolution, sizeof (Resolution), L"%u x %u", Ui->Width, Ui->Height);

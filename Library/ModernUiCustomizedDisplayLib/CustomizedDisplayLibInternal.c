@@ -20,7 +20,9 @@ CHAR16                 *mSpaceBuffer;
 #define SPACE_BUFFER_SIZE  1000
 
 STATIC MODERN_UI_RENDER_CONTEXT  mModernRenderContext;
-STATIC BOOLEAN                   mModernRenderReady;
+STATIC BOOLEAN                  mModernRenderReady;
+STATIC UINTN                    mModernGridRows;
+STATIC BOOLEAN                  mModernClockVisible;
 STATIC UINTN                     mModernCursorColumn;
 STATIC UINTN                     mModernCursorRow;
 //
@@ -31,6 +33,11 @@ STATIC UINTN                     mModernCursorRow;
 // options, which have no row-level styling underneath). (UINTN)-1 means none.
 //
 STATIC UINTN                     mModernStyledHighlightRow = (UINTN)-1;
+// Valid only between the row background hook and its post-text cue hook.
+STATIC BOOLEAN                   mModernRowPaintActive;
+STATIC MODERN_UI_RECT            mModernPaintedRowRect;
+STATIC MODERN_DISPLAY_FORM_ROW   mModernPaintedRow;
+STATIC EFI_GRAPHICS_OUTPUT_BLT_PIXEL  mModernRowBackground;
 
 #define MODERN_DISPLAY_HELP_LEFT_SKIPPED_COLUMNS  3
 
@@ -174,6 +181,24 @@ ModernDisplayEnsureRenderer (
   return Status;
 }
 
+/** Refresh only the engine-cached clock rectangle; never initialize or clear. **/
+VOID
+EFIAPI
+ModernDisplayRefreshClock (
+  VOID
+  )
+{
+  if (mModernClockVisible && mModernRenderReady && (mModernRenderContext.Gop != NULL) &&
+      (mModernRenderContext.Gop->Mode != NULL) &&
+      (mModernRenderContext.Gop->Mode->Info != NULL) &&
+      (mModernRenderContext.Width == mModernRenderContext.Gop->Mode->Info->HorizontalResolution) &&
+      (mModernRenderContext.Height == mModernRenderContext.Gop->Mode->Info->VerticalResolution) &&
+      (mModernRenderContext.Width != 0) && (mModernRenderContext.Height != 0))
+  {
+    (VOID)ModernUiEngineRefreshClock (&mModernRenderContext);
+  }
+}
+
 /**
   Clear the GOP-backed ModernSetup drawing surface and reset the emulated text
   cursor used by the display engine backend.
@@ -187,8 +212,12 @@ ModernDisplayClearGop (
     ModernUiClear (&mModernRenderContext, ModernUiGetTheme ()->Background);
   }
 
-  mModernCursorColumn = 0;
-  mModernCursorRow    = 0;
+  mModernCursorColumn   = 0;
+  mModernCursorRow      = 0;
+  mModernRowPaintActive = FALSE;
+  mModernClockVisible   = FALSE;
+  mModernGridRows       = 0;
+  ZeroMem (&gScreenDimensions, sizeof (gScreenDimensions));
 }
 
 /**
@@ -236,7 +265,7 @@ ModernDisplayRows (
     gST->ConOut->QueryMode (gST->ConOut, gST->ConOut->Mode->Mode, &Columns, &Rows);
   }
 
-  return (Rows == 0) ? 25 : Rows;
+  return (mModernGridRows != 0) ? mModernGridRows : ((Rows == 0) ? 25 : Rows);
 }
 
 /**
@@ -281,6 +310,7 @@ ModernDisplayCalculateLayout (
   // not crowd the statements/help.
   //
   Layout->RightRailVisible = (BOOLEAN)(
+                                      (gClassOfVfr == FORMSET_CLASS_FRONT_PAGE) &&
                                       (ScreenColumns >= MODERN_SETUP_RIGHT_RAIL_MIN_COLUMNS) &&
                                       ((Layout->ContentRightColumn - Layout->ContentLeftColumn) >
                                        (MODERN_SETUP_RIGHT_RAIL_COLUMNS + 44))
@@ -381,20 +411,20 @@ ModernDisplayDrawRightRailDivider (
            ((Layout->ContentBottomRow - Layout->ContentTopRow) * CellHeight) :
            0;
 
-  if (Height < 8) {
+  if (Height <= 16) {
     return;
   }
 
   ModernUiFillRect (
     &mModernRenderContext,
-    (MODERN_UI_RECT){ X, Y + 8, 2, Height - 16 },
-    ModernUiBlendColor (Theme->AccentOrange, Theme->Background, 32)
+    (MODERN_UI_RECT){ X, Y + 8, 1, Height - 16 },
+    ModernUiBlendColor (Theme->Background, Theme->Border, 35)
     );
 
   ModernUiFillRect (
     &mModernRenderContext,
     (MODERN_UI_RECT){ X - 2, Y + 8, 6, 1 },
-    ModernUiBlendColor (Theme->AccentOrange, Theme->BackgroundBlack, 45)
+    ModernUiBlendColor (Theme->BackgroundBlack, Theme->Border, 35)
     );
 }
 
@@ -486,12 +516,22 @@ ModernDisplayDrawRightHelpRailContext (
   LabelY     = (Layout->ContentTopRow * CellHeight) + MIN (6, MAX (2, CellHeight / 5));
   LabelWidth = (Layout->Statement.RightColumn - HelpLeftColumn) * CellWidth;
 
-  //
-  // Give the "CONTEXT HELP" label a soft accent (a muted gold, between the plain
-  // muted body text and the full accent used by the primary CPU/Memory/Voltage
-  // rail headers), so it reads as a styled section header while staying below the
-  // telemetry rail in the visual hierarchy.
-  //
+  // The front page already uses this reserved gap for its form title.
+  // Label the native regions without inventing groups or moving questions.
+  if ((gClassOfVfr != FORMSET_CLASS_FRONT_PAGE) &&
+      ((HelpLeftColumn - Layout->Statement.LeftColumn) * CellWidth > 16))
+  {
+    ModernUiDrawTextFit (
+      &mModernRenderContext,
+      Layout->Statement.LeftColumn * CellWidth + 8,
+      LabelY,
+      (HelpLeftColumn - Layout->Statement.LeftColumn) * CellWidth - 16,
+      L"FORM SETTINGS",
+      Theme->MutedText,
+      Theme->BackgroundBlack
+      );
+  }
+
   ModernUiDrawTextFit (
     &mModernRenderContext,
     LabelX,
@@ -507,14 +547,14 @@ ModernDisplayDrawRightHelpRailContext (
   DividerHeight = (Layout->ContentBottomRow > Layout->Statement.TopRow) ?
                   ((Layout->ContentBottomRow - Layout->Statement.TopRow) * CellHeight) :
                   0;
-  if (DividerHeight < 8) {
+  if (DividerHeight <= 12) {
     return;
   }
 
   ModernUiFillRect (
     &mModernRenderContext,
     (MODERN_UI_RECT){ DividerX, DividerY + 6, 1, DividerHeight - 12 },
-    ModernUiBlendColor (Theme->AccentOrange, Theme->Background, 24)
+    ModernUiBlendColor (Theme->Background, Theme->Border, 30)
     );
 }
 
@@ -557,7 +597,7 @@ ModernDisplayDrawFormTitleContext (
   }
 
   TitleLeftColumn  = Layout->ContentLeftColumn;
-  TitleRightColumn = Layout->RightRailVisible ? Layout->RightRailLeftColumn - 2 : Layout->ContentRightColumn;
+  TitleRightColumn = ModernDisplayRightHelpStartColumn (Layout);
   if (TitleRightColumn <= TitleLeftColumn) {
     return;
   }
@@ -586,48 +626,27 @@ ModernDisplayDrawFormTitleContext (
 }
 
 /**
-  Draw an honest "<category> > <form title>" breadcrumb in the header tab band
-  for native (non-front-page) FormBrowser forms.
-
-  Replaces the decorative five-category tab strip, which on a native form read as
-  clickable navigation but performed none -- FormBrowser owns navigation
-  (Esc = back, arrows = move highlight). The breadcrumb instead states where the
-  user is and makes the real form identity the prominent element. The category
-  prefix is shown only for clearly classified forms (Devices/Boot/Security/Exit);
-  an unclassified form shows just its title so no misleading label is attached.
-
-  Presentation-only: the title comes from FormBrowser-owned FormData and the
-  category is the same classifier the chrome already used. It does not alter
-  form navigation, HII GUID binding, callbacks, or storage.
-
-  @param[in] Layout          Calculated DisplayEngine layout. Must not be NULL.
-  @param[in] Theme           Theme token table. Must not be NULL.
-  @param[in] CellHeight      Pixel height for one text row.
-  @param[in] CategoryIndex   Chrome tab classifier result (0..4).
-  @param[in] PrintableTitle  Printable form title text. May be NULL.
+  Draw the actual native form identity, not a guessed category/breadcrumb.
+  The reserved header band is presentation only; Esc remains browser-owned.
 **/
 STATIC
 VOID
-ModernDisplayDrawFormBreadcrumb (
+ModernDisplayDrawFormIdentity (
   IN CONST MODERN_DISPLAY_LAYOUT  *Layout,
   IN CONST MODERN_UI_THEME        *Theme,
   IN UINTN                        CellWidth,
   IN UINTN                        CellHeight,
-  IN UINTN                        CategoryIndex,
   IN CONST CHAR16                 *PrintableTitle
   )
 {
-  UINTN         HeaderHeight;
-  UINTN         BandY;
-  UINTN         X;
-  UINTN         Width;
-  UINTN         PrefixWidth;
-  UINTN         UnderlineWidth;
-  CONST CHAR16  *Category;
-  CHAR16        Prefix[64];
+  UINTN  HeaderHeight;
+  UINTN  BandY;
+  UINTN  X;
+  UINTN  Width;
 
   if ((Layout == NULL) || (Theme == NULL) || (PrintableTitle == NULL) ||
-      (PrintableTitle[0] == CHAR_NULL) || (CellWidth == 0) || (CellHeight == 0))
+      (PrintableTitle[0] == CHAR_NULL) || (CellWidth == 0) || (CellHeight == 0) ||
+      (Layout->ContentRightColumn <= Layout->ContentLeftColumn))
   {
     return;
   }
@@ -635,68 +654,19 @@ ModernDisplayDrawFormBreadcrumb (
   HeaderHeight = Layout->HeaderRows * CellHeight;
   BandY        = (HeaderHeight > 52) ? (HeaderHeight - 52) : 0;
   X            = Layout->ContentLeftColumn * CellWidth;
-  Width        = (Layout->ContentRightColumn > Layout->ContentLeftColumn) ?
-                 ((Layout->ContentRightColumn - Layout->ContentLeftColumn) * CellWidth) : 0;
-  if (Width == 0) {
+  Width        = (Layout->ContentRightColumn - Layout->ContentLeftColumn) * CellWidth;
+  if (Width <= 16) {
     return;
   }
 
-  //
-  // Category prefix only for the clearly classified buckets; index 0 is both the
-  // "Setup Categories" front bucket and the unmatched default, so prefixing it
-  // would risk a wrong label -- show the bare title there.
-  //
-  Category = NULL;
-  switch (CategoryIndex) {
-    case 1:
-      Category = ModernUiGetString (ModernUiStringPageDevices);
-      break;
-    case 2:
-      Category = ModernUiGetString (ModernUiStringPageBoot);
-      break;
-    case 3:
-      Category = ModernUiGetString (ModernUiStringPageSecurity);
-      break;
-    case 4:
-      Category = ModernUiGetString (ModernUiStringPageExit);
-      break;
-    default:
-      Category = NULL;
-      break;
-  }
-
-  PrefixWidth = 0;
-  if (Category != NULL) {
-    UnicodeSPrint (Prefix, sizeof (Prefix), L"%s  >  ", Category);
-    ModernUiDrawText (&mModernRenderContext, X, BandY + 8, Prefix, Theme->MutedText, Theme->BackgroundBlack);
-    PrefixWidth = ModernUiMeasureText (Prefix);
-  }
-
-  //
-  // The form title is the prominent element (bright Text), so the operator reads
-  // the page identity at a glance instead of a faint sub-line.
-  //
-  ModernUiDrawTextFit (
-    &mModernRenderContext,
-    X + PrefixWidth,
-    BandY + 8,
-    (Width > PrefixWidth) ? (Width - PrefixWidth) : Width,
-    PrintableTitle,
-    Theme->Text,
-    Theme->BackgroundBlack
-    );
-
-  //
-  // Accent underline sized to the actual breadcrumb width (prefix + title,
-  // clamped to the band), so it tracks the text instead of a fixed stub.
-  //
-  UnderlineWidth = PrefixWidth + ModernUiMeasureText (PrintableTitle);
-  UnderlineWidth = MIN (UnderlineWidth, Width);
-  UnderlineWidth = MAX (UnderlineWidth, 24);
   ModernUiFillRect (
     &mModernRenderContext,
-    (MODERN_UI_RECT){ X, BandY + 34, UnderlineWidth, 2 },
+    (MODERN_UI_RECT){ X, BandY + 6, 3, 22 },
     Theme->AccentYellow
+    );
+  ModernUiDrawTextFit (
+    &mModernRenderContext, X + 12, BandY + 8, Width - 12,
+    PrintableTitle, Theme->Text, Theme->BackgroundBlack
     );
 }
 
@@ -1061,7 +1031,7 @@ ModernDisplayFormRowAccentColor (
     case ModernDisplayFormRowReference:
     case ModernDisplayFormRowAction:
     case ModernDisplayFormRowResetButton:
-      return Theme->Success;
+      return Theme->AccentYellow;
 
     case ModernDisplayFormRowSubtitle:
     case ModernDisplayFormRowText:
@@ -1144,13 +1114,16 @@ ModernDisplayDrawStatementRowAccents (
   }
 
   Accent      = ModernDisplayFormRowAccentColor (FormRow, Theme);
-  AccentWidth = ((FormRow->State & ModernDisplayFormRowStateHighlighted) != 0) ? 6 : 3;
+  AccentWidth = 3;
 
-  if (!ModernDisplayFormRowIsTextOnly (FormRow->Kind) && (RowRect->Width > (AccentWidth + 4)) && (RowRect->Height > 6)) {
+  // Gold marks focus or a native subtitle, not every editable question.
+  if ((((FormRow->State & ModernDisplayFormRowStateHighlighted) != 0) ||
+       (FormRow->Kind == ModernDisplayFormRowSubtitle)) &&
+      (RowRect->Width > (AccentWidth + 4)) && (RowRect->Height > 6)) {
     ModernUiFillRect (
       &mModernRenderContext,
       (MODERN_UI_RECT){ RowRect->X, RowRect->Y + 2, AccentWidth, RowRect->Height - 4 },
-      Accent
+      (FormRow->Kind == ModernDisplayFormRowSubtitle) ? Theme->AccentYellow : Accent
       );
   }
 
@@ -1236,7 +1209,27 @@ ModernDisplayDrawStatementRow (
     RowModel.Role = ModernDisplayFormRowGetVisualRole (&FormRow);
   }
 
-  ModernUiEngineDrawRows (&mModernRenderContext, &RowModel, 1, Theme);
+  // Stay inside the native cell rectangle. Quiet graphite surfaces separate
+  // questions from text-only information; subtitles are real HII group labels.
+  mModernRowBackground = ModernUiBlendColor (Theme->BackgroundBlack, Theme->Surface, 55);
+  if (ModernDisplayFormRowIsTextOnly (FormRow.Kind) ||
+      ((FormRow.State & ModernDisplayFormRowStateReadOnly) != 0))
+  {
+    mModernRowBackground = Theme->BackgroundBlack;
+  }
+
+  if (FormRow.Kind == ModernDisplayFormRowSubtitle) {
+    mModernRowBackground = Theme->SurfaceRaised;
+  }
+
+  if (Highlight || Selected) {
+    mModernRowBackground = ModernUiBlendColor (Theme->SurfaceRaised, Theme->AccentYellow, Selected ? 16 : 8);
+  }
+
+  mModernPaintedRowRect = RowRect;
+  mModernPaintedRow     = FormRow;
+  mModernRowPaintActive = TRUE;
+  ModernUiFillRect (&mModernRenderContext, RowRect, mModernRowBackground);
   ModernDisplayDrawStatementRowAccents (&RowRect, &FormRow, Theme);
 
   //
@@ -1269,6 +1262,7 @@ ModernDisplayResetHighlightRowTracking (
   )
 {
   mModernStyledHighlightRow = (UINTN)-1;
+  mModernRowPaintActive     = FALSE;
 }
 
 /**
@@ -1311,6 +1305,13 @@ ModernDisplayDrawStatementRowCue (
   MODERN_DISPLAY_FORM_ROW        FormRow;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  CueColor;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  FillColor;
+
+  // Native text fills can cover row decorations. Reapply only the edge
+  // markers, then end the paint scope before any popup/help/empty-row clears.
+  if (mModernRowPaintActive) {
+    ModernDisplayDrawStatementRowAccents (&mModernPaintedRowRect, &mModernPaintedRow, ModernUiGetTheme ());
+    mModernRowPaintActive = FALSE;
+  }
 
   if ((Statement == NULL) || (Width == 0) || EFI_ERROR (ModernDisplayEnsureRenderer ())) {
     return;
@@ -1359,10 +1360,10 @@ ModernDisplayDrawStatementRowCue (
   CueSide = MIN (CellHeight - 6, 14);
 
   //
-  // High-contrast cue: dark on the bright selected band, bright yellow on the
-  // dark surface. The cue sits at the row's right edge, clear of value text.
+  // Quiet cues become gold on focus, matching the graphite selection surface.
+  // The cue sits at the row's right edge, clear of value text.
   //
-  CueColor  = (Highlight || Selected) ? Theme->BackgroundBlack : Theme->AccentYellow;
+  CueColor  = (Highlight || Selected) ? Theme->AccentYellow : Theme->MutedText;
   FillColor = ModernUiBlendColor (Theme->AccentOrange, Theme->BackgroundBlack, 70);
 
   ModernUiEngineDrawControlCue (
@@ -1460,6 +1461,12 @@ ModernDisplayDrawValueWidget (
   BOOLEAN                Sel;
 
   if ((ValueText == NULL) || (Width == 0) || EFI_ERROR (ModernDisplayEnsureRenderer ())) {
+    return;
+  }
+
+  if (mModernRowPaintActive &&
+      ((mModernPaintedRow.State & (ModernDisplayFormRowStateDisabled | ModernDisplayFormRowStateReadOnly)) != 0))
+  {
     return;
   }
 
@@ -1651,9 +1658,9 @@ ModernDisplayDrawPageChrome (
   CategoryIndex = ModernDisplaySelectChromeTab (PrintableTitle);
   //
   // The native front page is a real menu, so it keeps the category tab strip.
-  // Every other form reached via SendForm gets an honest breadcrumb title bar
-  // instead: the five tabs there were decorative (they performed no navigation)
-  // and read as clickable, while the real form title was only a faint sub-line.
+  // Other forms show only their FormBrowser-owned title. Title substring
+  // classification is not navigation ancestry ("Secure Boot" can match Boot),
+  // so never present it as a breadcrumb.
   //
   IsFrontPage = (BOOLEAN)(gClassOfVfr == FORMSET_CLASS_FRONT_PAGE);
 
@@ -1666,12 +1673,12 @@ ModernDisplayDrawPageChrome (
   PageModel.ModeName      = ModernUiGetString (ModernUiStringHeaderMode);
   PageModel.StatusText    = ModernDisplayPageStatusText (FormData);
   PageModel.DrawRightRail = TRUE;
-  ModernUiEngineDrawPage (&mModernRenderContext, &PageModel, Theme);
+  mModernClockVisible = (BOOLEAN)!EFI_ERROR (ModernUiEngineDrawPage (&mModernRenderContext, &PageModel, Theme));
   ModernDisplayDrawRightRailDivider (&Layout, Theme, CellWidth, CellHeight);
   if (IsFrontPage) {
     ModernDisplayDrawFormTitleContext (&Layout, Theme, CellWidth, CellHeight, PrintableTitle);
   } else {
-    ModernDisplayDrawFormBreadcrumb (&Layout, Theme, CellWidth, CellHeight, CategoryIndex, PrintableTitle);
+    ModernDisplayDrawFormIdentity (&Layout, Theme, CellWidth, CellHeight, PrintableTitle);
   }
 
   ModernDisplayDrawRightHelpRailContext (&Layout, Theme, CellWidth, CellHeight);
@@ -2093,6 +2100,7 @@ ScreenDimensionInfoValidate (
   //
   gFooterHeight = FOOTER_HEIGHT + (Index / 3);
 
+  mModernGridRows = 0;
   ZeroMem (&gScreenDimensions, sizeof (EFI_SCREEN_DESCRIPTOR));
   gST->ConOut->QueryMode (
                  gST->ConOut,
@@ -2100,6 +2108,17 @@ ScreenDimensionInfoValidate (
                  &gScreenDimensions.RightColumn,
                  &gScreenDimensions.BottomRow
                  );
+
+  // Full-screen graphical forms use a private, taller row grid. Do not change
+  // the firmware console mode, nor reinterpret caller-supplied screen bounds.
+  // All rendering and popup placement consume this same grid.
+  if ((FormData->ScreenDimensions == NULL) &&
+      !EFI_ERROR (ModernDisplayEnsureRenderer ()) &&
+      (mModernRenderContext.Height >= 720))
+  {
+    mModernGridRows = MIN (gScreenDimensions.BottomRow, mModernRenderContext.Height / 32);
+    gScreenDimensions.BottomRow = mModernGridRows;
+  }
 
   //
   // Check local dimension vs. global dimension.
@@ -2505,6 +2524,24 @@ WaitForKeyStroke (
 {
   EFI_STATUS  Status;
   UINTN       Index;
+  UINTN       EventCount;
+  EFI_EVENT   Events[2];
+  EFI_EVENT   Timer;
+
+  Timer       = NULL;
+  Events[0]   = gST->ConIn->WaitForKey;
+  EventCount  = 1;
+  Status = gBS->CreateEvent (EVT_TIMER, TPL_CALLBACK, NULL, NULL, &Timer);
+  if (!EFI_ERROR (Status)) {
+    Status = gBS->SetTimer (Timer, TimerPeriodic, 10000000);
+    if (!EFI_ERROR (Status)) {
+      Events[1]  = Timer;
+      EventCount = 2;
+    } else {
+      gBS->CloseEvent (Timer);
+      Timer = NULL;
+    }
+  }
 
   while (TRUE) {
     Status = gST->ConIn->ReadKeyStroke (gST->ConIn, Key);
@@ -2516,7 +2553,18 @@ WaitForKeyStroke (
       continue;
     }
 
-    gBS->WaitForEvent (1, &gST->ConIn->WaitForKey, &Index);
+    Status = gBS->WaitForEvent (EventCount, Events, &Index);
+    if (EFI_ERROR (Status)) {
+      break;
+    }
+
+    if ((EventCount == 2) && (Index == 1)) {
+      ModernDisplayRefreshClock ();
+    }
+  }
+
+  if (Timer != NULL) {
+    gBS->CloseEvent (Timer);
   }
 
   return Status;
@@ -2649,6 +2697,20 @@ PrintInternal (
     Attribute  = Out->Mode->Attribute;
     Foreground = ModernDisplayForeground (Attribute);
     Background = ModernDisplayBackground (Attribute);
+    if (mModernRowPaintActive &&
+        (DrawRow * CellHeight == mModernPaintedRowRect.Y) &&
+        (DrawColumn * CellWidth >= mModernPaintedRowRect.X) &&
+        ((DrawColumn + DrawWidth) * CellWidth <= mModernPaintedRowRect.X + mModernPaintedRowRect.Width))
+    {
+      Background = mModernRowBackground;
+      if ((mModernPaintedRow.State & ModernDisplayFormRowStateDisabled) != 0) {
+        Foreground = ModernUiGetTheme ()->MutedText;
+      } else if (mModernPaintedRow.Kind == ModernDisplayFormRowSubtitle) {
+        Foreground = ModernUiGetTheme ()->AccentYellow;
+      } else if ((mModernPaintedRow.State & ModernDisplayFormRowStateHighlighted) != 0) {
+        Foreground = ModernUiGetTheme ()->Text;
+      }
+    }
 
     //
     // For the highlighted statement row (EFI_RED background nibble on the row
