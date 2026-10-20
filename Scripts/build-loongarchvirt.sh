@@ -110,15 +110,26 @@ modern_setup_app_component = (
         "  }"
     )
 )
+# Preserve UiApp's native HII owner, without app-side configuration policy.
+_app_boot_maintenance_libraries = (
+    (_app_lvgl_intrinsics or "    <LibraryClasses>\n")
+    + "      NULL|ModernSetupPkg/Library/ModernBootMaintenanceLoaderLib/ModernBootMaintenanceLoaderLib.inf\n"
+)
 modern_setup_app_component_boot_manager_fallback = (
     "  ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf {\n"
     "    <BuildOptions>\n"
     "      GCC:*_*_*_CC_FLAGS = -DMODERN_SETUP_NATIVE_FALLBACK_BOOT_MANAGER_MENU=1\n"
-    f"{_app_lvgl_intrinsics}"
+    f"{_app_boot_maintenance_libraries}"
     "  }"
 )
 modern_setup_app_fdf_inf = "INF  ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf"
 modern_setup_app_uiapp_fdf_inf = "INF  RuleOverride = MODERN_SETUP_UIAPP ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf"
+
+# One resident DXE owner with FALSE DEPEX; only the app loader starts it.
+# Keep native NULL constructors/destructors out of every app image.
+modern_setup_app_component_boot_manager_fallback += "\n  ModernSetupPkg/Universal/ModernBootMaintenanceDxe/ModernBootMaintenanceDxe.inf {\n    <LibraryClasses>\n      NULL|MdeModulePkg/Library/BootMaintenanceManagerUiLib/BootMaintenanceManagerUiLib.inf\n  }"
+modern_setup_app_uiapp_fdf_inf += "\n  INF ModernSetupPkg/Universal/ModernBootMaintenanceDxe/ModernBootMaintenanceDxe.inf"
+
 modern_display_component = "  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
 modern_display_component_lvgl = (
     "  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf {\n"
@@ -315,6 +326,8 @@ if usb_pointer_fdf_inf not in fdf:
     )
 (overlay / "LoongArchVirtQemuModernSetup.fdf").write_text(fdf)
 PY
+
+python3 "${PKG_DIR}/Scripts/SaveReview/wire.py" "${WORKSPACE}" "${MODERN_SETUP_DISPLAY_ENGINE}" LoongArchVirtQemuModernSetup.dsc LoongArchVirtQemuModernSetup.fdf
 
 echo "Generated: ${OVERLAY_DIR}/LoongArchVirtQemuModernSetup.dsc"
 echo "Generated: ${OVERLAY_DIR}/LoongArchVirtQemuModernSetup.fdf"

@@ -10,6 +10,13 @@
 
 #include "ModernSetupAppInternal.h"
 
+// edk2 MdeModulePkg/Library/BootMaintenanceManagerUiLib/FormGuid.h.
+// Match provider metadata, never localized titles or private form IDs.
+STATIC CONST EFI_GUID  mBootMaintenanceFormSetGuid = { 0x642237C7, 0x35D4, 0x472D, { 0x83, 0x65, 0x12, 0xE0, 0xCC, 0xF2, 0x7A, 0x22 } };
+
+// SecurityPkg/Include/Guid/SecureBootConfigHii.h (pinned edk2).
+STATIC CONST EFI_GUID  mSecureBootFormSetGuid = { 0x5DAF50A5, 0xEA81, 0x4DE2, { 0x8F, 0x9B, 0xCA, 0xBD, 0xA9, 0xCF, 0x5C, 0x14 } };
+
 #if defined (MODERN_SETUP_NATIVE_FALLBACK_BOOT_MANAGER_MENU) && (MODERN_SETUP_NATIVE_FALLBACK_BOOT_MANAGER_MENU != 0)
 STATIC CONST EFI_GUID  mNativeFallbackAppGuid = { 0xEEC25BDC, 0x67F2, 0x4D95, { 0xB1, 0xD5, 0xF8, 0x1B, 0x20, 0x39, 0xD1, 0x1D } };
 #else
@@ -246,6 +253,7 @@ ModernSetupHitTestExitRow (
 
 BOOLEAN         mModernSetupLanguageDropdownOpen;
 UINTN           mModernSetupLanguageDropdownSelection;
+UINTN           mModernSetupQuickSettingsSelection;
 BOOLEAN         mModernSetupPreferencePopupOpen;
 UINTN           mModernSetupPreferencePopupRow;
 UINTN           mModernSetupPreferencePopupSelection;
@@ -314,7 +322,7 @@ ModernSetupGetDashboardQuickGrid (
 
   ZeroMem (Grid, sizeof (*Grid));
   Compact     = (BOOLEAN)(DashboardDensity == ModernUiDashboardDensityCompact);
-  Content     = ModernSetupContentRect (Ui);
+  Content     = ModernSetupDashboardContentRect (Ui);
   TopHeight   = Compact ? ((Content.Height >= 460) ? 236 : 204) :
                 ((Content.Height >= 460) ? 300 : 232);
   QuickGap    = Compact ? 10 : 16;
@@ -611,6 +619,8 @@ ModernSetupGetPageSelection (
       return DeviceSelection;
     case PagePreferences:
       return PreferencesSelection;
+    case PageQuickSettings:
+      return mModernSetupQuickSettingsSelection;
     case PageExit:
       return ExitSelection;
     default:
@@ -653,6 +663,9 @@ ModernSetupSetPageSelection (
       break;
     case PagePreferences:
       *PreferencesSelection = Selection;
+      break;
+    case PageQuickSettings:
+      mModernSetupQuickSettingsSelection = (MODERN_SETUP_QUICK_SETTINGS_ROW_COUNT == 0) ? 0 : (Selection % MODERN_SETUP_QUICK_SETTINGS_ROW_COUNT);
       break;
     case PageExit:
       *ExitSelection = Selection;
@@ -785,9 +798,9 @@ ModernSetupGetBootCount (
 /**
   Return selectable Boot page rows: visible Boot#### rows plus native tools.
 
-  Native UiApp/BootManagerMenuApp own Boot Maintenance and platform boot policy
-  internals. ModernSetup exposes one explicit fallback row to those native boot
-  tools instead of reimplementing them.
+  Installed Boot Maintenance HII owns advanced boot configuration. The tools
+  row enters that formset when available, otherwise uses the native app fallback.
+  BootManagerMenuApp is only a boot picker, not Boot Maintenance.
 
   @return Number of Boot page selectable rows.
 **/
@@ -878,13 +891,43 @@ ModernSetupGetPageSelectableCount (
         return ModernSetupGetPageListLayout (Ui, mModernSetupPreferences.DashboardDensity, MAX_DEVICE_ROWS, TRUE, &Layout) ?
                MIN (ModernSetupGetVisibleDeviceCount (), Layout.MaxVisibleRows) : 0;
       }
+    case PageCatalog:
+      return ModernSetupCatalogSelectableCount ();
     case PagePreferences:
       return MODERN_SETUP_PREFERENCE_ROW_COUNT;
+    case PageSecurity:
+      return (ModernSetupGetSecurityEntryRect (Ui).Width != 0) ? 1 : 0;
+    case PageQuickSettings:
+      return MODERN_SETUP_QUICK_SETTINGS_ROW_COUNT;
     case PageExit:
       return 4;
     default:
       return 0;
   }
+}
+
+/** Geometry shared by painting and pointer routing. */
+MODERN_UI_RECT
+ModernSetupGetSecurityEntryRect (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui
+  )
+{
+  MODERN_UI_RECT  Panel;
+
+  Panel = ModernSetupContentRect (Ui);
+  if ((Panel.Width < 56) || (Panel.Height < 284)) {
+    return (MODERN_UI_RECT){ 0, 0, 0, 0 };
+  }
+
+  return (MODERN_UI_RECT){ Panel.X + 20, Panel.Y + 244, Panel.Width - 40, 40 };
+}
+
+UINTN
+ModernSetupQuickSettingsRowOffset (
+  IN UINTN  Row
+  )
+{
+  return 96 + Row * 27 + ((Row >= 4) ? 30 : 0) + ((Row >= 6) ? 30 : 0);
 }
 
 /**
@@ -919,6 +962,32 @@ ModernSetupHitTestPageListRow (
     return FALSE;
   }
 
+  if ((Page == PageSecurity) || (Page == PageQuickSettings)) {
+    MODERN_UI_RECT  Rect;
+
+    Rect = (Page == PageSecurity) ? ModernSetupGetSecurityEntryRect (Ui) : ModernSetupContentRect (Ui);
+    if (Page == PageSecurity) {
+      if ((X >= Rect.X) && (X < Rect.X + Rect.Width) &&
+          (Y >= Rect.Y) && (Y < Rect.Y + Rect.Height))
+      {
+        *Row = 0;
+        return TRUE;
+      }
+    } else {
+      for (Index = 0; Index < MODERN_SETUP_QUICK_SETTINGS_ROW_COUNT; Index++) {
+        if ((X >= Rect.X + 22) && (X < Rect.X + Rect.Width - 22) &&
+            (Rect.Width >= 164) &&
+            (Y >= Rect.Y + ModernSetupQuickSettingsRowOffset (Index) - 3) &&
+            (Y < Rect.Y + ModernSetupQuickSettingsRowOffset (Index) + 21))
+        {
+          *Row = Index;
+          return TRUE;
+        }
+      }
+    }
+    return FALSE;
+  }
+
   //
   // Same layout parameters the page's drawing and selectable-count use, so the
   // click bands match the painted rows exactly.
@@ -934,6 +1003,10 @@ ModernSetupHitTestPageListRow (
       break;
     case PagePreferences:
       HardRowCap       = MODERN_SETUP_PREFERENCE_ROW_COUNT;
+      AllowPreviewPane = FALSE;
+      break;
+    case PageQuickSettings:
+      HardRowCap       = MODERN_SETUP_QUICK_SETTINGS_ROW_COUNT;
       AllowPreviewPane = FALSE;
       break;
     default:
@@ -1138,9 +1211,134 @@ ModernSetupOpenSelectedDeviceEntry (
 
   CopyMem (&Entry, &Entries[Selection], sizeof (Entry));
   Status = ModernUiDeviceDataOpenEntry (&Entry);
+  ModernSetupInvalidateBootOptionsCache ();
   ModernSetupInvalidateDeviceEntriesCache ();
   ModernSetupInvalidateProviderSnapshotCache ();
   return Status;
+}
+
+/**
+  Enter installed Boot Maintenance HII, or use the native app fallback.
+
+  Refresh discovery before matching the edk2 formset GUID across all provider
+  entries, including entries outside the visible Devices rows. The provider
+  owns FormBrowser entry; the configured DisplayEngine (including LVGL) renders
+  it. No entry array escapes this call. A matched handoff's status is returned
+  as-is, even on failure, without launching another UI after a possible edit.
+  Handoff return invalidates boot, device and provider caches for lazy refresh.
+
+  @param[in] ImageHandle  Current image handle for fallback. Must not be NULL.
+
+  @retval EFI_SUCCESS           FormBrowser or native fallback returned.
+  @retval EFI_INVALID_PARAMETER ImageHandle is NULL; caches remain unchanged.
+  @retval others                Discovery or handoff failed. Discovery failure
+                                leaves device discovery invalid; no UI is opened.
+**/
+EFI_STATUS
+ModernSetupOpenBootConfigurationWithFallback (
+  IN EFI_HANDLE  ImageHandle,
+  IN BOOLEAN     AllowFallback
+  )
+{
+  EFI_STATUS                    Status;
+  CONST MODERN_UI_DEVICE_ENTRY  *Entries;
+  UINTN                         EntryCount;
+  UINTN                         Index;
+
+  if (ImageHandle == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  ModernSetupInvalidateDeviceEntriesCache ();
+  Entries = NULL;
+  Status  = ModernSetupGetCachedDeviceEntries (&Entries, &EntryCount);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  for (Index = 0; (Entries != NULL) && (Index < EntryCount); Index++) {
+    if (Entries[Index].HasForm && (Entries[Index].HiiHandle != NULL) &&
+        CompareGuid (&Entries[Index].FormSetGuid, &mBootMaintenanceFormSetGuid))
+    {
+      return ModernSetupOpenSelectedDeviceEntry (Index);
+    }
+  }
+
+  return AllowFallback ? ModernSetupLaunchUiAppFallback (ImageHandle) : EFI_NOT_FOUND;
+}
+
+EFI_STATUS
+ModernSetupOpenBootConfiguration (
+  IN EFI_HANDLE  ImageHandle
+  )
+{
+  return ModernSetupOpenBootConfigurationWithFallback (ImageHandle, TRUE);
+}
+
+/** Find a usable SecureBootConfig formset in all cached provider entries. */
+EFI_STATUS
+ModernSetupFindSecureBootConfiguration (
+  OUT UINTN  *Selection
+  )
+{
+  EFI_STATUS                    Status;
+  CONST MODERN_UI_DEVICE_ENTRY  *Entries;
+  UINTN                         EntryCount;
+  UINTN                         Index;
+
+  if (Selection == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  Entries = NULL;
+  Status = ModernSetupGetCachedDeviceEntries (&Entries, &EntryCount);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  for (Index = 0; (Entries != NULL) && (Index < EntryCount); Index++) {
+    if (Entries[Index].HasForm && (Entries[Index].HiiHandle != NULL) &&
+        CompareGuid (&Entries[Index].FormSetGuid, &mSecureBootFormSetGuid))
+    {
+      *Selection = Index;
+      return EFI_SUCCESS;
+    }
+  }
+
+  return EFI_NOT_FOUND;
+}
+
+/** Availability is independent of the read-only SecureBoot variable state. */
+CONST CHAR16 *
+ModernSetupSecureBootEntryText (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  UINTN       Selection;
+
+  Status = ModernSetupFindSecureBootConfiguration (&Selection);
+  return !EFI_ERROR (Status) ? L"Open setup" :
+         ((Status == EFI_NOT_FOUND) ? L"Unavailable" : L"Discovery error");
+}
+
+/** Refresh discovery; never substitute a boot picker or unrelated formset. */
+EFI_STATUS
+ModernSetupOpenSecureBootConfiguration (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  UINTN       Selection;
+
+  ModernSetupInvalidateDeviceEntriesCache ();
+  Status = ModernSetupFindSecureBootConfiguration (&Selection);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  // Shared handoff invalidates all summaries after return, including errors.
+  return ModernSetupOpenSelectedDeviceEntry (Selection);
 }
 
 /**
@@ -1205,6 +1403,53 @@ ModernSetupHandleLanguageSelectorEnter (
   mModernSetupLanguageDropdownOpen = FALSE;
 }
 
+/**
+  Report the Quick Settings handoff affordance for the selected read-only row.
+
+  Quick Settings summarizes platform-owned policy entry points. ModernSetupApp
+  does not write the underlying policy values here; Enter only tells the user
+  where the native owner is. Secure Boot enters its installed native formset.
+
+  @param[in]  Selection      Selected Quick Settings row.
+  @param[out] StatusMessage  Status buffer to update. Must not be NULL.
+  @param[in]  StatusSize     Size of StatusMessage in bytes.
+**/
+VOID
+ModernSetupHandleQuickSettingsEnter (
+  IN  UINTN   Selection,
+  OUT CHAR16  *StatusMessage,
+  IN  UINTN   StatusSize
+  )
+{
+  if ((StatusMessage == NULL) || (StatusSize < sizeof (CHAR16))) {
+    return;
+  }
+
+  switch (Selection) {
+    case 0:
+    case 1:
+    case 2:
+    case 6:
+    case 7:
+    case 8:
+    case 9:
+      UnicodeSPrint (StatusMessage, StatusSize, L"Native PCIe/Performance owner: open Devices or Performance setup.");
+      break;
+    case 3:
+      UnicodeSPrint (StatusMessage, StatusSize, L"Native CPU owner: open Performance setup when reported.");
+      break;
+    case 4:
+      UnicodeSPrint (StatusMessage, StatusSize, L"Secure Boot setup returned: %r", ModernSetupOpenSecureBootConfiguration ());
+      break;
+    case 5:
+      UnicodeSPrint (StatusMessage, StatusSize, L"Native security owner: open Security setup; summary is read-only.");
+      break;
+    default:
+      UnicodeSPrint (StatusMessage, StatusSize, L"Summary only: no native owner page was reported.");
+      break;
+  }
+}
+
 CONST CHAR16 *
 ModernSetupPreferenceCheckboxValueText (
   IN UINT8  Value
@@ -1261,16 +1506,13 @@ ModernSetupGetPreferenceValueName (
   IN UINTN  Row
   )
 {
-  STATIC CHAR16  BootTimeoutText[16];
-
   switch (Row) {
     case MODERN_SETUP_PREFERENCE_ROW_THEME:
       return ModernSetupGetPreferenceChoiceName (Row, mModernSetupPreferences.ThemeId);
     case MODERN_SETUP_PREFERENCE_ROW_DASHBOARD_DENSITY:
       return ModernSetupGetPreferenceChoiceName (Row, mModernSetupPreferences.DashboardDensity);
     case MODERN_SETUP_PREFERENCE_ROW_BOOT_TIMEOUT:
-      UnicodeSPrint (BootTimeoutText, sizeof (BootTimeoutText), L"%u sec", mModernSetupPreferences.BootTimeoutSeconds);
-      return BootTimeoutText;
+      return L"Open native setup >";
     case MODERN_SETUP_PREFERENCE_ROW_PROFILE_NAME:
       return mModernSetupPreferences.ProfileName;
     case MODERN_SETUP_PREFERENCE_ROW_REMEMBER_LAST_PAGE:
@@ -1496,6 +1738,79 @@ ModernSetupCommitPreferencePopup (
   PersistPreferencesAndStatus (StatusMessage, StatusSize);
 }
 
+/** Return the popup bounds shared by Preferences painting and pointer input. **/
+MODERN_UI_RECT
+ModernSetupPreferencePopupRect (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui
+  )
+{
+  MODERN_UI_RECT  Panel;
+  UINTN          Height;
+
+  Panel  = ModernSetupContentRect (Ui);
+  Height = (mModernSetupPreferencePopupKind == ModernSetupPreferencePopupChoice) ?
+           40 + ModernSetupGetPreferenceChoiceCount (mModernSetupPreferencePopupRow) * 34 : 118;
+  return (MODERN_UI_RECT){ Panel.X + Panel.Width - 278,
+                          Panel.Y + 72 + (mModernSetupPreferencePopupRow + 1) * 42 - 8,
+                          240, Height };
+}
+
+/** Return one painted choice band, excluding the gaps between choices. **/
+MODERN_UI_RECT
+ModernSetupPreferencePopupChoiceRect (
+  IN MODERN_UI_RECT  Popup,
+  IN UINTN          Choice
+  )
+{
+  return (MODERN_UI_RECT){ Popup.X + 6, Popup.Y + 28 + Choice * 34, Popup.Width - 12, 30 };
+}
+
+/**
+  Consume every click while a preference popup is open. Only a choice band
+  commits; popup chrome/input fields do nothing and outside clicks cancel.
+  The caller must dispatch this before any background navigation or row input.
+**/
+BOOLEAN
+ModernSetupHandlePreferencePopupClick (
+  IN  MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN  UINTN                     X,
+  IN  UINTN                     Y,
+  OUT CHAR16                    *StatusMessage,
+  IN  UINTN                     StatusSize
+  )
+{
+  MODERN_UI_RECT  Popup;
+  MODERN_UI_RECT  ChoiceRect;
+  UINTN          Choice;
+
+  if (!mModernSetupPreferencePopupOpen) {
+    return FALSE;
+  }
+
+  Popup = ModernSetupPreferencePopupRect (Ui);
+  if ((X < Popup.X) || (X - Popup.X >= Popup.Width) ||
+      (Y < Popup.Y) || (Y - Popup.Y >= Popup.Height))
+  {
+    ModernSetupCancelPreferencePopup ();
+    return TRUE;
+  }
+
+  if (mModernSetupPreferencePopupKind == ModernSetupPreferencePopupChoice) {
+    for (Choice = 0; Choice < ModernSetupGetPreferenceChoiceCount (mModernSetupPreferencePopupRow); Choice++) {
+      ChoiceRect = ModernSetupPreferencePopupChoiceRect (Popup, Choice);
+      if ((X >= ChoiceRect.X) && (X - ChoiceRect.X < ChoiceRect.Width) &&
+          (Y >= ChoiceRect.Y) && (Y - ChoiceRect.Y < ChoiceRect.Height))
+      {
+        mModernSetupPreferencePopupSelection = Choice;
+        ModernSetupCommitPreferencePopup (StatusMessage, StatusSize);
+        break;
+      }
+    }
+  }
+
+  return TRUE;
+}
+
 VOID
 ModernSetupHandlePreferenceInputKey (
   IN  CONST MODERN_UI_INPUT_EVENT  *Event,
@@ -1587,7 +1902,8 @@ ModernSetupHandlePreferencesEnter (
       mModernSetupPreferencePopupOpen      = TRUE;
       break;
     case MODERN_SETUP_PREFERENCE_ROW_BOOT_TIMEOUT:
-      ModernSetupOpenPreferenceInputPopup (Selection, ModernSetupPreferencePopupNumericInput);
+      UnicodeSPrint (StatusMessage, StatusSize, L"Boot Maintenance (Auto Boot Time-out): %r",
+        ModernSetupOpenBootConfigurationWithFallback (mModernSetupImageHandle, FALSE));
       break;
     case MODERN_SETUP_PREFERENCE_ROW_PROFILE_NAME:
       ModernSetupOpenPreferenceInputPopup (Selection, ModernSetupPreferencePopupStringInput);
@@ -1663,5 +1979,9 @@ ModernSetupLaunchUiAppFallback (
     return Status;
   }
 
-  return gBS->StartImage (ChildHandle, NULL, NULL);
+  Status = gBS->StartImage (ChildHandle, NULL, NULL);
+  ModernSetupInvalidateBootOptionsCache ();
+  ModernSetupInvalidateDeviceEntriesCache ();
+  ModernSetupInvalidateProviderSnapshotCache ();
+  return Status;
 }

@@ -301,6 +301,7 @@ DrawBoot (
   CONST CHAR16                  *State;
   BOOLEAN                       IsSelected;
   BOOLEAN                       IsDefaultBootCandidate;
+  UINTN                         DetailWidth;
   MODERN_SETUP_PAGE_LIST_LAYOUT  Layout;
   MODERN_UI_ROW_MODEL           RowModel;
 
@@ -314,7 +315,7 @@ DrawBoot (
     Ui,
     Layout.RowX,
     Layout.Panel.Y + 20,
-    L"Enter=Boot  N=Next boot  C=Clear next  +/-=Move default rows",
+    L"Uses the UEFI boot list. Enter boots; N/C set or clear BootNext.",
     Theme->MutedText,
     Theme->Surface
     );
@@ -323,12 +324,17 @@ DrawBoot (
     Layout.RowX,
     Layout.Panel.Y + 38,
     Layout.RowWidth,
-    L"Only default Boot#### rows can move; app/shell/manual entries use Enter or Next boot.",
+    L"Default Boot#### rows move with +/-. Advanced policy edits stay in Native Boot Tools.",
     Theme->MutedText,
     Theme->Surface
     );
 
   BootNext        = 0;
+  // Keep the second line out of EngineDrawRows' 300px value lane and 16px gap.
+  // The engine uses this lane only above 396px; smoke guards these dimensions.
+  DetailWidth = (Layout.RowWidth > 396) ?
+                (Layout.RowWidth - 300 - 16 - Layout.HorizontalPad) :
+                ((Layout.RowWidth > (Layout.HorizontalPad * 2)) ? (Layout.RowWidth - (Layout.HorizontalPad * 2)) : 0);
   BootNextPresent = FALSE;
   Status          = ModernUiBootDataGetBootNext (&BootNext, &BootNextPresent);
   if (EFI_ERROR (Status)) {
@@ -379,7 +385,7 @@ DrawBoot (
       Ui,
       Layout.RowX + Layout.HorizontalPad,
       Y + 18,
-      (Layout.RowWidth > (Layout.HorizontalPad * 2)) ? (Layout.RowWidth - (Layout.HorizontalPad * 2)) : Layout.RowWidth,
+      DetailWidth,
       BootOptions[Index].FilePathSummary,
       Theme->MutedText,
       IsSelected ? Theme->SelectedBand : Theme->Surface
@@ -401,8 +407,8 @@ DrawBoot (
     Ui,
     Layout.RowX + Layout.HorizontalPad,
     Y + 18,
-    (Layout.RowWidth > (Layout.HorizontalPad * 2)) ? (Layout.RowWidth - (Layout.HorizontalPad * 2)) : Layout.RowWidth,
-    L"Open edk2 Boot Manager / Boot Maintenance; platform owns boot policy",
+    DetailWidth,
+    L"Boot Maintenance; native boot picker if unavailable",
     Theme->MutedText,
     IsSelected ? Theme->SelectedBand : Theme->Surface
     );
@@ -986,8 +992,21 @@ DrawSecurity (
   ModernUiDrawTextFormatted (Ui, Panel.X + 20, Panel.Y + 136, Theme->MutedText, Theme->Surface, L"PK: %s    KEK: %s", PkText, KekText);
   ModernUiDrawTextFormatted (Ui, Panel.X + 20, Panel.Y + 168, Theme->MutedText, Theme->Surface, L"db: %s    dbx: %s", DbText, DbxText);
   ModernUiDrawTextFormatted (Ui, Panel.X + 20, Panel.Y + 200, Theme->MutedText, Theme->Surface, L"TCG2: %s    TrEE: %s", Tcg2Text, TreeText);
-  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 252, ModernUiGetString (ModernUiStringSecurityReadOnly), Theme->MutedText, Theme->Surface);
-  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 284, L"Unavailable means this OVMF/demo platform did not report that capability.", Theme->MutedText, Theme->Surface);
+  {
+    MODERN_UI_RECT  EntryRect;
+    CHAR16         EntryText[96];
+
+    EntryRect = ModernSetupGetSecurityEntryRect (Ui);
+    if (EntryRect.Width != 0) {
+      UnicodeSPrint (EntryText, sizeof (EntryText), L"Secure Boot configuration   [%s]", ModernSetupSecureBootEntryText ());
+      ModernUiDrawPanel (Ui, EntryRect, Theme);
+      ModernUiDrawFocusFrame (Ui, EntryRect, (BOOLEAN)(Focus == SetupFocusContent), Theme);
+      ModernUiDrawTextFit (Ui, EntryRect.X + 8, EntryRect.Y + 8, EntryRect.Width - 16,
+        EntryText, Theme->Text, Theme->Surface);
+    }
+  }
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 332, L"Read-only security posture from Secure Boot and TCG protocols.", Theme->MutedText, Theme->Surface);
+  ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 364, L"Native Security setup owns keys and TPM policy; unavailable means not reported.", Theme->MutedText, Theme->Surface);
 }
 
 /**
@@ -1074,9 +1093,9 @@ DrawSystemInfo (
   CONST CHAR8                     *Language;
   BOOLEAN                         Zh;
   CHAR16                          MemoryText[96];
-  CONST CHAR16                    *Labels[13];
-  CONST CHAR16                    *Values[13];
-  CONST CHAR16                    *Groups[13];
+  CONST CHAR16                    *Labels[18];
+  CONST CHAR16                    *Values[18];
+  CONST CHAR16                    *Groups[18];
   UINTN                           Count;
 
   ModernSetupGetCachedProviderSnapshot (&Providers);
@@ -1092,7 +1111,12 @@ DrawSystemInfo (
 
   Count = 0;
 
-  Groups[Count] = Zh ? L"系统" : L"System";
+  //
+  // Match the IBV-style Main/System Information contract: identity first,
+  // firmware identity next, then processor/memory inventory, with runtime facts
+  // last. Optional SMBIOS rows collapse when the provider did not report them.
+  //
+  Groups[Count] = Zh ? L"系统" : L"System Identity";
   Labels[Count] = Zh ? L"平台" : L"Platform";
   Values[Count] = Summary->Platform;
   Count++;
@@ -1108,31 +1132,9 @@ DrawSystemInfo (
   }
 
   Groups[Count] = NULL;
-  Labels[Count] = L"CPU";
-  Values[Count] = Summary->Processor;
-  Count++;
-  Groups[Count] = NULL;
-  Labels[Count] = Zh ? L"内存" : L"Memory";
-  Values[Count] = MemoryText;
-  Count++;
-  Groups[Count] = NULL;
-  Labels[Count] = Zh ? L"Arch" : L"Architecture";
-  Values[Count] = Summary->Architecture;
-  Count++;
-  Groups[Count] = NULL;
   Labels[Count] = ModernUiGetString (ModernUiStringFormFactor);
   Values[Count] = Summary->FormFactor;
   Count++;
-  Groups[Count] = NULL;
-  Labels[Count] = ModernUiGetString (ModernUiStringBootMode);
-  Values[Count] = Summary->BootMode;
-  Count++;
-
-  //
-  // Identity rows are appended only when SMBIOS actually reports them, so the
-  // page collapses cleanly on platforms with thin SMBIOS instead of stacking
-  // empty rows (same philosophy as the dashboard N/A reflow).
-  //
   if (Summary->Serial[0] != L'\0') {
     //
     // "Serial number" stays English in the zh UI (glyphs outside the subset).
@@ -1174,6 +1176,45 @@ DrawSystemInfo (
     Values[Count] = Summary->BiosDate;
     Count++;
   }
+
+  Groups[Count] = L"CPU";
+  Labels[Count] = L"Model";
+  Values[Count] = Summary->Processor;
+  Count++;
+  if (Summary->ProcessorSpeed[0] != L'\0') {
+    Groups[Count] = NULL;
+    Labels[Count] = L"Speed";
+    Values[Count] = Summary->ProcessorSpeed;
+    Count++;
+  }
+
+  if (Summary->Cache[0] != L'\0') {
+    Groups[Count] = NULL;
+    Labels[Count] = L"Cache";
+    Values[Count] = Summary->Cache;
+    Count++;
+  }
+
+  if (Summary->LogicalProcessors[0] != L'\0') {
+    Groups[Count] = NULL;
+    Labels[Count] = L"Logical CPUs";
+    Values[Count] = Summary->LogicalProcessors;
+    Count++;
+  }
+
+  Groups[Count] = Zh ? L"内存" : L"Memory";
+  Labels[Count] = L"Total";
+  Values[Count] = MemoryText;
+  Count++;
+
+  Groups[Count] = L"Runtime";
+  Labels[Count] = Zh ? L"Arch" : L"Architecture";
+  Values[Count] = Summary->Architecture;
+  Count++;
+  Groups[Count] = NULL;
+  Labels[Count] = ModernUiGetString (ModernUiStringBootMode);
+  Values[Count] = Summary->BootMode;
+  Count++;
 
   DrawProviderSummaryPage (
     Ui,
@@ -1479,11 +1520,29 @@ DrawPower (
   Content         = ModernSetupContentRect (Ui);
   Panel           = (MODERN_UI_RECT){ Content.X, Content.Y, Content.Width, MIN (Content.Height, 520) };
   PanelBackground = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
-  RowY            = Panel.Y + 58;
+  RowY            = Panel.Y + 88;
   RowStep         = 26;
 
   DrawProviderSummarySection (Ui, Theme, Panel, ModernUiGetString (ModernUiStringPowerThermal), TRUE);
   ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
+  ModernUiDrawTextFit (
+    Ui,
+    Panel.X + 22,
+    Panel.Y + 38,
+    Panel.Width - 44,
+    L"Read-only power and thermal summary from ACPI, SMBIOS, and sensor providers.",
+    Theme->MutedText,
+    PanelBackground
+    );
+  ModernUiDrawTextFit (
+    Ui,
+    Panel.X + 22,
+    Panel.Y + 56,
+    Panel.Width - 44,
+    L"Platform EC/BMC/native setup owns policy; Not reported means provider unavailable.",
+    Theme->MutedText,
+    PanelBackground
+    );
 
   for (Index = 0; Index < ARRAY_SIZE (Labels); Index++) {
     if ((Groups[Index] != NULL) && ((RowY + 24) <= (Panel.Y + Panel.Height))) {
@@ -1680,15 +1739,60 @@ SnapshotCapabilityText (
   return CapabilityText (Present);
 }
 
+STATIC
+VOID
+DrawQuickSettingsRow (
+  IN MODERN_UI_RENDER_CONTEXT       *Ui,
+  IN CONST MODERN_UI_THEME          *Theme,
+  IN UINTN                          X,
+  IN UINTN                          Y,
+  IN UINTN                          Width,
+  IN UINTN                          RowIndex,
+  IN CONST CHAR16                   *Label,
+  IN CONST CHAR16                   *Value,
+  IN CONST CHAR16                   *Action,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Background,
+  IN SETUP_FOCUS                    Focus
+  )
+{
+  BOOLEAN                         Selected;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL   RowColor;
+  UINTN                           ValueX;
+  UINTN                           ActionX;
+  UINTN                           ValueWidth;
+
+  if ((Width < 120) || (Label == NULL) || (Value == NULL) || (Action == NULL)) {
+    return;
+  }
+
+  Selected = (BOOLEAN)((Focus == SetupFocusContent) && (mModernSetupQuickSettingsSelection == RowIndex));
+  RowColor = Selected ? ModernUiBlendColor (Theme->SelectedBand, Background, 64) : Background;
+  ModernUiFillRect (Ui, (MODERN_UI_RECT){ X, Y - 3, Width, 24 }, RowColor);
+  if (Selected) {
+    ModernUiFillRect (Ui, (MODERN_UI_RECT){ X, Y - 3, 5, 24 }, Theme->AccentYellow);
+  }
+
+  if (Width >= 520) {
+    ValueX     = X + 190;
+    ActionX    = X + Width - 142;
+    ValueWidth = (ActionX > (ValueX + 8)) ? (ActionX - ValueX - 8) : 96;
+    ModernUiDrawTextFit (Ui, X + 12, Y, 170, Label, Selected ? Theme->AccentYellow : Theme->MutedText, RowColor);
+    ModernUiDrawTextFit (Ui, ValueX, Y, ValueWidth, Value, Theme->Text, RowColor);
+    ModernUiDrawTextFit (Ui, ActionX, Y, 128, Action, Selected ? Theme->AccentYellow : Theme->MutedText, RowColor);
+  } else {
+    ValueX     = X + (Width / 2);
+    ValueWidth = (Width > (ValueX - X)) ? (Width - (ValueX - X) - 8) : (Width / 2);
+    ModernUiDrawTextFit (Ui, X + 12, Y, (Width / 2) - 18, Label, Selected ? Theme->AccentYellow : Theme->MutedText, RowColor);
+    ModernUiDrawTextFit (Ui, ValueX, Y, ValueWidth, Value, Theme->Text, RowColor);
+  }
+}
+
 /**
   Draw the Quick Settings page: high-churn platform knobs grouped by domain.
 
-  Tier-B prototype per Docs/ConfigurableItemsAndQuickSettings.md. This curates
-  the read-only policy-entry presence hints the providers already discover
-  (SR-IOV, Above-4G, ASPM, VT-d/IOMMU, RAS, Secure Boot, ...) into one screen so
-  a user can see, at a glance, which high-churn settings this platform exposes.
-  It is intentionally read-only: changing any of these stays in native
-  FormBrowser. (Per-row SendForm deep-link is a follow-up slice.)
+  This page is intentionally read-only. Rows are selectable to explain native
+  ownership and future handoff direction; policy edits remain in native
+  FormBrowser / platform setup pages.
 
   @param[in] Ui     Initialized render context. Must not be NULL.
   @param[in] Theme  Theme token table. Must not be NULL.
@@ -1706,11 +1810,9 @@ DrawQuickSettings (
   MODERN_SETUP_PROVIDER_SNAPSHOT  Providers;
   MODERN_UI_RECT                  Content;
   MODERN_UI_RECT                  Panel;
-  MODERN_UI_RECT                  Column;
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL   Background;
-  UINTN                           LeftWidth;
-  UINTN                           RightWidth;
   UINTN                           RowY;
+  UINTN                           RowStep;
   CONST CHAR16                    *SecureBootText;
 
   ModernSetupGetCachedProviderSnapshot (&Providers);
@@ -1721,6 +1823,8 @@ DrawQuickSettings (
   Content    = ModernSetupContentRect (Ui);
   Panel      = (MODERN_UI_RECT){ Content.X, Content.Y, Content.Width, MIN (Content.Height, 540) };
   Background = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
+  RowStep    = 27;
+
   DrawProviderSummarySection (Ui, Theme, Panel, L"Quick Settings", TRUE);
   ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
   ModernUiDrawTextFit (
@@ -1728,60 +1832,39 @@ DrawQuickSettings (
     Panel.X + 22,
     Panel.Y + 38,
     Panel.Width - 44,
-    L"Read-only entry points to high-churn settings. Change them in native setup.",
+    L"Read-only overview. Enter reports the native owner or handoff status.",
     Theme->MutedText,
     Background
     );
 
-  if (Panel.Width >= 720) {
-    LeftWidth  = (Panel.Width - 60) / 2;
-    RightWidth = Panel.Width - 60 - LeftWidth;
-  } else {
-    LeftWidth  = Panel.Width - 44;
-    RightWidth = 0;
-  }
-
-  Column = (MODERN_UI_RECT){ Panel.X + 22, Panel.Y + 70, LeftWidth, Panel.Height - 86 };
-  RowY   = Column.Y;
-  DrawProviderSubsectionHeader (Ui, Theme, Column.X, RowY, Column.Width, L"Virtualization & Isolation");
+  RowY = Panel.Y + 74;
+  DrawProviderSubsectionHeader (Ui, Theme, Panel.X + 22, RowY, Panel.Width - 44, L"Virtualization & Isolation");
   RowY += 22;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"VT-d / IOMMU", SnapshotCapabilityText (Providers.PcieStatus, (BOOLEAN)(Providers.Pcie.IommuPolicyEntryPresent || Providers.Pcie.IoMmuProtocolPresent)));
-  RowY += 26;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"SR-IOV", SnapshotCapabilityText (Providers.PcieStatus, Providers.Pcie.SriovPolicyEntryPresent));
-  RowY += 26;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"ACS / ARI", SnapshotCapabilityText (Providers.PcieStatus, (BOOLEAN)(Providers.Pcie.AcsPolicyEntryPresent || Providers.Pcie.AriPolicyEntryPresent)));
-  RowY += 26;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"CPU virtualization", SnapshotCapabilityText (Providers.PerformanceStatus, Providers.Performance.VirtualizationPolicyEntryPresent));
-  RowY += 36;
+  DrawQuickSettingsRow (Ui, Theme, Panel.X + 22, Panel.Y + ModernSetupQuickSettingsRowOffset (0), Panel.Width - 44, 0, L"VT-d / IOMMU", SnapshotCapabilityText (Providers.PcieStatus, (BOOLEAN)(Providers.Pcie.IommuPolicyEntryPresent || Providers.Pcie.IoMmuProtocolPresent)), L"Native owner", Background, Focus);
+  RowY += RowStep;
+  DrawQuickSettingsRow (Ui, Theme, Panel.X + 22, Panel.Y + ModernSetupQuickSettingsRowOffset (1), Panel.Width - 44, 1, L"SR-IOV", SnapshotCapabilityText (Providers.PcieStatus, Providers.Pcie.SriovPolicyEntryPresent), L"Native owner", Background, Focus);
+  RowY += RowStep;
+  DrawQuickSettingsRow (Ui, Theme, Panel.X + 22, Panel.Y + ModernSetupQuickSettingsRowOffset (2), Panel.Width - 44, 2, L"ACS / ARI", SnapshotCapabilityText (Providers.PcieStatus, (BOOLEAN)(Providers.Pcie.AcsPolicyEntryPresent || Providers.Pcie.AriPolicyEntryPresent)), L"Summary only", Background, Focus);
+  RowY += RowStep;
+  DrawQuickSettingsRow (Ui, Theme, Panel.X + 22, Panel.Y + ModernSetupQuickSettingsRowOffset (3), Panel.Width - 44, 3, L"CPU virtualization", SnapshotCapabilityText (Providers.PerformanceStatus, Providers.Performance.VirtualizationPolicyEntryPresent), L"Native owner", Background, Focus);
+  RowY += RowStep + 8;
 
-  DrawProviderSubsectionHeader (Ui, Theme, Column.X, RowY, Column.Width, L"Security");
+  DrawProviderSubsectionHeader (Ui, Theme, Panel.X + 22, RowY, Panel.Width - 44, L"Security");
   RowY += 22;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, ModernUiGetString (ModernUiStringSecureBoot), SecureBootText);
-  RowY += 26;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"TPM (TCG2)", SnapshotCapabilityText (Providers.SecurityStatus, (BOOLEAN)(Providers.Security.Tcg2Protocol == ModernUiSecurityStateEnabled)));
+  DrawQuickSettingsRow (Ui, Theme, Panel.X + 22, Panel.Y + ModernSetupQuickSettingsRowOffset (4), Panel.Width - 44, 4, ModernUiGetString (ModernUiStringSecureBoot), SecureBootText, ModernSetupSecureBootEntryText (), Background, Focus);
+  RowY += RowStep;
+  DrawQuickSettingsRow (Ui, Theme, Panel.X + 22, Panel.Y + ModernSetupQuickSettingsRowOffset (5), Panel.Width - 44, 5, L"TPM (TCG2)", SnapshotCapabilityText (Providers.SecurityStatus, (BOOLEAN)(Providers.Security.Tcg2Protocol == ModernUiSecurityStatePresent)), L"Security page", Background, Focus);
+  RowY += RowStep + 8;
 
-  if (RightWidth == 0) {
-    return;
-  }
-
-  Column = (MODERN_UI_RECT){ Panel.X + 38 + LeftWidth, Panel.Y + 70, RightWidth, Panel.Height - 86 };
-  RowY   = Column.Y;
-  DrawProviderSubsectionHeader (Ui, Theme, Column.X, RowY, Column.Width, L"PCIe Resource");
+  DrawProviderSubsectionHeader (Ui, Theme, Panel.X + 22, RowY, Panel.Width - 44, L"PCIe Resource / Serviceability");
   RowY += 22;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Above 4G Decoding", SnapshotCapabilityText (Providers.PcieStatus, Providers.Pcie.Above4GPolicyEntryPresent));
-  RowY += 26;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Resizable BAR", SnapshotCapabilityText (Providers.PcieStatus, Providers.Pcie.ResizeBarPolicyEntryPresent));
-  RowY += 26;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"ASPM", SnapshotCapabilityText (Providers.PcieStatus, Providers.Pcie.AspmPolicyEntryPresent));
-  RowY += 26;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"Hot-Plug", SnapshotCapabilityText (Providers.PcieStatus, Providers.Pcie.HotPlugPolicyEntryPresent));
-  RowY += 36;
-
-  DrawProviderSubsectionHeader (Ui, Theme, Column.X, RowY, Column.Width, L"Tuning / Serviceability");
-  RowY += 22;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"RAS policy", SnapshotCapabilityText (Providers.PerformanceStatus, Providers.Performance.RasPolicyEntryPresent));
-  RowY += 26;
-  DrawProviderSummaryInfoRow (Ui, Theme, Column.X, RowY, Column.Width, L"PCIe config page", SnapshotCapabilityText (Providers.PcieStatus, Providers.Pcie.PciePolicyEntryPresent));
+  DrawQuickSettingsRow (Ui, Theme, Panel.X + 22, Panel.Y + ModernSetupQuickSettingsRowOffset (6), Panel.Width - 44, 6, L"Above 4G Decoding", SnapshotCapabilityText (Providers.PcieStatus, Providers.Pcie.Above4GPolicyEntryPresent), L"Native owner", Background, Focus);
+  RowY += RowStep;
+  DrawQuickSettingsRow (Ui, Theme, Panel.X + 22, Panel.Y + ModernSetupQuickSettingsRowOffset (7), Panel.Width - 44, 7, L"Resizable BAR", SnapshotCapabilityText (Providers.PcieStatus, Providers.Pcie.ResizeBarPolicyEntryPresent), L"Native owner", Background, Focus);
+  RowY += RowStep;
+  DrawQuickSettingsRow (Ui, Theme, Panel.X + 22, Panel.Y + ModernSetupQuickSettingsRowOffset (8), Panel.Width - 44, 8, L"ASPM / Hot-Plug", SnapshotCapabilityText (Providers.PcieStatus, (BOOLEAN)(Providers.Pcie.AspmPolicyEntryPresent || Providers.Pcie.HotPlugPolicyEntryPresent)), L"Native owner", Background, Focus);
+  RowY += RowStep;
+  DrawQuickSettingsRow (Ui, Theme, Panel.X + 22, Panel.Y + ModernSetupQuickSettingsRowOffset (9), Panel.Width - 44, 9, L"RAS / PCIe config", SnapshotCapabilityText (Providers.PerformanceStatus, (BOOLEAN)(Providers.Performance.RasPolicyEntryPresent || Providers.Pcie.PciePolicyEntryPresent)), L"Native owner", Background, Focus);
 }
 
 /**
@@ -2053,7 +2136,6 @@ DrawPreferences (
   CONST CHAR16           *Hint;
   UINTN                  RowX;
   UINTN                  RowWidth;
-  UINTN                  ValueWidth;
   UINTN                  ChoiceCount;
   UINTN                  Choice;
   UINTN                  PopupX;
@@ -2072,7 +2154,6 @@ DrawPreferences (
   Panel = ModernSetupContentRect (Ui);
   RowX = Panel.X + 26;
   RowWidth = Panel.Width - 52;
-  ValueWidth = 240;
   ModernUiDrawPanel (Ui, Panel, Theme);
   ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
   ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, ModernUiGetString (ModernUiStringPreferencesInstruction), Theme->MutedText, Theme->Surface);
@@ -2097,17 +2178,17 @@ DrawPreferences (
   }
 
   if (mModernSetupPreferencePopupOpen) {
-    PopupX      = RowX + RowWidth - ValueWidth - 12;
-    PopupY      = Panel.Y + 72 + (mModernSetupPreferencePopupRow + 1) * 42 - 8;
+    PopupModel.Rect = ModernSetupPreferencePopupRect (Ui);
+    PopupX = PopupModel.Rect.X;
+    PopupY = PopupModel.Rect.Y;
     if (mModernSetupPreferencePopupKind == ModernSetupPreferencePopupChoice) {
       ChoiceCount = ModernSetupGetPreferenceChoiceCount (mModernSetupPreferencePopupRow);
-      PopupModel.Rect  = (MODERN_UI_RECT){ PopupX, PopupY, ValueWidth, 40 + ChoiceCount * 34 };
       PopupModel.Title = ModernSetupGetPreferenceValueName (mModernSetupPreferencePopupRow);
       ModernUiEngineDrawPopup (Ui, &PopupModel, Theme);
 
       for (Choice = 0; Choice < ChoiceCount; Choice++) {
         IsSelected = (BOOLEAN)(Choice == mModernSetupPreferencePopupSelection);
-        RowModel.Rect      = (MODERN_UI_RECT){ PopupX + 6, PopupY + 28 + Choice * 34, ValueWidth - 12, 30 };
+        RowModel.Rect      = ModernSetupPreferencePopupChoiceRect (PopupModel.Rect, Choice);
         RowModel.Prompt    = ModernSetupGetPreferenceChoiceName (mModernSetupPreferencePopupRow, Choice);
         RowModel.Value     = NULL;
         RowModel.Role      = IsSelected ? ModernUiRowSelected : ModernUiRowNormal;
@@ -2115,20 +2196,19 @@ DrawPreferences (
         ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
       }
     } else {
-      PopupModel.Rect  = (MODERN_UI_RECT){ PopupX, PopupY, ValueWidth, 118 };
       PopupModel.Title = Prompts[mModernSetupPreferencePopupRow];
       ModernUiEngineDrawPopup (Ui, &PopupModel, Theme);
 
       Hint = (mModernSetupPreferencePopupKind == ModernSetupPreferencePopupNumericInput) ?
              L"Digits only, range 0..30. Enter saves, Esc cancels." :
              L"Printable ASCII, max 31 chars. Enter saves, Esc cancels.";
-      RowModel.Rect      = (MODERN_UI_RECT){ PopupX + 8, PopupY + 36, ValueWidth - 16, 34 };
+      RowModel.Rect      = (MODERN_UI_RECT){ PopupX + 8, PopupY + 36, PopupModel.Rect.Width - 16, 34 };
       RowModel.Prompt    = mModernSetupPreferenceInputBuffer;
       RowModel.Value     = NULL;
       RowModel.Role      = ModernUiRowSelected;
       RowModel.ValueType = (mModernSetupPreferencePopupKind == ModernSetupPreferencePopupNumericInput) ? ModernUiValueNumeric : ModernUiValueString;
       ModernUiEngineDrawRows (Ui, &RowModel, 1, Theme);
-      ModernUiDrawTextFit (Ui, PopupX + 12, PopupY + 80, ValueWidth - 24, Hint, Theme->MutedText, Theme->Surface);
+      ModernUiDrawTextFit (Ui, PopupX + 12, PopupY + 80, PopupModel.Rect.Width - 24, Hint, Theme->MutedText, Theme->Surface);
     }
   }
 }
@@ -2248,6 +2328,9 @@ ModernSetupDrawCurrentPage (
   switch (Page) {
     case PageDashboard:
       ModernSetupDrawDashboard (Ui, Theme, Focus, DashboardSelection);
+      break;
+    case PageCatalog:
+      ModernSetupDrawCatalog (Ui, Theme, Focus);
       break;
     case PageSystemInfo:
       DrawSystemInfo (Ui, Theme, Focus);

@@ -20,6 +20,22 @@
 #include <Protocol/Smbios.h>                  // EFI_SMBIOS_TYPE / EFI_SMBIOS_TABLE_HEADER
 
 /**
+  Return TRUE when the SMBIOS protocol is installed.
+
+  This is a source-liveness probe for providers that need to report whether the
+  platform exposed SMBIOS at all, independent of whether a specific structure
+  type exists.
+
+  @retval TRUE   SMBIOS protocol is present.
+  @retval FALSE  SMBIOS protocol is absent.
+**/
+BOOLEAN
+EFIAPI
+ModernUiSmbiosPresent (
+  VOID
+  );
+
+/**
   Find the Index-th (0-based) SMBIOS structure of a given type.
 
   @param[in] Type   SMBIOS structure type (e.g. SMBIOS_TYPE_PROCESSOR_INFORMATION).
@@ -84,6 +100,21 @@ BOOLEAN
 EFIAPI
 ModernUiSmbiosIsPlaceholder (
   IN CONST CHAR8  *String
+  );
+
+/**
+  Return TRUE when ACPI is installed via the UEFI configuration table.
+
+  This reports ACPI source liveness (RSDP present). Use
+  ModernUiAcpiTablePresent() for a specific table signature.
+
+  @retval TRUE   ACPI RSDP is present.
+  @retval FALSE  ACPI is absent.
+**/
+BOOLEAN
+EFIAPI
+ModernUiAcpiPresent (
+  VOID
   );
 
 /**

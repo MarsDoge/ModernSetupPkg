@@ -22,6 +22,18 @@ Native edk2 FormBrowser path
   -> platform/OEM HII pages, callbacks, validation, varstores, and policy
 ```
 
+The feedback workflow is also split by audience:
+
+- **Interface users** describe category/display needs: the Setup page/category,
+  visible label, value/status wording, row grouping, selectability, native entry
+  point, and screenshot/reference.
+- **Developer contributors** describe interface-flow needs: standard source,
+  access API, provider owner, app consumption path, native owner, fallback/status
+  semantics, and validation.
+
+The product matrix is the interface-user view of what the UI should show. The
+developer flow is normalized in [ProviderDataContract.md](ProviderDataContract.md).
+
 XArch is ModernSetupPkg's cross-architecture model for keeping one Setup UX, one
 HII/FormBrowser ownership boundary, and one validation vocabulary across X64,
 AARCH64, LOONGARCH64, and RISCV64 targets. XArch does not replace edk2 ARCH
@@ -44,19 +56,19 @@ show a summary or entry point, then open the owning HII form through
 
 ## Standard App Pages
 
-| Page | Common purpose | App should show | Complex settings owner | Current status |
+| Page / product IA | Common purpose | App should show | Complex settings owner | Current status |
 | --- | --- | --- | --- | --- |
-| Dashboard | First-glance platform state. | Firmware vendor/revision, architecture, form factor, boot mode, platform name, memory, display mode, boot count, Secure Boot state, HII/device count, provider availability. | App data providers. | Basic implemented. |
-| Boot | Boot inventory, selected-entry launch, and native Boot Manager fallback. | `BootOrder` / `Boot####` active/hidden state, category, and device-path summaries. Enter launches the selected visible Boot#### entry. | Boot Maintenance HII pages for editing and advanced policy. | Basic implemented. |
-| Devices / HII | Entry point to platform setup pages and device inventory. | HII formsets, driver/device path rows, Driver Health entry, inventory rows. | Each driver formset via FormBrowser2. | Basic implemented. |
-| Security | Read-only security posture. | Secure Boot, Setup Mode, PK/KEK/db/dbx state, TPM/TCG/TCM presence when available. | Security HII pages and platform policy drivers. | Basic implemented. |
-| Firmware Update | Firmware lifecycle entry point. | Capsule support, firmware version, recovery/update entry, last update state when available. | Capsule/update HII or platform update app. | Basic read-only implemented. |
-| Diagnostics / Logs | Bring-up and service visibility. | POST/log summary, error count, ACPI/SMBIOS presence, memory map summary, test hooks. | Platform diagnostics HII or service app. | Basic read-only implemented. |
-| Management | Server/remote management summary. | BMC/IPMI/Redfish presence, management NIC, host interface, remote update support. | BMC/IPMI/Redfish platform drivers. | Basic read-only implemented. |
-| Power / Thermal | Power and cooling visibility. | ACPI table/protocol state, chassis thermal state, power supply record presence, and read-only demo Hardware Health temperature curves. | Platform fan, battery, thermal, and power-policy HII. | Basic read-only implemented; Hardware Health is demo data only. |
-| Performance / Tuning | CPU/memory and tuning entry visibility. | Processor inventory, memory inventory, CPU I/O protocol, virtualization/RAS policy entry availability. | Platform performance, overclocking, NUMA/RAS, PCIe policy HII. | Basic read-only implemented. |
-| PCIe Policy | PCIe inventory and policy-entry visibility. | Controller/root-bridge/endpoint counts, protocol presence, and read-only capability hints for ReBAR, Above 4G, SR-IOV, ASPM, bifurcation, hot-plug, ACS/ARI, and IOMMU. | Platform PCIe policy HII and native FormBrowser pages. | Basic read-only foundation implemented. |
-| Exit | Session and shell control. | Continue, reset, native UiApp, language, theme, app/version info. | Native FormBrowser save/discard where needed. | Basic implemented. |
+| Main (`PageDashboard` + `PageSystemInfo`) | First-glance platform state and detailed system inventory. | Firmware vendor/revision, BIOS version/date, architecture, form factor, boot mode, platform name, CPU, memory, display mode, Secure Boot state, HII/device count, provider availability. | App data providers. | Basic implemented. |
+| Boot (`PageBoot`) | Boot inventory, selected-entry launch, and native Boot Manager fallback. | `BootOrder` / `Boot####` active/hidden state, category, and device-path summaries. Enter launches the selected visible Boot#### entry. | Boot Maintenance HII pages for editing and advanced policy. | Basic implemented. |
+| Advanced / Chipset (`PageDevices` + `PageQuickSettings`) | Entry points to platform setup pages, device inventory, and high-churn native-owner hints. | HII formsets, driver/device path rows, Driver Health entry, inventory rows, Quick Settings rows for Secure Boot/TPM/virtualization/PCIe resource hints. | Each driver formset via FormBrowser2; platform chipset/SoC/PCIe HII. | Basic implemented; Quick Settings read-only affordance implemented. |
+| Security (`PageSecurity`) | Read-only security posture. | Secure Boot, Setup Mode, PK/KEK/db/dbx state, TPM/TCG/TCM presence when available. | Security HII pages and platform policy drivers. | Basic implemented. |
+| Firmware Update / Recovery (`PageFirmware`) | Firmware lifecycle entry point. | Capsule support, firmware version, recovery/update entry, last update state when available. | Capsule/update HII or platform update app. | Basic read-only implemented. |
+| Diagnostics (`PageDiagnostics`) | Bring-up and service visibility. | POST/log summary, error count, ACPI/SMBIOS presence, memory map summary, test hooks, provider health. | Platform diagnostics HII or service app. | Basic read-only implemented. |
+| Server Management (`PageManagement` + `PageServerInventory`) | Server/remote management and asset inventory. | BMC/IPMI/Redfish presence, management NIC, host interface, remote update support, management inventory, PCIe policy-entry hints. | BMC/IPMI/Redfish platform drivers and platform PCIe policy HII. | Basic read-only implemented. |
+| Power / Thermal (`PagePower`) | Power and cooling visibility. | ACPI table/protocol state, chassis thermal state, power supply record presence, and read-only demo Hardware Health temperature curves. | Platform fan, battery, thermal, and power-policy HII. | Basic read-only implemented; Hardware Health is demo data only. |
+| Performance / Tuning (`PagePerformance`) | CPU/memory and tuning entry visibility. | Processor inventory, memory inventory, CPU I/O protocol, virtualization/RAS policy entry availability. | Platform performance, overclocking, NUMA/RAS, PCIe policy HII. | Basic read-only implemented. |
+| Preferences / UX (`PagePreferences`) | App-owned UI preferences. | Theme, density, language, OEM watermark toggle. | App-owned preferences only. | Basic implemented. |
+| Save & Exit (`PageExit`) | Session and shell control. | Continue, reset, native UiApp, language, theme, app/version info. | Native FormBrowser save/discard where needed. | Basic implemented. |
 
 ## Broad Setup Taxonomy to App IA / Provider Mapping
 
@@ -84,7 +96,7 @@ App-owned control.
 | Memory timing / profile / RAS | Performance / Tuning category as entry/status only; Management/Diagnostics may show health. | Read-only memory/RAS entry hints through existing or future provider. | Show memory/RAS availability and health signals, not individual timing controls. | XMP/EXPO, DRAM ratios/timings/voltage, scrub, mirroring, sparing, interleave policy remain native only. |
 | Chipset / SoC configuration | Devices / HII; Power / Thermal; Diagnostics depending on surfaced formset. | HII entry enumeration plus platform/device inventory; no generic chipset writer. | Expose native setup entry and summarize device/protocol presence. | PCH/SoC straps, GPIO/I2C/SPI/UART, watchdog, SATA/USB enablement, and board muxes remain native only. |
 | Storage / NVMe / RAID | Devices / HII; Boot; Diagnostics. | Device path inventory, future read-only storage health provider if portable. | Show bootable/storage device presence and route to native storage/RAID tools. | RAID/VMD/RST, Opal, sanitize, hot-plug, and storage security operations remain native/vendor utility. |
-| PCIe resource / fabric policy | PCIe Policy category; Performance / Tuning cross-link. | `ModernUiPcieDataLib`, PCIe inventory/capability hints. | Show controller/root-bridge/endpoint counts and read-only hints for ReBAR, Above 4G, SR-IOV, ASPM, bifurcation, hot-plug, ACS/ARI, IOMMU. | All resource allocation and policy changes remain native PCIe policy HII/FormBrowser. |
+| PCIe resource / fabric policy | Advanced / Chipset / Server Management entry hints; Performance / Tuning cross-link. | `ModernUiPcieDataLib`, PCIe inventory/capability hints. | Show controller/root-bridge/endpoint counts and read-only hints for ReBAR, Above 4G, SR-IOV, ASPM, bifurcation, hot-plug, ACS/ARI, IOMMU. | All resource allocation and policy changes remain native PCIe policy HII/FormBrowser. |
 | Graphics / display | Dashboard; Devices / HII. | `ModernUiPlatformDataLib` for GOP mode plus device inventory. | Show current GOP resolution/renderer state and display-device entries. | iGPU/dGPU mux, hybrid graphics, UMA, panel/backlight, and OpROM policy remain native. |
 | Network / connectivity | Boot; Devices / HII; Management for server NIC path. | Boot entries, device paths, optional management provider probes. | Show network boot entries, NIC/device presence, management host hints. | PXE/HTTP stack policy, VLAN/iSCSI, Wi-Fi/Bluetooth toggles, MAC policy, WoL settings remain native. |
 | RAS / reliability / serviceability | Diagnostics / Logs; Management; Performance / Tuning. | Diagnostics, management, performance, and PCIe providers expose read-only presence/health. | Show RAS/log/provider readiness and route to native RAS pages. | ECC/scrub/poison/AER/NMI behavior, log clearing, and service policy remain native. |

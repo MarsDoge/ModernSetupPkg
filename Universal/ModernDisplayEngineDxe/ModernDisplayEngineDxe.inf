@@ -25,6 +25,7 @@
   ProcessOptions.c
   InputHandler.c
   Popup.c
+  SaveReview.c
 
 [Packages]
   MdePkg/MdePkg.dec
@@ -41,11 +42,17 @@
   HiiLib
   MemoryAllocationLib
   CustomizedDisplayLib
+  ModernUiStringLib
+  ModernUiRendererLib
+  ModernUiThemeLib
+  ModernUiInputLib
 
 [Protocols]
   gEdkiiFormDisplayEngineProtocolGuid   ## PRODUCES
   gEdkiiFormBrowserEx2ProtocolGuid      ## CONSUMES
   gEfiHiiPopupProtocolGuid              ## PRODUCES
+  gEfiGraphicsOutputProtocolGuid        ## CONSUMES
+  gEfiHiiFontProtocolGuid               ## SOMETIMES_CONSUMES
 
 [Depex]
   gEfiHiiDatabaseProtocolGuid AND gEfiHiiConfigRoutingProtocolGuid AND gEdkiiFormBrowserEx2ProtocolGuid

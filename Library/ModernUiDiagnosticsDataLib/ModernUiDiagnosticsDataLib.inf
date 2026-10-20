@@ -26,9 +26,5 @@
 [LibraryClasses]
   BaseMemoryLib
   MemoryAllocationLib
+  ModernUiPlatformTablesLib
   UefiBootServicesTableLib
-
-[Guids]
-  gEfiAcpi20TableGuid
-  gEfiSmbiosTableGuid
-  gEfiSmbios3TableGuid

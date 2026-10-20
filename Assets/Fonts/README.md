@@ -37,6 +37,21 @@ python3 -m venv /tmp/modernsetup-font-venv
   --source /path/to/edk2/MdeModulePkg/Universal/DriverSampleDxe/InventoryStrings.uni
 ```
 
+For additive Catalog updates, preserve existing glyphs (including Russian and
+native HII strings), and include the octal-encoded UTF-8 generated metadata:
+
+```sh
+python3 Scripts/generate-font-glyphs.py \
+  --font /path/to/NotoSansCJKsc-Regular.otf --preserve-existing \
+  --source Application/ModernSetupApp/ModernSetupAppCatalog.c \
+  --source Application/ModernSetupApp/ModernSetupSettings.generated.h
+```
+
+For a Noto CJK `.ttc` collection, select its Simplified Chinese face with
+`--font-index 2` (verify with `fc-match 'Noto Sans CJK SC' -f '%{index}'`).
+`Tests/Smoke/catalog_localization_test.py` checks all catalog text against the
+committed font table, including labels and help stored as escaped UTF-8.
+
 Only glyphs referenced by the selected source files are included in the
 generated table. Add another `--source` argument when a new built-in page or HII
 demo needs additional fixed firmware-resident glyphs.

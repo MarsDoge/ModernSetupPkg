@@ -506,6 +506,11 @@ CalculatePopupPosition (
   // Select the smaller one between actual dimension of message string and the avialble dimension for message string.
   //
   gST->ConOut->QueryMode (gST->ConOut, gST->ConOut->Mode->Mode, &Columns, &Rows);
+  // The graphical display library may use taller rows than the console grid.
+  // Keep message popups inside the same viewport as the displayed form.
+  if (gScreenDimensions.BottomRow != 0) {
+    Rows = MIN (Rows, gScreenDimensions.BottomRow);
+  }
   gMaxRowWidth   = MIN (gMaxRowWidth, Columns - 2 * POPUP_BORDER);
   gMesStrLineNum = MIN (gMesStrLineNum, Rows -1 - POPUP_FOOTER_HEIGHT - POPUP_HEADER_HEIGHT);
 

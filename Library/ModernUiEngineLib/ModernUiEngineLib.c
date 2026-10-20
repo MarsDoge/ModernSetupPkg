@@ -18,6 +18,15 @@
 #include <ModernUi/ModernUiPlatformTables.h>
 #include <ModernUi/ModernUiEngine.h>
 
+// Per-image cache: App and DisplayEngine each link their own engine instance.
+STATIC MODERN_UI_RENDER_CONTEXT       *mClockContext;
+STATIC MODERN_UI_RECT                 mClockRect;
+STATIC EFI_GRAPHICS_OUTPUT_BLT_PIXEL  mClockTextColor;
+STATIC EFI_GRAPHICS_OUTPUT_BLT_PIXEL  mClockBackground;
+STATIC UINTN                         mClockScreenWidth;
+STATIC UINTN                         mClockScreenHeight;
+STATIC CHAR16                        mClockText[40];
+
 #define MODERN_UI_ENGINE_RIGHT_RAIL_MIN_WIDTH  1000
 #define MODERN_UI_ROW_VALUE_LANE_WIDTH         300
 #define MODERN_UI_ROW_VALUE_BOX_WIDTH          280
@@ -829,6 +838,51 @@ ModernUiEngineDrawFooter (
 
 EFI_STATUS
 EFIAPI
+ModernUiEngineRefreshClock (
+  IN MODERN_UI_RENDER_CONTEXT  *Context
+  )
+{
+  EFI_TIME    Time;
+  EFI_STATUS  Status;
+  CHAR16      Text[40];
+
+  if ((Context == NULL) || (Context != mClockContext) ||
+      (Context->Width != mClockScreenWidth) ||
+      (Context->Height != mClockScreenHeight))
+  {
+    return EFI_NOT_READY;
+  }
+
+  Status = gRT->GetTime (&Time, NULL);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  UnicodeSPrint (
+    Text, sizeof (Text), L"%02d/%02d/%04d  %02d:%02d:%02d",
+    Time.Month, Time.Day, Time.Year, Time.Hour, Time.Minute, Time.Second
+    );
+  if (StrCmp (Text, mClockText) == 0) {
+    return EFI_SUCCESS;
+  }
+
+  Status = ModernUiFillRect (Context, mClockRect, mClockBackground);
+  if (!EFI_ERROR (Status)) {
+    Status = ModernUiDrawText (
+               Context, mClockRect.X, mClockRect.Y, Text,
+               mClockTextColor, mClockBackground
+               );
+  }
+
+  if (!EFI_ERROR (Status)) {
+    CopyMem (mClockText, Text, StrSize (Text));
+  }
+
+  return Status;
+}
+
+EFI_STATUS
+EFIAPI
 ModernUiEngineDrawPage (
   IN MODERN_UI_RENDER_CONTEXT  *Context,
   IN CONST MODERN_UI_PAGE_MODEL *Model,
@@ -853,6 +907,7 @@ ModernUiEngineDrawPage (
     return EFI_INVALID_PARAMETER;
   }
 
+  mClockContext = NULL;
   Status = ModernUiClear (Context, Theme->Background);
   if (EFI_ERROR (Status)) {
     return Status;
@@ -911,6 +966,16 @@ ModernUiEngineDrawPage (
     if (EFI_ERROR (Status)) {
       return Status;
     }
+
+    // Match the already-painted text background exactly; never redraw page
+    // chrome from an idle tick (that would erase live FormBrowser content).
+    mClockRect         = (MODERN_UI_RECT){ TimeStart, TextY, TimeWidth, MODERN_UI_TEXT_LINE_HEIGHT };
+    mClockTextColor    = Theme->Text;
+    mClockBackground   = Theme->HeaderPattern;
+    mClockScreenWidth  = Context->Width;
+    mClockScreenHeight = Context->Height;
+    CopyMem (mClockText, TimeText, StrSize (TimeText));
+    mClockContext = Context;
   }
 
   //

@@ -30,19 +30,22 @@ It is a companion to:
 
 ## 1. What is even configurable in edk2
 
-Not every PCD can be changed from a UI. The mechanism, not the wish, decides.
+PCDs are not a complete inventory of configurable settings. A setting needs a
+real platform owner and consumer; its PCD type alone does not provide a UI.
 
 | PCD type | Runtime-mutable? | UI-configurable? |
 | --- | --- | --- |
-| `FixedAtBuild` / `PatchableInModule` / `FeatureFlag` | No (compile-time) | **No** — needs a rebuild / build switch, out of scope for any UI |
+| `FixedAtBuild` / `FeatureFlag` | No (build-time) | Not a runtime Setup control |
+| `PatchableInModule` | Module-local patchable value | Not automatically a persistent Setup control; requires an explicit platform contract |
 | `Dynamic` / `DynamicEx` | Yes (PCD database / HOB) | Only if the platform wires it to an HII question |
-| **`DynamicHii`** | Yes — **bound to an NV variable** | **Yes — this is the real carrier of "UI-configurable"** |
+| `DynamicHii` / `DynamicExHii` | HII-backed variable binding | One possible storage binding, not the only configurable source and not proof of an editable question |
 
-Consequence: the user-configurable surface in edk2 is **HII questions bound to
-NV varstores** (frequently surfaced as `DynamicHii` PCDs). On real platforms
-SR-IOV / Above-4G / IOMMU / SATA-mode are typically exactly such questions,
-authored in VFR by the silicon/platform code. If an item is `FixedAtBuild`, no
-UI can change it at runtime.
+Native HII questions may use buffer, name/value, or EFI-variable varstores,
+callbacks, or platform services without any PCD binding. Volatile state and
+actions need not have NV storage. SR-IOV / Above-4G / IOMMU / SATA-mode require
+the actual platform's VFR/ConfigAccess contract, not an assumed universal layout.
+System date/time is platform RTC state (`GetTime` / `SetTime`), not an App-owned
+preference; any editing route must use its native owner (Tier B/C).
 
 ## 2. Non-negotiable boundary (smoke-enforced)
 
@@ -66,11 +69,12 @@ Every configurable item maps to exactly one tier.
 | Tier | What the shell does | Who writes | Examples |
 | --- | --- | --- | --- |
 | **A — App-owned direct edit** | The shell reads and writes its own state. | `ModernSetupApp` (its own store) | Language, theme, EZ/Advanced mode, favorites, App preferences (`ModernUiPreferencesLib`). |
-| **B — Curated quick-settings deep-link** | Locate a known high-churn HII question, present it grouped in a modern page; on activate, `SendForm()` into the owning formset/form/question. **Edit stays native; ModernDisplayEngine renders it.** | Native FormBrowser + platform ConfigAccess | Secure Boot, TPM enable, VT-d/IOMMU, SR-IOV, Above-4G, ReBAR, SATA mode, primary display, WoL, AC-loss restore, fast boot, TCM. |
+| **B — Curated quick-settings deep-link** | Locate a registered high-churn HII owner, present it grouped in a modern page; on activate, `SendForm()` into the owning formset/form (question focus only where verified; §5). **Edit stays native; ModernDisplayEngine renders it.** | Native FormBrowser + platform ConfigAccess | Secure Boot, TPM enable, VT-d/IOMMU, SR-IOV, Above-4G, ReBAR, SATA mode, primary display, WoL, AC-loss restore, fast boot, TCM. |
 | **C — Whole native page** | Open the entire formset via `SendForm()`. | Native FormBrowser + platform ConfigAccess | RAS, NUMA, memory timing, CPU voltage, BMC networking, multi-question flows. |
 
-Tier B is the new productization work. It does **not** relax the boundary: the
-only new code is *discovery + grouping + a deep-link `SendForm` target*. The
+Tier B defines the productization direction, not implementation coverage for
+every inventory item. It does **not** relax the boundary: the shell's role is
+*discovery + grouping + a registered native target*. The
 modern "switch" look comes from the DisplayEngine rendering the platform's
 existing checkbox/oneof question, not from the App owning the value.
 
@@ -93,21 +97,28 @@ Churn = how often an end user changes it. Tier = §3 handling.
 | Network | Onboard LAN enable, WoL, network stack, MAC passthrough | All | Most | Med | B/C |
 | Management (server) | BMC network (DHCP/static), IPMI over LAN, Redfish enable | Server | Server platforms | Med | C |
 | Trusted computing | **Trusted Cryptography Module (TCM), compatibility mode, kernel integrity measurement** | — | Some platforms | Med | B/C |
-| Self / branding | Language, EZ/Advanced, favorites, theme, date/time | All | All | High | **A** |
+| System clock | Date/time (platform RTC, not App preferences) | All | All | High | B/C |
+| Self / branding | Language, EZ/Advanced, favorites, theme | All | All | High | **A** |
 
 ## 5. Quick Settings (Tier B) design
 
-A new modern page (`PageQuickSettings`, opt-in) that:
+The following is the target contract for `PageQuickSettings` and a generic
+settings catalog. This documentation change does not implement catalog-driven
+UI, owner registration, variable access, or new editing backends. Existing
+individual native routes do not prove coverage of the entire inventory.
 
-1. **Discovers** known high-churn questions across installed HII formsets using
-   the existing keyword-probe approach (`HasHiiFormsetKeyword`-style scanning in
-   a provider), producing a typed read-only list of *(group, label, owning
-   formset/form/question coordinates, present?)*. No IFR mutation, no ConfigAccess.
+1. **Resolves exact registrations** for known settings against installed HII
+   owners: formset GUID plus documented form/question identifiers where supported,
+   and a device-path/instance discriminator when needed. Translated titles,
+   keywords, protocol presence, or similar-looking labels MUST NOT select an owner.
+   Missing, ambiguous, or stale registrations remain unavailable; no guessed target.
 2. **Groups** them (Security / Virtualization / PCIe / Power / Boot) and
    renders each as a modern row with the platform-reported current value when it
-   can be read read-only (else "Configure ›").
+   can be read read-only (else `N/A`, with a reason and separate entry status).
 3. On activate, calls `EFI_FORM_BROWSER2_PROTOCOL.SendForm()` targeting the
-   owning formset (optionally a specific `FormId`/`QuestionId` jump). The native
+   registered owning formset and supported `FormId`. `SendForm()` has no
+   `QuestionId` argument: question-level focus requires a separately verified
+   native navigation mechanism, otherwise open the registered form. The native
    browser performs the edit; `ModernDisplayEngineDxe` renders it modern.
 
 Constraints (carried into review and smoke):
@@ -118,8 +129,37 @@ Constraints (carried into review and smoke):
   set paths.
 - Quick Settings rows are **entry points**, not editors. The only state the App
   writes is its own favorites/ordering (Tier A).
-- Items whose owning question is absent are hidden (graceful degradation), never
-  fabricated.
+- A catalog item whose owner/question/binding is missing MUST remain visible
+  with `N/A` availability, non-editable and non-submittable, but selectable to
+  inspect help and the missing-source/owner reason. Selection is not permission
+  to edit. A separately verified read-only value may remain visible alongside
+  that unavailable entry status.
+- A real `Disabled` or `0` value is valid data, not `N/A`; value validity,
+  owner availability, editability, and selection/help state MUST be separate.
+- This absence rule MUST NOT bypass platform security suppression, authorization,
+  `suppressif`, `grayoutif`, or `disableif`. Native policy may hide/restrict a
+  question; the catalog must not expose protected details or force a deep-link.
+
+### Generic catalog and variable-binding contract (target)
+
+Each catalog item needs a stable ID, domain/category, localized label/help,
+value type/options/units, read source and validity, exact native-owner registration,
+availability reason, and separately declared selection/edit/submit capabilities.
+Inventory coverage is not a claim that a platform implements the item.
+
+Bindings are platform- and revision-specific, with provenance in platform source
+or an explicit owner contract. Record the storage kind and only verified variable
+name/GUID, attributes, layout revision, offset/width or name/value key, encoding,
+range/options, defaults, dependencies, reset requirements, and the actual consumer
+where applicable. Service/callback-backed actions need their own contract rather
+than invented variable coordinates. Unknown GUIDs/offsets MUST stay unbound;
+never guess them from labels or copy another board's layout.
+
+Catalog metadata is not write authority. Providers remain read-only; all platform
+edits/submission stay in native FormBrowser/ConfigAccess and the owner's service
+path. An unavailable item must not enter a pending-change set or report saved.
+Native submit success, read-back, and reset/reboot application are distinct states;
+claims of persistence/effect require real owner and consumer validation.
 
 ### Out of scope (needs separate architecture review)
 

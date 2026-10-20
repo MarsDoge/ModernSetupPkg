@@ -61,6 +61,9 @@ AppendPackagePath() {
 ConfigureModernSetupPackagePath() {
   local PkgParent
 
+  # Freeze once for this invocation; SOURCE_DATE_EPOCH makes rebuilds identical.
+  python3 "${PKG_DIR}/Scripts/generate-build-stamp.py" >/dev/null
+
   PkgParent="$(cd "${PKG_DIR}/.." && pwd)"
   if [[ "$(cd "${PKG_DIR}" && pwd)" != "${WORKSPACE}/ModernSetupPkg" ]]; then
     AppendPackagePath "${PkgParent}"

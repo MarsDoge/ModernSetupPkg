@@ -21,6 +21,16 @@ ModernSetup 有两层 XArch 产品化边界：
   -> 平台/OEM HII 页面、回调、校验、varstore 和策略
 ```
 
+反馈工作流也按使用对象拆分：
+
+- **界面使用用户**描述分类/显示需求：Setup 页面/分类、可见 label、value/status
+  文案、行分组、是否可选、原生入口、截图/参考。
+- **开发者参与用户**描述接口流需求：标准数据源、访问 API、provider owner、App
+  消费路径、native owner、fallback/status 语义和验证。
+
+本产品矩阵是“UI 应该显示什么”的界面使用用户视角；开发者接口流在
+[Provider 数据契约](ProviderDataContract.zh-CN.md) 中归一化。
+
 `ModernSetupApp` 应为 x86/X64、ARM/AARCH64、RISC-V/RISCV64 和 LoongArch/LOONGARCH64 产品提供一致的第一屏。它不能克隆平台 Setup 策略或解析 IFR；平台专有设置应显示摘要或入口，然后通过 `EFI_FORM_BROWSER2_PROTOCOL.SendForm()` 打开归属 HII 表单。
 
 ## 平台类型
@@ -34,19 +44,19 @@ ModernSetup 有两层 XArch 产品化边界：
 
 ## 标准 App 页面
 
-| 页面 | 通用目的 | App 应显示 | 复杂设置归属 | 当前状态 |
+| 页面 / 产品 IA | 通用目的 | App 应显示 | 复杂设置归属 | 当前状态 |
 | --- | --- | --- | --- | --- |
-| Dashboard | 第一眼平台状态。 | firmware vendor/revision、architecture、form factor、boot mode、platform name、memory、display mode、boot count、Secure Boot、HII/device count、provider availability。 | App data providers。 | Basic implemented。 |
-| Boot | Boot 清单、所选条目启动和原生 Boot Manager fallback。 | `BootOrder` / `Boot####` active/hidden state、category、device-path summary。回车启动当前可见 Boot#### 条目。 | Boot Maintenance HII pages。 | Basic implemented。 |
-| Devices / HII | 平台 Setup 页面和设备 inventory 入口。 | HII formsets、driver/device path rows、Driver Health entry、inventory rows。 | Each driver formset via FormBrowser2。 | Basic implemented。 |
-| Security | 只读安全态势。 | Secure Boot、Setup Mode、PK/KEK/db/dbx、TPM/TCG/TCM presence。 | Security HII pages and platform policy drivers。 | Basic implemented。 |
-| Firmware Update | 固件生命周期入口。 | Capsule support、firmware version、recovery/update entry、last update state。 | Capsule/update HII or platform update app。 | Basic read-only implemented。 |
-| Diagnostics / Logs | Bring-up 和服务可见性。 | POST/log summary、ACPI/SMBIOS、memory map、test hooks。 | Platform diagnostics HII or service app。 | Basic read-only implemented。 |
-| Management | 服务器/远程管理摘要。 | BMC/IPMI/Redfish、management NIC、host interface、remote update support。 | BMC/IPMI/Redfish platform drivers。 | Basic read-only implemented。 |
-| Power / Thermal | 电源和散热可见性。 | ACPI state、chassis thermal state、power supply record、demo Hardware Health trend。 | Platform fan/battery/thermal/power-policy HII。 | Basic read-only; Hardware Health 为 demo data。 |
-| Performance / Tuning | CPU/memory 和 tuning 入口可见性。 | Processor inventory、memory inventory、CPU I/O protocol、virtualization/RAS entry availability。 | Platform performance/overclocking/NUMA/RAS/PCIe policy HII。 | Basic read-only implemented。 |
-| PCIe Policy | PCIe inventory 和策略入口提示。 | controller/root-bridge/endpoint counts、protocol presence、ReBAR、Above 4G、SR-IOV、ASPM、bifurcation、hot-plug、ACS/ARI、IOMMU hints。 | Platform PCIe policy HII and native FormBrowser pages。 | Basic read-only foundation implemented。 |
-| Exit | 会话和 shell 控制。 | Continue、reset、native UiApp、language、theme、app/version info。 | Native FormBrowser save/discard。 | Basic implemented。 |
+| Main (`PageDashboard` + `PageSystemInfo`) | 第一眼平台状态和详细系统清单。 | firmware vendor/revision、BIOS version/date、architecture、form factor、boot mode、platform name、CPU、memory、display mode、Secure Boot、HII/device count、provider availability。 | App data providers。 | Basic implemented。 |
+| Boot (`PageBoot`) | Boot 清单、所选条目启动和原生 Boot Manager fallback。 | `BootOrder` / `Boot####` active/hidden state、category、device-path summary。回车启动当前可见 Boot#### 条目。 | Boot Maintenance HII pages。 | Basic implemented。 |
+| Advanced / Chipset (`PageDevices` + `PageQuickSettings`) | 平台 Setup 页面、设备清单和高频原生归属提示入口。 | HII formsets、driver/device path rows、Driver Health entry、inventory rows、Quick Settings 中 Secure Boot/TPM/virtualization/PCIe resource hints。 | Each driver formset via FormBrowser2；platform chipset/SoC/PCIe HII。 | Basic implemented；Quick Settings read-only affordance implemented。 |
+| Security (`PageSecurity`) | 只读安全态势。 | Secure Boot、Setup Mode、PK/KEK/db/dbx、TPM/TCG/TCM presence。 | Security HII pages and platform policy drivers。 | Basic implemented。 |
+| Firmware Update / Recovery (`PageFirmware`) | 固件生命周期入口。 | Capsule support、firmware version、recovery/update entry、last update state。 | Capsule/update HII or platform update app。 | Basic read-only implemented。 |
+| Diagnostics (`PageDiagnostics`) | Bring-up 和服务可见性。 | POST/log summary、ACPI/SMBIOS、memory map、test hooks、provider health。 | Platform diagnostics HII or service app。 | Basic read-only implemented。 |
+| Server Management (`PageManagement` + `PageServerInventory`) | 服务器/远程管理和资产清单。 | BMC/IPMI/Redfish、management NIC、host interface、remote update support、management inventory、PCIe policy-entry hints。 | BMC/IPMI/Redfish platform drivers 和 platform PCIe policy HII。 | Basic read-only implemented。 |
+| Power / Thermal (`PagePower`) | 电源和散热可见性。 | ACPI state、chassis thermal state、power supply record、demo Hardware Health trend。 | Platform fan/battery/thermal/power-policy HII。 | Basic read-only；Hardware Health 为 demo data。 |
+| Performance / Tuning (`PagePerformance`) | CPU/memory 和 tuning 入口可见性。 | Processor inventory、memory inventory、CPU I/O protocol、virtualization/RAS entry availability。 | Platform performance/overclocking/NUMA/RAS/PCIe policy HII。 | Basic read-only implemented。 |
+| Preferences / UX (`PagePreferences`) | App 自有 UI 偏好。 | Theme、density、language、OEM watermark toggle。 | 仅 App-owned preferences。 | Basic implemented。 |
+| Save & Exit (`PageExit`) | 会话和 shell 控制。 | Continue、reset、native UiApp、language、theme、app/version info。 | Native FormBrowser save/discard。 | Basic implemented。 |
 
 ## 广义 Setup 分类到 App IA / Provider 映射
 
@@ -63,7 +73,7 @@ ModernSetup 有两层 XArch 产品化边界：
 | Management / BMC | Management。 | `ModernUiManagementDataLib`、IPMI/Redfish/SMBIOS Type 38/42。 | 显示 BMC/IPMI/Redfish 存在性并打开原生管理页。 | BMC 网络、用户、KVM/media、SEL policy 保持 BMC/原生所有。 |
 | Power / Thermal | Power / Thermal。 | `ModernUiPowerDataLib` 和 demo `ModernUiHardwareHealthDataLib`。 | 显示 power/thermal 能力和 demo trend，不声称真实平台读数。 | fan curves、trip points、battery/power policy 保持原生。 |
 | Performance / Tuning | Performance / Tuning。 | `ModernUiPerformanceDataLib`。 | 显示 CPU/memory inventory 和 tuning/RAS 入口可用性。 | CPU multiplier、voltage、memory timing、NUMA/RAS 策略保持原生。 |
-| PCIe resource / fabric policy | PCIe Policy。 | `ModernUiPcieDataLib`。 | 显示 PCIe inventory 和 ReBAR/Above 4G/SR-IOV/ASPM 等只读提示。 | 所有资源分配和策略修改保持原生 PCIe HII/FormBrowser。 |
+| PCIe resource / fabric policy | Advanced / Chipset / Server Management entry hints；Performance / Tuning cross-link。 | `ModernUiPcieDataLib`。 | 显示 PCIe inventory 和 ReBAR/Above 4G/SR-IOV/ASPM 等只读提示。 | 所有资源分配和策略修改保持原生 PCIe HII/FormBrowser。 |
 
 ## 产品形态能力矩阵
 

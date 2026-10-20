@@ -1,0 +1,35 @@
+## @file
+# Overlay-only lazy loader; never owns Boot Maintenance HII or its destructor.
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+[Defines]
+  INF_VERSION = 0x0001001B
+  BASE_NAME = ModernBootMaintenanceLoaderLib
+  FILE_GUID = 4059922d-6a96-4f24-a880-9868e042c742
+  MODULE_TYPE = UEFI_APPLICATION
+  VERSION_STRING = 1.0
+  LIBRARY_CLASS = NULL|UEFI_APPLICATION
+  CONSTRUCTOR = ModernBootMaintenanceLoaderConstructor
+
+[Sources]
+  ModernBootMaintenanceLoaderLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  UefiBootServicesTableLib
+  UefiLib
+  DevicePathLib
+  MemoryAllocationLib
+  DebugLib
+
+[Protocols]
+  gEfiLoadedImageProtocolGuid
+  gEfiHiiDatabaseProtocolGuid
+  gEfiHiiStringProtocolGuid
+  gEfiHiiConfigRoutingProtocolGuid
+  gEfiFormBrowser2ProtocolGuid
+  gEdkiiFormBrowserEx2ProtocolGuid
+  gEfiDevicePathToTextProtocolGuid

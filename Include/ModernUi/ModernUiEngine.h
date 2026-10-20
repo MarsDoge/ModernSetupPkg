@@ -143,6 +143,16 @@ ModernUiEngineDrawPage (
   );
 
 /**
+  Refresh the clock cached by the most recent successful page-header draw.
+  Does not clear the page or change input/form state. Call at application TPL.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiEngineRefreshClock (
+  IN MODERN_UI_RENDER_CONTEXT  *Context
+  );
+
+/**
   Draw a page tab strip.
 
   @param[in] Context      Initialized render context. Must not be NULL.
