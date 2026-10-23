@@ -11,6 +11,12 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 ModernSetupPkg 最容易维护的方式，是让每一层保持小而明确的契约。内部实现可以演进，但公共头文件、DEC 条目和跨层行为应保持稳定；涉及的 owner 评审后才能修改。
 
+## 可选 Setup 背景
+
+构建时背景仅用于显式启用的 App/原生显示表面；默认关闭时纯色外观不变，
+输入、密码、错误、保存确认保持实色，原生 HII 语义不变。
+输入范围、缓存所有权及失败回退见 [背景说明](HomeBackground.zh-CN.md)。
+
 ## 稳定契约
 
 - 公共头文件：`Include/ModernUi/*.h`。

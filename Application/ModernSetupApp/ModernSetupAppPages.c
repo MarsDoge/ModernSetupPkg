@@ -84,7 +84,7 @@ DrawProviderSummarySection (
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  PanelColor;
 
   PanelColor = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
-  ModernUiFillRect (Ui, Rect, PanelColor);
+  ModernSetupDrawHomeSurface (Ui, Rect, PanelColor, 205);
   ModernUiStrokeRect (Ui, Rect, Theme->Border);
   ModernUiFillRect (
     Ui,
@@ -985,6 +985,11 @@ DrawSecurity (
   TreeText = SecurityStateText (Summary->TreeProtocol);
   Panel = ModernSetupContentRect (Ui);
   ModernUiDrawPanel (Ui, Panel, Theme);
+  if ((Panel.Width > 4) && (Panel.Height > 4)) {
+    ModernSetupDrawHomeSurface (Ui,
+      (MODERN_UI_RECT){ Panel.X + 2, Panel.Y + 2, Panel.Width - 4, Panel.Height - 4 },
+      Theme->Surface, 205);
+  }
   ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
   ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 24, ModernUiGetString (ModernUiStringSecureBoot), Theme->MutedText, Theme->Surface);
   ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 64, SecureBootText, (Summary->SecureBoot == ModernUiSecurityStateEnabled) ? Theme->Success : Theme->Warning, Theme->Surface);
@@ -2155,6 +2160,11 @@ DrawPreferences (
   RowX = Panel.X + 26;
   RowWidth = Panel.Width - 52;
   ModernUiDrawPanel (Ui, Panel, Theme);
+  if ((Panel.Width > 4) && (Panel.Height > 4)) {
+    ModernSetupDrawHomeSurface (Ui,
+      (MODERN_UI_RECT){ Panel.X + 2, Panel.Y + 2, Panel.Width - 4, Panel.Height - 4 },
+      Theme->Surface, 205);
+  }
   ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
   ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, ModernUiGetString (ModernUiStringPreferencesInstruction), Theme->MutedText, Theme->Surface);
 
@@ -2255,6 +2265,11 @@ DrawExit (
   RowWidth = Panel.Width - 52;
   ValueWidth = MODERN_SETUP_EXIT_VALUE_WIDTH;
   ModernUiDrawPanel (Ui, Panel, Theme);
+  if ((Panel.Width > 4) && (Panel.Height > 4)) {
+    ModernSetupDrawHomeSurface (Ui,
+      (MODERN_UI_RECT){ Panel.X + 2, Panel.Y + 2, Panel.Width - 4, Panel.Height - 4 },
+      Theme->Surface, 205);
+  }
   ModernUiDrawFocusFrame (Ui, Panel, (BOOLEAN)(Focus == SetupFocusContent), Theme);
   ModernUiDrawText (Ui, Panel.X + 20, Panel.Y + 20, ModernUiGetString (ModernUiStringExitInstruction), Theme->MutedText, Theme->Surface);
 
@@ -2320,14 +2335,16 @@ ModernSetupDrawCurrentPage (
   IN CONST CHAR16              *StatusMessage
   )
 {
-  ModernUiClear (Ui, Theme->Background);
-  ModernSetupDrawHeader (Ui, Theme);
+  BOOLEAN HasBackground;
+
+  HasBackground = ModernSetupDrawPageBase (Ui, Theme, Page);
+  ModernSetupDrawHeader (Ui, Theme, HasBackground);
   ModernSetupDrawTabs (Ui, Theme, Page, Focus);
   ModernSetupDrawPageTitle (Ui, Theme, Page);
 
   switch (Page) {
     case PageDashboard:
-      ModernSetupDrawDashboard (Ui, Theme, Focus, DashboardSelection);
+      ModernSetupDrawDashboard (Ui, Theme, Focus, DashboardSelection, HasBackground);
       break;
     case PageCatalog:
       ModernSetupDrawCatalog (Ui, Theme, Focus);
@@ -2376,4 +2393,5 @@ ModernSetupDrawCurrentPage (
   }
 
   ModernSetupDrawFooter (Ui, Theme, Focus, StatusMessage);
+  ModernSetupReleaseHomeBackground ();
 }

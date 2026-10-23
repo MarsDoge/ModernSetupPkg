@@ -27,6 +27,15 @@ jobs:
       - name: Run smoke validation
         run: python3 Tests/Smoke/smoke_validate.py
 
+      - name: Install background test dependency
+        run: python3 -m pip install Pillow
+
+      - name: Test optional shared background
+        run: |
+          python3 Tests/Smoke/home_background_test.py
+          python3 Tests/Smoke/native_backdrop_frame_test.py
+          python3 Tests/Smoke/product_version_test.py
+
       - name: Test catalog localization
         run: python3 Tests/Smoke/catalog_localization_test.py
 

@@ -17,9 +17,20 @@ UI 只使用开源 edk2 接口和原创视觉资产。商业 IBV 固件界面只
 
 ## 最新状态
 
-OVMF X64 已有固定 edk2 baseline、脚本化 QEMU screendump 捕获，以及本地/手工 `ModernSetupApp` dashboard 验证路径。当前 OVMF 捕获展示了共享 XArch `ModernUiEngineLib` 首页壳层、简体中文文本、只读平台摘要、provider health，以及 CJK 字形和 Dashboard 间距打磨后的 Graphite Gold 应用运行时主题。
+**1.2.0** 新增构建时可选 PNG 背景，贯穿 App 与 ModernDisplayEngine 绘制的原生表单。
+首页卡片适度半透明，设置面板更厚实，输入与保存确认保持实色；默认关闭时仍为原有纯色外观。
+用法与真实输入范围见 [背景说明](Docs/HomeBackground.zh-CN.md)。
 
-![ModernSetup OVMF X64 dashboard](Assets/Screenshots/modern-ovmf-x64-dashboard-graphite-gold.png)
+以下为同一 RELEASE/LVGL 固件的真实 **QEMU LoongArch64** 截图，
+构建标签为 `Build: 2026-10-23 11:04:06 +08:00`，不代表物理开发板验收。
+
+![LoongArch64 1.2.0 可选背景首页](Assets/Screenshots/modern-loongarch-v1.2-home.png)
+
+![LoongArch64 更厚实的偏好设置面板](Assets/Screenshots/modern-loongarch-v1.2-preferences.png)
+
+![LoongArch64 原生 DriverSample 实时刷新](Assets/Screenshots/modern-loongarch-v1.2-native.png)
+
+![LoongArch64 实色保存前修改确认](Assets/Screenshots/modern-loongarch-v1.2-review.png)
 
 同一 graphics stack 也用于渲染原生 FormBrowser 页面；edk2 仍拥有 HII/VFR/IFR 解析、GUID formset discovery、callbacks 和 variable writes。
 

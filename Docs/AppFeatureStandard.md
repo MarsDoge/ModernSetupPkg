@@ -22,6 +22,12 @@ both track this standard.
 Key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** are
 used in the RFC 2119 sense.
 
+## Optional Setup background
+
+Build-time artwork uses explicit App/native presentation surfaces only; default-off
+solid rendering, input/password/error/save dialogs and native HII semantics remain
+unchanged. See [the input, ownership and fallback contract](HomeBackground.md).
+
 ## Native HII presentation
 
 Native forms retain FormBrowser editing and validation. The header clock refreshes

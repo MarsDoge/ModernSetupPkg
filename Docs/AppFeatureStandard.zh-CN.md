@@ -20,6 +20,12 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 关键词 **必须**(MUST)、**禁止**(MUST NOT)、**应当**(SHOULD)、**不应**(SHOULD NOT)、
 **可以**(MAY) 按 RFC 2119 语义使用。
 
+## 可选 Setup 背景
+
+构建时背景仅用于显式启用的 App/原生显示表面；默认关闭时纯色外观不变，
+输入、密码、错误、保存确认保持实色，原生 HII 语义不变。
+输入范围、缓存所有权及失败回退见 [背景说明](HomeBackground.zh-CN.md)。
+
 ## 原生 HII 呈现
 
 原生表单继续由 FormBrowser 负责编辑和校验。空闲等待与键盘编辑等待每秒只刷新

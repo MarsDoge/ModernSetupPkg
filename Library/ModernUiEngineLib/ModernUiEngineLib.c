@@ -9,6 +9,7 @@
 **/
 
 #include <Uefi.h>
+#include <ModernUi/ModernUiBackdrop.h>
 #include <IndustryStandard/SmBios.h>
 #include <Protocol/Smbios.h>
 #include <Library/BaseLib.h>
@@ -881,12 +882,13 @@ ModernUiEngineRefreshClock (
   return Status;
 }
 
+STATIC
 EFI_STATUS
-EFIAPI
-ModernUiEngineDrawPage (
+DrawPageInternal (
   IN MODERN_UI_RENDER_CONTEXT  *Context,
   IN CONST MODERN_UI_PAGE_MODEL *Model,
-  IN CONST MODERN_UI_THEME      *Theme
+  IN CONST MODERN_UI_THEME      *Theme,
+  IN BOOLEAN                   PreserveBackground
   )
 {
   EFI_TIME       Time;
@@ -908,9 +910,11 @@ ModernUiEngineDrawPage (
   }
 
   mClockContext = NULL;
-  Status = ModernUiClear (Context, Theme->Background);
-  if (EFI_ERROR (Status)) {
-    return Status;
+  if (!PreserveBackground) {
+    Status = ModernUiClear (Context, Theme->Background);
+    if (EFI_ERROR (Status)) {
+      return Status;
+    }
   }
 
   Status = DrawHeaderGradient (Context, Model->Rect, Theme);
@@ -1008,7 +1012,12 @@ ModernUiEngineDrawPage (
   }
 
   if ((Model->Layout.Content.Width != 0) && (Model->Layout.Content.Height != 0)) {
-    Status = ModernUiFillRect (Context, Model->Layout.Content, Theme->Surface);
+    if (PreserveBackground) {
+      ModernUiBackdropSurface (Context, Model->Layout.Content, Theme->Surface, 205);
+      Status = EFI_SUCCESS;
+    } else {
+      Status = ModernUiFillRect (Context, Model->Layout.Content, Theme->Surface);
+    }
     if (EFI_ERROR (Status)) {
       return Status;
     }
@@ -1042,6 +1051,28 @@ ModernUiEngineDrawPage (
   }
 
   return EFI_SUCCESS;
+}
+
+EFI_STATUS
+EFIAPI
+ModernUiEngineDrawPage (
+  IN MODERN_UI_RENDER_CONTEXT   *Context,
+  IN CONST MODERN_UI_PAGE_MODEL *Model,
+  IN CONST MODERN_UI_THEME      *Theme
+  )
+{
+  return DrawPageInternal (Context, Model, Theme, FALSE);
+}
+
+EFI_STATUS
+EFIAPI
+ModernUiEngineDrawPageOnBackground (
+  IN MODERN_UI_RENDER_CONTEXT   *Context,
+  IN CONST MODERN_UI_PAGE_MODEL *Model,
+  IN CONST MODERN_UI_THEME      *Theme
+  )
+{
+  return DrawPageInternal (Context, Model, Theme, TRUE);
 }
 
 /**

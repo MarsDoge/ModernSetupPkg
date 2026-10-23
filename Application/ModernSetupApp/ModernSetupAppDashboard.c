@@ -119,7 +119,7 @@ DrawDashboardSection (
   EFI_GRAPHICS_OUTPUT_BLT_PIXEL  PanelColor;
 
   PanelColor = ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 30);
-  ModernUiFillRect (Ui, Rect, PanelColor);
+  ModernSetupDrawHomeSurface (Ui, Rect, PanelColor, 140);
   ModernUiStrokeRect (Ui, Rect, Theme->Border);
   ModernUiFillRect (
     Ui,
@@ -163,7 +163,7 @@ DrawDashboardTile (
   TileColor = Selected ?
               ModernUiBlendColor (Theme->SelectedBand, Theme->BackgroundBlack, 42) :
               ModernUiBlendColor (Theme->Surface, Theme->BackgroundBlack, 24);
-  ModernUiFillRect (Ui, Rect, TileColor);
+  ModernSetupDrawHomeSurface (Ui, Rect, TileColor, Selected ? 180 : 150);
   ModernUiStrokeRect (Ui, Rect, Selected ? Theme->PopupBorder : Theme->Border);
   if (Selected) {
     ModernUiFillRect (Ui, (MODERN_UI_RECT){ Rect.X, Rect.Y, Rect.Width, 2 }, Theme->GlowOrange);
@@ -345,7 +345,8 @@ ModernSetupDrawDashboard (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
   IN SETUP_FOCUS               Focus,
-  IN UINTN                     Selection
+  IN UINTN                     Selection,
+  IN BOOLEAN                   HasBackground
   )
 {
   CHAR16  Resolution[48];
@@ -546,7 +547,12 @@ ModernSetupDrawDashboard (
   }
 
   if (Grid.Visible) {
-    DrawDashboardSection (Ui, Theme, QuickPanel, ModernUiGetString (ModernUiStringSetupCategories), FALSE);
+    // Preserve card structure and readable text, with pristine-art surfaces.
+    DrawDashboardSection (
+      Ui, Theme,
+      HasBackground ? (MODERN_UI_RECT){ QuickPanel.X, QuickPanel.Y, QuickPanel.Width, 48 } : QuickPanel,
+      ModernUiGetString (ModernUiStringSetupCategories), FALSE
+      );
 
     for (CardIndex = 0; CardIndex < ModernSetupDashboardVisibleQuickCardCount (); CardIndex++) {
       CardX     = QuickPanel.X + 20 + ((CardIndex % Grid.CardsPerRow) * (Grid.CardWidth + Grid.CardGap));
@@ -595,4 +601,5 @@ ModernSetupDrawDashboard (
       }
     }
   }
+  ModernSetupReleaseHomeBackground ();
 }

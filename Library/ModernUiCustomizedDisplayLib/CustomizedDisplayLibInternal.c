@@ -12,6 +12,8 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
 #include "CustomizedDisplayLibInternal.h"
+#include <ModernUi/ModernUiBackdrop.h>
+STATIC BOOLEAN mModernBackdropVisible;
 
 EFI_SCREEN_DESCRIPTOR  gScreenDimensions;
 CHAR16                 *mLibUnknownString;
@@ -170,7 +172,15 @@ ModernDisplayEnsureRenderer (
   EFI_STATUS  Status;
 
   if (mModernRenderReady) {
-    return EFI_SUCCESS;
+    if ((mModernRenderContext.Gop != NULL) &&
+        (mModernRenderContext.Gop->Mode != NULL) &&
+        (mModernRenderContext.Gop->Mode->Info != NULL) &&
+        (mModernRenderContext.Width == mModernRenderContext.Gop->Mode->Info->HorizontalResolution) &&
+        (mModernRenderContext.Height == mModernRenderContext.Gop->Mode->Info->VerticalResolution)) {
+      return EFI_SUCCESS;
+    }
+    ModernUiBackdropRelease ();
+    mModernRenderReady = FALSE;
   }
 
   Status = ModernUiRendererInit (&mModernRenderContext);
@@ -209,7 +219,10 @@ ModernDisplayClearGop (
   )
 {
   if (!EFI_ERROR (ModernDisplayEnsureRenderer ())) {
-    ModernUiClear (&mModernRenderContext, ModernUiGetTheme ()->Background);
+    if (!ModernUiBackdropRedraw (&mModernRenderContext,
+          (MODERN_UI_RECT){ 0, 0, mModernRenderContext.Width, mModernRenderContext.Height })) {
+      ModernUiClear (&mModernRenderContext, ModernUiGetTheme ()->Background);
+    }
   }
 
   mModernCursorColumn   = 0;
@@ -1673,7 +1686,15 @@ ModernDisplayDrawPageChrome (
   PageModel.ModeName      = ModernUiGetString (ModernUiStringHeaderMode);
   PageModel.StatusText    = ModernDisplayPageStatusText (FormData);
   PageModel.DrawRightRail = TRUE;
-  mModernClockVisible = (BOOLEAN)!EFI_ERROR (ModernUiEngineDrawPage (&mModernRenderContext, &PageModel, Theme));
+  mModernBackdropVisible = FALSE;
+  // Rebuild this image's canvas on every frame, including App/native reentry.
+  if (ModernUiBackdropRedraw (&mModernRenderContext,
+        (MODERN_UI_RECT){ 0, 0, mModernRenderContext.Width, mModernRenderContext.Height })) {
+    mModernBackdropVisible = TRUE;
+    mModernClockVisible = (BOOLEAN)!EFI_ERROR (ModernUiEngineDrawPageOnBackground (&mModernRenderContext, &PageModel, Theme));
+  } else {
+    mModernClockVisible = (BOOLEAN)!EFI_ERROR (ModernUiEngineDrawPage (&mModernRenderContext, &PageModel, Theme));
+  }
   ModernDisplayDrawRightRailDivider (&Layout, Theme, CellWidth, CellHeight);
   if (IsFrontPage) {
     ModernDisplayDrawFormTitleContext (&Layout, Theme, CellWidth, CellHeight, PrintableTitle);
@@ -1764,6 +1785,10 @@ ModernDisplayDrawOemWatermarkOverlay (
   Content.Width  = (HelpStartColumn - Layout.ContentLeftColumn) * CellWidth;
   Content.Height = (Layout.ContentBottomRow - WhitespaceTopRow) * CellHeight;
 
+  // Only the proven empty statement area; question/popup fills stay opaque.
+  if (mModernBackdropVisible) {
+    ModernUiBackdropSurface (&mModernRenderContext, Content, Theme->Surface, 205);
+  }
   ModernUiDrawOemWatermark (&mModernRenderContext, Content, Theme);
 }
 
@@ -1898,6 +1923,22 @@ PrintFramework (
       gScreenDimensions.BottomRow - STATUS_BAR_HEIGHT - 1,
       KEYHELP_TEXT | KEYHELP_BACKGROUND
       );
+    return;
+  }
+
+  // With artwork, the full canvas restore below replaces these three opaque
+  // pre-clears. Printing a screen of spaces first visibly blacks out every
+  // refresh interval. Keep the final console/cursor state of those clears;
+  // statement, popup and text-fallback clearing contracts remain unchanged.
+  if (!EFI_ERROR (ModernDisplayEnsureRenderer ()) &&
+      ModernUiBackdropRedraw (&mModernRenderContext,
+        (MODERN_UI_RECT){ 0, 0, mModernRenderContext.Width, mModernRenderContext.Height })) {
+    gST->ConOut->SetAttribute (gST->ConOut, KEYHELP_TEXT | KEYHELP_BACKGROUND);
+    gST->ConOut->SetCursorPosition (gST->ConOut, gScreenDimensions.LeftColumn,
+      gScreenDimensions.BottomRow - STATUS_BAR_HEIGHT - gFooterHeight);
+    mModernCursorColumn = gScreenDimensions.RightColumn;
+    mModernCursorRow = gScreenDimensions.BottomRow - STATUS_BAR_HEIGHT - 1;
+    ModernDisplayDrawPageChrome (FormData);
     return;
   }
 

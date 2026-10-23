@@ -519,7 +519,8 @@ ModernSetupDrawSecondaryNav (
 VOID
 ModernSetupDrawHeader (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
-  IN CONST MODERN_UI_THEME     *Theme
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN BOOLEAN                  PreserveBackground
   )
 {
   MODERN_UI_PAGE_MODEL  PageModel;
@@ -541,7 +542,11 @@ ModernSetupDrawHeader (
   PageModel.Rect        = (MODERN_UI_RECT){ 0, 0, Ui->Width, TOP_BAR_HEIGHT };
   PageModel.ProductName = TitleWithVersion;
   PageModel.ModeName    = ModernUiGetString (ModernUiStringHeaderMode);
-  ModernUiEngineDrawPage (Ui, &PageModel, Theme);
+  if (PreserveBackground) {
+    ModernUiEngineDrawPageOnBackground (Ui, &PageModel, Theme);
+  } else {
+    ModernUiEngineDrawPage (Ui, &PageModel, Theme);
+  }
   // Frozen build identity, separate from both product version and RTC clock.
   ModernUiDrawText (Ui, SCREEN_MARGIN, 30, MODERN_SETUP_BUILD_STAMP, Theme->MutedText, Theme->HeaderPattern);
 }

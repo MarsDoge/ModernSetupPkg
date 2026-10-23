@@ -12,6 +12,21 @@ this file as both a release log and a lightweight development progress record.
 
 ## Unreleased
 
+## v1.2.0 - 2026-10-23
+
+- **Feature / 特性：** Optional build-time PNG artwork now spans the App and
+  native HII forms rendered by ModernDisplayEngine on LoongArchVirt. Dashboard
+  cards remain moderately translucent; settings surfaces use stronger opacity.
+- **Fix / 修复：** Restore from image-local pristine artwork on redraw and native
+  return, preventing cumulative darkening and opaque framework pre-clears from
+  erasing the enabled background. Inputs, passwords, warnings and save dialogs
+  retain solid surfaces; HII validation, callbacks and writes are unchanged.
+- **Improvement / 完善：** Document actual PNG conversion/crop limits in English
+  and Chinese, add background/native-frame and product-version checks. No runtime
+  wallpaper selector, general theme system or dirty-control refresh is introduced.
+
+### Changes carried forward from the previous development cycle
+
 - **Setup catalog and native navigation / 配置目录与原生入口。** Add 21 categories
   and 203 unbound settings with N/A values and help. Selected Boot/Secure Boot
   items open native owner pages without unrelated fallback. Replace the unused
