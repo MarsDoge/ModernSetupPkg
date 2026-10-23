@@ -1,0 +1,39 @@
+{
+  "version_to": "1.2.0",
+  "sdk": "b03a21a63e3bd001f52c527e5a57feddb53a690b",
+  "SOURCE_DATE_EPOCH": 1792724646,
+  "build_stamp": "// Generated at build time; override with SOURCE_DATE_EPOCH.\n#define MODERN_SETUP_BUILD_STAMP L\"Build: 2026-10-23 11:04:06 +08:00\"\n",
+  "platform": "QEMU LOONGARCH64 RELEASE GCC LVGL",
+  "fd_sha256": "3f573de4a00895571df19d4a8096bc429020f46ebeb72c5202b19492e85e4884",
+  "screenshots": {
+    "Assets/Screenshots/modern-loongarch-v1.2-home.png": {
+      "sha256": "f7b3100030fc5874a64d4359e6172833dfe63488b30179309e24a5e971a68fda",
+      "size": [
+        1280,
+        800
+      ]
+    },
+    "Assets/Screenshots/modern-loongarch-v1.2-native.png": {
+      "sha256": "083a142d5234f4faa115ee746941a6648c3cb88439f1930879788ed0163ec99b",
+      "size": [
+        1280,
+        800
+      ]
+    },
+    "Assets/Screenshots/modern-loongarch-v1.2-preferences.png": {
+      "sha256": "1cd6b7ec5bd67111a927403701596be312e2da7dcceedd619f00f1fc1c33037b",
+      "size": [
+        1280,
+        800
+      ]
+    },
+    "Assets/Screenshots/modern-loongarch-v1.2-review.png": {
+      "sha256": "5185cb6bd19971bab8ca45b1a6df883e6e867a2d07df8ca8315a6fef5fda76b5",
+      "size": [
+        1280,
+        800
+      ]
+    }
+  },
+  "scope": "Real captures; cancelled save demonstration, no physical board validation."
+}

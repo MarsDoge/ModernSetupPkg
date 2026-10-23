@@ -11,6 +11,12 @@ Language: English | [简体中文](MODULE_BOUNDARIES.zh-CN.md)
 
 ModernSetupPkg is easiest to maintain when each layer keeps a small, concrete contract. Internal implementation can change freely, but public headers, DEC entries, and cross-layer behavior should remain stable unless the affected owners review the change.
 
+## Optional Setup background
+
+Build-time artwork uses explicit App/native presentation surfaces only; default-off
+solid rendering, input/password/error/save dialogs and native HII semantics remain
+unchanged. See [the input, ownership and fallback contract](HomeBackground.md).
+
 ## Stable contracts
 
 - Public headers: `Include/ModernUi/*.h`.

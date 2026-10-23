@@ -259,7 +259,8 @@ ModernSetupDashboardContentRect (
 VOID
 ModernSetupDrawHeader (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
-  IN CONST MODERN_UI_THEME     *Theme
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN BOOLEAN                  PreserveBackground
   );
 
 VOID
@@ -291,12 +292,39 @@ ModernSetupDrawPageTitle (
   IN SETUP_PAGE                Page
   );
 
+BOOLEAN
+ModernSetupDrawHomeBackground (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN MODERN_UI_RECT            Region
+  );
+
+VOID
+ModernSetupReleaseHomeBackground (
+  VOID
+  );
+
+VOID
+ModernSetupDrawHomeSurface (
+  IN MODERN_UI_RENDER_CONTEXT       *Ui,
+  IN MODERN_UI_RECT                 Rect,
+  IN EFI_GRAPHICS_OUTPUT_BLT_PIXEL  Color,
+  IN UINT8                         Alpha
+  );
+
+BOOLEAN
+ModernSetupDrawPageBase (
+  IN MODERN_UI_RENDER_CONTEXT  *Ui,
+  IN CONST MODERN_UI_THEME     *Theme,
+  IN SETUP_PAGE                Page
+  );
+
 VOID
 ModernSetupDrawDashboard (
   IN MODERN_UI_RENDER_CONTEXT  *Ui,
   IN CONST MODERN_UI_THEME     *Theme,
   IN SETUP_FOCUS               Focus,
-  IN UINTN                     Selection
+  IN UINTN                    Selection,
+  IN BOOLEAN                  HasBackground
   );
 
 EFI_STATUS

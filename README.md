@@ -24,14 +24,22 @@ interaction references.
 
 ## Latest Status
 
-OVMF X64 now has a pinned edk2 baseline, scripted QEMU screendump capture, and a
-local/manual `ModernSetupApp` dashboard validation path. The current OVMF
-capture shows the shared XArch `ModernUiEngineLib` front-page shell with
-Simplified Chinese text, read-only platform summaries, provider health, and the
-Graphite Gold app runtime theme after the CJK glyph and Dashboard spacing
-polish.
+Version **1.2.0** adds optional build-time PNG artwork shared across the App and
+native forms rendered by ModernDisplayEngine. Dashboard cards are translucent;
+settings panels are stronger, while input and save dialogs remain solid. Default
+builds retain the original solid appearance. See the bilingual
+[background build and rendering contract](Docs/HomeBackground.md).
 
-![ModernSetup OVMF X64 dashboard](Assets/Screenshots/modern-ovmf-x64-dashboard-graphite-gold.png)
+These are real **QEMU LoongArch64**, RELEASE/LVGL captures from one firmware:
+`Build: 2026-10-23 11:04:06 +08:00`. This is not physical-board validation.
+
+![LoongArch64 1.2.0 optional background homepage](Assets/Screenshots/modern-loongarch-v1.2-home.png)
+
+![LoongArch64 settings with stronger panels](Assets/Screenshots/modern-loongarch-v1.2-preferences.png)
+
+![LoongArch64 native DriverSample live refresh](Assets/Screenshots/modern-loongarch-v1.2-native.png)
+
+![LoongArch64 solid save review](Assets/Screenshots/modern-loongarch-v1.2-review.png)
 
 The same graphics stack also renders native FormBrowser pages; edk2 still owns
 HII/VFR/IFR parsing, GUID formset discovery, callbacks, and variable writes.

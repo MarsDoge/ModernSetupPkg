@@ -18,6 +18,6 @@
 //
 // Semantic version, no leading 'v'. The UI prefixes a 'v' when displaying it.
 //
-#define MODERN_SETUP_VERSION_STRING  L"1.1.0"
+#define MODERN_SETUP_VERSION_STRING  L"1.2.0"
 
 #endif

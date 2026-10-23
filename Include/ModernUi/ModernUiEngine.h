@@ -143,6 +143,21 @@ ModernUiEngineDrawPage (
   );
 
 /**
+  Draw page chrome over a caller-composed background without clearing it.
+  All model-defined header, content, footer and rail surfaces still draw.
+  The caller owns initializing pixels outside those surfaces.
+  App/native callers opt in only after successfully restoring their own backdrop.
+  Other callers retain ModernUiEngineDrawPage and its original clear behavior.
+**/
+EFI_STATUS
+EFIAPI
+ModernUiEngineDrawPageOnBackground (
+  IN MODERN_UI_RENDER_CONTEXT   *Context,
+  IN CONST MODERN_UI_PAGE_MODEL *Model,
+  IN CONST MODERN_UI_THEME      *Theme
+  );
+
+/**
   Refresh the clock cached by the most recent successful page-header draw.
   Does not clear the page or change input/form state. Call at application TPL.
 **/

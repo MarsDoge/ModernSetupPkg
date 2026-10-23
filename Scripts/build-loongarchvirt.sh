@@ -51,8 +51,20 @@ fi
 
 mkdir -p "${OVERLAY_DIR}"
 
+# Local, explicit opt-in. Other platforms and ordinary builds embed no artwork.
+# Pillow is a build-only dependency; runtime PNG support remains disabled.
+if [[ -n "${MODERN_SETUP_HOME_BACKGROUND_PNG:-}" ]]; then
+  if [[ "${MODERN_SETUP_REPLACE_UIAPP}" != "1" ]]; then
+    echo "Homepage background preview requires MODERN_SETUP_REPLACE_UIAPP=1" >&2
+    exit 1
+  fi
+  "${MODERN_SETUP_ASSET_PYTHON:-python3}" "${PKG_DIR}/Scripts/generate-home-background.py" \
+    "${MODERN_SETUP_HOME_BACKGROUND_PNG}" "${OVERLAY_DIR}/ModernSetupHomeBackground.generated.h"
+fi
+
 python3 - <<'PY' "${WORKSPACE}" "${OVERLAY_DIR}" "${MODERN_SETUP_DEMO_DRIVER_SAMPLE}" "${MODERN_SETUP_THEME}" "${MODERN_SETUP_DISPLAY_ENGINE}" "${MODERN_SETUP_INCLUDE_APP}" "${MODERN_SETUP_REPLACE_UIAPP}"
 from pathlib import Path
+import os
 import re
 import sys
 
@@ -115,10 +127,14 @@ _app_boot_maintenance_libraries = (
     (_app_lvgl_intrinsics or "    <LibraryClasses>\n")
     + "      NULL|ModernSetupPkg/Library/ModernBootMaintenanceLoaderLib/ModernBootMaintenanceLoaderLib.inf\n"
 )
+home_background_flags = (
+    f" -DMODERN_SETUP_HOME_BACKGROUND=1 -I{overlay}"
+    if os.environ.get("MODERN_SETUP_HOME_BACKGROUND_PNG") else ""
+)
 modern_setup_app_component_boot_manager_fallback = (
     "  ModernSetupPkg/Application/ModernSetupApp/ModernSetupApp.inf {\n"
     "    <BuildOptions>\n"
-    "      GCC:*_*_*_CC_FLAGS = -DMODERN_SETUP_NATIVE_FALLBACK_BOOT_MANAGER_MENU=1\n"
+    f"      GCC:*_*_*_CC_FLAGS = -DMODERN_SETUP_NATIVE_FALLBACK_BOOT_MANAGER_MENU=1{home_background_flags}\n"
     f"{_app_boot_maintenance_libraries}"
     "  }"
 )
@@ -130,9 +146,16 @@ modern_setup_app_uiapp_fdf_inf = "INF  RuleOverride = MODERN_SETUP_UIAPP ModernS
 modern_setup_app_component_boot_manager_fallback += "\n  ModernSetupPkg/Universal/ModernBootMaintenanceDxe/ModernBootMaintenanceDxe.inf {\n    <LibraryClasses>\n      NULL|MdeModulePkg/Library/BootMaintenanceManagerUiLib/BootMaintenanceManagerUiLib.inf\n  }"
 modern_setup_app_uiapp_fdf_inf += "\n  INF ModernSetupPkg/Universal/ModernBootMaintenanceDxe/ModernBootMaintenanceDxe.inf"
 
-modern_display_component = "  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
+modern_display_component = (
+    "  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf {\n"
+    "    <BuildOptions>\n"
+    f"      GCC:*_*_*_CC_FLAGS = {home_background_flags}\n"
+    "  }"
+) if home_background_flags else "  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf"
 modern_display_component_lvgl = (
     "  ModernSetupPkg/Universal/ModernDisplayEngineDxe/ModernDisplayEngineDxe.inf {\n"
+    "    <BuildOptions>\n"
+    f"      GCC:*_*_*_CC_FLAGS = {home_background_flags}\n"
     "    <LibraryClasses>\n"
     "      NULL|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf\n"
     "  }"
@@ -258,6 +281,10 @@ if (display_engine == "modern" or display_engine == "lvgl"):
         "\n[PcdsFixedAtBuild]\n"
         f"  gModernSetupPkgTokenSpaceGuid.PcdModernSetupTheme|{theme_pcd}\n"
     )
+# Component BuildOptions do not propagate into linked library compilation.
+# The generated platform option reaches both independent EngineLib instances.
+if home_background_flags:
+    dsc += "\n[BuildOptions]\n  GCC:*_*_*_CC_FLAGS = " + home_background_flags + "\n"
 (overlay / "LoongArchVirtQemuModernSetup.dsc").write_text(dsc)
 
 fdf_path = workspace / "OvmfPkg/LoongArchVirt/LoongArchVirtQemu.fdf"
